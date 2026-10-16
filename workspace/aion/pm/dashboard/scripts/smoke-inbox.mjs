@@ -37,6 +37,29 @@ function fakeRes() {
   return r;
 }
 
+/** A GitHub comments-list response, optionally carrying a `Link` header. */
+function ghList(items, { link = null, status = 200 } = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (k) => (String(k).toLowerCase() === 'link' ? link : null) },
+    json: async () => items,
+  };
+}
+
+/** GitHub comment shape; ids and timestamps both increase with `i`. */
+function cmt(i) {
+  return {
+    id: 100 + i,
+    user: { login: `user${i}` },
+    created_at: new Date(Date.UTC(2026, 9, 16, 0, i)).toISOString(),
+    body: `line one\nline two   with   spaces ${i}`,
+    html_url: `https://github.com/owenservera/aion/issues/14#issuecomment-${100 + i}`,
+  };
+}
+
+const COMMENTS_BASE = 'https://api.github.com/repos/owenservera/aion/issues/14/comments';
+
 async function call(handler, { method = 'POST', url = '/api/inbox/send', body, headers } = {}) {
   const req = { method, url, headers: headers || {}, body };
   const res = fakeRes();
@@ -192,16 +215,10 @@ await withToken(SECRET, async () => {
 console.log('\n5. recent: newest-first ordering, limit clamp, truncation');
 await withToken(SECRET, async () => {
   let seenUrl = null;
-  const many = Array.from({ length: 12 }, (_, i) => ({
-    id: 100 + i,
-    user: { login: `user${i}` },
-    created_at: new Date(Date.UTC(2026, 9, 16, 0, i)).toISOString(),
-    body: `line one\nline two   with   spaces ${i}`,
-    html_url: `https://github.com/owenservera/aion/issues/14#issuecomment-${100 + i}`,
-  }));
+  const many = Array.from({ length: 12 }, (_, i) => cmt(i));
   globalThis.fetch = async (url) => {
     seenUrl = url;
-    return { ok: true, status: 200, json: async () => many };
+    return ghList(many);
   };
 
   const out = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
@@ -227,21 +244,140 @@ await withToken(SECRET, async () => {
   await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=abc' });
   ok('garbage limit falls back to 10', /per_page=10/.test(seenUrl), seenUrl);
 
-  globalThis.fetch = async () => ({
-    ok: true,
-    status: 200,
-    json: async () => [{ id: 1, user: { login: 'x' }, created_at: '2026-10-16T00:00:00Z', body: 'y'.repeat(400) }],
-  });
+  globalThis.fetch = async () => ghList([{ ...cmt(0), body: 'y'.repeat(400) }]);
   const long = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=1' });
   ok('bodyTruncated is ~200 chars', long.json.comments[0].bodyTruncated.length === 200, `len ${long.json.comments[0].bodyTruncated.length}`);
+  ok('bodyTruncated ends with an ellipsis', long.json.comments[0].bodyTruncated.endsWith('…'));
 
-  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ nope: true }) });
+  globalThis.fetch = async () => ghList({ nope: true });
   const bad = await call(recent, { method: 'GET', url: '/api/inbox/recent' });
   ok('non-array GitHub body -> 502', bad.res.statusCode === 502, `status ${bad.res.statusCode}`);
 });
 
-// ---------------------------------------------------------------- 6. method handling
-console.log('\n6. Method handling and OPTIONS');
+// ---------------------------------------------------------------- 6. last-page discovery
+console.log('\n6. recent: newest comments come from the LAST page (oldest-first API)');
+await withToken(SECRET, async () => {
+  const LINK_3_PAGES =
+    `<${COMMENTS_BASE}?per_page=10&page=2>; rel="next", ` +
+    `<${COMMENTS_BASE}?per_page=10&page=3>; rel="last"`;
+
+  // 30 comments, ids 100..129, oldest-first, 10 per page.
+  const page1 = Array.from({ length: 10 }, (_, i) => cmt(i));
+  const page3 = Array.from({ length: 10 }, (_, i) => cmt(20 + i));
+
+  let urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    if (/page=3$/.test(url)) return ghList(page3);
+    return ghList(page1, { link: LINK_3_PAGES });
+  };
+
+  const out = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
+  ok('status 200', out.res.statusCode === 200, `status ${out.res.statusCode}`);
+  eq('two requests made (discover + last page)', urls.length, 2);
+  eq('first request is page 1 of 10 per page', urls[0], `${COMMENTS_BASE}?per_page=10&page=1`);
+  eq('second request uses the Link rel="last" page', urls[1], `${COMMENTS_BASE}?per_page=10&page=3`);
+  ok('per_page is identical on both requests', /per_page=10/.test(urls[0]) && /per_page=10/.test(urls[1]));
+
+  eq('10 comments returned', out.json.comments.length, 10);
+  eq('newest comment is first', out.json.comments[0].id, 129);
+  eq('oldest of the last page is last', out.json.comments[out.json.comments.length - 1].id, 120);
+  ok(
+    'no oldest-page comments leak in',
+    out.json.comments.every((c) => c.id >= 120),
+    JSON.stringify(out.json.comments.map((c) => c.id))
+  );
+
+  // Single page: no Link header at all -> exactly one request, data reused as-is.
+  urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    return ghList(page1);
+  };
+  const single = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
+  ok('no Link -> 200', single.res.statusCode === 200, `status ${single.res.statusCode}`);
+  eq('no Link -> single request only', urls.length, 1);
+  eq('no Link -> page 1 used as-is', urls[0], `${COMMENTS_BASE}?per_page=10&page=1`);
+  eq('no Link -> newest of that page first', single.json.comments[0].id, 109);
+
+  // rel="next" but no rel="last": nothing to discover, stay on one request.
+  urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    return ghList(page1, { link: `<${COMMENTS_BASE}?per_page=10&page=2>; rel="next"` });
+  };
+  const nextOnly = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
+  ok('next-only Link -> 200', nextOnly.res.statusCode === 200, `status ${nextOnly.res.statusCode}`);
+  eq('next-only Link -> single request', urls.length, 1);
+
+  // rel="last" pointing at page 1 is a no-op.
+  urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    return ghList(page1, { link: `<${COMMENTS_BASE}?per_page=10&page=1>; rel="last"` });
+  };
+  await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
+  eq('rel="last" page=1 -> single request', urls.length, 1);
+
+  // Garbage Link headers must not produce a bogus page request.
+  for (const link of ['garbage', '<nope>; rel="last"', `<${COMMENTS_BASE}?rel="last"`, ';;;']) {
+    urls = [];
+    globalThis.fetch = async (url) => {
+      urls.push(url);
+      return ghList(page1, { link });
+    };
+    const junk = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
+    ok(`malformed Link ${JSON.stringify(link)} -> 200`, junk.res.statusCode === 200, `status ${junk.res.statusCode}`);
+    eq(`malformed Link ${JSON.stringify(link)} -> single request`, urls.length, 1);
+  }
+
+  // limit drives per_page on both requests, so last-page maths stays consistent.
+  urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    if (/page=2$/.test(url)) return ghList(page1);
+    return ghList(page1, {
+      link: `<${COMMENTS_BASE}?per_page=30&page=2>; rel="last"`,
+    });
+  };
+  const wide = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=30' });
+  ok('limit=30 -> 200', wide.res.statusCode === 200, `status ${wide.res.statusCode}`);
+  eq('limit=30 discovery request', urls[0], `${COMMENTS_BASE}?per_page=30&page=1`);
+  eq('limit=30 last-page request', urls[1], `${COMMENTS_BASE}?per_page=30&page=2`);
+
+  // A failing last-page fetch must surface, not silently fall back to page 1.
+  urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    if (/page=3$/.test(url)) return ghList([], { status: 500 });
+    return ghList(page1, { link: LINK_3_PAGES });
+  };
+  const late = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
+  ok('last-page 5xx -> 502 (no silent oldest-page fallback)', late.res.statusCode === 502, `status ${late.res.statusCode}`);
+  eq('last-page failure body', late.json && late.json.ok, false);
+
+  urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    if (/page=3$/.test(url)) throw new Error('socket hang up');
+    return ghList(page1, { link: LINK_3_PAGES });
+  };
+  const dead = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
+  ok('last-page network failure -> 502', dead.res.statusCode === 502, `status ${dead.res.statusCode}`);
+  ok('last-page network failure message is generic', !/socket hang up/.test(dead.res.body), dead.res.body);
+
+  urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    if (/page=3$/.test(url)) return ghList({ nope: true });
+    return ghList(page1, { link: LINK_3_PAGES });
+  };
+  const weird = await call(recent, { method: 'GET', url: '/api/inbox/recent?limit=10' });
+  ok('last-page non-array body -> 502', weird.res.statusCode === 502, `status ${weird.res.statusCode}`);
+});
+
+// ---------------------------------------------------------------- 7. method handling
+console.log('\n7. Method handling and OPTIONS');
 await withToken(SECRET, async () => {
   globalThis.fetch = async () => { throw new Error('fetch must not run'); };
   const wrong = await call(send, { method: 'GET', url: '/api/inbox/send' });
