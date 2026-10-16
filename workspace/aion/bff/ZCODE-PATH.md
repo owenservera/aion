@@ -1,5 +1,13 @@
 # ZCODE-PATH — minimal path: Phone PWA + AION + BFF → ZCode on Owen's Windows PC
-Author: AION BFF · 2026-10-16 02:30 (Paris) · Status: PLAN ONLY (read-only research; nothing deployed, nothing touched on Windows)
+Author: AION BFF · 2026-10-16 02:30 (Paris) · Status: UPDATED 2026-10-16 02:35 Paris with PC facts + Linux work done
+
+## 0. Verified state (2026-10-16 02:20 Paris, reported from PC DESKTOP-9KB03LU)
+- Tailscale installed + up on PC (100.118.170.70, tailnet user owservera@). Phone oppo-cph2577 (100.110.245.9) on tailnet, offline 2d. → Step 1 DONE.
+- ZCode hub LISTENING 0.0.0.0:8377; token file present. pocket-link :8392 NOT running (not needed for P1: PWA + BFF talk to hub directly).
+- BFF box: tailscaled running (userspace, SOCKS5 localhost:1055, state /var/lib/tailscale); `tailscale up --hostname=aion-bff` awaiting Owen's login approval.
+- Built: `bff/zcode/{acp-core.mjs,mock-hub.mjs,zcode-driver.mjs,zcode-driver.test.mjs}` (5/5 pass); PWA P1 in zcode-pocket/web working tree (uncommitted; selftest + 4/4 mock-hub tests pass).
+- Revised Windows step 3/4: only `tailscale serve --bg --https=443 --set-path /hub http://127.0.0.1:8377` (hub already up; HTTPS certs must be enabled in tailnet admin). Hub binds 0.0.0.0 → restrict via Windows firewall/tailnet ACL later.
+- Revised Owen involvement: (1) approve aion-bff login URL, (2) enable HTTPS certs + run the one `tailscale serve` line, (3) open Tailscale on phone, enter hub URL + token in PWA once.
 
 ## 1. What already exists (verified from source, not from live probes)
 | Piece | Where | Facts |
