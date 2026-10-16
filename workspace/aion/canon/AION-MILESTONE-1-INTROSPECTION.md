@@ -9,6 +9,14 @@
 
 AION independently initiates a distinct, traceable message to the real ChatGPT service through a legitimately authenticated supported connection or user-authorized ChatGPT browser session. The real ChatGPT reply is retrieved and delivered back to AION, which demonstrates that it has read the reply. This must work without Owen copying the message or reply between agents. GitHub may coordinate the attempt and hold sanitized evidence, but a GitHub comment, agent echo, synthetic fixture, or dispatched work order alone does not pass the milestone.
 
+## Owner-specified milestone helpers (2026-10-16)
+
+Grok Bot is the Linux operations helper for M1. Owen states it can manage its own Linux host, use existing signed-in account sessions, install/configure/run tools, and coordinate work via GitHub. The exact account referenced as `SLACCT` remains unspecified and is not independently verified.
+
+**Non-negotiable coding rule:** Grok Bot does not author or edit code. It delegates every coding change and implementation to OpenCode or ZCode. Grok Bot may operate approved tools, run tests, inspect results, handle GitHub coordination and collect evidence.
+
+M1 still requires AION to submit a real message to ChatGPT and read the actual reply. Linux readiness and GitHub access are helpers, not proof of M1 completion. This planning clarification does not lift the existing host execution stop order.
+
 ## Minimal acceptance protocol
 
 1. **Outbound:** AION creates a benign unique correlation ID and requests that ChatGPT respond using that ID and a simple probe answer. Record sanitized origin, source message reference, send timestamp, and authenticated destination.
