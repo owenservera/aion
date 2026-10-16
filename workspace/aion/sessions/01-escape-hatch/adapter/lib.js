@@ -23,7 +23,9 @@ const OUTBOUND_MESSAGE = [
   'ACK-M05-COC-001',
 ].join('\n');
 
-// Candidate selectors for the ChatGPT web-app composer (tried in order).
+// Candidate selectors for the ChatGPT web-app composer (tried in order,
+// most-specific first so the ProseMirror #prompt-textarea contenteditable
+// wins over generic/noisy matches).
 const COMPOSER_SELECTORS = [
   '#prompt-textarea',
   'div#prompt-textarea[contenteditable="true"]',
@@ -31,6 +33,19 @@ const COMPOSER_SELECTORS = [
   'main [contenteditable="true"]',
   'form textarea',
 ];
+
+// Selectors identifying the composer submit button. The genuine editor is
+// the contenteditable inside the <form> that contains one of these.
+const SEND_BUTTON_SELECTORS = [
+  '[data-testid="send-button"]',
+  '#composer-submit-button',
+];
+
+// Fallback/hidden textarea signals (ChatGPT web app renders a hidden
+// <textarea name="prompt-textarea" class="wcDTda" ...> alongside the real
+// ProseMirror div — it must never count as a composer candidate).
+const FALLBACK_TEXTAREA_NAMES = new Set(['prompt-textarea']);
+const FALLBACK_TEXTAREA_CLASSES = new Set(['wcDTda']);
 
 // Selectors identifying assistant messages in the ChatGPT web app.
 const ASSISTANT_SELECTORS = [
