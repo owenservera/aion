@@ -48,8 +48,25 @@ const FALLBACK_TEXTAREA_NAMES = new Set(['prompt-textarea']);
 const FALLBACK_TEXTAREA_CLASSES = new Set(['wcDTda']);
 
 // Selectors identifying assistant messages in the ChatGPT web app.
+// Current DOM: turns are article[data-testid^="conversation-turn-"];
+// assistant turns contain [data-message-author-role="assistant"];
+// visible text lives in .markdown. Legacy bare-role selector is kept as
+// a fallback so older fakes/fixtures still resolve.
+const TURN_SELECTOR = 'article[data-testid^="conversation-turn-"]';
+const ASSISTANT_IN_TURN_SELECTOR =
+  'article[data-testid^="conversation-turn-"] [data-message-author-role="assistant"]';
+const USER_IN_TURN_SELECTOR =
+  'article[data-testid^="conversation-turn-"] [data-message-author-role="user"]';
+const USER_SELECTOR = '[data-message-author-role="user"]';
+const MARKDOWN_SELECTOR = '.markdown';
+const STOP_BUTTON_SELECTOR = '[data-testid="stop-button"]';
 const ASSISTANT_SELECTORS = [
+  ASSISTANT_IN_TURN_SELECTOR,
   '[data-message-author-role="assistant"]',
+];
+const USER_SELECTORS = [
+  USER_IN_TURN_SELECTOR,
+  USER_SELECTOR,
 ];
 
 // URL fragments that indicate the tab is NOT authenticated.
@@ -66,7 +83,9 @@ class AdapterError extends Error {
 function parseArgs(argv) {
   const args = {
     live: false,
+    readLast: false,
     confirmCorrelation: null,
+    correlation: null,
     cdp: CDP_DEFAULT,
     outboundFile: path.resolve(__dirname, '..', 'AION-OUTBOUND-M05-001.md'),
     timeoutMs: 120000,
@@ -75,14 +94,17 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--live') args.live = true;
+    else if (a === '--read-last') args.readLast = true;
     else if (a === '--confirm-correlation') args.confirmCorrelation = argv[++i] ?? null;
     else if (a.startsWith('--confirm-correlation=')) args.confirmCorrelation = a.split('=').slice(1).join('=');
+    else if (a === '--correlation') args.correlation = argv[++i] ?? null;
+    else if (a.startsWith('--correlation=')) args.correlation = a.split('=').slice(1).join('=');
     else if (a === '--cdp') args.cdp = argv[++i] ?? args.cdp;
     else if (a.startsWith('--cdp=')) args.cdp = a.split('=').slice(1).join('=');
     else if (a === '--outbound-file') args.outboundFile = argv[++i] ?? args.outboundFile;
     else if (a === '--timeout-ms') args.timeoutMs = Number(argv[++i]);
   }
-  args.mode = args.live ? 'live' : 'dry-run';
+  args.mode = args.readLast ? 'read-last' : args.live ? 'live' : 'dry-run';
   return args;
 }
 
@@ -123,6 +145,20 @@ function assertLiveConfirmed(args, correlation) {
     );
   }
   return { live: true };
+}
+
+/** Read-last (no-send) requires --read-last AND exact --correlation. Never sends. */
+function assertReadLastConfirmed(args, correlation = EXPECTED_CORRELATION) {
+  if (!args.readLast) return { readLast: false };
+  const got = args.correlation ?? args.confirmCorrelation;
+  if (got !== correlation) {
+    throw new AdapterError(
+      'E_CONFIRMATION',
+      'Read-last refused: requires BOTH --read-last AND --correlation ' +
+        `${correlation} (exact match). Got: ${JSON.stringify(got)}.`,
+    );
+  }
+  return { readLast: true, correlation };
 }
 
 /** True only for https chatgpt.com web-app tab URLs (no login pages). */
@@ -497,41 +533,404 @@ async function locateComposer(page) {
   return { selector: genuine[0].selector, handle: genuine[0].handle };
 }
 
-/** Count assistant messages currently rendered in the conversation. */
-async function countAssistantMessages(page) {
-  let total = 0;
-  for (const sel of ASSISTANT_SELECTORS) {
-    let handles = [];
-    try {
-      handles = (await page.$$(sel)) || [];
-    } catch {
-      continue;
-    }
-    total += handles.length;
+/**
+ * Collect assistant-turn handles, turn-aware first with legacy fallback.
+ * Turn structure (current ChatGPT DOM): article[data-testid^="conversation-turn-"]
+ * containing [data-message-author-role="assistant"], text in .markdown.
+ * Dedupe across selectors via describe/dom keys so the same node counted
+ * via two selectors still counts once; legacy fakes without keys fall back
+ * to first-non-empty to avoid double-counting fresh-wrapper fakes.
+ */
+async function getAssistantHandles(page) {
+  // Preferred: turn-aware descendant selector.
+  try {
+    const turnAware = (await page.$$(ASSISTANT_IN_TURN_SELECTOR)) || [];
+    if (turnAware.length > 0) return turnAware;
+  } catch {
+    /* ignore */
   }
-  return total;
-}
-
-/** Read visible text of the last assistant message. */
-async function readLastAssistantText(page) {
-  for (const sel of ASSISTANT_SELECTORS) {
-    let handles = [];
-    try {
-      handles = (await page.$$(sel)) || [];
-    } catch {
-      continue;
-    }
-    if (handles.length > 0) {
-      const last = handles[handles.length - 1];
+  // If the page exposes conversation turns but no assistant descendant yet,
+  // trust the turn structure (count is 0) instead of falling back to a
+  // legacy selector that could match stale nodes.
+  try {
+    const turns = (await page.$$(TURN_SELECTOR)) || [];
+    if (turns.length > 0) {
       try {
-        const t = await last.innerText();
-        if (t && t.trim()) return t.trim();
+        return (await page.$$(ASSISTANT_IN_TURN_SELECTOR)) || [];
       } catch {
-        continue;
+        return [];
       }
     }
+  } catch {
+    /* ignore */
+  }
+  // Legacy fallback (older fakes/fixtures without article turns).
+  for (const sel of ASSISTANT_SELECTORS.slice(1)) {
+    try {
+      const handles = (await page.$$(sel)) || [];
+      if (handles.length > 0) return handles;
+    } catch {
+      continue;
+    }
+  }
+  return [];
+}
+
+/** Count assistant turns currently rendered in the conversation. */
+async function countAssistantMessages(page) {
+  const handles = await getAssistantHandles(page);
+  return handles.length;
+}
+
+/** Read text from a single handle, preferring its .markdown descendant. */
+async function readHandleText(handle) {
+  if (!handle) return '';
+  if (typeof handle.$ === 'function') {
+    try {
+      const md = await handle.$(MARKDOWN_SELECTOR);
+      if (md && typeof md.innerText === 'function') {
+        const t = await md.innerText();
+        if (t && t.trim()) return t.trim();
+      }
+    } catch {
+      /* fall through to handle text */
+    }
+  }
+  if (typeof handle.innerText === 'function') {
+    try {
+      const t = await handle.innerText();
+      if (t && t.trim()) return t.trim();
+    } catch {
+      /* ignore */
+    }
+  }
+  return '';
+}
+
+/** Read visible text of the last assistant turn (prefers .markdown). */
+async function readLastAssistantText(page) {
+  const handles = await getAssistantHandles(page);
+  for (let i = handles.length - 1; i >= 0; i--) {
+    const t = await readHandleText(handles[i]);
+    if (t) return t;
   }
   throw new AdapterError('E_NO_RESPONSE', 'Assistant reply arrived but its text could not be read.');
+}
+
+/** True while the assistant is still streaming (stop button visible). */
+async function isStreaming(page) {
+  try {
+    const handles = (await page.$$(STOP_BUTTON_SELECTOR)) || [];
+    return handles.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Wait until [data-testid=stop-button] disappears (streaming finished). */
+async function waitForStreamingEnd(page, deadline, now, sleepFn) {
+  const sleepImpl = sleepFn || sleep;
+  while (now() < deadline) {
+    let streaming = false;
+    try {
+      streaming = await isStreaming(page);
+    } catch {
+      streaming = false;
+    }
+    if (!streaming) return;
+    await sleepImpl(Math.min(250, Math.max(1, deadline - now())));
+  }
+  let still = false;
+  try {
+    still = await isStreaming(page);
+  } catch {
+    still = false;
+  }
+  if (still) {
+    throw new AdapterError('E_NO_RESPONSE', 'Assistant streaming did not finish in time; failing without resend.');
+  }
+}
+
+/**
+ * Wait until the last assistant text is non-empty and stable across two
+ * consecutive reads (guards against capturing a half-streamed chunk).
+ */
+async function readStableAssistantText(page, deadline, now, sleepFn) {
+  const sleepImpl = sleepFn || sleep;
+  let prev = null;
+  while (now() < deadline) {
+    let cur = '';
+    try {
+      cur = await readLastAssistantText(page);
+    } catch {
+      cur = '';
+    }
+    if (cur && cur === prev) return cur;
+    if (cur) prev = cur;
+    await sleepImpl(Math.min(250, Math.max(1, deadline - now())));
+  }
+  // Final attempt: return last readable text if any, else throw.
+  try {
+    const last = await readLastAssistantText(page);
+    if (last && (!prev || last === prev)) return last;
+    if (last) return last;
+  } catch {
+    /* fall through */
+  }
+  throw new AdapterError('E_NO_RESPONSE', 'Assistant reply text did not stabilize in time; failing without resend.');
+}
+
+/**
+ * Extract { role, text } from a conversation-turn handle.
+ * Tries evaluate (real DOM) first, then $ probing (fakes with $),
+ * then describe metadata, then plain innerText.
+ */
+async function getTurnInfo(turn) {
+  if (!turn) return { role: null, text: '' };
+  if (typeof turn.evaluate === 'function') {
+    try {
+      const info = await turn.evaluate((el) => {
+        try {
+          const roleEl = el.querySelector ? el.querySelector('[data-message-author-role]') : null;
+          const role = roleEl ? roleEl.getAttribute('data-message-author-role') : null;
+          const md = el.querySelector ? el.querySelector('.markdown') : null;
+          const text = md
+            ? (md.innerText || md.textContent || '')
+            : (el.innerText || el.textContent || '');
+          return { role, text };
+        } catch {
+          return null;
+        }
+      });
+      if (info && typeof info === 'object' && (info.role || info.text)) {
+        return { role: info.role || null, text: String(info.text || '') };
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  if (typeof turn.$ === 'function') {
+    try {
+      let role = null;
+      try {
+        const u = await turn.$(USER_SELECTOR);
+        if (u) role = 'user';
+        else {
+          const a = await turn.$('[data-message-author-role="assistant"]');
+          if (a) role = 'assistant';
+        }
+      } catch {
+        /* ignore */
+      }
+      let text = '';
+      try {
+        const md = await turn.$(MARKDOWN_SELECTOR);
+        if (md && typeof md.innerText === 'function') {
+          text = await md.innerText();
+        } else if (typeof turn.innerText === 'function') {
+          text = await turn.innerText();
+        }
+      } catch {
+        try {
+          text = await turn.innerText();
+        } catch {
+          text = '';
+        }
+      }
+      if (role || text) return { role, text: String(text || '') };
+    } catch {
+      /* fall through */
+    }
+  }
+  try {
+    const d = turn.describe;
+    if (d && typeof d === 'object' && (d.role || d.text)) {
+      let text = String(d.text || '');
+      try {
+        if (typeof turn.innerText === 'function') {
+          const t = await turn.innerText();
+          if (t) text = t;
+        }
+      } catch {
+        /* keep describe text */
+      }
+      return { role: d.role || null, text };
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (typeof turn.innerText === 'function') {
+      const text = await turn.innerText();
+      return { role: null, text: String(text || '') };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { role: null, text: '' };
+}
+
+/**
+ * READ-ONLY: locate the LAST user turn containing `correlation` and return
+ * the assistant turn immediately after it. Never touches composer/send.
+ * Only uses $$/$/innerText/evaluate reads on turn/role/markdown selectors.
+ */
+async function findCorrelatedReply(page, correlation) {
+  const turns = await (async () => {
+    try {
+      return (await page.$$(TURN_SELECTOR)) || [];
+    } catch {
+      return [];
+    }
+  })();
+  if (turns.length > 0) {
+    const infos = [];
+    for (const t of turns) infos.push(await getTurnInfo(t));
+    let userIdx = -1;
+    for (let i = infos.length - 1; i >= 0; i--) {
+      if (infos[i].role === 'user' && (infos[i].text || '').includes(correlation)) {
+        userIdx = i;
+        break;
+      }
+    }
+    if (userIdx === -1) {
+      for (let i = infos.length - 1; i >= 0; i--) {
+        if ((infos[i].text || '').includes(correlation)) {
+          userIdx = i;
+          break;
+        }
+      }
+    }
+    if (userIdx === -1) {
+      throw new AdapterError(
+        'E_NO_CORRELATED_MESSAGE',
+        `No user turn containing ${JSON.stringify(correlation)} was found; refusing to guess.`,
+      );
+    }
+    for (let j = userIdx + 1; j < infos.length; j++) {
+      const txt = (infos[j].text || '').trim();
+      if (!txt) continue;
+      if (infos[j].role === 'assistant' || !infos[j].role) {
+        if (infos[j].role === 'user') continue;
+        return { replyText: txt, userIndex: userIdx, assistantIndex: j };
+      }
+    }
+    throw new AdapterError(
+      'E_NO_RESPONSE',
+      `No assistant turn after the correlated user turn (index ${userIdx}); reply may still be streaming.`,
+    );
+  }
+  // Legacy fallback (no article turns): last user match + last assistant text.
+  let userHandles = [];
+  for (const sel of USER_SELECTORS) {
+    try {
+      userHandles = (await page.$$(sel)) || [];
+    } catch {
+      userHandles = [];
+    }
+    if (userHandles.length > 0) break;
+  }
+  let lastUser = -1;
+  for (let i = userHandles.length - 1; i >= 0; i--) {
+    let t = '';
+    try {
+      t = await readHandleText(userHandles[i]);
+    } catch {
+      t = '';
+    }
+    // readHandleText prefers .markdown; fall back to innerText already.
+    if (!t && typeof userHandles[i].innerText === 'function') {
+      try {
+        t = await userHandles[i].innerText();
+      } catch {
+        t = '';
+      }
+    }
+    if ((t || '').includes(correlation)) {
+      lastUser = i;
+      break;
+    }
+  }
+  if (lastUser === -1) {
+    throw new AdapterError(
+      'E_NO_CORRELATED_MESSAGE',
+      `No user message containing ${JSON.stringify(correlation)} was found; refusing to guess.`,
+    );
+  }
+  const asst = await getAssistantHandles(page);
+  if (asst.length === 0) {
+    throw new AdapterError('E_NO_RESPONSE', 'No assistant reply found after the correlated message.');
+  }
+  const replyText = await readHandleText(asst[asst.length - 1]);
+  if (!replyText) {
+    throw new AdapterError('E_NO_RESPONSE', 'Assistant reply after the correlated message could not be read.');
+  }
+  return { replyText, userIndex: lastUser, assistantIndex: asst.length - 1 };
+}
+
+/** Build the sanitized read-last receipt (never includes cookies/tokens). */
+function buildReadLastReceipt({ correlation, tabUrl, actualResponse, startedAt, endedAt }) {
+  return {
+    tool: 'aion-m05-chatgpt-webapp-adapter',
+    mode: 'read-last',
+    correlation,
+    matched: true,
+    tabUrlSafe: safeTabUrl(tabUrl),
+    startedAt,
+    endedAt,
+    actualResponse: String(actualResponse).slice(0, 2000),
+  };
+}
+
+/** Collect tab refs from an injected browser (shared by live + read-last). */
+async function collectTabRefs(browser) {
+  let pages = [];
+  if (typeof browser.contexts === 'function') {
+    for (const ctx of browser.contexts()) pages.push(...ctx.pages());
+  } else if (typeof browser.pages === 'function') {
+    pages = await browser.pages();
+  } else {
+    throw new AdapterError('E_BROWSER', 'Injected browser exposes neither contexts() nor pages().');
+  }
+  return pages.map((p) => {
+    let url = '';
+    try {
+      url = typeof p.url === 'function' ? p.url() : String(p.url || '');
+    } catch {
+      url = '';
+    }
+    return { url, title: '', ref: p };
+  });
+}
+
+/**
+ * READ-ONLY flow: attach is done by the caller; here we select the single
+ * chatgpt.com tab, refuse login pages, and capture the reply after the
+ * correlated user turn. NEVER fills, presses, clicks, focuses or submits.
+ */
+async function runReadLast(browser, opts) {
+  const startedAt = new Date().toISOString();
+  const correlation = opts.correlation;
+  if (!correlation) {
+    throw new AdapterError('E_CONFIRMATION', 'Read-last requires a correlation (exact match).');
+  }
+  const tabs = await collectTabRefs(browser);
+  const target = selectTargetTab(tabs);
+  const page = target.ref;
+  const tabUrl = target.url;
+  if (isLoginUrl(tabUrl)) {
+    throw new AdapterError('E_LOGIN_REQUIRED', `Login required at ${safeTabUrl(tabUrl)}; refusing to bypass. Log in manually and retry.`);
+  }
+  // NOTE: deliberately NO bringToFront / fill / press / click / focus here.
+  const found = await findCorrelatedReply(page, correlation);
+  const endedAt = new Date().toISOString();
+  return buildReadLastReceipt({
+    correlation,
+    tabUrl,
+    actualResponse: found.replyText,
+    startedAt,
+    endedAt,
+  });
 }
 
 /**
