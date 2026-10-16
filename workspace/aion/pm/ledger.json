@@ -1,715 +1,2137 @@
 {
- "version": "0.1",
- "generated": "2026-10-16T03:05+02:00",
- "legend": {
-  "verified": "confirmed in a repo commit/file by BFF on 2026-10-16",
-  "claimed": "stated in thread/doc, not confirmed in repo bytes"
- },
- "initiatives": [
-  {
-   "id": "AION-PC",
-   "name": "#1 P0 GOAL: AION's text in chatgpt.com reaches ZCode, which executes it on Owen's Windows PC with Grok Bot-style reach (shell, files, browser, desktop)",
-   "owner": "ZCode (exec) / AION PM (plan); Owen approves privileged Windows steps"
+  "version": "0.1",
+  "generated": "2026-10-16T03:05+02:00",
+  "legend": {
+    "verified": "confirmed in a repo commit/file by BFF on 2026-10-16",
+    "claimed": "stated in thread/doc, not confirmed in repo bytes"
   },
-  {
-   "id": "UAH",
-   "name": "Universal Agent Hub (CLI-centred)",
-   "owner": "ZCode (exec) / AION PM (plan)"
-  },
-  {
-   "id": "IANG",
-   "name": "Integration Automation Network",
-   "owner": "ZCode / AION PM"
-  },
-  {
-   "id": "IAM",
-   "name": "Integration Automation Model (data model; canonical DB home SOFTWARE_HQ/integrations/iam/)",
-   "owner": "ZCode / AION PM"
-  },
-  {
-   "id": "AION-META",
-   "name": "AION self-reflection + web-app twin CLI (new Owen asks)",
-   "owner": "AION PM; executor TBD"
-  }
- ],
- "waves": [
-  {
-   "id": "W00",
-   "scope": "Baseline inventory and provenance",
-   "status": "in progress (claimed)"
-  },
-  {
-   "id": "W01",
-   "scope": "Complete UAH CLI census",
-   "status": "pending"
-  },
-  {
-   "id": "W02",
-   "scope": "UAH dependency periphery",
-   "status": "pending"
-  },
-  {
-   "id": "W03",
-   "scope": "Cross-repo dispersion",
-   "status": "pending"
-  },
-  {
-   "id": "W04",
-   "scope": "Integration Automation convergence",
-   "status": "pending"
-  },
-  {
-   "id": "W05",
-   "scope": "Canonical model validation",
-   "status": "pending"
-  },
-  {
-   "id": "W06",
-   "scope": "Execution-ready roadmap",
-   "status": "pending"
-  }
- ],
- "workloads": [
-  {
-   "id": "W01",
-   "name": "CCR routing for ZCode",
-   "repo_status": "not-live-verified-in-this-session",
-   "tag": "verified (status text)",
-   "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/programs/integration-automation/workload-registry.json"
-  },
-  {
-   "id": "W02",
-   "name": "ZCode <-> OpenCode",
-   "repo_status": "design-and-historical-offline-tests-only",
-   "tag": "verified (status text)",
-   "evidence": "same"
-  },
-  {
-   "id": "W03",
-   "name": "ChatGPT -> local execution",
-   "repo_status": "historically-manual-round-trip-reported; unattended-path-unverified",
-   "tag": "verified (status text)",
-   "evidence": "same"
-  }
- ],
- "items": [
-  {
-   "id": "PM-000",
-   "title": "P0 #1 GOAL: chatgpt.com text -> ZCode executes on Owen's PC (Grok Bot-style reach)",
-   "initiative": "AION-PC",
-   "owner": "ZCode",
-   "status": "option evaluation; nothing live",
-   "tag": "claimed",
-   "priority": "P0#1",
-   "linked": [
-    "enabler/blocker: PM-007 ACP Bridge (missing)",
-    "enabler: owenservera/zcode-setup (hub, pocket-link)",
-    "enabler: VOMEGA gh-bridge retirement (status UNKNOWN, not checked)",
-    "enabler: PM-013 CDP twin CLI (browser layer)",
-    "PM-014 receipt consumer",
-    "aion#3 AION-03",
-    "PM-016..018 twin T-gates; evidence pm/evidence/2026-10-16-aion-capabilities.md (AION: no PC/ZCode reach verified end to end)"
-   ],
-   "blocked_by": [
-    "ACP Bridge missing",
-    "No authenticated receipt consumer (D4)",
-    "Tailscale/HTTPS approvals pending (reported by BFF, not observed)",
-    "Owen Windows approval needed",
-    "PC disk ~6.3 GB free (R7)",
-    "No real P1 ZCode session yet",
-    "Security model for AION shell/desktop on PC undefined"
-   ],
-   "evidence": "bff/ZCODE-PATH.md; https://github.com/owenservera/aion/issues/3",
-   "bridge_options": [
+  "initiatives": [
     {
-     "opt": "A",
-     "path": "ChatGPT custom connector / MCP server exposed from the PC over tunnel",
-     "support": "canon/thread describe ChatGPT->tunnel->MCP ingress; SOFTWARE_HQ integrations/uah/contracts/MCP-INGRESS.md referenced",
-     "tag": "claimed (file not re-read)"
+      "id": "AION-PC",
+      "name": "#1 P0 GOAL: AION's text in chatgpt.com reaches ZCode, which executes it on Owen's Windows PC with Grok Bot-style reach (shell, files, browser, desktop)",
+      "owner": "ZCode (exec) / AION PM (plan); Owen approves privileged Windows steps"
     },
     {
-     "opt": "B",
-     "path": "Browser extension in Owen's ChatGPT tab relaying to a local agent",
-     "support": "none found",
-     "tag": "UNKNOWN"
+      "id": "UAH",
+      "name": "Universal Agent Hub (CLI-centred)",
+      "owner": "ZCode (exec) / AION PM (plan)"
     },
     {
-     "opt": "C",
-     "path": "CDP-driven relay (local process drives/parses the chatgpt.com tab)",
-     "support": "vivim-omega D-419 CDP lane, plugins/provider-browser (CDP leg future/fixtures only), streaming D-339/D-352, parser.ts",
-     "tag": "verified (files exist; not live)"
+      "id": "IANG",
+      "name": "Integration Automation Network",
+      "owner": "ZCode / AION PM"
     },
     {
-     "opt": "D",
-     "path": "ACP bridge (UAH) -> ZCode on PC",
-     "support": "SOFTWARE_HQ integrations/uah/MAP.md, uah/cli core modules; ACP Bridge itself missing; zcode-setup hub/pocket-link (claimed via BFF briefing)",
-     "tag": "verified partial (docs+scaffold); bridge claimed missing"
+      "id": "IAM",
+      "name": "Integration Automation Model (data model; canonical DB home SOFTWARE_HQ/integrations/iam/)",
+      "owner": "ZCode / AION PM"
     },
     {
-     "opt": "E",
-     "path": "GitHub issues as relay (current gh-bridge / bridge:dispatch)",
-     "support": "001.PROJECTS.PM #16-18,#20; frozen by D4; VOMEGA gh-bridge retirement status UNKNOWN",
-     "tag": "claimed"
+      "id": "AION-META",
+      "name": "AION self-reflection + web-app twin CLI (new Owen asks)",
+      "owner": "AION PM; executor TBD"
     }
-   ],
-   "zcode_evidence": {
-    "zcode-setup": "hub + pocket-link playbook (claimed via bff/PROJECT-BRIEFING.md; not re-read)",
-    "zcode-bots": "ZBot roster; main stale 10-08, draft PR #1 (claimed via briefing)",
-    "zcode-pocket": "Android app + PWA web/, P0 shell deployed, no transport (claimed via briefing)"
-   },
-   "current_state": "UNKNOWN / unproven. No repo evidence of a working path. W03 'ChatGPT -> local execution' is only a historically reported manual round trip; unattended path unverified (workload-registry.json)."
+  ],
+  "waves": [
+    {
+      "id": "W00",
+      "scope": "Baseline inventory and provenance",
+      "status": "in progress (claimed)"
+    },
+    {
+      "id": "W01",
+      "scope": "Complete UAH CLI census",
+      "status": "pending"
+    },
+    {
+      "id": "W02",
+      "scope": "UAH dependency periphery",
+      "status": "pending"
+    },
+    {
+      "id": "W03",
+      "scope": "Cross-repo dispersion",
+      "status": "pending"
+    },
+    {
+      "id": "W04",
+      "scope": "Integration Automation convergence",
+      "status": "pending"
+    },
+    {
+      "id": "W05",
+      "scope": "Canonical model validation",
+      "status": "pending"
+    },
+    {
+      "id": "W06",
+      "scope": "Execution-ready roadmap",
+      "status": "pending"
+    }
+  ],
+  "workloads": [
+    {
+      "id": "W01",
+      "name": "CCR routing for ZCode",
+      "repo_status": "not-live-verified-in-this-session",
+      "tag": "verified (status text)",
+      "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/programs/integration-automation/workload-registry.json"
+    },
+    {
+      "id": "W02",
+      "name": "ZCode <-> OpenCode",
+      "repo_status": "design-and-historical-offline-tests-only",
+      "tag": "verified (status text)",
+      "evidence": "same"
+    },
+    {
+      "id": "W03",
+      "name": "ChatGPT -> local execution",
+      "repo_status": "historically-manual-round-trip-reported; unattended-path-unverified",
+      "tag": "verified (status text)",
+      "evidence": "same"
+    }
+  ],
+  "items": [
+    {
+      "id": "PM-000",
+      "title": "P0 #1 GOAL: chatgpt.com text -> ZCode executes on Owen's PC (Grok Bot-style reach)",
+      "initiative": "AION-PC",
+      "owner": "ZCode",
+      "status": "option evaluation; nothing live",
+      "tag": "claimed",
+      "priority": "P0#1",
+      "linked": [
+        "enabler/blocker: PM-007 ACP Bridge (missing)",
+        "enabler: owenservera/zcode-setup (hub, pocket-link)",
+        "enabler: VOMEGA gh-bridge retirement (status UNKNOWN, not checked)",
+        "enabler: PM-013 CDP twin CLI (browser layer)",
+        "PM-014 receipt consumer",
+        "aion#3 AION-03",
+        "PM-016..018 twin T-gates; evidence pm/evidence/2026-10-16-aion-capabilities.md (AION: no PC/ZCode reach verified end to end)"
+      ],
+      "blocked_by": [
+        "ACP Bridge missing",
+        "No authenticated receipt consumer (D4)",
+        "Tailscale/HTTPS approvals pending (reported by BFF, not observed)",
+        "Owen Windows approval needed",
+        "PC disk ~6.3 GB free (R7)",
+        "No real P1 ZCode session yet",
+        "Security model for AION shell/desktop on PC undefined"
+      ],
+      "evidence": "bff/ZCODE-PATH.md; https://github.com/owenservera/aion/issues/3",
+      "bridge_options": [
+        {
+          "opt": "A",
+          "path": "ChatGPT custom connector / MCP server exposed from the PC over tunnel",
+          "support": "canon/thread describe ChatGPT->tunnel->MCP ingress; SOFTWARE_HQ integrations/uah/contracts/MCP-INGRESS.md referenced",
+          "tag": "claimed (file not re-read)"
+        },
+        {
+          "opt": "B",
+          "path": "Browser extension in Owen's ChatGPT tab relaying to a local agent",
+          "support": "none found",
+          "tag": "UNKNOWN"
+        },
+        {
+          "opt": "C",
+          "path": "CDP-driven relay (local process drives/parses the chatgpt.com tab)",
+          "support": "vivim-omega D-419 CDP lane, plugins/provider-browser (CDP leg future/fixtures only), streaming D-339/D-352, parser.ts",
+          "tag": "verified (files exist; not live)"
+        },
+        {
+          "opt": "D",
+          "path": "ACP bridge (UAH) -> ZCode on PC",
+          "support": "SOFTWARE_HQ integrations/uah/MAP.md, uah/cli core modules; ACP Bridge itself missing; zcode-setup hub/pocket-link (claimed via BFF briefing)",
+          "tag": "verified partial (docs+scaffold); bridge claimed missing"
+        },
+        {
+          "opt": "E",
+          "path": "GitHub issues as relay (current gh-bridge / bridge:dispatch)",
+          "support": "001.PROJECTS.PM #16-18,#20; frozen by D4; VOMEGA gh-bridge retirement status UNKNOWN",
+          "tag": "claimed"
+        }
+      ],
+      "zcode_evidence": {
+        "zcode-setup": "hub + pocket-link playbook (claimed via bff/PROJECT-BRIEFING.md; not re-read)",
+        "zcode-bots": "ZBot roster; main stale 10-08, draft PR #1 (claimed via briefing)",
+        "zcode-pocket": "Android app + PWA web/, P0 shell deployed, no transport (claimed via briefing)"
+      },
+      "current_state": "UNKNOWN / unproven. No repo evidence of a working path. W03 'ChatGPT -> local execution' is only a historically reported manual round trip; unattended path unverified (workload-registry.json)."
+    },
+    {
+      "id": "PM-001",
+      "title": "IANG-D01 Integration Mapping & Alignment work package",
+      "initiative": "IANG",
+      "owner": "ZCode",
+      "status": "defined, not started",
+      "tag": "claimed",
+      "evidence": "threads/pm-thread-1.md"
+    },
+    {
+      "id": "PM-002",
+      "title": "IAM v0.1 baseline handoff doc (commit 85476c3)",
+      "initiative": "IAM",
+      "owner": "ZCode",
+      "status": "done",
+      "tag": "verified",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/iam/IAM_CORE_V0_1.md"
+    },
+    {
+      "id": "PM-003",
+      "title": "IAM v0.1 SQLite: 33 tables, 27 seed nodes, 5 queue entries, integrity/FK pass",
+      "initiative": "IAM",
+      "owner": "ZCode",
+      "status": "exists only in ChatGPT sandbox",
+      "tag": "claimed",
+      "evidence": "threads/pm-thread-1.md; IAM_CORE_V0_1.md says not uploaded"
+    },
+    {
+      "id": "PM-004",
+      "title": "P0 RECOVER iam_core_v0_1.sqlite3 + schema.sql + build.py",
+      "initiative": "IAM",
+      "owner": "ZCode (BFF per D1)",
+      "status": "UNRECOVERED_FROM_CHECKED_SOURCES; AION sandbox check 0/5 present (2026-10-16)",
+      "tag": "verified (absence in SOFTWARE_HQ tree)",
+      "priority": "P0",
+      "evidence": "canon/EXECUTIVE-DECISIONS-2026-10-16-COS.md D1; pm/evidence/2026-10-16-aion-capabilities.md"
+    },
+    {
+      "id": "PM-005",
+      "title": "P0 RECOVER UAH dispersion sqlite v0.1/v0.2 + generated project.yaml + regen script",
+      "initiative": "UAH",
+      "owner": "ZCode",
+      "status": "unrecovered; ChatGPT sandbox only; AION sandbox check 0/5 present (2026-10-16)",
+      "tag": "claimed",
+      "priority": "P0",
+      "evidence": "threads/pm-thread-2.md (note: SOFTWARE_HQ/integrations/project.yaml exists but is a different inventory YAML per D1); pm/evidence/2026-10-16-aion-capabilities.md"
+    },
+    {
+      "id": "PM-006",
+      "title": "UAH CLI entry point (P1 roadmap)",
+      "initiative": "UAH",
+      "owner": "ZCode",
+      "status": "missing; only safety/gate/fsx.mjs + DESIGN.md",
+      "tag": "verified",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/cli; SOFTWARE_HQ TASKS.md P1/P1a; alignment queue AQ-002"
+    },
+    {
+      "id": "PM-007",
+      "title": "ACP Bridge",
+      "initiative": "UAH",
+      "owner": "ZCode",
+      "status": "missing / blocks UAH P4",
+      "tag": "verified",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/MAP.md (file exists; content not re-read); https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/oracle-reconciliation/alignment/queue.csv AQ-003; integrations/TRACKER.md dependency notes"
+    },
+    {
+      "id": "PM-008",
+      "title": "Prove W01-W03",
+      "initiative": "IANG",
+      "owner": "ZCode",
+      "status": "unproven",
+      "tag": "verified",
+      "evidence": "workload-registry.json; GPM WORKPLAN GPM-IA-01 (#19) pilots 'registered / no new pilot executed'"
+    },
+    {
+      "id": "PM-009",
+      "title": "Reconcile UAH 8 / IANG 23 / IAM 33 table schemas into one IAM DB",
+      "initiative": "IAM",
+      "owner": "ZCode; AION accepts",
+      "status": "blocked on PM-004/005",
+      "tag": "verified (decision exists)",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/iam/CANONICAL-MODEL-DECISION-2026-10-16.md; CEO-RECONCILIATION-PLAN M1-001..003; AQ-007"
+    },
+    {
+      "id": "PM-010",
+      "title": "Populate 100-variable catalog, 192-repo census, 1,000 work records into model",
+      "initiative": "IAM",
+      "owner": "ZCode",
+      "status": "referenced, not populated",
+      "tag": "claimed",
+      "evidence": "threads/pm-thread-1.md"
+    },
+    {
+      "id": "PM-011",
+      "title": "W01 wave: enumerate all 19 UAH files (23 of 146 integration files indexed so far)",
+      "initiative": "UAH",
+      "owner": "ZCode",
+      "status": "pending",
+      "tag": "claimed",
+      "evidence": "threads/pm-thread-2.md"
+    },
+    {
+      "id": "PM-012",
+      "title": "AION self-reflection (canon/AION-SELF-REFLECTION.md): close gaps G0-G7",
+      "initiative": "AION-META",
+      "owner": "AION",
+      "status": "doc published (9edc397); gaps G0 PC health, G1 phone, G2 recorder, G3 local bridge, G4 shared model, G5 browser twin, G6 PM loop, G7 product open",
+      "tag": "verified (doc exists; gap closure claimed)",
+      "evidence": "https://github.com/owenservera/aion/blob/main/canon/AION-SELF-REFLECTION.md"
+    },
+    {
+      "id": "PM-013",
+      "title": "Twin CLI (canon/TWIN-CLI-SPEC.md): CDP web-app twin, ChatGPT first; gates T0-T8",
+      "initiative": "AION-META",
+      "owner": "ZCode",
+      "status": "spec published (f8b20e9); T0-T8 all not started; no live CDP claimed",
+      "tag": "verified (candidates exist)",
+      "evidence": "owenservera/vivim-omega: docs/decisions/D-419-cdp-substrate-lane.md, plugins/provider-browser (CDP leg = future/fixtures only), docs/DISCOVERY.md, docs/HEALING.md, D-339/D-352 streaming, contracts/src/parser.ts, fixtures/import/chatgpt-conversations.json; https://github.com/owenservera/aion/blob/main/canon/TWIN-CLI-SPEC.md"
+    },
+    {
+      "id": "PM-014",
+      "title": "D4 dispatch freeze; receipt consumer for 001.PROJECTS.PM #16,#17,#18,#20; close receipt loop GitHub inbox -> PC consumer -> ZCode -> receipt (diagnostic-only first test, AION rec)",
+      "initiative": "UAH",
+      "owner": "ZCode (BFF)",
+      "status": "open",
+      "tag": "claimed",
+      "evidence": "canon D4; pm/evidence/2026-10-16-aion-capabilities.md; ACP-038, ACP-010, GPM PM-17, BOARD PM-17-ISSUE-1, self-reflection G3",
+      "priority": "P0"
+    },
+    {
+      "id": "PM-015",
+      "title": "D5 PC storage P0 (6.3 GB free reported 10-14)",
+      "initiative": "ops",
+      "owner": "BFF",
+      "status": "open; current reading unknown",
+      "tag": "claimed",
+      "evidence": "hq#7 via canon D5; hq projects/storage-rescue/PLAN.md T-01..T-21; BOARD PC-005"
+    },
+    {
+      "id": "PM-016",
+      "title": "Twin CLI gate T0: env + VOMEGA hashes",
+      "initiative": "AION-META",
+      "owner": "BFF",
+      "priority": "P1",
+      "status": "not started",
+      "tag": "claimed",
+      "evidence": "TWIN-CLI-SPEC §10"
+    },
+    {
+      "id": "PM-017",
+      "title": "Twin CLI gates T1-T3: live Chrome attach, redacted capture, ChatGPT read twin",
+      "initiative": "AION-META",
+      "owner": "BFF; AION verifies",
+      "priority": "P1",
+      "status": "not started",
+      "tag": "claimed",
+      "evidence": "TWIN-CLI-SPEC §10"
+    },
+    {
+      "id": "PM-018",
+      "title": "Twin CLI gates T4-T8: streaming, reversible edit, PM handoff, multi-app, resilience",
+      "initiative": "AION-META",
+      "owner": "BFF; AION accepts",
+      "priority": "P2",
+      "status": "not started",
+      "tag": "claimed",
+      "evidence": "TWIN-CLI-SPEC §10"
+    },
+    {
+      "id": "PM-019",
+      "title": "PC-001 machine preflight / containment verification (PC HQ P0)",
+      "initiative": "ops",
+      "owner": "PC HQ",
+      "priority": "P0",
+      "status": "active-source-reported; current-host-unverified",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/hq/issues/1 via BOARD.md"
+    },
+    {
+      "id": "PM-020",
+      "title": "Storage rescue quick wins T-01..T-04, T-12 (~10 GB est.)",
+      "initiative": "ops",
+      "owner": "PC HQ / BFF",
+      "priority": "P1",
+      "status": "ready, not executed",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/hq/blob/main/projects/storage-rescue/PLAN.md"
+    },
+    {
+      "id": "PM-021",
+      "title": "Storage rescue heavy: T-06 opencode.db surgery (16.85 GB), T-09 Windows.old (11 GB, expires ~Oct 18, owner)",
+      "initiative": "ops",
+      "owner": "Owen / PC HQ",
+      "priority": "P0",
+      "status": "waiting on owner",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/hq/blob/main/projects/storage-rescue/PLAN.md"
+    },
+    {
+      "id": "PM-022",
+      "title": "Storage rescue tooling/policy T-07,T-08,T-10,T-11,T-13..T-21",
+      "initiative": "ops",
+      "owner": "PC HQ",
+      "priority": "P2",
+      "status": "mixed ready/recon/optional",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/hq/blob/main/projects/storage-rescue/PLAN.md"
+    },
+    {
+      "id": "PM-023",
+      "title": "ZCode UI acceptance: restart ZCode, confirm ccr-router + one live prompt (W01)",
+      "initiative": "IANG",
+      "owner": "Owen",
+      "priority": "P1",
+      "status": "blocked on human restart",
+      "tag": "verified (pending in tracker)",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md; zcode-setup TRACKER Next #3-4"
+    },
+    {
+      "id": "PM-024",
+      "title": "SOFTWARE_HQ decisions D-a/D-b/D-c (CCR naming, new-provider-3, kit apply)",
+      "initiative": "UAH",
+      "owner": "Owen",
+      "priority": "P1",
+      "status": "open",
+      "tag": "verified (open in tracker)",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md"
+    },
+    {
+      "id": "PM-025",
+      "title": "CCR per-provider emission (P2) then ZCode provider list cleanup to CCR only (P3)",
+      "initiative": "UAH",
+      "owner": "orchestrator",
+      "priority": "P2",
+      "status": "blocked by P1a + D-a/D-b",
+      "tag": "verified (pending)",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md"
+    },
+    {
+      "id": "PM-026",
+      "title": "Migrate GPM owner-exec model channeler into SOFTWARE_HQ (P4)",
+      "initiative": "UAH",
+      "owner": "orchestrator",
+      "priority": "P3",
+      "status": "pending",
+      "tag": "verified (pending)",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md"
+    },
+    {
+      "id": "PM-027",
+      "title": "SOFTWARE_HQ owner hygiene: prove safe-sync failure pre-existing, per-model context windows, disabled-provider policy, remove 2 worktrees, canonical .bridge-labs",
+      "initiative": "UAH",
+      "owner": "Owen",
+      "priority": "P3",
+      "status": "pending",
+      "tag": "verified (pending)",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md"
+    },
+    {
+      "id": "PM-028",
+      "title": "Oracle alignment queue AQ-004..AQ-006 (CCR-ZCode gates, engine reuse, ZCode-OpenCode trace)",
+      "initiative": "UAH",
+      "owner": "ZCode",
+      "priority": "P2",
+      "status": "open",
+      "tag": "verified",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/oracle-reconciliation/alignment/queue.csv"
+    },
+    {
+      "id": "PM-029",
+      "title": "zcode-opencode v1.0.0 live acceptance",
+      "initiative": "IANG",
+      "owner": "ZCode",
+      "priority": "P2",
+      "status": "packaged; live acceptance open",
+      "tag": "verified (status text)",
+      "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/TRACKER.md"
+    },
+    {
+      "id": "PM-030",
+      "title": "CEO plan P0-001: complete ChatGPT conversation export / original-prompt sovereignty",
+      "initiative": "IAM",
+      "owner": "AION / Owen",
+      "priority": "P1",
+      "status": "open",
+      "tag": "verified (work order exists)",
+      "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/programs/uah-iang/CEO-RECONCILIATION-PLAN.md"
+    },
+    {
+      "id": "PM-031",
+      "title": "CEO plan milestones M2-M6 (periphery, IANG maturity, project tree, signals, convergence)",
+      "initiative": "IAM",
+      "owner": "AION PM / ZCode",
+      "priority": "P3",
+      "status": "not started",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/programs/uah-iang/CEO-RECONCILIATION-PLAN.md"
+    },
+    {
+      "id": "PM-032",
+      "title": "ACP P0 backlog: ACP-001,002,006,007,008,010,011,017,021,027,028,029,030 (constitution, security, authority, readiness, E2E session test, LocalGrokBot kernel)",
+      "initiative": "UAH",
+      "owner": "ACP / ZCode",
+      "priority": "P1",
+      "status": "backlog (status not in file)",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/ACP/blob/main/backlog/TASKS.yaml"
+    },
+    {
+      "id": "PM-033",
+      "title": "ACP-038 bridge.request.v1 GitHub dispatch intake (Bun watcher) = PM-17 / ACP-019",
+      "initiative": "AION-PC",
+      "owner": "ACP / ZCode",
+      "priority": "P0",
+      "status": "backlog; = PM-014 consumer",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/ACP/blob/main/backlog/TASKS.yaml"
+    },
+    {
+      "id": "PM-034",
+      "title": "ACP P1-P3 backlog (24 items: contracts, credentials, messaging, VOMEGA boundary, security residue, etc.)",
+      "initiative": "UAH",
+      "owner": "ACP",
+      "priority": "P3",
+      "status": "backlog",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/ACP/blob/main/backlog/TASKS.yaml"
+    },
+    {
+      "id": "PM-035",
+      "title": "GPM programs PM-06..PM-20 (comms kit, governance, RACI, provider intel, capacity queue, Kanban, dashboards, NotebookLM)",
+      "initiative": "GPM",
+      "owner": "Global PM",
+      "priority": "P3",
+      "status": "proposed/partial; PM-01..05 done",
+      "tag": "verified (status text)",
+      "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/docs/WORKPLAN.md"
+    },
+    {
+      "id": "PM-036",
+      "title": "GPM board: SOFTWARE_HQ-APP-001, VOMEGA-D1 ratchet read, GPM-CHATGPT-DRYRUN-1, task notifications",
+      "initiative": "GPM",
+      "owner": "various",
+      "priority": "P2",
+      "status": "published / unknown receipt",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/reports/board.v0.1.json"
+    },
+    {
+      "id": "PM-037",
+      "title": "Product Hub W1-W4 + S0 storage audit (issues #1-#5)",
+      "initiative": "ops",
+      "owner": "Product Hub",
+      "priority": "P2",
+      "status": "acceptance unverified; 0/94 candidates actionable",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/Product_Hub/blob/main/PROJECT_TRACKER.md"
+    },
+    {
+      "id": "PM-038",
+      "title": "zcode-setup next: bot schedules (brief 045), currency defects, OAuth providers (025), brief-023 acceptance, Q001-Q007",
+      "initiative": "UAH",
+      "owner": "Owen / ZCode",
+      "priority": "P2",
+      "status": "owner steps pending",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/zcode-setup/blob/main/TRACKER.md"
+    },
+    {
+      "id": "PM-039",
+      "title": "Credential hygiene: plaintext keys in ZCode configs/backups (zcode-setup open problem; ACP-035)",
+      "initiative": "ops",
+      "owner": "Owen",
+      "priority": "P1",
+      "status": "open decision",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/zcode-setup/blob/main/TRACKER.md"
+    },
+    {
+      "id": "PM-040",
+      "title": "atomic-1000 provisional inventory rollup: 1000 items, 100 parents, 10 workstreams (GPM 140, SW 140, BR 120, ACP/PC/AI 100, VO/UM/QG 80, PH 60); all Unverified/owner TBD/no deps; tracked as one roll-up, not imported",
+      "initiative": "GPM",
+      "owner": "AION PM",
+      "priority": "P3",
+      "status": "provisional; triage into verified tasks",
+      "tag": "claimed",
+      "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/intake/conversation-atomization-2026-10-14/atomic-1000.v0.1.json"
+    },
+    {
+      "id": "PM-041",
+      "title": "ZBot Host: native ACP tool behaviour not governed by Host approval layer (security gap)",
+      "initiative": "AION-PC",
+      "owner": "ZCode",
+      "priority": "P1",
+      "status": "open",
+      "tag": "claimed",
+      "evidence": "AION-SELF-REFLECTION §2"
+    },
+    {
+      "id": "PM-042",
+      "title": "AION recorder / flight recorder (G2) + PWA phone reach (G1, Tailnet approvals pending)",
+      "initiative": "AION-META",
+      "owner": "BFF",
+      "priority": "P2",
+      "status": "partial, BFF-reported",
+      "tag": "claimed",
+      "evidence": "AION-SELF-REFLECTION §3,§6"
+    }
+  ],
+  "unknowns": [
+    "Actual UAH CLI runtime behaviour",
+    "Whether ChatGPT sandbox files are still downloadable",
+    "ZCode version",
+    "Current PC free disk",
+    "Scope of 'AION self-reflection'",
+    "ACP TASKS.yaml has no per-item status field; progress unknown",
+    "Whether Windows.old auto-expired (~Oct 18)",
+    "Whether any PC consumer reads aion inbox / publishes receipts (AION open question)"
+  ],
+  "inbox": {
+    "pinned": "https://github.com/owenservera/aion/issues/4",
+    "test": "https://github.com/owenservera/aion/issues/5 (closed)"
   },
-  {
-   "id": "PM-001",
-   "title": "IANG-D01 Integration Mapping & Alignment work package",
-   "initiative": "IANG",
-   "owner": "ZCode",
-   "status": "defined, not started",
-   "tag": "claimed",
-   "evidence": "threads/pm-thread-1.md"
-  },
-  {
-   "id": "PM-002",
-   "title": "IAM v0.1 baseline handoff doc (commit 85476c3)",
-   "initiative": "IAM",
-   "owner": "ZCode",
-   "status": "done",
-   "tag": "verified",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/iam/IAM_CORE_V0_1.md"
-  },
-  {
-   "id": "PM-003",
-   "title": "IAM v0.1 SQLite: 33 tables, 27 seed nodes, 5 queue entries, integrity/FK pass",
-   "initiative": "IAM",
-   "owner": "ZCode",
-   "status": "exists only in ChatGPT sandbox",
-   "tag": "claimed",
-   "evidence": "threads/pm-thread-1.md; IAM_CORE_V0_1.md says not uploaded"
-  },
-  {
-   "id": "PM-004",
-   "title": "P0 RECOVER iam_core_v0_1.sqlite3 + schema.sql + build.py",
-   "initiative": "IAM",
-   "owner": "ZCode (BFF per D1)",
-   "status": "UNRECOVERED_FROM_CHECKED_SOURCES; AION sandbox check 0/5 present (2026-10-16)",
-   "tag": "verified (absence in SOFTWARE_HQ tree)",
-   "priority": "P0",
-   "evidence": "canon/EXECUTIVE-DECISIONS-2026-10-16-COS.md D1; pm/evidence/2026-10-16-aion-capabilities.md"
-  },
-  {
-   "id": "PM-005",
-   "title": "P0 RECOVER UAH dispersion sqlite v0.1/v0.2 + generated project.yaml + regen script",
-   "initiative": "UAH",
-   "owner": "ZCode",
-   "status": "unrecovered; ChatGPT sandbox only; AION sandbox check 0/5 present (2026-10-16)",
-   "tag": "claimed",
-   "priority": "P0",
-   "evidence": "threads/pm-thread-2.md (note: SOFTWARE_HQ/integrations/project.yaml exists but is a different inventory YAML per D1); pm/evidence/2026-10-16-aion-capabilities.md"
-  },
-  {
-   "id": "PM-006",
-   "title": "UAH CLI entry point (P1 roadmap)",
-   "initiative": "UAH",
-   "owner": "ZCode",
-   "status": "missing; only safety/gate/fsx.mjs + DESIGN.md",
-   "tag": "verified",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/cli; SOFTWARE_HQ TASKS.md P1/P1a; alignment queue AQ-002"
-  },
-  {
-   "id": "PM-007",
-   "title": "ACP Bridge",
-   "initiative": "UAH",
-   "owner": "ZCode",
-   "status": "missing / blocks UAH P4",
-   "tag": "verified",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/MAP.md (file exists; content not re-read); https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/oracle-reconciliation/alignment/queue.csv AQ-003; integrations/TRACKER.md dependency notes"
-  },
-  {
-   "id": "PM-008",
-   "title": "Prove W01-W03",
-   "initiative": "IANG",
-   "owner": "ZCode",
-   "status": "unproven",
-   "tag": "verified",
-   "evidence": "workload-registry.json; GPM WORKPLAN GPM-IA-01 (#19) pilots 'registered / no new pilot executed'"
-  },
-  {
-   "id": "PM-009",
-   "title": "Reconcile UAH 8 / IANG 23 / IAM 33 table schemas into one IAM DB",
-   "initiative": "IAM",
-   "owner": "ZCode; AION accepts",
-   "status": "blocked on PM-004/005",
-   "tag": "verified (decision exists)",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/iam/CANONICAL-MODEL-DECISION-2026-10-16.md; CEO-RECONCILIATION-PLAN M1-001..003; AQ-007"
-  },
-  {
-   "id": "PM-010",
-   "title": "Populate 100-variable catalog, 192-repo census, 1,000 work records into model",
-   "initiative": "IAM",
-   "owner": "ZCode",
-   "status": "referenced, not populated",
-   "tag": "claimed",
-   "evidence": "threads/pm-thread-1.md"
-  },
-  {
-   "id": "PM-011",
-   "title": "W01 wave: enumerate all 19 UAH files (23 of 146 integration files indexed so far)",
-   "initiative": "UAH",
-   "owner": "ZCode",
-   "status": "pending",
-   "tag": "claimed",
-   "evidence": "threads/pm-thread-2.md"
-  },
-  {
-   "id": "PM-012",
-   "title": "AION self-reflection (canon/AION-SELF-REFLECTION.md): close gaps G0-G7",
-   "initiative": "AION-META",
-   "owner": "AION",
-   "status": "doc published (9edc397); gaps G0 PC health, G1 phone, G2 recorder, G3 local bridge, G4 shared model, G5 browser twin, G6 PM loop, G7 product open",
-   "tag": "verified (doc exists; gap closure claimed)",
-   "evidence": "https://github.com/owenservera/aion/blob/main/canon/AION-SELF-REFLECTION.md"
-  },
-  {
-   "id": "PM-013",
-   "title": "Twin CLI (canon/TWIN-CLI-SPEC.md): CDP web-app twin, ChatGPT first; gates T0-T8",
-   "initiative": "AION-META",
-   "owner": "ZCode",
-   "status": "spec published (f8b20e9); T0-T8 all not started; no live CDP claimed",
-   "tag": "verified (candidates exist)",
-   "evidence": "owenservera/vivim-omega: docs/decisions/D-419-cdp-substrate-lane.md, plugins/provider-browser (CDP leg = future/fixtures only), docs/DISCOVERY.md, docs/HEALING.md, D-339/D-352 streaming, contracts/src/parser.ts, fixtures/import/chatgpt-conversations.json; https://github.com/owenservera/aion/blob/main/canon/TWIN-CLI-SPEC.md"
-  },
-  {
-   "id": "PM-014",
-   "title": "D4 dispatch freeze; receipt consumer for 001.PROJECTS.PM #16,#17,#18,#20; close receipt loop GitHub inbox -> PC consumer -> ZCode -> receipt (diagnostic-only first test, AION rec)",
-   "initiative": "UAH",
-   "owner": "ZCode (BFF)",
-   "status": "open",
-   "tag": "claimed",
-   "evidence": "canon D4; pm/evidence/2026-10-16-aion-capabilities.md; ACP-038, ACP-010, GPM PM-17, BOARD PM-17-ISSUE-1, self-reflection G3",
-   "priority": "P0"
-  },
-  {
-   "id": "PM-015",
-   "title": "D5 PC storage P0 (6.3 GB free reported 10-14)",
-   "initiative": "ops",
-   "owner": "BFF",
-   "status": "open; current reading unknown",
-   "tag": "claimed",
-   "evidence": "hq#7 via canon D5; hq projects/storage-rescue/PLAN.md T-01..T-21; BOARD PC-005"
-  },
-  {
-   "id": "PM-016",
-   "title": "Twin CLI gate T0: env + VOMEGA hashes",
-   "initiative": "AION-META",
-   "owner": "BFF",
-   "priority": "P1",
-   "status": "not started",
-   "tag": "claimed",
-   "evidence": "TWIN-CLI-SPEC §10"
-  },
-  {
-   "id": "PM-017",
-   "title": "Twin CLI gates T1-T3: live Chrome attach, redacted capture, ChatGPT read twin",
-   "initiative": "AION-META",
-   "owner": "BFF; AION verifies",
-   "priority": "P1",
-   "status": "not started",
-   "tag": "claimed",
-   "evidence": "TWIN-CLI-SPEC §10"
-  },
-  {
-   "id": "PM-018",
-   "title": "Twin CLI gates T4-T8: streaming, reversible edit, PM handoff, multi-app, resilience",
-   "initiative": "AION-META",
-   "owner": "BFF; AION accepts",
-   "priority": "P2",
-   "status": "not started",
-   "tag": "claimed",
-   "evidence": "TWIN-CLI-SPEC §10"
-  },
-  {
-   "id": "PM-019",
-   "title": "PC-001 machine preflight / containment verification (PC HQ P0)",
-   "initiative": "ops",
-   "owner": "PC HQ",
-   "priority": "P0",
-   "status": "active-source-reported; current-host-unverified",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/hq/issues/1 via BOARD.md"
-  },
-  {
-   "id": "PM-020",
-   "title": "Storage rescue quick wins T-01..T-04, T-12 (~10 GB est.)",
-   "initiative": "ops",
-   "owner": "PC HQ / BFF",
-   "priority": "P1",
-   "status": "ready, not executed",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/hq/blob/main/projects/storage-rescue/PLAN.md"
-  },
-  {
-   "id": "PM-021",
-   "title": "Storage rescue heavy: T-06 opencode.db surgery (16.85 GB), T-09 Windows.old (11 GB, expires ~Oct 18, owner)",
-   "initiative": "ops",
-   "owner": "Owen / PC HQ",
-   "priority": "P0",
-   "status": "waiting on owner",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/hq/blob/main/projects/storage-rescue/PLAN.md"
-  },
-  {
-   "id": "PM-022",
-   "title": "Storage rescue tooling/policy T-07,T-08,T-10,T-11,T-13..T-21",
-   "initiative": "ops",
-   "owner": "PC HQ",
-   "priority": "P2",
-   "status": "mixed ready/recon/optional",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/hq/blob/main/projects/storage-rescue/PLAN.md"
-  },
-  {
-   "id": "PM-023",
-   "title": "ZCode UI acceptance: restart ZCode, confirm ccr-router + one live prompt (W01)",
-   "initiative": "IANG",
-   "owner": "Owen",
-   "priority": "P1",
-   "status": "blocked on human restart",
-   "tag": "verified (pending in tracker)",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md; zcode-setup TRACKER Next #3-4"
-  },
-  {
-   "id": "PM-024",
-   "title": "SOFTWARE_HQ decisions D-a/D-b/D-c (CCR naming, new-provider-3, kit apply)",
-   "initiative": "UAH",
-   "owner": "Owen",
-   "priority": "P1",
-   "status": "open",
-   "tag": "verified (open in tracker)",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md"
-  },
-  {
-   "id": "PM-025",
-   "title": "CCR per-provider emission (P2) then ZCode provider list cleanup to CCR only (P3)",
-   "initiative": "UAH",
-   "owner": "orchestrator",
-   "priority": "P2",
-   "status": "blocked by P1a + D-a/D-b",
-   "tag": "verified (pending)",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md"
-  },
-  {
-   "id": "PM-026",
-   "title": "Migrate GPM owner-exec model channeler into SOFTWARE_HQ (P4)",
-   "initiative": "UAH",
-   "owner": "orchestrator",
-   "priority": "P3",
-   "status": "pending",
-   "tag": "verified (pending)",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md"
-  },
-  {
-   "id": "PM-027",
-   "title": "SOFTWARE_HQ owner hygiene: prove safe-sync failure pre-existing, per-model context windows, disabled-provider policy, remove 2 worktrees, canonical .bridge-labs",
-   "initiative": "UAH",
-   "owner": "Owen",
-   "priority": "P3",
-   "status": "pending",
-   "tag": "verified (pending)",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/TASKS.md"
-  },
-  {
-   "id": "PM-028",
-   "title": "Oracle alignment queue AQ-004..AQ-006 (CCR-ZCode gates, engine reuse, ZCode-OpenCode trace)",
-   "initiative": "UAH",
-   "owner": "ZCode",
-   "priority": "P2",
-   "status": "open",
-   "tag": "verified",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/oracle-reconciliation/alignment/queue.csv"
-  },
-  {
-   "id": "PM-029",
-   "title": "zcode-opencode v1.0.0 live acceptance",
-   "initiative": "IANG",
-   "owner": "ZCode",
-   "priority": "P2",
-   "status": "packaged; live acceptance open",
-   "tag": "verified (status text)",
-   "evidence": "https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/TRACKER.md"
-  },
-  {
-   "id": "PM-030",
-   "title": "CEO plan P0-001: complete ChatGPT conversation export / original-prompt sovereignty",
-   "initiative": "IAM",
-   "owner": "AION / Owen",
-   "priority": "P1",
-   "status": "open",
-   "tag": "verified (work order exists)",
-   "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/programs/uah-iang/CEO-RECONCILIATION-PLAN.md"
-  },
-  {
-   "id": "PM-031",
-   "title": "CEO plan milestones M2-M6 (periphery, IANG maturity, project tree, signals, convergence)",
-   "initiative": "IAM",
-   "owner": "AION PM / ZCode",
-   "priority": "P3",
-   "status": "not started",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/programs/uah-iang/CEO-RECONCILIATION-PLAN.md"
-  },
-  {
-   "id": "PM-032",
-   "title": "ACP P0 backlog: ACP-001,002,006,007,008,010,011,017,021,027,028,029,030 (constitution, security, authority, readiness, E2E session test, LocalGrokBot kernel)",
-   "initiative": "UAH",
-   "owner": "ACP / ZCode",
-   "priority": "P1",
-   "status": "backlog (status not in file)",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/ACP/blob/main/backlog/TASKS.yaml"
-  },
-  {
-   "id": "PM-033",
-   "title": "ACP-038 bridge.request.v1 GitHub dispatch intake (Bun watcher) = PM-17 / ACP-019",
-   "initiative": "AION-PC",
-   "owner": "ACP / ZCode",
-   "priority": "P0",
-   "status": "backlog; = PM-014 consumer",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/ACP/blob/main/backlog/TASKS.yaml"
-  },
-  {
-   "id": "PM-034",
-   "title": "ACP P1-P3 backlog (24 items: contracts, credentials, messaging, VOMEGA boundary, security residue, etc.)",
-   "initiative": "UAH",
-   "owner": "ACP",
-   "priority": "P3",
-   "status": "backlog",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/ACP/blob/main/backlog/TASKS.yaml"
-  },
-  {
-   "id": "PM-035",
-   "title": "GPM programs PM-06..PM-20 (comms kit, governance, RACI, provider intel, capacity queue, Kanban, dashboards, NotebookLM)",
-   "initiative": "GPM",
-   "owner": "Global PM",
-   "priority": "P3",
-   "status": "proposed/partial; PM-01..05 done",
-   "tag": "verified (status text)",
-   "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/docs/WORKPLAN.md"
-  },
-  {
-   "id": "PM-036",
-   "title": "GPM board: SOFTWARE_HQ-APP-001, VOMEGA-D1 ratchet read, GPM-CHATGPT-DRYRUN-1, task notifications",
-   "initiative": "GPM",
-   "owner": "various",
-   "priority": "P2",
-   "status": "published / unknown receipt",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/reports/board.v0.1.json"
-  },
-  {
-   "id": "PM-037",
-   "title": "Product Hub W1-W4 + S0 storage audit (issues #1-#5)",
-   "initiative": "ops",
-   "owner": "Product Hub",
-   "priority": "P2",
-   "status": "acceptance unverified; 0/94 candidates actionable",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/Product_Hub/blob/main/PROJECT_TRACKER.md"
-  },
-  {
-   "id": "PM-038",
-   "title": "zcode-setup next: bot schedules (brief 045), currency defects, OAuth providers (025), brief-023 acceptance, Q001-Q007",
-   "initiative": "UAH",
-   "owner": "Owen / ZCode",
-   "priority": "P2",
-   "status": "owner steps pending",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/zcode-setup/blob/main/TRACKER.md"
-  },
-  {
-   "id": "PM-039",
-   "title": "Credential hygiene: plaintext keys in ZCode configs/backups (zcode-setup open problem; ACP-035)",
-   "initiative": "ops",
-   "owner": "Owen",
-   "priority": "P1",
-   "status": "open decision",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/zcode-setup/blob/main/TRACKER.md"
-  },
-  {
-   "id": "PM-040",
-   "title": "atomic-1000 provisional inventory rollup: 1000 items, 100 parents, 10 workstreams (GPM 140, SW 140, BR 120, ACP/PC/AI 100, VO/UM/QG 80, PH 60); all Unverified/owner TBD/no deps; tracked as one roll-up, not imported",
-   "initiative": "GPM",
-   "owner": "AION PM",
-   "priority": "P3",
-   "status": "provisional; triage into verified tasks",
-   "tag": "claimed",
-   "evidence": "https://github.com/owenservera/001.PROJECTS.PM/blob/main/intake/conversation-atomization-2026-10-14/atomic-1000.v0.1.json"
-  },
-  {
-   "id": "PM-041",
-   "title": "ZBot Host: native ACP tool behaviour not governed by Host approval layer (security gap)",
-   "initiative": "AION-PC",
-   "owner": "ZCode",
-   "priority": "P1",
-   "status": "open",
-   "tag": "claimed",
-   "evidence": "AION-SELF-REFLECTION §2"
-  },
-  {
-   "id": "PM-042",
-   "title": "AION recorder / flight recorder (G2) + PWA phone reach (G1, Tailnet approvals pending)",
-   "initiative": "AION-META",
-   "owner": "BFF",
-   "priority": "P2",
-   "status": "partial, BFF-reported",
-   "tag": "claimed",
-   "evidence": "AION-SELF-REFLECTION §3,§6"
+  "top10": [
+    "P0#1 chatgpt.com -> ZCode on Owen's PC (PM-000)",
+    "Close receipt loop diagnostic-only: GitHub inbox -> PC consumer -> ZCode -> receipt (PM-014 = ACP-038 PM-033 = GPM PM-17)",
+    "PC disk: measure free space; T-09 Windows.old + T-06 opencode.db (PM-021, PM-015) and PC-001 preflight (PM-019)",
+    "ACP Bridge (PM-007)",
+    "Restart ZCode + ccr-router/live prompt acceptance (PM-023)",
+    "Recover IAM + UAH sqlite from original chats/Owen downloads (AION sandbox 0/5) (PM-004/005)",
+    "Owen decisions D-a/D-b/D-c then UAH CLI entry point (PM-024, PM-006)",
+    "Twin CLI T0-T3 (PM-016, PM-017)",
+    "Credential hygiene + ZBot Host approval gap (PM-039, PM-041)",
+    "Prove W01-W03 + merge schemas (PM-008, PM-009)"
+  ],
+  "sources": [
+    {
+      "repo": "001.PROJECTS.PM",
+      "path": "reports/BOARD.md",
+      "commit": "0f124f3",
+      "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/0f124f3/reports/BOARD.md"
+    },
+    {
+      "repo": "001.PROJECTS.PM",
+      "path": "reports/board.v0.1.json",
+      "commit": "946f1e8",
+      "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/946f1e8/reports/board.v0.1.json"
+    },
+    {
+      "repo": "001.PROJECTS.PM",
+      "path": "docs/WORKPLAN.md",
+      "commit": "c65d01a",
+      "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/c65d01a/docs/WORKPLAN.md"
+    },
+    {
+      "repo": "001.PROJECTS.PM",
+      "path": "programs/uah-iang/CEO-RECONCILIATION-PLAN.md",
+      "commit": "5eb568b",
+      "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/5eb568b/programs/uah-iang/CEO-RECONCILIATION-PLAN.md"
+    },
+    {
+      "repo": "001.PROJECTS.PM",
+      "path": "programs/integration-automation/workload-registry.json",
+      "commit": "e535928",
+      "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/e535928/programs/integration-automation/workload-registry.json"
+    },
+    {
+      "repo": "001.PROJECTS.PM",
+      "path": "intake/conversation-atomization-2026-10-14/atomic-1000.v0.1.json",
+      "commit": "648d5ea",
+      "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/648d5ea/intake/conversation-atomization-2026-10-14/atomic-1000.v0.1.json"
+    },
+    {
+      "repo": "SOFTWARE_HQ",
+      "path": "TASKS.md",
+      "commit": "5d41dec",
+      "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/5d41dec/TASKS.md"
+    },
+    {
+      "repo": "SOFTWARE_HQ",
+      "path": "TRACKER.md",
+      "commit": "5d41dec",
+      "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/5d41dec/TRACKER.md"
+    },
+    {
+      "repo": "SOFTWARE_HQ",
+      "path": "integrations/TRACKER.md",
+      "commit": "5d41dec",
+      "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/5d41dec/integrations/TRACKER.md"
+    },
+    {
+      "repo": "SOFTWARE_HQ",
+      "path": "integrations/oracle-reconciliation/alignment/TRACKER.md",
+      "commit": "c8eb320",
+      "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/c8eb320/integrations/oracle-reconciliation/alignment/TRACKER.md"
+    },
+    {
+      "repo": "SOFTWARE_HQ",
+      "path": "integrations/oracle-reconciliation/alignment/queue.csv",
+      "commit": "58e8801",
+      "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/58e8801/integrations/oracle-reconciliation/alignment/queue.csv"
+    },
+    {
+      "repo": "SOFTWARE_HQ",
+      "path": "integrations/oracle-reconciliation/alignment/signals.json",
+      "commit": "2fa4d3d",
+      "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/2fa4d3d/integrations/oracle-reconciliation/alignment/signals.json"
+    },
+    {
+      "repo": "ACP",
+      "path": "backlog/TASKS.yaml",
+      "commit": "1adf989",
+      "url": "https://github.com/owenservera/ACP/blob/1adf989/backlog/TASKS.yaml"
+    },
+    {
+      "repo": "Product_Hub",
+      "path": "PROJECT_TRACKER.md",
+      "commit": "bdcefe7",
+      "url": "https://github.com/owenservera/Product_Hub/blob/bdcefe7/PROJECT_TRACKER.md"
+    },
+    {
+      "repo": "hq",
+      "path": "projects/storage-rescue/PLAN.md",
+      "commit": "be5253f",
+      "url": "https://github.com/owenservera/hq/blob/be5253f/projects/storage-rescue/PLAN.md"
+    },
+    {
+      "repo": "zcode-setup",
+      "path": "TRACKER.md",
+      "commit": "301d82f",
+      "url": "https://github.com/owenservera/zcode-setup/blob/301d82f/TRACKER.md"
+    },
+    {
+      "repo": "aion",
+      "path": "canon/AION-SELF-REFLECTION.md",
+      "commit": "9edc397",
+      "url": "https://github.com/owenservera/aion/blob/9edc397/canon/AION-SELF-REFLECTION.md"
+    },
+    {
+      "repo": "aion",
+      "path": "canon/TWIN-CLI-SPEC.md",
+      "commit": "f8b20e9",
+      "url": "https://github.com/owenservera/aion/blob/f8b20e9/canon/TWIN-CLI-SPEC.md"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "pm/evidence/2026-10-16-aion-capabilities.md",
+      "date": "2026-10-16",
+      "summary": "AION self-report: 0/5 lost files (IAM sqlite, schema.sql, build.py, UAH dispersion sqlite, project.yaml) in its sandbox; /mnt/data not durable; recommends closing receipt loop GitHub inbox -> PC consumer -> ZCode -> receipt, first test diagnostic-only",
+      "tag": "claimed (AION self-report)"
+    }
+  ],
+  "atomic_tasks": [
+    {
+      "id": "AT-001",
+      "title": "Identify exact canonical ChatGPT conversation URL",
+      "owner": "AION PM",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "URL recorded and confirmed from owner-provided thread",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-002",
+      "title": "Inspect BFF browser session for target conversation access",
+      "owner": "AION BFF",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Access result and timestamp recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-003",
+      "title": "Test opening canonical conversation in BFF browser",
+      "owner": "AION BFF",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Actual page URL and access result captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-004",
+      "title": "Post identity-prefixed BFF presence message in target conversation",
+      "owner": "AION BFF",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Message visibly appears in target conversation",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-005",
+      "title": "Identify PM browser session and its access path",
+      "owner": "AION PM",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "PM session access path recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-006",
+      "title": "Test opening canonical conversation in PM browser",
+      "owner": "AION PM",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Actual page URL and access result captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-007",
+      "title": "Post identity-prefixed PM presence message in target conversation",
+      "owner": "AION PM",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Message visibly appears in target conversation",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-008",
+      "title": "Confirm BFF message in this conversation",
+      "owner": "AION",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Exact sender text observed by AION",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-009",
+      "title": "Confirm PM message in this conversation",
+      "owner": "AION",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Exact sender text observed by AION",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-010",
+      "title": "Record rendezvous acceptance and unresolved delivery gaps",
+      "owner": "AION PM",
+      "phase": "01-Team rendezvous",
+      "seed": "ACP / AION communications",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Ledger contains source-linked evidence and remaining gaps",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-011",
+      "title": "Locate OpenCode binary on BFF Linux host",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Command path or absent result captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-012",
+      "title": "Run OpenCode version command on BFF Linux",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Actual version stdout and exit code captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-013",
+      "title": "Inspect official OpenCode install instructions if missing",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Official installation source and compatibility recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-014",
+      "title": "Install OpenCode on BFF Linux only if absent",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Install exit code and binary path captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-015",
+      "title": "List configured OpenCode model providers without secrets",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Redacted provider inventory captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-016",
+      "title": "Identify first working free model in approved routing order",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Model ID and availability evidence recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-017",
+      "title": "Run harmless OpenCode free-model completion probe",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Prompt, response, model, timestamp and exit status recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-018",
+      "title": "Measure first free-model probe latency",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Elapsed time measured and recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-019",
+      "title": "Document any required trusted-host login blocker",
+      "owner": "AION BFF",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Specific provider login blocker recorded without credentials",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-020",
+      "title": "Independently validate OpenCode installation and free-model proof",
+      "owner": "AION PM",
+      "phase": "02-OpenCode runtime",
+      "seed": "OpenCode / SOFTWARE_HQ",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "PM marks verified only after inspecting raw evidence",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-021",
+      "title": "Read ACP bridge contract source at pinned commit",
+      "owner": "AION BFF",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Source path and SHA recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-022",
+      "title": "Read zcode-setup pocket-link adapter documentation",
+      "owner": "AION BFF",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Existing reusable adapter entry points recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-023",
+      "title": "Read zcode-bots diagnostic MCP draft PR source",
+      "owner": "AION BFF",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Exact files and commit SHA recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-024",
+      "title": "Read existing 001.PROJECTS.PM issue transport contract",
+      "owner": "AION BFF",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Contract version and hash recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-025",
+      "title": "Inspect current Linux receipt consumer implementation",
+      "owner": "AION BFF",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Consumer exists or absent, with source evidence",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-026",
+      "title": "Inspect VOMEGA browser CDP integration candidate",
+      "owner": "AION BFF",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Reusable files and maturity classified",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-027",
+      "title": "Check existing ZCode/OpenCode integration status",
+      "owner": "AION BFF",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Observed implementation distinguished from design",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-028",
+      "title": "Map five transport options against existing seeds",
+      "owner": "AION PM",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "One evidence-backed comparison matrix added to ledger",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-029",
+      "title": "Select smallest authorized path for diagnostic roundtrip",
+      "owner": "AION",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Chosen path and rationale recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-030",
+      "title": "Record rejected duplicate gateway proposals",
+      "owner": "AION PM",
+      "phase": "03-Existing bridge census",
+      "seed": "ACP / UAH / zcode-setup / VOMEGA",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Ledger contains no-build decision and links to reused seeds",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-031",
+      "title": "Specify bridge.request.v1 diagnostic allowlist",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Machine-checkable allowlist schema created",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-032",
+      "title": "Implement authenticated GitHub inbox read",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Read-only fetch passes local fixture test",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-033",
+      "title": "Implement source principal validation",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Untrusted actor fixture rejected",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-034",
+      "title": "Implement dispatch label validation",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Missing-label fixture rejected",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-035",
+      "title": "Implement exact issue body digest check",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Modified-body fixture rejected",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-036",
+      "title": "Implement durable issue-and-digest deduplication",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Duplicate fixture produces one receipt",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-037",
+      "title": "Implement correlation ID propagation",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Correlation ID unchanged across fixture stages",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-038",
+      "title": "Implement UTC timestamped read-only receipt",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Receipt contains required timestamps and source hash",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-039",
+      "title": "Implement fail-closed unknown request rejection",
+      "owner": "OpenCode via BFF",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Unknown request test denies action",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-040",
+      "title": "Independently review consumer tests and negative cases",
+      "owner": "AION PM",
+      "phase": "04-Read-only receipt consumer",
+      "seed": "ACP-038 / GPM PM-17 / PM-014",
+      "existing_work_item": "PM-014",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Test outputs and code revision independently checked",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-041",
+      "title": "Identify exact Windows ZCode runtime version",
+      "owner": "AION BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Version and host identity captured without secrets",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-042",
+      "title": "Identify installed ZBot diagnostic capabilities",
+      "owner": "AION BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Actual command inventory recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-043",
+      "title": "Identify supported ACP admission mechanism",
+      "owner": "AION BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Documented admission path and restrictions recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-044",
+      "title": "Wire read-only diagnostic request to existing adapter",
+      "owner": "OpenCode via BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Fixture passes without host mutation",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-045",
+      "title": "Implement denial for unsupported ACP native tools",
+      "owner": "OpenCode via BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Negative test proves unsupported tool denied",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-046",
+      "title": "Implement sanitized diagnostic output",
+      "owner": "OpenCode via BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "No secrets in test receipt",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-047",
+      "title": "Implement ZCode timeout handling",
+      "owner": "OpenCode via BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Timeout produces explicit failed receipt",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-048",
+      "title": "Implement ZCode process failure handling",
+      "owner": "OpenCode via BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Failure exit code preserved in receipt",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-049",
+      "title": "Test diagnostic adapter on isolated Linux fixture",
+      "owner": "AION BFF",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Reproducible test command and logs captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-050",
+      "title": "Validate adapter provenance and no privilege expansion",
+      "owner": "AION PM",
+      "phase": "05-ZCode diagnostic adapter",
+      "seed": "ZCode / zcode-bots / UAH",
+      "existing_work_item": "PM-000",
+      "priority": "P0",
+      "status": "assigned_unacknowledged",
+      "acceptance": "PM verifies tests and exact source SHA",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-051",
+      "title": "Draft exact harmless Windows diagnostic request for approval",
+      "owner": "AION BFF",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Scope, expected result and rollback documented",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-052",
+      "title": "Present only the specific Windows diagnostic approval if needed",
+      "owner": "AION",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Explicit owner decision recorded or gate remains blocked",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-053",
+      "title": "Verify Windows host identity and consumer version after approval",
+      "owner": "AION BFF",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Actual Windows receipt identifies authorized target",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-054",
+      "title": "Submit one correlated read-only diagnostic after approval",
+      "owner": "AION BFF",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Request ID, source hash and UTC send time captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-055",
+      "title": "Confirm authenticated Windows consumer RECEIVED event",
+      "owner": "AION BFF",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Host-side receive evidence captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-056",
+      "title": "Confirm ACP admission decision for diagnostic",
+      "owner": "AION BFF",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Distinct admitted or denied receipt captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-057",
+      "title": "Execute permitted ZCode diagnostic on real Windows host",
+      "owner": "ZCode via BFF",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Real host diagnostic output and exit status captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-058",
+      "title": "Publish sanitized correlated result for readback",
+      "owner": "AION BFF",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Receipt retrievable without credentials",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-059",
+      "title": "Independently compare request ID, source digest and result",
+      "owner": "AION",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Matching chain confirmed across stages",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-060",
+      "title": "Mark PM-000 and PM-014 verified only after full proof",
+      "owner": "AION PM",
+      "phase": "06-Real Windows roundtrip",
+      "seed": "ACP / UAH / ZCode / PM-014",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Evidence-backed verified or blocked status committed",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-061",
+      "title": "Measure current Windows free disk space read-only",
+      "owner": "AION BFF",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Drive, free bytes and timestamp captured",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-062",
+      "title": "Compare current disk reading with stale risk entry",
+      "owner": "AION PM",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "R7 updated without assuming old reading is current",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-063",
+      "title": "Check Windows recovery and login readiness read-only",
+      "owner": "AION BFF",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Preflight evidence captured without settings changes",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-064",
+      "title": "Check for existing duplicate relay consumers",
+      "owner": "AION BFF",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Process and service inventory recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-065",
+      "title": "Check current dispatch freeze enforcement",
+      "owner": "AION BFF",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "No unauthorized executable issue ingestion observed",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-066",
+      "title": "Test denial of arbitrary shell request through bridge",
+      "owner": "OpenCode via BFF",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Shell request denied in fixture",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-067",
+      "title": "Test denial of mutating desktop request",
+      "owner": "OpenCode via BFF",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Desktop mutation request denied in fixture",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-068",
+      "title": "Test forged principal rejection",
+      "owner": "OpenCode via BFF",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Forged identity denied in fixture",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-069",
+      "title": "Review credential leakage in test artifacts",
+      "owner": "AION PM",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "No plaintext secrets in published evidence",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-070",
+      "title": "Review privilege expansion gates before any broad execution",
+      "owner": "AION",
+      "phase": "07-Safety and host viability",
+      "seed": "PC HQ / ACP / ZBot Host",
+      "existing_work_item": "PM-019",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Explicit go/no-go and supporting proof recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-071",
+      "title": "Keep ledger.json as sole machine-authoritative AION task register",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Authoritative path documented",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-072",
+      "title": "Generate LEDGER.md view from ledger.json",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Generated view matches machine task counts",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-073",
+      "title": "Assign exactly one accountable owner per atomic task",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "100 of 100 owner fields populated",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-074",
+      "title": "Attach a planned-project seed to every atomic task",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "100 of 100 seed fields populated",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-075",
+      "title": "Attach objective acceptance criteria to every atomic task",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "100 of 100 acceptance fields populated",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-076",
+      "title": "Link each atomic task to existing PM work item",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "100 of 100 cross-references populated",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-077",
+      "title": "Define blocked versus unacknowledged versus verified status",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Status vocabulary and transition rules documented",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-078",
+      "title": "Prevent verification without independent evidence",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Negative status transition test passes",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-079",
+      "title": "Record every verified artifact with immutable commit or receipt",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Evidence references are retrievable",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-080",
+      "title": "Maintain append-only change history of task state changes",
+      "owner": "AION PM",
+      "phase": "08-Running ledger operations",
+      "seed": "AION PM / GPM Cognitive OS / IAM",
+      "existing_work_item": "PM-035",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Task state transitions carry actor and UTC timestamp",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-081",
+      "title": "Map bridge transport artifacts to existing ACP work items",
+      "owner": "AION PM",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Cross-project seed references recorded",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-082",
+      "title": "Map ZCode adapter artifacts to UAH integration graph",
+      "owner": "AION PM",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "UAH integration edges proposed with provenance",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-083",
+      "title": "Map browser rendezvous to VOMEGA CDP candidate",
+      "owner": "AION PM",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Reuse decision documented against source",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-084",
+      "title": "Map receipt events to GPM flight-recorder schema",
+      "owner": "AION PM",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Event mapping recorded without second recorder",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-085",
+      "title": "Map correlation IDs to IAM provenance identifiers",
+      "owner": "AION PM",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Identifier mapping and collision handling documented",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-086",
+      "title": "Extract reusable receipt validator as a bounded component",
+      "owner": "AION BFF",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Single validator module passes tests",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-087",
+      "title": "Extract reusable diagnostic fixture from bridge tests",
+      "owner": "AION BFF",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Fixture reused in at least two tests",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-088",
+      "title": "Check new code against existing repo before proposing new repo",
+      "owner": "AION PM",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "No unnecessary repository creation approved",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-089",
+      "title": "Select next capability multiplier using proven dependency reduction",
+      "owner": "AION",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Decision names measurable reuse benefit",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-090",
+      "title": "Record component ownership and canonical source paths",
+      "owner": "AION PM",
+      "phase": "09-Reusable seed multipliers",
+      "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
+      "existing_work_item": "PM-009",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "No duplicate authoritative component declared",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-091",
+      "title": "Publish one-page live critical-path view from ledger",
+      "owner": "AION PM",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "View shows P0 tasks, owners, blockers and evidence",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-092",
+      "title": "Record OpenCode first-success receipt in canonical evidence store",
+      "owner": "AION BFF",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Raw test output and source version persisted",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-093",
+      "title": "Independently validate OpenCode free-model receipt",
+      "owner": "AION PM",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Evidence checked, status advanced or blocked",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-094",
+      "title": "Record bridge consumer first-success fixture receipt",
+      "owner": "AION BFF",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Correlation and digest persisted",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-095",
+      "title": "Independently validate bridge consumer receipt",
+      "owner": "AION PM",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Source hash and negative tests checked",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-096",
+      "title": "Record real Windows diagnostic receipt when authorized",
+      "owner": "AION BFF",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Real host proof persisted, not simulated",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-097",
+      "title": "Independently validate real Windows receipt",
+      "owner": "AION PM",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "All stage transitions and target identity checked",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-098",
+      "title": "Issue final PM-000 acceptance decision",
+      "owner": "AION",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Acceptance linked to real end-to-end evidence",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-099",
+      "title": "Deliver concise exception-only report to Owen",
+      "owner": "AION BFF",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Only verified outcomes and owner-only blockers included",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    },
+    {
+      "id": "AT-100",
+      "title": "Select next ten ready tasks from dependency graph",
+      "owner": "AION PM",
+      "phase": "10-Acceptance and operational continuity",
+      "seed": "AION / ACP / GPM Cognitive OS",
+      "existing_work_item": "PM-000",
+      "priority": "P1",
+      "status": "assigned_unacknowledged",
+      "acceptance": "Ready queue grounded in completed evidence",
+      "evidence": [],
+      "last_verified_at": null,
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+    }
+  ],
+  "atomic_task_contract": {
+    "authoritative": "workspace/aion/pm/ledger.json",
+    "count": 100,
+    "statuses": [
+      "assigned_unacknowledged",
+      "acknowledged",
+      "in_progress",
+      "blocked",
+      "evidence_submitted",
+      "verified",
+      "rejected"
+    ],
+    "verification_rule": "Only AION PM may advance to verified after independent source-backed evidence review.",
+    "assignment_rule": "One accountable owner per task; assignment in ledger does not prove agent receipt.",
+    "communication_rule": "All team communication in the same ChatGPT 001.PROJECTS.PM conversation; GitHub is durable evidence and ledger, not chat or execution authority.",
+    "seed_rule": "No new build without an existing planned capability seed and reuse check.",
+    "human_rule": "Owen is strategic authority; BFF handles exception-only reporting; no owner task tracking.",
+    "security_rule": "Existing D4 GitHub execution dispatch freeze remains; no Windows execution without explicit scoped authorization.",
+    "append_rule": "Future tasks append as AT-101 onward; do not reset or replace these 100."
   }
- ],
- "unknowns": [
-  "Actual UAH CLI runtime behaviour",
-  "Whether ChatGPT sandbox files are still downloadable",
-  "ZCode version",
-  "Current PC free disk",
-  "Scope of 'AION self-reflection'",
-  "ACP TASKS.yaml has no per-item status field; progress unknown",
-  "Whether Windows.old auto-expired (~Oct 18)",
-  "Whether any PC consumer reads aion inbox / publishes receipts (AION open question)"
- ],
- "inbox": {
-  "pinned": "https://github.com/owenservera/aion/issues/4",
-  "test": "https://github.com/owenservera/aion/issues/5 (closed)"
- },
- "top10": [
-  "P0#1 chatgpt.com -> ZCode on Owen's PC (PM-000)",
-  "Close receipt loop diagnostic-only: GitHub inbox -> PC consumer -> ZCode -> receipt (PM-014 = ACP-038 PM-033 = GPM PM-17)",
-  "PC disk: measure free space; T-09 Windows.old + T-06 opencode.db (PM-021, PM-015) and PC-001 preflight (PM-019)",
-  "ACP Bridge (PM-007)",
-  "Restart ZCode + ccr-router/live prompt acceptance (PM-023)",
-  "Recover IAM + UAH sqlite from original chats/Owen downloads (AION sandbox 0/5) (PM-004/005)",
-  "Owen decisions D-a/D-b/D-c then UAH CLI entry point (PM-024, PM-006)",
-  "Twin CLI T0-T3 (PM-016, PM-017)",
-  "Credential hygiene + ZBot Host approval gap (PM-039, PM-041)",
-  "Prove W01-W03 + merge schemas (PM-008, PM-009)"
- ],
- "sources": [
-  {
-   "repo": "001.PROJECTS.PM",
-   "path": "reports/BOARD.md",
-   "commit": "0f124f3",
-   "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/0f124f3/reports/BOARD.md"
-  },
-  {
-   "repo": "001.PROJECTS.PM",
-   "path": "reports/board.v0.1.json",
-   "commit": "946f1e8",
-   "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/946f1e8/reports/board.v0.1.json"
-  },
-  {
-   "repo": "001.PROJECTS.PM",
-   "path": "docs/WORKPLAN.md",
-   "commit": "c65d01a",
-   "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/c65d01a/docs/WORKPLAN.md"
-  },
-  {
-   "repo": "001.PROJECTS.PM",
-   "path": "programs/uah-iang/CEO-RECONCILIATION-PLAN.md",
-   "commit": "5eb568b",
-   "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/5eb568b/programs/uah-iang/CEO-RECONCILIATION-PLAN.md"
-  },
-  {
-   "repo": "001.PROJECTS.PM",
-   "path": "programs/integration-automation/workload-registry.json",
-   "commit": "e535928",
-   "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/e535928/programs/integration-automation/workload-registry.json"
-  },
-  {
-   "repo": "001.PROJECTS.PM",
-   "path": "intake/conversation-atomization-2026-10-14/atomic-1000.v0.1.json",
-   "commit": "648d5ea",
-   "url": "https://github.com/owenservera/001.PROJECTS.PM/blob/648d5ea/intake/conversation-atomization-2026-10-14/atomic-1000.v0.1.json"
-  },
-  {
-   "repo": "SOFTWARE_HQ",
-   "path": "TASKS.md",
-   "commit": "5d41dec",
-   "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/5d41dec/TASKS.md"
-  },
-  {
-   "repo": "SOFTWARE_HQ",
-   "path": "TRACKER.md",
-   "commit": "5d41dec",
-   "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/5d41dec/TRACKER.md"
-  },
-  {
-   "repo": "SOFTWARE_HQ",
-   "path": "integrations/TRACKER.md",
-   "commit": "5d41dec",
-   "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/5d41dec/integrations/TRACKER.md"
-  },
-  {
-   "repo": "SOFTWARE_HQ",
-   "path": "integrations/oracle-reconciliation/alignment/TRACKER.md",
-   "commit": "c8eb320",
-   "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/c8eb320/integrations/oracle-reconciliation/alignment/TRACKER.md"
-  },
-  {
-   "repo": "SOFTWARE_HQ",
-   "path": "integrations/oracle-reconciliation/alignment/queue.csv",
-   "commit": "58e8801",
-   "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/58e8801/integrations/oracle-reconciliation/alignment/queue.csv"
-  },
-  {
-   "repo": "SOFTWARE_HQ",
-   "path": "integrations/oracle-reconciliation/alignment/signals.json",
-   "commit": "2fa4d3d",
-   "url": "https://github.com/owenservera/SOFTWARE_HQ/blob/2fa4d3d/integrations/oracle-reconciliation/alignment/signals.json"
-  },
-  {
-   "repo": "ACP",
-   "path": "backlog/TASKS.yaml",
-   "commit": "1adf989",
-   "url": "https://github.com/owenservera/ACP/blob/1adf989/backlog/TASKS.yaml"
-  },
-  {
-   "repo": "Product_Hub",
-   "path": "PROJECT_TRACKER.md",
-   "commit": "bdcefe7",
-   "url": "https://github.com/owenservera/Product_Hub/blob/bdcefe7/PROJECT_TRACKER.md"
-  },
-  {
-   "repo": "hq",
-   "path": "projects/storage-rescue/PLAN.md",
-   "commit": "be5253f",
-   "url": "https://github.com/owenservera/hq/blob/be5253f/projects/storage-rescue/PLAN.md"
-  },
-  {
-   "repo": "zcode-setup",
-   "path": "TRACKER.md",
-   "commit": "301d82f",
-   "url": "https://github.com/owenservera/zcode-setup/blob/301d82f/TRACKER.md"
-  },
-  {
-   "repo": "aion",
-   "path": "canon/AION-SELF-REFLECTION.md",
-   "commit": "9edc397",
-   "url": "https://github.com/owenservera/aion/blob/9edc397/canon/AION-SELF-REFLECTION.md"
-  },
-  {
-   "repo": "aion",
-   "path": "canon/TWIN-CLI-SPEC.md",
-   "commit": "f8b20e9",
-   "url": "https://github.com/owenservera/aion/blob/f8b20e9/canon/TWIN-CLI-SPEC.md"
-  }
- ],
- "evidence": [
-  {
-   "path": "pm/evidence/2026-10-16-aion-capabilities.md",
-   "date": "2026-10-16",
-   "summary": "AION self-report: 0/5 lost files (IAM sqlite, schema.sql, build.py, UAH dispersion sqlite, project.yaml) in its sandbox; /mnt/data not durable; recommends closing receipt loop GitHub inbox -> PC consumer -> ZCode -> receipt, first test diagnostic-only",
-   "tag": "claimed (AION self-report)"
-  }
- ]
 }
