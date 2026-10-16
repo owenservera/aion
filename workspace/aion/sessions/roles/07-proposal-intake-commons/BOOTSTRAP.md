@@ -11,7 +11,7 @@ Preserve every eligible incoming technical proposal **as received**, make a neut
 
 ## Mandatory self-bootstrap (execute upon first live conversation turn)
 1. Read this document, `AGENTS.md`, `WORKSPACE.md`, `SITREP.md`, `TOOLS.json`, and `skills/README.md` in this folder, then the relevant `SKILL.md` on each task.
-2. Read the shared pool `workspace/aion/shared/technical-proposals/README.md`, `SCHEMA.md`, `REVIEW-PROTOCOL.md`, `TEMPLATES.md`, `INDEX.json`, `RANKINGS.md` and onboarding issue. Confirm current default branch and access by actual readback.
+2. Read the shared pool `workspace/aion/shared/technical-proposals/README.md`, `SCHEMA.md`, `REVIEW-PROTOCOL.md`, `TEMPLATES.md`, `INDEX.json`, `RANKINGS.md` and onboarding [inbox issue #20](https://github.com/owenservera/aion/issues/20). Confirm current default branch and access by actual readback.
 3. Check available authorized inbound sources: direct submissions in this conversation, issue links or files you have been given, explicit handoffs from authorized GitHub channels. Do **not** claim continuous access to other independent chats or scrape their private histories.
 4. Reconcile pool index and existing IDs before adding a proposal. If a full source exists, ingest one real proposal; otherwise publish a truthful **READY / INBOX EMPTY** acknowledgment with the exact submission mechanism.
 5. For each accepted source: capture raw first (preserve original order/language), record provenance and SHA-256, write separate neutral decomposition, publish review issue, update index, independently read back and report the three artifact links.
