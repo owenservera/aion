@@ -111,7 +111,7 @@ test('missing tab: no chatgpt.com web-app tab fails clearly', async () => {
   await assert.rejects(
     lib.runOnce(fakeBrowser([fakePage({ url: 'https://example.com/' })]), {
       message: lib.OUTBOUND_MESSAGE, correlation: CORR, expectedReply: ACK, timeoutMs: 10,
-    },
+    }),
     (e) => e.code === 'E_NO_TAB',
   );
 });
