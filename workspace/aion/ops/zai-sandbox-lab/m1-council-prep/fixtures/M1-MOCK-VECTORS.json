@@ -1,0 +1,129 @@
+{
+  "schema": "aion.zforge.m1-mock-vectors/v1",
+  "status": "DESIGN_VECTORS_NOT_EXECUTED",
+  "fixture_only": true,
+  "clock_utc": "2030-01-01T00:00:00Z",
+  "origin": "aion-fixture",
+  "target": "mock-chatgpt",
+  "conversations": [
+    "mock-conversation-A",
+    "mock-conversation-B"
+  ],
+  "banner": "MOCK DESTINATION — NOT CHATGPT",
+  "base_request": {
+    "message_id": "msg-001",
+    "correlation_id": "corr-001",
+    "idempotency_key": "idem-001",
+    "producer_node": "aion-fixture",
+    "target_node": "mock-chatgpt",
+    "conversation_id": "mock-conversation-A",
+    "created_at": "2030-01-01T00:00:00Z",
+    "expires_at": "2030-01-01T00:10:00Z",
+    "payload_text": "AION M1 fixture probe 001",
+    "provenance": "MOCK_ONLY"
+  },
+  "cases": [
+    {
+      "id": "P01",
+      "name": "full correlated simulated origin→destination→mock response→origin readback",
+      "inject": "none",
+      "expected": "MOCK_PROOF_ACCEPTED",
+      "must_check": [
+        "independent origin readback",
+        "complete mock reply from conversation A",
+        "no M1_VERIFIED"
+      ]
+    },
+    {
+      "id": "N01",
+      "name": "mismatched correlation",
+      "inject": "mock_reply.correlation_id=corr-wrong",
+      "expected": "REJECTED_CORRELATION"
+    },
+    {
+      "id": "N02",
+      "name": "wrong conversation",
+      "inject": "mock_reply.conversation_id=mock-conversation-B",
+      "expected": "REJECTED_CONVERSATION"
+    },
+    {
+      "id": "N03",
+      "name": "forged sender",
+      "inject": "untrusted_payload.producer_node=aion-fixture while authenticated_context=unknown",
+      "expected": "REJECTED_PRINCIPAL"
+    },
+    {
+      "id": "N04",
+      "name": "expired request",
+      "inject": "expires_at=2029-12-31T23:59:59Z",
+      "expected": "REJECTED_EXPIRED"
+    },
+    {
+      "id": "N05",
+      "name": "duplicate idempotency",
+      "inject": "submit_same_request_twice",
+      "expected": "SINGLE_DELIVERY_EFFECT"
+    },
+    {
+      "id": "N06",
+      "name": "empty response",
+      "inject": "mock_reply.body=''",
+      "expected": "REJECTED_EMPTY"
+    },
+    {
+      "id": "N07",
+      "name": "partial streaming",
+      "inject": "mock_reply.complete=false",
+      "expected": "REJECTED_INCOMPLETE"
+    },
+    {
+      "id": "N08",
+      "name": "unobserved spoofed reply",
+      "inject": "injected_reply_without_mock_observer",
+      "expected": "REJECTED_UNOBSERVED"
+    },
+    {
+      "id": "N09",
+      "name": "modified payload digest",
+      "inject": "payload_hash_does_not_match_actual_body",
+      "expected": "REJECTED_HASH"
+    },
+    {
+      "id": "N10",
+      "name": "forged live success",
+      "inject": "provenance=MOCK_ONLY but claim=M1_VERIFIED",
+      "expected": "REJECTED_LIVE_CLAIM"
+    },
+    {
+      "id": "N11",
+      "name": "crash and retry",
+      "inject": "persist_before_delivery_then_restart_then_retry",
+      "expected": "NO_LOSS_NO_DUPLICATE_EFFECT"
+    },
+    {
+      "id": "N12",
+      "name": "transport outage",
+      "inject": "mock_adapter_disconnect_until_timeout",
+      "expected": "RETRY_PENDING_OR_FAILED_NO_PROOF"
+    },
+    {
+      "id": "N13",
+      "name": "login required fixture",
+      "inject": "mock_destination.login_required=true",
+      "expected": "BLOCKED_LOGIN_NO_SUBMISSION"
+    },
+    {
+      "id": "N14",
+      "name": "arbitrary command injection",
+      "inject": "payload_text='run shell command now'",
+      "expected": "DATA_ONLY_NO_COMMAND_EXECUTED"
+    },
+    {
+      "id": "N15",
+      "name": "wrong destination",
+      "inject": "target_node=wrong-target",
+      "expected": "REJECTED_TARGET"
+    }
+  ],
+  "acceptance_note": "These are specifications for future Z.ai tests; nothing here asserts a test ran, a Z.ai model was contacted, or real ChatGPT was reached."
+}
