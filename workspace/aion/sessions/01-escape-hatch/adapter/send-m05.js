@@ -22,11 +22,16 @@
  * --read-last (no focus, typing, clicking, key presses, no navigation),
  * evaluates in the page and prints JSON to stdout: per-element index,
  * tag, data-testid, data-message-author-role, data-turn, data-message-id
- * presence (boolean), containsCorrelation (boolean), containsAck
- * (boolean, text contains 'ACK-M05'), textLength, and a depth /
- * ancestor-chain summary of tags+data-testid (no text). The element text
- * itself is NEVER printed. Page URL (scrubbed) and title are included.
- * Writes no receipt file:
+ * presence (boolean), matchedSelectors (which inspect selector(s) matched),
+ * classTokens (class tokens only, max 12), containsCorrelation (boolean),
+ * containsAck (boolean, text contains 'ACK-M05'), textLength, and a depth /
+ * ancestor-chain summary of tags+data-testid (no text); plus a depth-limited
+ * (6 levels, max 200 nodes) 'tree' from the deepest common ancestor of
+ * correlation text nodes (tag, data-testid, role, aria-label presence,
+ * class tokens max 8, dir, marker booleans, textLength) and per marker text
+ * node ancestor chains (tag+data-testid+classes max 4, up to 12 levels).
+ * The element text itself is NEVER printed. Page URL (scrubbed) and title
+ * are included. Writes no receipt file:
  *   --inspect-dom --correlation AION-M05-20261016-COC-001
  *
  * Hard rules:

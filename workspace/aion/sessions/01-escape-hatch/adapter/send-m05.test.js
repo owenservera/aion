@@ -756,12 +756,14 @@ test('inspect-dom evaluate fn never returns element text (document stub, direct 
     if (prev === undefined) delete globalThis.document;
     else globalThis.document = prev;
   }
-  assert.equal(out.length, 3);
+  assert.ok(out && typeof out === 'object' && !Array.isArray(out), 'evaluate returns { elements, tree, markers }');
+  assert.equal(out.elements.length, 3);
   const dumped = JSON.stringify(out);
   assert.ok(!dumped.includes(SECRET_A), 'element text must never leak');
   assert.ok(!dumped.includes(SECRET_B), 'element text must never leak');
   assert.ok(!dumped.includes('plain hello'), 'not even short element text leaks');
-  for (const el of out) {
+  assert.ok(!dumped.includes('SECRET-ARIA-LABEL-zz9'), 'aria-label VALUE must never leak (presence boolean only)');
+  for (const el of out.elements) {
     assert.ok(typeof el.index === 'number');
     assert.ok(typeof el.tag === 'string' && el.tag);
     assert.ok('data-testid' in el);
@@ -777,17 +779,142 @@ test('inspect-dom evaluate fn never returns element text (document stub, direct 
       assert.match(a, /^(ARTICLE|DIV|MAIN|BODY|HTML|FORM|SECTION)(\[data-testid=[^\]]+\])?$/);
     }
     assert.ok(!('text' in el), 'raw text key must never be present');
+    // New: which selector(s) matched + class tokens only (truncate 12).
+    assert.ok(Array.isArray(el.matchedSelectors), 'matchedSelectors array');
+    assert.ok(Array.isArray(el.classTokens), 'classTokens array');
+    assert.ok(el.classTokens.length <= 12, 'element class tokens truncate to 12');
+    for (const t of el.classTokens) {
+      assert.equal(typeof t, 'string');
+      assert.ok(t && !/\s/.test(t), 'class tokens only, no whitespace/raw class string');
+    }
   }
-  assert.equal(out[0].containsCorrelation, true);
-  assert.equal(out[0].containsAck, false);
-  assert.equal(out[0].textLength, texts[0].length);
-  assert.equal(out[0].tag, 'ARTICLE');
-  assert.equal(out[1].containsAck, true, "text contains 'ACK-M05'");
-  assert.equal(out[1].containsCorrelation, false);
-  assert.equal(out[2].hasDataMessageId, true, 'data-message-id presence is boolean true');
-  assert.equal(out[2]['data-message-author-role'], 'assistant');
-  assert.equal(out[2]['data-turn'], '3');
-  assert.equal(out[0].hasDataMessageId, false);
+  assert.equal(out.elements[0].containsCorrelation, true);
+  assert.equal(out.elements[0].containsAck, false);
+  assert.equal(out.elements[0].textLength, texts[0].length);
+  assert.equal(out.elements[0].tag, 'ARTICLE');
+  assert.ok(out.elements[0].matchedSelectors.includes('article'), 'article selector reported');
+  assert.ok(
+    out.elements[0].matchedSelectors.includes('[data-testid*="conversation-turn"]'),
+    'conversation-turn selector reported',
+  );
+  assert.equal(out.elements[0].classTokens.length, 12, '14 tokens truncate to 12');
+  assert.equal(out.elements[1].containsAck, true, "text contains 'ACK-M05'");
+  assert.equal(out.elements[1].containsCorrelation, false);
+  assert.ok(out.elements[1].matchedSelectors.includes('.markdown'), '.markdown selector reported');
+  assert.equal(out.elements[2].hasDataMessageId, true, 'data-message-id presence is boolean true');
+  assert.equal(out.elements[2]['data-message-author-role'], 'assistant');
+  assert.equal(out.elements[2]['data-turn'], '3');
+  assert.equal(out.elements[0].hasDataMessageId, false);
+  // New: tree (DCA of correlation text nodes, depth-limited, max 200).
+  assert.ok(Array.isArray(out.tree), 'tree array present');
+  assert.ok(out.tree.length >= 1 && out.tree.length <= 200, 'tree depth-limited and capped');
+  for (const n of out.tree) {
+    assert.ok(typeof n.tag === 'string' && n.tag);
+    assert.ok('data-testid' in n);
+    assert.ok('role' in n, 'role attr reported');
+    assert.equal(typeof n.hasAriaLabel, 'boolean', 'aria-label presence only');
+    assert.ok(!('aria-label' in n), 'aria-label value must never be present');
+    assert.ok(Array.isArray(n.classTokens) && n.classTokens.length <= 8, 'tree class tokens max 8');
+    assert.ok('dir' in n, 'dir attr reported');
+    assert.equal(typeof n.containsCorrelation, 'boolean');
+    assert.equal(typeof n.containsAck, 'boolean');
+    assert.equal(typeof n.textLength, 'number');
+    assert.ok(typeof n.relativeDepth === 'number' && n.relativeDepth < 6, 'tree depth-limited to 6 levels');
+    assert.ok(!('text' in n), 'tree nodes never carry text');
+  }
+  // DCA of the single correlation text node is the ARTICLE turn itself.
+  assert.equal(out.tree[0].tag, 'ARTICLE');
+  // New: markers — every text node containing correlation or ACK-M05.
+  assert.ok(Array.isArray(out.markers), 'markers array present');
+  assert.ok(Array.isArray(out.markerNodes) && Array.isArray(out.textNodes), 'marker aliases present');
+  assert.equal(out.markers.length, 2, 'only CORR + ACK text nodes reported (plain node excluded)');
+  const corrMarker = out.markers.find((m) => m.containsCorrelation);
+  const ackMarker = out.markers.find((m) => m.containsAck && !m.containsCorrelation);
+  assert.ok(corrMarker && ackMarker, 'one CORR marker and one ACK marker');
+  for (const m of out.markers) {
+    assert.equal(typeof m.containsCorrelation, 'boolean');
+    assert.equal(typeof m.containsAck, 'boolean');
+    assert.equal(typeof m.textLength, 'number');
+    assert.ok(Array.isArray(m.ancestors) && m.ancestors.length >= 1 && m.ancestors.length <= 12);
+    for (const a of m.ancestors) {
+      assert.equal(typeof a, 'string');
+      assert.match(a, /^(ARTICLE|DIV|MAIN|BODY|HTML|FORM|SECTION)/);
+    }
+    assert.ok(!('text' in m), 'markers never carry text');
+  }
+  assert.ok(corrMarker.ancestors.length <= 12, 'marker chains cap at 12 levels');
+  // Marker ancestor class tokens cap at 4 (el1 has 14 classes).
+  const corrTop = corrMarker.ancestors[0];
+  const dotCount = (corrTop.match(/\./g) || []).length;
+  assert.ok(dotCount <= 4, `marker ancestor class tokens max 4 (got ${corrTop})`);
+});
+
+test('inspect-dom handles live shape: DIVs with neither turn selector, both markers in one node', () => {
+  // Mirrors the live --inspect-dom output: 2 DIVs matched (no article, no
+  // data-message-author-role, no data-turn), each containing BOTH markers.
+  const mkDiv = (text, parent) => {
+    const el = fakeDomEl({ tag: 'DIV', attrs: { class: 'flex gap-2' }, text, parent });
+    el.children = []; el.childNodes = [];
+    return el;
+  };
+  const html = fakeDomEl({ tag: 'HTML', text: '' });
+  const body = fakeDomEl({ tag: 'BODY', text: '', parent: html });
+  html.children = [body]; html.childNodes = html.children;
+  body.children = []; body.childNodes = [];
+  const bothText = `got ${CORR} and ACK-M05-COC-001 here plus 171 chars of padding lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor`;
+  const d1 = mkDiv(bothText, body);
+  const d2 = mkDiv(bothText, body);
+  body.children = [d1, d2]; body.childNodes = body.children;
+  const doc = {
+    body,
+    documentElement: html,
+    createTreeWalker() {
+      const tns = [
+        { nodeValue: bothText, textContent: bothText, parentElement: d1, parentNode: d1 },
+        { nodeValue: bothText, textContent: bothText, parentElement: d2, parentNode: d2 },
+      ];
+      let i = 0;
+      return { nextNode() { return i < tns.length ? tns[i++] : null; } };
+    },
+    querySelectorAll(sel) {
+      if (String(sel) === '*') return [html, body, d1, d2];
+      return [d1, d2];
+    },
+  };
+  const prev = globalThis.document;
+  globalThis.document = doc;
+  let out;
+  try {
+    out = lib.inspectDomEvaluate({
+      correlation: CORR,
+      ackMarker: 'ACK-M05',
+      selectors: lib.INSPECT_DOM_SELECTORS,
+      maxAncestors: 6,
+    });
+  } finally {
+    if (prev === undefined) delete globalThis.document;
+    else globalThis.document = prev;
+  }
+  assert.equal(out.elements.length, 2);
+  for (const el of out.elements) {
+    assert.equal(el.tag, 'DIV');
+    assert.equal(el.containsCorrelation, true);
+    assert.equal(el.containsAck, true);
+    assert.ok(Array.isArray(el.matchedSelectors));
+    assert.ok(!el.matchedSelectors.includes('article'), 'live DIVs match no article selector');
+    assert.ok(Array.isArray(el.classTokens) && el.classTokens.length <= 12);
+  }
+  const dumped = JSON.stringify(out);
+  assert.ok(!dumped.includes(bothText), 'no text leaks even when both markers share one node');
+  assert.equal(out.markers.length, 2, 'both text nodes reported');
+  for (const m of out.markers) {
+    assert.equal(m.containsCorrelation, true);
+    assert.equal(m.containsAck, true);
+  }
+  // DCA of two sibling DIVs is BODY; tree stays within caps.
+  assert.ok(Array.isArray(out.tree) && out.tree.length >= 1 && out.tree.length <= 200);
+  assert.equal(out.tree[0].tag, 'BODY');
+  for (const n of out.tree) assert.ok(n.relativeDepth < 6);
 });
 
 test('inspect-dom happy path via mock: scrubbed URL + title, text-free summaries', async () => {
@@ -809,12 +936,39 @@ test('inspect-dom happy path via mock: scrubbed URL + title, text-free summaries
   const dumped = JSON.stringify(summary);
   assert.ok(!dumped.includes(SECRET_A) && !dumped.includes(SECRET_B), 'no element text in output');
   assert.ok(!dumped.includes('plain hello'), 'not even short element text leaks');
+  assert.ok(!dumped.includes('SECRET-ARIA-LABEL-zz9'), 'aria-label value never leaks');
   assert.ok(!dumped.includes('utm_source') && !dumped.includes('#frag'));
-  assert.ok(!/cookie|token/i.test(dumped));
+  // NOTE: key names classTokens/classList legitimately contain "token";
+  // strip them before the no-secrets scan so the check targets values.
+  assert.ok(!/cookie|token/i.test(dumped.replace(/classTokens|classList/g, '')));
   const byIndex = summary.elements;
   assert.equal(byIndex[0].containsCorrelation, true);
   assert.equal(byIndex[1].containsAck, true);
   assert.equal(byIndex[0].textLength, texts[0].length);
+  for (const el of byIndex) {
+    assert.ok(Array.isArray(el.matchedSelectors), 'per-element matched selectors');
+    assert.ok(Array.isArray(el.classTokens) && el.classTokens.length <= 12, 'per-element class tokens cap 12');
+  }
+  // Tree + markers ride along in the summary (text-free).
+  assert.ok(Array.isArray(summary.tree) && summary.tree.length >= 1 && summary.tree.length <= 200);
+  assert.equal(summary.treeNodeCount, summary.tree.length);
+  for (const n of summary.tree) {
+    assert.ok(n.relativeDepth < 6);
+    assert.ok(Array.isArray(n.classTokens) && n.classTokens.length <= 8);
+    assert.equal(typeof n.hasAriaLabel, 'boolean');
+  }
+  assert.ok(Array.isArray(summary.markers) && summary.markers.length === 2);
+  assert.equal(summary.markerCount, 2);
+  assert.deepEqual(summary.markerNodes, summary.markers);
+  assert.deepEqual(summary.textNodes, summary.markers);
+  for (const m of summary.markers) {
+    assert.ok(Array.isArray(m.ancestors) && m.ancestors.length <= 12);
+  }
+  // collectInspectDom normalizes to the object shape.
+  const collected = await lib.collectInspectDom(page, { correlation: CORR });
+  assert.ok(Array.isArray(collected.elements) && collected.elements.length === 3);
+  assert.ok(Array.isArray(collected.tree) && collected.tree.length >= 1);
+  assert.ok(Array.isArray(collected.markers) && collected.markers.length === 2);
 });
 
 test('inspect-dom NEVER interacts: no focus/typing/clicking/keys/navigation, evaluate-only', async () => {
