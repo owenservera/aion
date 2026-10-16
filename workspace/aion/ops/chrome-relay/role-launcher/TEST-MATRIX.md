@@ -37,3 +37,10 @@ B16 Independent checker confirms native title and actual chat URL, rather than f
 
 ## Evidence in GitHub
 Each passed gate: test name, date/time UTC, Chrome version, extension SHA, operating system, human/agent executor, source commit, actual chat/Project verification, screenshot/log where permitted, failure cases. Independent verifier must inspect real ChatGPT conversation and its native UI title, not assume from application state.
+
+## Optional in-chat trigger tests (only if user opts in)
+C01 Composer contains exactly `AION:08`: visible new-chat action offered, **no automatic submission** in old conversation, and launch opens a distinct new tab.
+C02 Ordinary sentence, code snippet, quotation, unrelated page or already-sent chat text containing `AION:08` causes no launch.
+C03 Unsupported/multiple composer elements: disable content adapter and show manual/panel fallback; never send to wrong field.
+C04 Browser permissions denied / site change: no content read or launch without explicit user action.
+C05 Confirm old chat draft is not lost without approval; new role chat is unique and title/URL verified separately.
