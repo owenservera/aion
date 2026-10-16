@@ -10,8 +10,9 @@ Own multi-role executive direction: priorities, workstream separation, delegatio
 - **02 Long-term Planning & Alignment:** roadmap, dependencies, milestones and architectural alignment.
 - **03 Chief of Staff / Implementation & Operations:** *separate, launched parallel chat*, daily operational messages, Route Bot work items, GitHub dispatch, follow-through, receipt collection, blockers and SITREP. Operational workhorse.
 - **04 OpenCode Output & Team Efficiency:** observe actual session outputs, parallelism, native shared conversations, transcripts, throughput and quality.
-- **05 Chief of Chiefs:** this executive supervisory stream. Focus on prioritizing the other four roles, verifying that work is completed properly and moving cross-role blockers.
+- **05 Chief of Chiefs:** this executive supervisory stream. Focus on prioritizing specialist roles, verifying that work is completed properly and moving cross-role blockers.
 - **06 TOOLSMITH — Tooling & Integration Engineer:** newly designed sixth ChatGPT role (separate session NOT YET LAUNCHED). Own technical tool readiness, install/recovery runbooks, ACP/UAH integration, Chrome relay, skill library and verified environment contracts. Coordinate real executor assignment with Chief of Staff; OpenCode/ZCode implements code.
+- **07 INTAKE — Proposal Commons Custodian:** newly created seventh role, live session NOT YET LAUNCHED. Owns only inbound technical proposals: original source custody, provenance, first-pass decomposition, shared GitHub pool, review indexing and transparent score tabulation. No technical selection, planning authority, executor assignment, implementation or own votes. Shared pool: https://github.com/owenservera/aion/tree/main/workspace/aion/shared/technical-proposals ; inbox: https://github.com/owenservera/aion/issues/20 .
 - **Grok Bot/BFF:** separate Linux executor focused on AION M0.5 escape hatch, with OpenCode/ZCode exclusively implementing code.
 
 ## Operating rules
