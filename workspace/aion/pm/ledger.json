@@ -725,7 +725,8 @@
       "acceptance": "URL recorded and confirmed from owner-provided thread",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-002",
@@ -739,7 +740,8 @@
       "acceptance": "Access result and timestamp recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-003",
@@ -753,7 +755,8 @@
       "acceptance": "Actual page URL and access result captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-004",
@@ -767,7 +770,8 @@
       "acceptance": "Message visibly appears in target conversation",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-005",
@@ -781,7 +785,8 @@
       "acceptance": "PM session access path recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-006",
@@ -795,7 +800,8 @@
       "acceptance": "Actual page URL and access result captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-007",
@@ -809,7 +815,8 @@
       "acceptance": "Message visibly appears in target conversation",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-008",
@@ -823,7 +830,8 @@
       "acceptance": "Exact sender text observed by AION",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-009",
@@ -837,7 +845,8 @@
       "acceptance": "Exact sender text observed by AION",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-010",
@@ -851,7 +860,8 @@
       "acceptance": "Ledger contains source-linked evidence and remaining gaps",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-011",
@@ -865,7 +875,8 @@
       "acceptance": "Command path or absent result captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-012",
@@ -879,7 +890,8 @@
       "acceptance": "Actual version stdout and exit code captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-013",
@@ -893,7 +905,8 @@
       "acceptance": "Official installation source and compatibility recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-014",
@@ -907,7 +920,8 @@
       "acceptance": "Install exit code and binary path captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-015",
@@ -921,7 +935,8 @@
       "acceptance": "Redacted provider inventory captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-016",
@@ -935,7 +950,8 @@
       "acceptance": "Model ID and availability evidence recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-017",
@@ -949,7 +965,8 @@
       "acceptance": "Prompt, response, model, timestamp and exit status recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-018",
@@ -963,7 +980,8 @@
       "acceptance": "Elapsed time measured and recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-019",
@@ -972,12 +990,13 @@
       "phase": "02-OpenCode runtime",
       "seed": "OpenCode / SOFTWARE_HQ",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Specific provider login blocker recorded without credentials",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-020",
@@ -986,12 +1005,13 @@
       "phase": "02-OpenCode runtime",
       "seed": "OpenCode / SOFTWARE_HQ",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "PM marks verified only after inspecting raw evidence",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-021",
@@ -1000,12 +1020,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Source path and SHA recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-022",
@@ -1014,12 +1035,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Existing reusable adapter entry points recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-023",
@@ -1028,12 +1050,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Exact files and commit SHA recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-024",
@@ -1042,12 +1065,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Contract version and hash recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-025",
@@ -1056,12 +1080,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Consumer exists or absent, with source evidence",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-026",
@@ -1070,12 +1095,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Reusable files and maturity classified",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-027",
@@ -1084,12 +1110,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Observed implementation distinguished from design",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-028",
@@ -1098,12 +1125,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "One evidence-backed comparison matrix added to ledger",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-029",
@@ -1112,12 +1140,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Chosen path and rationale recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-030",
@@ -1126,12 +1155,13 @@
       "phase": "03-Existing bridge census",
       "seed": "ACP / UAH / zcode-setup / VOMEGA",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Ledger contains no-build decision and links to reused seeds",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-031",
@@ -1145,7 +1175,10 @@
       "acceptance": "Machine-checkable allowlist schema created",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-032",
@@ -1159,7 +1192,10 @@
       "acceptance": "Read-only fetch passes local fixture test",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-033",
@@ -1173,7 +1209,10 @@
       "acceptance": "Untrusted actor fixture rejected",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-034",
@@ -1187,7 +1226,10 @@
       "acceptance": "Missing-label fixture rejected",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-035",
@@ -1201,7 +1243,10 @@
       "acceptance": "Modified-body fixture rejected",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-036",
@@ -1210,12 +1255,15 @@
       "phase": "04-Read-only receipt consumer",
       "seed": "ACP-038 / GPM PM-17 / PM-014",
       "existing_work_item": "PM-014",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Duplicate fixture produces one receipt",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-037",
@@ -1224,12 +1272,15 @@
       "phase": "04-Read-only receipt consumer",
       "seed": "ACP-038 / GPM PM-17 / PM-014",
       "existing_work_item": "PM-014",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Correlation ID unchanged across fixture stages",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-038",
@@ -1238,12 +1289,15 @@
       "phase": "04-Read-only receipt consumer",
       "seed": "ACP-038 / GPM PM-17 / PM-014",
       "existing_work_item": "PM-014",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Receipt contains required timestamps and source hash",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-039",
@@ -1252,12 +1306,15 @@
       "phase": "04-Read-only receipt consumer",
       "seed": "ACP-038 / GPM PM-17 / PM-014",
       "existing_work_item": "PM-014",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Unknown request test denies action",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-040",
@@ -1266,12 +1323,15 @@
       "phase": "04-Read-only receipt consumer",
       "seed": "ACP-038 / GPM PM-17 / PM-014",
       "existing_work_item": "PM-014",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Test outputs and code revision independently checked",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-029"
+      ]
     },
     {
       "id": "AT-041",
@@ -1280,12 +1340,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Version and host identity captured without secrets",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-042",
@@ -1294,12 +1357,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Actual command inventory recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-043",
@@ -1308,12 +1374,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Documented admission path and restrictions recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-044",
@@ -1322,12 +1391,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Fixture passes without host mutation",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-045",
@@ -1336,12 +1408,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Negative test proves unsupported tool denied",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-046",
@@ -1350,12 +1425,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "No secrets in test receipt",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-047",
@@ -1364,12 +1442,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Timeout produces explicit failed receipt",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-048",
@@ -1378,12 +1459,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Failure exit code preserved in receipt",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-049",
@@ -1392,12 +1476,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "Reproducible test command and logs captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-050",
@@ -1406,12 +1493,15 @@
       "phase": "05-ZCode diagnostic adapter",
       "seed": "ZCode / zcode-bots / UAH",
       "existing_work_item": "PM-000",
-      "priority": "P0",
+      "priority": "P1",
       "status": "assigned_unacknowledged",
       "acceptance": "PM verifies tests and exact source SHA",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-023"
+      ]
     },
     {
       "id": "AT-051",
@@ -1420,12 +1510,16 @@
       "phase": "06-Real Windows roundtrip",
       "seed": "ACP / UAH / ZCode / PM-014",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P0",
       "status": "assigned_unacknowledged",
       "acceptance": "Scope, expected result and rollback documented",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-052",
@@ -1434,12 +1528,16 @@
       "phase": "06-Real Windows roundtrip",
       "seed": "ACP / UAH / ZCode / PM-014",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P0",
       "status": "assigned_unacknowledged",
       "acceptance": "Explicit owner decision recorded or gate remains blocked",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-053",
@@ -1448,12 +1546,16 @@
       "phase": "06-Real Windows roundtrip",
       "seed": "ACP / UAH / ZCode / PM-014",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P0",
       "status": "assigned_unacknowledged",
       "acceptance": "Actual Windows receipt identifies authorized target",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-054",
@@ -1467,7 +1569,11 @@
       "acceptance": "Request ID, source hash and UTC send time captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-055",
@@ -1481,7 +1587,11 @@
       "acceptance": "Host-side receive evidence captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-056",
@@ -1495,7 +1605,11 @@
       "acceptance": "Distinct admitted or denied receipt captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-057",
@@ -1509,7 +1623,11 @@
       "acceptance": "Real host diagnostic output and exit status captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-058",
@@ -1523,7 +1641,11 @@
       "acceptance": "Receipt retrievable without credentials",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-059",
@@ -1537,7 +1659,11 @@
       "acceptance": "Matching chain confirmed across stages",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-060",
@@ -1551,7 +1677,11 @@
       "acceptance": "Evidence-backed verified or blocked status committed",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-040",
+        "AT-050"
+      ]
     },
     {
       "id": "AT-061",
@@ -1565,7 +1695,8 @@
       "acceptance": "Drive, free bytes and timestamp captured",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-062",
@@ -1579,7 +1710,8 @@
       "acceptance": "R7 updated without assuming old reading is current",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-063",
@@ -1593,7 +1725,8 @@
       "acceptance": "Preflight evidence captured without settings changes",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-064",
@@ -1607,7 +1740,8 @@
       "acceptance": "Process and service inventory recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-065",
@@ -1621,7 +1755,8 @@
       "acceptance": "No unauthorized executable issue ingestion observed",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-066",
@@ -1635,7 +1770,8 @@
       "acceptance": "Shell request denied in fixture",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-067",
@@ -1649,7 +1785,8 @@
       "acceptance": "Desktop mutation request denied in fixture",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-068",
@@ -1663,7 +1800,8 @@
       "acceptance": "Forged identity denied in fixture",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-069",
@@ -1677,7 +1815,8 @@
       "acceptance": "No plaintext secrets in published evidence",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-070",
@@ -1691,7 +1830,8 @@
       "acceptance": "Explicit go/no-go and supporting proof recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-071",
@@ -1700,12 +1840,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Authoritative path documented",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-072",
@@ -1714,12 +1855,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Generated view matches machine task counts",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-073",
@@ -1728,12 +1870,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "100 of 100 owner fields populated",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-074",
@@ -1742,12 +1885,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "100 of 100 seed fields populated",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-075",
@@ -1756,12 +1900,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "100 of 100 acceptance fields populated",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-076",
@@ -1770,12 +1915,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "100 of 100 cross-references populated",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-077",
@@ -1784,12 +1930,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Status vocabulary and transition rules documented",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-078",
@@ -1798,12 +1945,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Negative status transition test passes",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-079",
@@ -1812,12 +1960,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Evidence references are retrievable",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-080",
@@ -1826,12 +1975,13 @@
       "phase": "08-Running ledger operations",
       "seed": "AION PM / GPM Cognitive OS / IAM",
       "existing_work_item": "PM-035",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Task state transitions carry actor and UTC timestamp",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-081",
@@ -1840,12 +1990,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Cross-project seed references recorded",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-082",
@@ -1854,12 +2005,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "UAH integration edges proposed with provenance",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-083",
@@ -1868,12 +2020,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Reuse decision documented against source",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-084",
@@ -1882,12 +2035,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Event mapping recorded without second recorder",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-085",
@@ -1896,12 +2050,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Identifier mapping and collision handling documented",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-086",
@@ -1910,12 +2065,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Single validator module passes tests",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-087",
@@ -1924,12 +2080,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Fixture reused in at least two tests",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-088",
@@ -1938,12 +2095,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "No unnecessary repository creation approved",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-089",
@@ -1952,12 +2110,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Decision names measurable reuse benefit",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-090",
@@ -1966,12 +2125,13 @@
       "phase": "09-Reusable seed multipliers",
       "seed": "IANG / IAM / VOMEGA / GPM Cognitive OS",
       "existing_work_item": "PM-009",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "No duplicate authoritative component declared",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": []
     },
     {
       "id": "AT-091",
@@ -1980,12 +2140,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "View shows P0 tasks, owners, blockers and evidence",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-092",
@@ -1994,12 +2157,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Raw test output and source version persisted",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-093",
@@ -2008,12 +2174,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Evidence checked, status advanced or blocked",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-094",
@@ -2022,12 +2191,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Correlation and digest persisted",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-095",
@@ -2036,12 +2208,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Source hash and negative tests checked",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-096",
@@ -2050,12 +2225,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Real host proof persisted, not simulated",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-097",
@@ -2064,12 +2242,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "All stage transitions and target identity checked",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-098",
@@ -2078,12 +2259,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Acceptance linked to real end-to-end evidence",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-099",
@@ -2092,12 +2276,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Only verified outcomes and owner-only blockers included",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     },
     {
       "id": "AT-100",
@@ -2106,12 +2293,15 @@
       "phase": "10-Acceptance and operational continuity",
       "seed": "AION / ACP / GPM Cognitive OS",
       "existing_work_item": "PM-000",
-      "priority": "P1",
+      "priority": "P2",
       "status": "assigned_unacknowledged",
       "acceptance": "Ready queue grounded in completed evidence",
       "evidence": [],
       "last_verified_at": null,
-      "notes": "Owner designated in ledger; no agent receipt or execution inferred."
+      "notes": "Owner designated in ledger; no agent receipt or execution inferred.",
+      "depends_on": [
+        "AT-060"
+      ]
     }
   ],
   "atomic_task_contract": {
