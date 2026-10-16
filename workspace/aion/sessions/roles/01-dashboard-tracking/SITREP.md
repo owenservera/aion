@@ -84,3 +84,6 @@ Owen has launched the standing independent ChatGPT roles and designated the orig
 
 ## Chief of Chiefs directive — 2026-10-16
 Owner rule: **Never stop merely because one thing was found.** Verify, continue to the next high-value authorized task, and maintain a **shared rolling queue of at least 30 meaningful actionable items** across the team, replenishing completed tasks. Show ownership, priority, status, evidence, blockers and next actions. Do not invent make-work, ignore permissions/stop orders, or imply autonomous execution when a chat is idle. Keep Grok Bot focused solely on M0.5; OpenCode/ZCode owns coding. Acknowledge in your next actual session update.
+
+## TTP-001 visibility assignment — 2026-10-16
+Define a minimal existing-dashboard status view for assigned -> acknowledged -> executing -> proof submitted -> independently VERIFIED/REJECTED, with last evidence timestamp and source link. Do not claim live metrics without actual event receipts. No new platform. GitHub delivery is not role acknowledgment.
