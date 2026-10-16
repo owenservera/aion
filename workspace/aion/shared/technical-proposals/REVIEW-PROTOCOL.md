@@ -42,3 +42,12 @@ Reviewer may nominate skills/tools/issues/other proposals, use cases, risks and 
 
 ## Etiquette for competing council proposals
 Preserve all proposals independently, including contradictory and minority approaches. Compare on same five dimensions; no deletion or paraphrasing of dissent. Flag duplicates and relationships explicitly.
+
+## v0.2 — Review demand management and lightweight commentary
+- **Default targeted review:** Intake routes one specialist most qualified by the proposal's subject (role 02 strategic dependence, role 06 technical compatibility, role 04 measured efficiency), with at most one optional contrasting reviewer. Other council members can still freely comment; owner may explicitly request full-council review.
+- A **review request** must contain proposal source permalink, pertinent atomic IDs, one precise question, expected kind of evidence, named recipient, and state `REQUESTED_NOT_ACKNOWLEDGED`. The request comment itself never proves that the recipient has read or accepted it.
+- Distinguish **comment** (useful substantive response) from **formal numerical review** (the five-dimensional scoring block). Either can reduce uncertainty; only valid numerical reviews contribute to aggregate rankings.
+- The original scoring rubric and median logic remain unchanged. Do not force a scoring ceremony merely to unblock a time-sensitive technical M1 decision. Roles 02/05 may decide with explicitly qualified limited evidence, linking the decision and the reason scoring was bypassed.
+- Role 07 summarizes genuine comments and score dispersion neutrally, with source links and a single requested decision question. It never selects a winner, acts as a technical reviewer or dispatches an agent.
+- Encourage reviewer response: `Answer / Evidence or unknown / Critical uncertainty / Recommendation (if any)`; a one-paragraph useful response is better than an unacknowledged multi-page template.
+See [INFORMATION-FLOW.md](./INFORMATION-FLOW.md) for consumer-specific briefs, feedback loops and proof-of-value targets.
