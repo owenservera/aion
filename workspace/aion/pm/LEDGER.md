@@ -145,3 +145,116 @@ ZCode evidence: zcode-setup: hub + pocket-link playbook (claimed via bff/PROJECT
 - PC-001 is P0 on BOARD (PC HQ) but absent from prior ledger; now PM-019.
 - atomic-1000 counts as 1000 'tasks' but all Unverified/owner TBD (AION itself flags as provisional).
 - AION thread said /pm/ and /pm/inbox/ 404 on aion main vs ledger auto-pushed to workspace/aion/pm/ (path difference, not absence).
+
+## Running atomic tasks (100)
+
+**Canonical machine ledger:** [`ledger.json`](./ledger.json) → `atomic_tasks`. This table is a human-readable mirror; the machine ledger wins.
+
+**100 assigned owners, 0 agent acknowledgments recorded.** Status `assigned_unacknowledged` is not execution. PM verifies independently before advancing any task. Owen does not maintain this list.
+
+**Priority distribution:** P0: 26 · P1: 44 · P2: 30. **Existing 43 PM work items remain in place; these 100 tasks are atomic execution steps linked to them, not replacements.**
+
+| ID | Priority | Owner | Atomic deliverable | Existing seed | Acceptance | Status |
+|---|---|---|---|---|---|---|
+| AT-001 | P0 | AION PM | Identify exact canonical ChatGPT conversation URL | ACP / AION communications (PM-000) | URL recorded and confirmed from owner-provided thread | Unacknowledged |
+| AT-002 | P0 | AION BFF | Inspect BFF browser session for target conversation access | ACP / AION communications (PM-000) | Access result and timestamp recorded | Unacknowledged |
+| AT-003 | P0 | AION BFF | Test opening canonical conversation in BFF browser | ACP / AION communications (PM-000) | Actual page URL and access result captured | Unacknowledged |
+| AT-004 | P0 | AION BFF | Post identity-prefixed BFF presence message in target conversation | ACP / AION communications (PM-000) | Message visibly appears in target conversation | Unacknowledged |
+| AT-005 | P0 | AION PM | Identify PM browser session and its access path | ACP / AION communications (PM-000) | PM session access path recorded | Unacknowledged |
+| AT-006 | P0 | AION PM | Test opening canonical conversation in PM browser | ACP / AION communications (PM-000) | Actual page URL and access result captured | Unacknowledged |
+| AT-007 | P0 | AION PM | Post identity-prefixed PM presence message in target conversation | ACP / AION communications (PM-000) | Message visibly appears in target conversation | Unacknowledged |
+| AT-008 | P0 | AION | Confirm BFF message in this conversation | ACP / AION communications (PM-000) | Exact sender text observed by AION | Unacknowledged |
+| AT-009 | P0 | AION | Confirm PM message in this conversation | ACP / AION communications (PM-000) | Exact sender text observed by AION | Unacknowledged |
+| AT-010 | P0 | AION PM | Record rendezvous acceptance and unresolved delivery gaps | ACP / AION communications (PM-000) | Ledger contains source-linked evidence and remaining gaps | Unacknowledged |
+| AT-011 | P0 | AION BFF | Locate OpenCode binary on BFF Linux host | OpenCode / SOFTWARE_HQ (PM-000) | Command path or absent result captured | Unacknowledged |
+| AT-012 | P0 | AION BFF | Run OpenCode version command on BFF Linux | OpenCode / SOFTWARE_HQ (PM-000) | Actual version stdout and exit code captured | Unacknowledged |
+| AT-013 | P0 | AION BFF | Inspect official OpenCode install instructions if missing | OpenCode / SOFTWARE_HQ (PM-000) | Official installation source and compatibility recorded | Unacknowledged |
+| AT-014 | P0 | AION BFF | Install OpenCode on BFF Linux only if absent | OpenCode / SOFTWARE_HQ (PM-000) | Install exit code and binary path captured | Unacknowledged |
+| AT-015 | P0 | AION BFF | List configured OpenCode model providers without secrets | OpenCode / SOFTWARE_HQ (PM-000) | Redacted provider inventory captured | Unacknowledged |
+| AT-016 | P0 | AION BFF | Identify first working free model in approved routing order | OpenCode / SOFTWARE_HQ (PM-000) | Model ID and availability evidence recorded | Unacknowledged |
+| AT-017 | P0 | AION BFF | Run harmless OpenCode free-model completion probe | OpenCode / SOFTWARE_HQ (PM-000) | Prompt, response, model, timestamp and exit status recorded | Unacknowledged |
+| AT-018 | P0 | AION BFF | Measure first free-model probe latency | OpenCode / SOFTWARE_HQ (PM-000) | Elapsed time measured and recorded | Unacknowledged |
+| AT-019 | P1 | AION BFF | Document any required trusted-host login blocker | OpenCode / SOFTWARE_HQ (PM-000) | Specific provider login blocker recorded without credentials | Unacknowledged |
+| AT-020 | P1 | AION PM | Independently validate OpenCode installation and free-model proof | OpenCode / SOFTWARE_HQ (PM-000) | PM marks verified only after inspecting raw evidence | Unacknowledged |
+| AT-021 | P1 | AION BFF | Read ACP bridge contract source at pinned commit | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Source path and SHA recorded | Unacknowledged |
+| AT-022 | P1 | AION BFF | Read zcode-setup pocket-link adapter documentation | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Existing reusable adapter entry points recorded | Unacknowledged |
+| AT-023 | P1 | AION BFF | Read zcode-bots diagnostic MCP draft PR source | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Exact files and commit SHA recorded | Unacknowledged |
+| AT-024 | P1 | AION BFF | Read existing 001.PROJECTS.PM issue transport contract | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Contract version and hash recorded | Unacknowledged |
+| AT-025 | P1 | AION BFF | Inspect current Linux receipt consumer implementation | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Consumer exists or absent, with source evidence | Unacknowledged |
+| AT-026 | P1 | AION BFF | Inspect VOMEGA browser CDP integration candidate | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Reusable files and maturity classified | Unacknowledged |
+| AT-027 | P1 | AION BFF | Check existing ZCode/OpenCode integration status | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Observed implementation distinguished from design | Unacknowledged |
+| AT-028 | P1 | AION PM | Map five transport options against existing seeds | ACP / UAH / zcode-setup / VOMEGA (PM-000) | One evidence-backed comparison matrix added to ledger | Unacknowledged |
+| AT-029 | P1 | AION | Select smallest authorized path for diagnostic roundtrip | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Chosen path and rationale recorded | Unacknowledged |
+| AT-030 | P1 | AION PM | Record rejected duplicate gateway proposals | ACP / UAH / zcode-setup / VOMEGA (PM-000) | Ledger contains no-build decision and links to reused seeds | Unacknowledged |
+| AT-031 | P0 | OpenCode via BFF | Specify bridge.request.v1 diagnostic allowlist | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Machine-checkable allowlist schema created | Unacknowledged |
+| AT-032 | P0 | OpenCode via BFF | Implement authenticated GitHub inbox read | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Read-only fetch passes local fixture test | Unacknowledged |
+| AT-033 | P0 | OpenCode via BFF | Implement source principal validation | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Untrusted actor fixture rejected | Unacknowledged |
+| AT-034 | P0 | OpenCode via BFF | Implement dispatch label validation | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Missing-label fixture rejected | Unacknowledged |
+| AT-035 | P0 | OpenCode via BFF | Implement exact issue body digest check | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Modified-body fixture rejected | Unacknowledged |
+| AT-036 | P1 | OpenCode via BFF | Implement durable issue-and-digest deduplication | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Duplicate fixture produces one receipt | Unacknowledged |
+| AT-037 | P1 | OpenCode via BFF | Implement correlation ID propagation | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Correlation ID unchanged across fixture stages | Unacknowledged |
+| AT-038 | P1 | OpenCode via BFF | Implement UTC timestamped read-only receipt | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Receipt contains required timestamps and source hash | Unacknowledged |
+| AT-039 | P1 | OpenCode via BFF | Implement fail-closed unknown request rejection | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Unknown request test denies action | Unacknowledged |
+| AT-040 | P1 | AION PM | Independently review consumer tests and negative cases | ACP-038 / GPM PM-17 / PM-014 (PM-014) | Test outputs and code revision independently checked | Unacknowledged |
+| AT-041 | P1 | AION BFF | Identify exact Windows ZCode runtime version | ZCode / zcode-bots / UAH (PM-000) | Version and host identity captured without secrets | Unacknowledged |
+| AT-042 | P1 | AION BFF | Identify installed ZBot diagnostic capabilities | ZCode / zcode-bots / UAH (PM-000) | Actual command inventory recorded | Unacknowledged |
+| AT-043 | P1 | AION BFF | Identify supported ACP admission mechanism | ZCode / zcode-bots / UAH (PM-000) | Documented admission path and restrictions recorded | Unacknowledged |
+| AT-044 | P1 | OpenCode via BFF | Wire read-only diagnostic request to existing adapter | ZCode / zcode-bots / UAH (PM-000) | Fixture passes without host mutation | Unacknowledged |
+| AT-045 | P1 | OpenCode via BFF | Implement denial for unsupported ACP native tools | ZCode / zcode-bots / UAH (PM-000) | Negative test proves unsupported tool denied | Unacknowledged |
+| AT-046 | P1 | OpenCode via BFF | Implement sanitized diagnostic output | ZCode / zcode-bots / UAH (PM-000) | No secrets in test receipt | Unacknowledged |
+| AT-047 | P1 | OpenCode via BFF | Implement ZCode timeout handling | ZCode / zcode-bots / UAH (PM-000) | Timeout produces explicit failed receipt | Unacknowledged |
+| AT-048 | P1 | OpenCode via BFF | Implement ZCode process failure handling | ZCode / zcode-bots / UAH (PM-000) | Failure exit code preserved in receipt | Unacknowledged |
+| AT-049 | P1 | AION BFF | Test diagnostic adapter on isolated Linux fixture | ZCode / zcode-bots / UAH (PM-000) | Reproducible test command and logs captured | Unacknowledged |
+| AT-050 | P1 | AION PM | Validate adapter provenance and no privilege expansion | ZCode / zcode-bots / UAH (PM-000) | PM verifies tests and exact source SHA | Unacknowledged |
+| AT-051 | P0 | AION BFF | Draft exact harmless Windows diagnostic request for approval | ACP / UAH / ZCode / PM-014 (PM-000) | Scope, expected result and rollback documented | Unacknowledged |
+| AT-052 | P0 | AION | Present only the specific Windows diagnostic approval if needed | ACP / UAH / ZCode / PM-014 (PM-000) | Explicit owner decision recorded or gate remains blocked | Unacknowledged |
+| AT-053 | P0 | AION BFF | Verify Windows host identity and consumer version after approval | ACP / UAH / ZCode / PM-014 (PM-000) | Actual Windows receipt identifies authorized target | Unacknowledged |
+| AT-054 | P1 | AION BFF | Submit one correlated read-only diagnostic after approval | ACP / UAH / ZCode / PM-014 (PM-000) | Request ID, source hash and UTC send time captured | Unacknowledged |
+| AT-055 | P1 | AION BFF | Confirm authenticated Windows consumer RECEIVED event | ACP / UAH / ZCode / PM-014 (PM-000) | Host-side receive evidence captured | Unacknowledged |
+| AT-056 | P1 | AION BFF | Confirm ACP admission decision for diagnostic | ACP / UAH / ZCode / PM-014 (PM-000) | Distinct admitted or denied receipt captured | Unacknowledged |
+| AT-057 | P1 | ZCode via BFF | Execute permitted ZCode diagnostic on real Windows host | ACP / UAH / ZCode / PM-014 (PM-000) | Real host diagnostic output and exit status captured | Unacknowledged |
+| AT-058 | P1 | AION BFF | Publish sanitized correlated result for readback | ACP / UAH / ZCode / PM-014 (PM-000) | Receipt retrievable without credentials | Unacknowledged |
+| AT-059 | P1 | AION | Independently compare request ID, source digest and result | ACP / UAH / ZCode / PM-014 (PM-000) | Matching chain confirmed across stages | Unacknowledged |
+| AT-060 | P1 | AION PM | Mark PM-000 and PM-014 verified only after full proof | ACP / UAH / ZCode / PM-014 (PM-000) | Evidence-backed verified or blocked status committed | Unacknowledged |
+| AT-061 | P1 | AION BFF | Measure current Windows free disk space read-only | PC HQ / ACP / ZBot Host (PM-019) | Drive, free bytes and timestamp captured | Unacknowledged |
+| AT-062 | P1 | AION PM | Compare current disk reading with stale risk entry | PC HQ / ACP / ZBot Host (PM-019) | R7 updated without assuming old reading is current | Unacknowledged |
+| AT-063 | P1 | AION BFF | Check Windows recovery and login readiness read-only | PC HQ / ACP / ZBot Host (PM-019) | Preflight evidence captured without settings changes | Unacknowledged |
+| AT-064 | P1 | AION BFF | Check for existing duplicate relay consumers | PC HQ / ACP / ZBot Host (PM-019) | Process and service inventory recorded | Unacknowledged |
+| AT-065 | P1 | AION BFF | Check current dispatch freeze enforcement | PC HQ / ACP / ZBot Host (PM-019) | No unauthorized executable issue ingestion observed | Unacknowledged |
+| AT-066 | P1 | OpenCode via BFF | Test denial of arbitrary shell request through bridge | PC HQ / ACP / ZBot Host (PM-019) | Shell request denied in fixture | Unacknowledged |
+| AT-067 | P1 | OpenCode via BFF | Test denial of mutating desktop request | PC HQ / ACP / ZBot Host (PM-019) | Desktop mutation request denied in fixture | Unacknowledged |
+| AT-068 | P1 | OpenCode via BFF | Test forged principal rejection | PC HQ / ACP / ZBot Host (PM-019) | Forged identity denied in fixture | Unacknowledged |
+| AT-069 | P1 | AION PM | Review credential leakage in test artifacts | PC HQ / ACP / ZBot Host (PM-019) | No plaintext secrets in published evidence | Unacknowledged |
+| AT-070 | P1 | AION | Review privilege expansion gates before any broad execution | PC HQ / ACP / ZBot Host (PM-019) | Explicit go/no-go and supporting proof recorded | Unacknowledged |
+| AT-071 | P2 | AION PM | Keep ledger.json as sole machine-authoritative AION task register | AION PM / GPM Cognitive OS / IAM (PM-035) | Authoritative path documented | Unacknowledged |
+| AT-072 | P2 | AION PM | Generate LEDGER.md view from ledger.json | AION PM / GPM Cognitive OS / IAM (PM-035) | Generated view matches machine task counts | Unacknowledged |
+| AT-073 | P2 | AION PM | Assign exactly one accountable owner per atomic task | AION PM / GPM Cognitive OS / IAM (PM-035) | 100 of 100 owner fields populated | Unacknowledged |
+| AT-074 | P2 | AION PM | Attach a planned-project seed to every atomic task | AION PM / GPM Cognitive OS / IAM (PM-035) | 100 of 100 seed fields populated | Unacknowledged |
+| AT-075 | P2 | AION PM | Attach objective acceptance criteria to every atomic task | AION PM / GPM Cognitive OS / IAM (PM-035) | 100 of 100 acceptance fields populated | Unacknowledged |
+| AT-076 | P2 | AION PM | Link each atomic task to existing PM work item | AION PM / GPM Cognitive OS / IAM (PM-035) | 100 of 100 cross-references populated | Unacknowledged |
+| AT-077 | P2 | AION PM | Define blocked versus unacknowledged versus verified status | AION PM / GPM Cognitive OS / IAM (PM-035) | Status vocabulary and transition rules documented | Unacknowledged |
+| AT-078 | P2 | AION PM | Prevent verification without independent evidence | AION PM / GPM Cognitive OS / IAM (PM-035) | Negative status transition test passes | Unacknowledged |
+| AT-079 | P2 | AION PM | Record every verified artifact with immutable commit or receipt | AION PM / GPM Cognitive OS / IAM (PM-035) | Evidence references are retrievable | Unacknowledged |
+| AT-080 | P2 | AION PM | Maintain append-only change history of task state changes | AION PM / GPM Cognitive OS / IAM (PM-035) | Task state transitions carry actor and UTC timestamp | Unacknowledged |
+| AT-081 | P2 | AION PM | Map bridge transport artifacts to existing ACP work items | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | Cross-project seed references recorded | Unacknowledged |
+| AT-082 | P2 | AION PM | Map ZCode adapter artifacts to UAH integration graph | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | UAH integration edges proposed with provenance | Unacknowledged |
+| AT-083 | P2 | AION PM | Map browser rendezvous to VOMEGA CDP candidate | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | Reuse decision documented against source | Unacknowledged |
+| AT-084 | P2 | AION PM | Map receipt events to GPM flight-recorder schema | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | Event mapping recorded without second recorder | Unacknowledged |
+| AT-085 | P2 | AION PM | Map correlation IDs to IAM provenance identifiers | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | Identifier mapping and collision handling documented | Unacknowledged |
+| AT-086 | P2 | AION BFF | Extract reusable receipt validator as a bounded component | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | Single validator module passes tests | Unacknowledged |
+| AT-087 | P2 | AION BFF | Extract reusable diagnostic fixture from bridge tests | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | Fixture reused in at least two tests | Unacknowledged |
+| AT-088 | P2 | AION PM | Check new code against existing repo before proposing new repo | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | No unnecessary repository creation approved | Unacknowledged |
+| AT-089 | P2 | AION | Select next capability multiplier using proven dependency reduction | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | Decision names measurable reuse benefit | Unacknowledged |
+| AT-090 | P2 | AION PM | Record component ownership and canonical source paths | IANG / IAM / VOMEGA / GPM Cognitive OS (PM-009) | No duplicate authoritative component declared | Unacknowledged |
+| AT-091 | P2 | AION PM | Publish one-page live critical-path view from ledger | AION / ACP / GPM Cognitive OS (PM-000) | View shows P0 tasks, owners, blockers and evidence | Unacknowledged |
+| AT-092 | P2 | AION BFF | Record OpenCode first-success receipt in canonical evidence store | AION / ACP / GPM Cognitive OS (PM-000) | Raw test output and source version persisted | Unacknowledged |
+| AT-093 | P2 | AION PM | Independently validate OpenCode free-model receipt | AION / ACP / GPM Cognitive OS (PM-000) | Evidence checked, status advanced or blocked | Unacknowledged |
+| AT-094 | P2 | AION BFF | Record bridge consumer first-success fixture receipt | AION / ACP / GPM Cognitive OS (PM-000) | Correlation and digest persisted | Unacknowledged |
+| AT-095 | P2 | AION PM | Independently validate bridge consumer receipt | AION / ACP / GPM Cognitive OS (PM-000) | Source hash and negative tests checked | Unacknowledged |
+| AT-096 | P2 | AION BFF | Record real Windows diagnostic receipt when authorized | AION / ACP / GPM Cognitive OS (PM-000) | Real host proof persisted, not simulated | Unacknowledged |
+| AT-097 | P2 | AION PM | Independently validate real Windows receipt | AION / ACP / GPM Cognitive OS (PM-000) | All stage transitions and target identity checked | Unacknowledged |
+| AT-098 | P2 | AION | Issue final PM-000 acceptance decision | AION / ACP / GPM Cognitive OS (PM-000) | Acceptance linked to real end-to-end evidence | Unacknowledged |
+| AT-099 | P2 | AION BFF | Deliver concise exception-only report to Owen | AION / ACP / GPM Cognitive OS (PM-000) | Only verified outcomes and owner-only blockers included | Unacknowledged |
+| AT-100 | P2 | AION PM | Select next ten ready tasks from dependency graph | AION / ACP / GPM Cognitive OS (PM-000) | Ready queue grounded in completed evidence | Unacknowledged |
+
+**Running-list rule:** append AT-101 onward as new tasks arise; update `ledger.json` first, regenerate this view, and record actual receipts separately. No unverifiable green statuses. No GitHub issue text authorizes Windows execution.
