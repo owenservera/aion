@@ -14,8 +14,40 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--bd
 th{color:var(--mut);font-weight:600}a{color:#8ab4ff;word-break:break-all}ol{margin:0;padding-left:22px}li{margin:3px 0}
 .board{display:flex;gap:8px;flex-wrap:wrap}.tile{flex:1 1 120px;background:#11141c;border:1px solid var(--bd);border-radius:8px;padding:8px}
 .tile b{display:block}select,input{background:#11141c;color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:5px;margin:0 6px 8px 0}
+
+/* AION ⇄ BFF coordination launchpad */
+.comms{margin:14px 14px 0;border:1px solid #384465;border-radius:14px;padding:18px;background:linear-gradient(110deg,#192337,#151a28 65%,#211c36);box-shadow:0 8px 24px #0002}
+.comms h2{font-size:19px;color:#f4f5fb;margin:0}.comms p{margin:7px 0;color:#aeb7cc}.comms-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.comms-status{border:1px solid #81622b;background:#362a16;color:#ffd788;border-radius:30px;font-size:11px;padding:5px 10px;margin-left:auto}
+.comms-actions{display:flex;flex-wrap:wrap;gap:9px;margin:14px 0}
+.comms-actions a,.comms-actions button{border:1px solid #465575;color:#ecf2ff;background:#263653;padding:9px 14px;border-radius:9px;text-decoration:none;font:600 13px/1.35 system-ui;cursor:pointer}
+.comms-actions a.primary{background:#6b4bf7;border-color:#7c64ff}
+.comms-actions a:hover,.comms-actions button:hover{filter:brightness(1.17)}
+.comms label{display:block;color:#c0c8d9;margin:10px 0 7px;font-weight:600}
+.comms textarea{width:100%;min-height:76px;max-height:170px;resize:vertical;border-radius:9px;border:1px solid #46516e;background:#0d1422;color:#f7faff;padding:12px;font:14px/1.5 system-ui}
+.comms .note{font-size:12px;color:#9faacc}
+.comms .comms-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.comms button:focus-visible,.comms a:focus-visible,.comms textarea:focus-visible{outline:2px solid #9b8bff;outline-offset:2px}
+@media(max-width:650px){.comms{margin:10px 10px 0;padding:14px}.comms-actions a,.comms-actions button{flex:1 1 140px;text-align:center}}
 </style></head><body>
 <header><h1>AION PM Dashboard</h1><span class="mut" id="ts">loading…</span></header>
+
+<section id="aion-comms" class="comms" aria-label="AION BFF communications">
+ <div class="comms-head"><h2>↔ AION / BFF — Comms</h2><span class="comms-status">GitHub-backed · BFF receipt pending</span></div>
+ <p>One shared coordination inbox for AION, BFF and Owen. GitHub holds the messages and receipts; this page does not store private chat or credentials.</p>
+ <div class="comms-actions">
+   <a class="primary" href="https://github.com/owenservera/aion/issues/14" target="_blank" rel="noopener noreferrer">Open BFF inbox ↗</a>
+   <a href="https://github.com/owenservera/aion/issues/4" target="_blank" rel="noopener noreferrer">PM inbox ↗</a>
+   <a href="https://github.com/owenservera/aion/blob/main/workspace/aion/canon/AION-MILESTONE-1-INTROSPECTION.md" target="_blank" rel="noopener noreferrer">M1 acceptance ↗</a>
+ </div>
+ <label for="bff-compose">Quick note for BFF (copy and paste into the shared GitHub thread)</label>
+ <textarea id="bff-compose" placeholder="Write a task, question or update. Do not include tokens, secrets or private transcript bodies."></textarea>
+ <div class="comms-foot">
+  <div class="comms-actions" style="margin:8px 0"><button id="copy-open-bff" type="button">Copy note + open inbox ↗</button></div>
+  <span id="bff-feedback" class="note" role="status" aria-live="polite">Send requires an authenticated GitHub comment. No automatic execution.</span>
+ </div>
+</section>
+
 <main id="m"></main>
 <script>
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -54,4 +86,22 @@ const on=(id,k,ev)=>document.getElementById(id).addEventListener(ev||'change',e=
 on('fo','owner');on('fs','status');on('ft','tag');on('fq','q','input');}
 async function load(){try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});const t=await r.text();if(t!==sig){sig=t;D=JSON.parse(t);render()}}catch(e){document.getElementById('ts').textContent='refresh failed: '+e}}
 load();setInterval(load,60000);
-</script></body></html>
+</script>
+<script>
+(function(){
+ const b=document.getElementById('copy-open-bff');
+ const feedback=document.getElementById('bff-feedback');
+ b.addEventListener('click',function(){
+   const message=document.getElementById('bff-compose').value.trim();
+   if(!message){feedback.textContent='Write a note first.';return}
+   const thread=window.open('https://github.com/owenservera/aion/issues/14','_blank','noopener,noreferrer');
+   if(navigator.clipboard&&navigator.clipboard.writeText){
+     navigator.clipboard.writeText(message).then(function(){
+       feedback.textContent='Copied. Paste into the GitHub comment field and submit.';
+     }).catch(function(){feedback.textContent='Copy blocked by browser. Select text and copy manually.'});
+   }else{feedback.textContent='Clipboard unavailable. Select and copy your note manually.'}
+   if(!thread){feedback.textContent+=' Allow the new tab or use Open BFF inbox.'}
+ });
+})();
+</script>
+</body></html>
