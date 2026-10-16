@@ -31,3 +31,6 @@ Return actual implementation files, exact Chrome runtime/version, Node test stdo
 
 ## Strict constraints
 No Playwright or Puppeteer in any implementation/test; no auth bypass, cookie reading, broad browser permissions, hidden API use, mass transcript scrape or unfounded claims of always-running chats. No Grok-authored code. Repo/main local-master authority remains.
+
+## Optional in-chat command enhancement (not Stage 1)
+After a stable omnibox/panel launcher, optionally detect the entire exact `AION:NN` command in the ChatGPT composer using a narrowly scoped, user-enabled content script, then show a distinct "Launch NEW role conversation" control. This is not a native ChatGPT keyword feature. Do NOT hijack the ordinary send key or scan transcripts. User click triggers the same `tabs.create` and bootstrap state machine. If ChatGPT composer DOM changed, disable silently reading page contents and show a manual fallback. Verify separate chat URL and title; do not infer either from keyword text in the old chat.
