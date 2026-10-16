@@ -23,3 +23,6 @@ Research the actual user-facing Z.ai Full-Stack Agent sandbox product and maximi
 
 ## Policy
 No Playwright or Puppeteer. No assumption that a published role bootstrap starts another independent agent. Use sandbox as experimental build lane with independent review and local-owner master principle.
+
+## Publication and evidence — 2026-10-16
+Role 08 workspace documents (BOOTSTRAP, AGENTS, WORKSPACE, TOOLS, SITREP, launch prompt), 10 SKILL.md runbooks, and Z.ai Sandbox Lab containing 30 research tasks (JSON + Markdown), capability ledger, structured TURN-FEED, FIRST-MISSION, generic MISSION-TEMPLATE, and result receipt contract were published to AION main. Owner tracking [issue #21](https://github.com/owenservera/aion/issues/21). Team roster/CoS/TOOLSMITH/Efficiency/Intake directives updated as GitHub artifacts only. **No live Role 08 chat and no Z.ai Agent Mode turn were launched here.** Next: verify all file readbacks, validate JSON/task IDs, then owner launches independent specialist chat and submits the first bounded turn when desired. Treat Z.ai web Agent-specific features as OWNER_REPORTED until inspected.
