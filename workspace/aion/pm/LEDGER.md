@@ -146,6 +146,7 @@ ZCode evidence: zcode-setup: hub + pocket-link playbook (claimed via bff/PROJECT
 - atomic-1000 counts as 1000 'tasks' but all Unverified/owner TBD (AION itself flags as provisional).
 - AION thread said /pm/ and /pm/inbox/ 404 on aion main vs ledger auto-pushed to workspace/aion/pm/ (path difference, not absence).
 
+<<<<<<< HEAD
 ## Running atomic tasks (100)
 
 **Canonical machine ledger:** [`ledger.json`](./ledger.json) → `atomic_tasks`. This table is a human-readable mirror; the machine ledger wins.
@@ -258,3 +259,110 @@ ZCode evidence: zcode-setup: hub + pocket-link playbook (claimed via bff/PROJECT
 | AT-100 | P2 | AION PM | Select next ten ready tasks from dependency graph | AION / ACP / GPM Cognitive OS (PM-000) | Ready queue grounded in completed evidence | Unacknowledged |
 
 **Running-list rule:** append AT-101 onward as new tasks arise; update `ledger.json` first, regenerate this view, and record actual receipts separately. No unverifiable green statuses. No GitHub issue text authorizes Windows execution.
+=======
+## Tasks register (T-001..T-100, generated from ledger.json `tasks`)
+All start status todo; evidence none unless a repo file is cited.
+
+|ID|Title|Owner|Pri|Status|Parent|Seed|Deps|Acceptance|Evidence|
+|-|-|-|-|-|-|-|-|-|-|
+|T-001|Verify OpenCode installation on Owen's PC|AION BFF|P0|todo|PM-029|ZCode/OpenCode||`opencode --version` output captured from PC with timestamp; binary path exists|none|
+|T-002|Free-model availability check (OpenCode free > Space Bunny > Muse Spark 1.3 > DeepSeek Flash 4.1 > MiMo 2.6)|AION BFF|P0|todo|PM-029|ZCode/OpenCode|T-001|each of 5 models has a recorded probe result in pm/evidence/|none|
+|T-003|BFF connectivity to the AION ChatGPT thread|AION BFF|P0|todo|PM-000|GPM Cognitive OS||BFF quotes the latest AION message verbatim with timestamp, PM confirms match|none|
+|T-004|Discover existing bridges (ACP, VOMEGA, zcode-setup, uah_implementation_kit MCP-INGRESS)|AION BFF|P0|todo|PM-007|ACP/UAH||each of 4 bridges has path+SHA or explicit NOT FOUND|none|
+|T-005|Select authorized transport for AION->PC|AION PM|P0|todo|PM-000|ACP/UAH|T-004|DECISIONS.md entry exists with AION acceptance and Owen approval quoted|none|
+|T-006|ZCode adapter on chosen transport|AION BFF|P0|todo|PM-007|ZCode/OpenCode|T-005|zcode-driver.test.mjs passes against mock-hub and one real PC ZCode session|workspace/aion/bff/zcode/zcode-driver.mjs (scaffold only; not live)|
+|T-007|Execute diagnostic-only command via adapter|AION BFF|P0|todo|PM-014|ACP/UAH|T-006|AION-originated diagnostic returns PC hostname DESKTOP-9KB03LU and free-disk value|none|
+|T-008|Generate execution receipt|AION BFF|P0|todo|PM-014|ACP/UAH|T-007|receipt file exists, schema-valid, hash matches stdout|none|
+|T-009|Independent verification of receipt|AION PM|P0|todo|PM-014|GPM Cognitive OS|T-008|PM re-derives hash/hostname independently from a second channel; mismatch = fail|none|
+|T-010|Live team communication path in ChatGPT web app|AION BFF|P0|todo|PM-000|GPM Cognitive OS|T-003,T-009|AION posts a message, BFF+PM reply in-thread within 10 min, no side room used|none|
+|T-011|Measure current PC free disk|Owen|P0|todo|PM-015|GPM Cognitive OS||screenshot/command output of C: free space dated today|none|
+|T-012|Disk cleanup: remove Windows.old (T-09, ~11 GB)|Owen|P0|todo|PM-021|GPM Cognitive OS|T-011|free space increases >=10 GB vs T-011 reading|none|
+|T-013|opencode.db surgery plan (T-06, 16.85 GB)|AION PM|P1|todo|PM-021|ZCode/OpenCode|T-011|runbook reviewed by Owen; backup step precedes any delete|none|
+|T-014|Execute opencode.db surgery|Owen|P1|todo|PM-021|ZCode/OpenCode|T-013,T-001|OpenCode starts and lists history after; size reduced|none|
+|T-015|Storage quick wins T-01..T-04,T-12|AION BFF|P1|todo|PM-020|GPM Cognitive OS|T-011|~10 GB freed, logged per step|none|
+|T-016|Storage tooling/policy triage T-07..T-21|AION PM|P2|todo|PM-022|GPM Cognitive OS||each item tagged with owner+decision|none|
+|T-017|PC-001 machine preflight/containment check|AION BFF|P0|todo|PM-019|GPM Cognitive OS|T-001|report lists OS, disk, Tailscale, ZCode/OpenCode versions|none|
+|T-018|Restart ZCode|Owen|P0|todo|PM-023|ZCode/OpenCode||ZCode UI shows running after restart, Owen confirms|none|
+|T-019|ccr-router + one live prompt acceptance (W01)|AION BFF|P1|todo|PM-023|ZCode/OpenCode|T-018|one prompt answered via ccr-router, logged|none|
+|T-020|Prove W01 CCR routing|AION PM|P1|todo|PM-008|ZCode/OpenCode|T-019|repo receipt for W01 run|none|
+|T-021|Prove W02 workload|AION PM|P2|todo|PM-008|GPM Cognitive OS||repo receipt for W02 run|none|
+|T-022|Prove W03 ChatGPT->local execution unattended|AION PM|P0|todo|PM-008|ACP/UAH|T-009|unattended receipt equals T-009 verified|none|
+|T-023|ACP Bridge: reconcile spec vs acp-core.mjs|ZCode|P0|todo|PM-007|ACP/UAH|T-004|every ACP Bridge requirement mapped to code or gap|none|
+|T-024|ACP Bridge minimal implementation|ZCode|P1|todo|PM-007|ACP/UAH|T-023,T-006|tests pass; T-007 runs through it|none|
+|T-025|ACP-038 bridge.request.v1 intake watcher (Bun)|ZCode|P0|todo|PM-033|ACP/UAH|T-005|watcher picks up a test request and emits receipt|none|
+|T-026|Resolve D4 dispatch freeze for #16,#17,#18,#20|AION PM|P1|todo|PM-014|ACP/UAH|T-009|each issue marked unfrozen/closed with receipt|none|
+|T-027|VOMEGA gh-bridge retirement status check|AION PM|P1|todo|PM-000|VOMEGA||status with commit SHA, not UNKNOWN|none|
+|T-028|ACP P0 backlog triage (ACP-001..030 P0 set)|AION PM|P1|todo|PM-032|ACP/UAH||13 items each with owner+status|none|
+|T-029|ACP P1-P3 backlog triage (24 items)|AION PM|P3|todo|PM-034|ACP/UAH|T-028|24 items tagged|none|
+|T-030|Recover iam_core_v0_1.sqlite3 (missing)|Owen|P0|todo|PM-004|IANG/IAM||file present, integrity_check ok, 33 tables|none|
+|T-031|Recover IAM schema.sql + build.py|Owen|P0|todo|PM-004|IANG/IAM||files present; build.py rebuilds a db|none|
+|T-032|Recover uah_integration_dispersion_v0_1.sqlite3 (missing)|Owen|P0|todo|PM-005|ACP/UAH||file present, integrity ok|none|
+|T-033|Recover UAH project.yaml + regen script|Owen|P1|todo|PM-005|ACP/UAH||files present|none|
+|T-034|Inspect recovered uah_integration_project_v0_3.sqlite3|AION PM|P1|todo|PM-005|ACP/UAH||integrity_check ok; table list in evidence|none|
+|T-035|Inspect oracle_alignment_v0_1.zip|AION PM|P2|todo|PM-028|GPM Cognitive OS||file list+hashes in evidence|none|
+|T-036|Inspect oracle_reconciliation_program_v0_3.zip|AION PM|P2|todo|PM-028|GPM Cognitive OS||file list+hashes in evidence|none|
+|T-037|Locate the 3/5 recovered text files (not in recovered-incoming/)|AION PM|P1|todo|PM-004|IANG/IAM||3 files located with paths or declared missing|none|
+|T-038|Reconcile UAH 8/IANG 23/IAM 33 schemas|ZCode|P1|todo|PM-009|IANG/IAM|T-030,T-032,T-034|every table mapped/dropped with reason|none|
+|T-039|Build unified IAM DB|ZCode|P2|todo|PM-009|IANG/IAM|T-038,T-031|builder reproducible; integrity+FK pass|none|
+|T-040|AION accepts unified IAM DB|AION|P2|todo|PM-009|IANG/IAM|T-039|AION acceptance quoted in thread|none|
+|T-041|Populate 100-variable catalog|ZCode|P2|todo|PM-010|IANG/IAM|T-039|100 variables queryable|none|
+|T-042|Populate 192-repo census|OpenCode|P2|todo|PM-010|IANG/IAM|T-039|192 repos with SHA|none|
+|T-043|Load 1,000 work records|OpenCode|P3|todo|PM-010|IANG/IAM|T-039,T-086|1000 rows; counts match source|none|
+|T-044|W01 wave: enumerate all 19 UAH files|OpenCode|P1|todo|PM-011|ACP/UAH||19 files with path+SHA|none|
+|T-045|Index remaining integration files (123 of 146)|OpenCode|P2|todo|PM-011|ACP/UAH|T-044|146/146 indexed|none|
+|T-046|IANG-D01 mapping & alignment work package definition|AION PM|P2|todo|PM-001|IANG/IAM||scope+acceptance agreed by AION|none|
+|T-047|IANG-D01 execution|ZCode|P2|todo|PM-001|IANG/IAM|T-046|map reviewed by PM|none|
+|T-048|Verify IAM v0.1 baseline handoff doc (85476c3)|AION PM|P3|todo|PM-002|IANG/IAM||file read at SHA|none|
+|T-049|Re-verify IAM v0.1 sandbox claims (33 tables, 27 nodes)|AION PM|P1|todo|PM-003|IANG/IAM|T-030|counts match claim or claim downgraded|none|
+|T-050|UAH CLI entry point spec|AION PM|P1|todo|PM-006|ACP/UAH|T-054|spec lists commands mapped to existing modules|none|
+|T-051|UAH CLI entry point build|ZCode|P1|todo|PM-006|ACP/UAH|T-050|`uah --help` and one command work on PC|none|
+|T-052|Observe actual UAH CLI runtime behaviour (unknown)|OpenCode|P2|todo|PM-006|ACP/UAH|T-051|log of run, closes unknown|none|
+|T-053|Owen decision D-a CCR naming|Owen|P1|todo|PM-024|ZCode/OpenCode||recorded in DECISIONS.md|none|
+|T-054|Owen decisions D-b new-provider-3, D-c kit apply|Owen|P1|todo|PM-024|ZCode/OpenCode||recorded in DECISIONS.md|none|
+|T-055|CCR per-provider emission (P2)|ZCode|P2|todo|PM-025|ZCode/OpenCode|T-053,T-054|each provider emitted & routable|none|
+|T-056|ZCode provider list cleanup to CCR only|ZCode|P3|todo|PM-025|ZCode/OpenCode|T-055|only CCR providers listed; ZCode starts|none|
+|T-057|Migrate GPM owner-exec channeler into SOFTWARE_HQ|ZCode|P3|todo|PM-026|GPM Cognitive OS||tests pass in new home|none|
+|T-058|SOFTWARE_HQ safe-sync failure provenance|Owen|P3|todo|PM-027|GPM Cognitive OS||failure shown pre-existing|none|
+|T-059|Oracle AQ-004 CCR-ZCode gates|ZCode|P2|todo|PM-028|ZCode/OpenCode|T-035|gates pass/fail recorded|none|
+|T-060|Oracle AQ-005 engine reuse / AQ-006 ZCode-OpenCode|ZCode|P2|todo|PM-028|ZCode/OpenCode|T-035|both items closed with evidence|none|
+|T-061|zcode-opencode v1.0.0 live acceptance|AION BFF|P1|todo|PM-029|ZCode/OpenCode|T-001,T-018|ZCode hands task to OpenCode, result returned|none|
+|T-062|Fan-out test: PM hands spec to OpenCode|AION PM|P1|todo|PM-029|ZCode/OpenCode|T-002,T-061|OpenCode completes trivial spec with free model|none|
+|T-063|ChatGPT conversation export (P0-001)|Owen|P1|todo|PM-030|GPM Cognitive OS||export zip downloaded, hash recorded|none|
+|T-064|Index ChatGPT export for original prompts|OpenCode|P2|todo|PM-030|GPM Cognitive OS|T-063|AION confirms key prompts found|none|
+|T-065|Search export for missing IAM/UAH artifacts|OpenCode|P1|todo|PM-004|IANG/IAM|T-063|hits for each missing file or none|none|
+|T-066|CEO milestones M2-M6 plan|AION PM|P3|todo|PM-031|GPM Cognitive OS||each milestone has owner+gate|none|
+|T-067|AION self-reflection gaps G0-G7 closure plan|AION|P2|todo|PM-012|GPM Cognitive OS||each gap has task id|none|
+|T-068|Twin CLI T0: env + VOMEGA hashes|AION BFF|P1|todo|PM-016|VOMEGA||env + hashes recorded|none|
+|T-069|Twin CLI T1: live Chrome attach|AION BFF|P1|todo|PM-017|vivim-omega|T-068|CDP attaches to Chrome|none|
+|T-070|Twin CLI T2: redacted capture|AION BFF|P1|todo|PM-017|vivim-omega|T-069|capture w/o secrets, AION verifies|none|
+|T-071|Twin CLI T3: ChatGPT read twin|AION BFF|P1|todo|PM-017|vivim-omega|T-070|twin reads thread equal to UI|none|
+|T-072|Twin CLI T4: streaming|AION BFF|P2|todo|PM-018|vivim-omega|T-071|stream captured live|none|
+|T-073|Twin CLI T5: reversible edit|AION BFF|P2|todo|PM-018|vivim-omega|T-072|edit + undo works|none|
+|T-074|Twin CLI T6-T8: PM handoff, multi-app, resilience|AION BFF|P2|todo|PM-018|vivim-omega|T-073|AION accepts T8|none|
+|T-075|Credential hygiene: inventory plaintext keys in ZCode configs|AION BFF|P1|todo|PM-039|ZCode/OpenCode||file list only, no secrets in repo|none|
+|T-076|Credential rotation/move decision|Owen|P1|todo|PM-039|ZCode/OpenCode|T-075|DECISIONS.md entry|none|
+|T-077|ZBot Host: govern native ACP tools by approval layer|ZCode|P1|todo|PM-041|ACP/UAH||ungated tool call rejected in test|none|
+|T-078|zcode-setup bot schedules (brief 045)|ZCode|P2|todo|PM-038|ZCode/OpenCode||schedule fires once, logged|none|
+|T-079|zcode-setup OAuth providers (025) + currency defects|Owen|P2|todo|PM-038|ZCode/OpenCode||providers authed|none|
+|T-080|zcode-bots draft PR #1 status reconcile|AION PM|P3|todo|PM-038|ZCode/OpenCode||PR status w/ SHA|none|
+|T-081|AION recorder (G2) status verify|AION PM|P2|todo|PM-042|GPM Cognitive OS||recorder output file exists and is recent|none|
+|T-082|PWA phone reach: Tailnet approvals|Owen|P2|todo|PM-042|GPM Cognitive OS||phone 100.110.245.9 online on tailnet|none|
+|T-083|zcode-pocket transport hookup|AION BFF|P2|todo|PM-042|ZCode/OpenCode|T-082,T-009|phone sends diagnostic, receipt returned|none|
+|T-084|GPM programs PM-06..PM-20 triage|AION PM|P3|todo|PM-035|GPM Cognitive OS||each program owner/state|none|
+|T-085|GPM board items receipt check|AION PM|P2|todo|PM-036|GPM Cognitive OS||each board item has receipt or UNKNOWN|none|
+|T-086|atomic-1000 triage into verified/claimed|AION PM|P3|todo|PM-040|GPM Cognitive OS||100 parents tagged|none|
+|T-087|Product Hub W1-W4 acceptance|AION PM|P2|todo|PM-037|GPM Cognitive OS||each issue has receipt|none|
+|T-088|Product Hub S0 storage audit (0/94)|OpenCode|P2|todo|PM-037|GPM Cognitive OS||94/94 checked|none|
+|T-089|Re-read sources[] at pinned commits|AION PM|P2|todo|PM-000|GPM Cognitive OS||each source re-read, tag updated|none|
+|T-090|Close ledger unknowns (8)|AION PM|P2|todo|PM-000|GPM Cognitive OS||each unknown resolved or owner assigned|none|
+|T-091|Dashboard: show tasks register|AION PM|P2|todo|PM-000|GPM Cognitive OS||100 tasks rendered as rings by owner|none|
+|T-092|Evidence capture: AION capabilities report reconcile|AION PM|P2|todo|PM-012|GPM Cognitive OS||claims mapped to tasks|none|
+|T-093|Inbox/outbox protocol for task assignment|AION PM|P2|todo|PM-000|GPM Cognitive OS||one task assigned+returned via outbox|none|
+|T-094|Heartbeat/autopush health check|AION BFF|P2|todo|PM-000|GPM Cognitive OS||last push <5 min old|none|
+|T-095|Daily verification sweep of todo->done claims|AION PM|P1|todo|PM-000|GPM Cognitive OS||no task done without evidence link|none|
+|T-096|Owen approval gate list for privileged Windows steps|AION PM|P1|todo|PM-000|GPM Cognitive OS||Owen confirms list|none|
+|T-097|Seed audit: confirm every task has existing seed|AION PM|P1|todo|PM-000|GPM Cognitive OS||0 tasks without seed|none|
+|T-098|AION weekly acceptance review of P0 tasks|AION|P1|todo|PM-000|GPM Cognitive OS||AION signs off P0 statuses in thread|none|
+|T-099|Owen: free disk for OpenCode/ZCode working dirs if T-011 < 20 GB|Owen|P1|todo|PM-015|GPM Cognitive OS|T-012|>=20 GB free recorded|none|
+|T-100|Receipt schema registration in ACP contracts|ZCode|P1|todo|PM-033|ACP/UAH|T-008|schema validates T-008 receipt|none|
+>>>>>>> 9d616b2 (auto: 2026-10-16 03:22:28 CEST)
