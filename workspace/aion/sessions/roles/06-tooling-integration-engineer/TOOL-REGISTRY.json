@@ -1,0 +1,285 @@
+{
+  "schema": "aion.tool-registry/0.1",
+  "updated_at": "2026-10-16",
+  "interpretation": "seed from existing AION documentation; not a real-time hardware/software audit",
+  "status_legend": {
+    "reported": "Documented or owner-reported; requires fresh host verification",
+    "designed": "Architecture/work-order only, not deployed",
+    "unverified": "No current reliable runtime evidence",
+    "connected": "Only use when a current authenticated service check demonstrates reachability"
+  },
+  "authorities": {
+    "canonical_project": "owenservera/aion main",
+    "human_master": "Owner Windows local machine",
+    "implementation": "OpenCode or ZCode only",
+    "coordination": "AION role 03",
+    "supervisor": "AION role 05"
+  },
+  "tools": [
+    {
+      "id": "github",
+      "category": "source-and-coordination",
+      "hosts": [
+        "windows",
+        "linux",
+        "cloud"
+      ],
+      "status": "reported",
+      "verify": "Authenticated repo read; safe issue write; independent readback",
+      "skills": [
+        "tool-discovery",
+        "verification-proof"
+      ]
+    },
+    {
+      "id": "git",
+      "category": "source-control",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "git --version and safe status/remote/branch check",
+      "skills": [
+        "environment-bootstrap"
+      ]
+    },
+    {
+      "id": "chrome-mv3",
+      "category": "browser-extension",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "designed",
+      "verify": "Chrome version, unpacked fixture MVP, reload recovery, manifest permissions",
+      "skills": [
+        "chrome-acp-relay"
+      ]
+    },
+    {
+      "id": "chrome-native-messaging",
+      "category": "browser-host-bridge",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "designed",
+      "verify": "Host manifest/extension ID/origin pin, read-only capability handshake",
+      "skills": [
+        "chrome-acp-relay",
+        "incident-recovery"
+      ]
+    },
+    {
+      "id": "uah-cli",
+      "category": "agent-router",
+      "hosts": [
+        "windows"
+      ],
+      "status": "reported",
+      "verify": "Locate actual installed CLI, version, read-only capability and endpoint probe",
+      "skills": [
+        "acp-interop",
+        "tool-discovery"
+      ]
+    },
+    {
+      "id": "acp",
+      "category": "protocol",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "Read exact protocol version; initialize/version/capability negotiation and session smoke",
+      "skills": [
+        "acp-interop"
+      ]
+    },
+    {
+      "id": "opencode",
+      "category": "agent-runtime",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "opencode --version, supported serve/acp/session commands, real session ID and output",
+      "skills": [
+        "environment-bootstrap",
+        "acp-interop"
+      ]
+    },
+    {
+      "id": "zcode",
+      "category": "agent-runtime",
+      "hosts": [
+        "windows"
+      ],
+      "status": "reported",
+      "verify": "Installed executable version/path, ACP connector and authorized test",
+      "skills": [
+        "environment-bootstrap",
+        "acp-interop"
+      ]
+    },
+    {
+      "id": "ccr",
+      "category": "model-routing",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "Discover actual instance, documented route config, low-risk request probe",
+      "skills": [
+        "model-capability-routing"
+      ]
+    },
+    {
+      "id": "iang-sqlite",
+      "category": "data-model",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "designed",
+      "verify": "Resolve canonical DB path; read-only PRAGMA schema/version, backup and migration contract",
+      "skills": [
+        "tool-discovery",
+        "verification-proof"
+      ]
+    },
+    {
+      "id": "context7",
+      "category": "documentation-research",
+      "hosts": [
+        "cloud",
+        "windows"
+      ],
+      "status": "reported",
+      "verify": "Connected tool discovery, library resolve, version-specific docs and provenance",
+      "skills": [
+        "context7-harvest"
+      ]
+    },
+    {
+      "id": "vercel",
+      "category": "deploy",
+      "hosts": [
+        "cloud",
+        "windows"
+      ],
+      "status": "reported",
+      "verify": "Authorized project listing, deployment ID, verified preview/production URL and logs",
+      "skills": [
+        "tool-discovery",
+        "verification-proof"
+      ]
+    },
+    {
+      "id": "node",
+      "category": "runtime",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "node --version, node --test smoke and platform/path",
+      "skills": [
+        "environment-bootstrap"
+      ]
+    },
+    {
+      "id": "bun",
+      "category": "runtime",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "bun --version and minimal no-network smoke test",
+      "skills": [
+        "environment-bootstrap"
+      ]
+    },
+    {
+      "id": "powershell",
+      "category": "windows-automation",
+      "hosts": [
+        "windows"
+      ],
+      "status": "reported",
+      "verify": "pwsh -Version and scoped path/permissions",
+      "skills": [
+        "environment-bootstrap"
+      ]
+    },
+    {
+      "id": "windows-task-scheduler",
+      "category": "scheduler",
+      "hosts": [
+        "windows"
+      ],
+      "status": "unverified",
+      "verify": "Read-only scheduled task inventory, owner approval for any changes",
+      "skills": [
+        "environment-bootstrap",
+        "incident-recovery"
+      ]
+    },
+    {
+      "id": "bff-linux",
+      "category": "execution-host",
+      "hosts": [
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "Read-only OS/kernel, agent versions, repo checkout and permissions; no Grok coding",
+      "skills": [
+        "environment-bootstrap"
+      ]
+    },
+    {
+      "id": "tailscale",
+      "category": "networking",
+      "hosts": [
+        "windows",
+        "linux",
+        "android"
+      ],
+      "status": "reported",
+      "verify": "Check actual installed version, tailnet status/ACL boundaries without secrets",
+      "skills": [
+        "tool-discovery"
+      ]
+    },
+    {
+      "id": "playwright-cdp",
+      "category": "browser-automation",
+      "hosts": [
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "Approved single test profile/endpoint and real browser receipt",
+      "skills": [
+        "chrome-acp-relay"
+      ]
+    },
+    {
+      "id": "openrouter-models",
+      "category": "provider-routing",
+      "hosts": [
+        "windows",
+        "linux",
+        "cloud"
+      ],
+      "status": "reported",
+      "verify": "Authorized models listing and measured task quality/cost receipt",
+      "skills": [
+        "model-capability-routing"
+      ]
+    }
+  ]
+}
