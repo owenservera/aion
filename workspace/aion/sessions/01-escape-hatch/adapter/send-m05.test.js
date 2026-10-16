@@ -573,11 +573,14 @@ const SECRET_A = 'SECRET-BODY-AAA-UNIQUE-7f3a';
 const SECRET_B = 'SECRET-BODY-BBB-UNIQUE-9c1e';
 
 function fakeDomEl({ tag = 'DIV', attrs = {}, text = '', parent = null }) {
-  return {
+  const el = {
     tagName: tag,
     innerText: text,
     textContent: text,
     parentElement: parent,
+    parentNode: parent,
+    children: [],
+    childNodes: [],
     getAttribute(name) {
       const v = attrs[name];
       return v !== undefined && v !== null ? String(v) : null;
@@ -585,7 +588,26 @@ function fakeDomEl({ tag = 'DIV', attrs = {}, text = '', parent = null }) {
     hasAttribute(name) {
       return attrs[name] !== undefined && attrs[name] !== null;
     },
+    // Minimal read-only selector matching for the 6 inspect selectors.
+    matches(sel) {
+      const s = String(sel || '');
+      const cls = String(attrs.class || attrs.className || '').split(/\s+/).filter(Boolean);
+      const tid = attrs['data-testid'] !== undefined && attrs['data-testid'] !== null
+        ? String(attrs['data-testid'])
+        : null;
+      if (s === 'article') return String(tag).toUpperCase() === 'ARTICLE';
+      if (s === '[data-testid*="conversation-turn"]') return !!tid && tid.includes('conversation-turn');
+      if (s === '[data-message-author-role]') return attrs['data-message-author-role'] !== undefined;
+      if (s === '[data-turn]') return attrs['data-turn'] !== undefined;
+      if (s === 'div.whitespace-pre-wrap') {
+        return String(tag).toUpperCase() === 'DIV' && cls.includes('whitespace-pre-wrap');
+      }
+      if (s === '.markdown') return cls.includes('markdown');
+      return false;
+    },
   };
+  el.childNodes = el.children;
+  return el;
 }
 
 function stubDocWithSecrets() {
@@ -595,11 +617,22 @@ function stubDocWithSecrets() {
   const el1Text = `user says ${CORR} plus ${SECRET_A}`;
   const el2Text = `reply marker ACK-M05 plus ${SECRET_B}`;
   const el3Text = 'plain hello';
+  // el1 carries many class tokens (14) to prove truncation: elements cap 12,
+  // tree cap 8, marker ancestors cap 4. role/dir/aria-label exercise tree fields.
   const el1 = fakeDomEl({
-    tag: 'ARTICLE', attrs: { 'data-testid': 'conversation-turn-3' }, text: el1Text, parent: main,
+    tag: 'ARTICLE',
+    attrs: {
+      'data-testid': 'conversation-turn-3',
+      role: 'article',
+      dir: 'ltr',
+      'aria-label': 'SECRET-ARIA-LABEL-zz9',
+      class: 'turn c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14',
+    },
+    text: el1Text,
+    parent: main,
   });
   const el2 = fakeDomEl({
-    tag: 'DIV', attrs: { class: 'markdown' }, text: el2Text, parent: el1,
+    tag: 'DIV', attrs: { class: 'markdown extra-a extra-b', role: 'group' }, text: el2Text, parent: el1,
   });
   const el3 = fakeDomEl({
     tag: 'DIV',
@@ -607,11 +640,34 @@ function stubDocWithSecrets() {
     text: el3Text,
     parent: main,
   });
+  // Tree traversal links (read-only children).
+  html.children = [body]; html.childNodes = html.children;
+  body.children = [main]; body.childNodes = body.children;
+  main.children = [el1, el3]; main.childNodes = main.children;
+  el1.children = [el2]; el1.childNodes = el1.children;
+  el2.children = []; el2.childNodes = [];
+  el3.children = []; el3.childNodes = [];
   const all = [el1, el2, el3];
+  const allWithRoot = [html, body, main, el1, el2, el3];
+  // Text nodes for the TreeWalker path (parents link back to elements).
+  const textNodes = [
+    { nodeValue: el1Text, textContent: el1Text, parentElement: el1, parentNode: el1 },
+    { nodeValue: el2Text, textContent: el2Text, parentElement: el2, parentNode: el2 },
+    { nodeValue: el3Text, textContent: el3Text, parentElement: el3, parentNode: el3 },
+  ];
   const doc = {
-    // Ignores the actual selector string: returns the fixed candidate set,
-    // mirroring "matches ANY of the selectors".
-    querySelectorAll() { return all; },
+    body,
+    documentElement: html,
+    createTreeWalker() {
+      let i = 0;
+      return { nextNode() { return i < textNodes.length ? textNodes[i++] : null; } };
+    },
+    // Ignores the actual selector string except '*': returns the fixed
+    // candidate set, mirroring "matches ANY of the selectors".
+    querySelectorAll(sel) {
+      if (String(sel) === '*') return allWithRoot;
+      return all;
+    },
   };
   return { doc, all, texts: [el1Text, el2Text, el3Text] };
 }
