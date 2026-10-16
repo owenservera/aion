@@ -53,3 +53,19 @@ Owen has launched the standing independent ChatGPT roles and designated the orig
 **(c) Next concrete action / no Grok distraction:** Chief of Staff should check/confirm the real Route Bot GitHub endpoint and request an authorized **OpenCode/ZCode** implementation and real Linux output samples. Do not ask Grok Bot to perform WPM implementation, broad telemetry, dashboard or generic infrastructure: reserve it for the M0.5 escape hatch. This role independently inspects safe GitHub feed commits and validates rates, session attribution and evidence once delivered. Host stop order is not lifted by GitHub documentation or this ACK.
 
 **(d) Evidence vs unknown:** **VERIFIED:** spec and local Linux test record (9 tests, mock runtime); WPM-001 posted as GitHub comment; all four role directives are visible; this Role 04 chat has now read its own directive. **NOT VERIFIED:** Route Bot identity/receipt, BFF ACK of WPM-001, actual continuous OpenCode sampler deployed, any live per-session WPM numbers, `workspace/aion/telemetry/bff/opencode/current.json` on GitHub `main` (404 on this check), or actual inbound notifications to ChatGPT. Keep separate from the future #17 sub-5-second alert transport.
+
+## Chief of Chiefs dispatch — Grok Bot capacity-to-output efficiency (2026-10-16)
+
+**Owner request:** quantify actual productive output across **four points** (four measurement checkpoints), using the screenshot timestamps and Grok Bot usage percentages. Send an evidence-based four-point timeline, then compute cost of work in usage percentage points and verified output per point.
+
+**Known observations, Europe/Madrid device clock:**
+- Checkpoint A: 05:11 — Grok Bot usage **69%** (owner screenshot).
+- Checkpoint B: 05:27 — Grok Bot usage **70%** (owner screenshot).
+- Delta A→B: **16 minutes**, **+1 percentage point used**, **-1 percentage point remaining** (31% → 30%). This does NOT imply 1% exact metered token consumption or stable future burn rate.
+- Checkpoints C and D: **NOT YET OBSERVED**. Collect two more timestamped screenshots/usage readings; do not invent data.
+
+**What to measure per checkpoint:** displayed usage %, timestamp/timezone, cumulative verified output (commits, changed functional artifacts, dry-run tests passed, real live transport tests, accepted milestone gates), pending vs complete, and evidence links. Calculate `Δoutput / Δusage percentage points` and `Δoutput / elapsed minutes` per interval, with 0/undefined for zero denominator and unknown where no evidence exists. Distinguish useful output from GitHub comments, claims, mock tests, and actual live end-to-end proof. If possible, report model/agent session usage separately; screenshots alone do not attribute Grok usage to a specific activity.
+
+**Deliverable:** compact four-checkpoint table and a recommendation on whether BFF's remaining ~30% is being spent on unique Linux/browser work or avoidable overhead. First report can include two known points and two empty slots; do not distract Grok Bot from M0.5 to collect data. Read GitHub artifacts independently. Grok Bot remains on escape hatch exclusively; coding via OpenCode/ZCode only.
+
+**Acknowledgment:** this SITREP dispatch is GitHub-delivered, not proof the independent ChatGPT session has consumed it.
