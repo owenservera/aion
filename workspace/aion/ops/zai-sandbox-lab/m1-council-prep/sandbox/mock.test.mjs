@@ -1,0 +1,25 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {request,validate,mockServer,start,close,check,demo,verify} from './mock.mjs';
+const tmp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'zforge-t-'));
+async function withServer(fn){const p=path.join(tmp(),'j.jsonl'),s=await start(p);try{return await fn(s.url,p);}finally{await close(s.server);}}
+const post=(url,x)=>fetch(url+'/mock/send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});
+test('valid synthetic only',()=>assert.equal(validate(request()),null));
+test('wrong real target denied',()=>assert.equal(validate({...request(),target:'chatgpt.com'}),'WRONG_TARGET'));
+test('forged actor denied',()=>assert.equal(validate({...request(),origin:'BFF'}),'NOT_AUTHORIZED'));
+test('missing grant denied',()=>assert.equal(validate({...request(),grant:null}),'NOT_AUTHORIZED'));
+test('expired denied',()=>assert.equal(validate(request('M1C08_SOURCE_001',new Date(Date.now()-120000))),'EXPIRED'));
+test('empty text denied',()=>assert.equal(validate({...request(),text:' '}),'EMPTY_OR_LARGE'));
+test('bad JSON denied',()=>withServer(async url=>assert.equal((await fetch(url+'/mock/send',{method:'POST',body:'{'})).status,400)));
+test('wrong route denied',()=>withServer(async url=>assert.equal((await fetch(url+'/real/send',{method:'POST'})).status,404)));
+test('mock positive and ACK distinct from reply',()=>withServer(async url=>{const x=request();const h=await post(url,x),r=await h.json();assert.equal(h.status,200);assert.ok(check(x,r));assert.notEqual(r.ack,r.mock_reply);}));
+test('duplicate denied',()=>withServer(async url=>{const x=request();await post(url,x);assert.equal((await post(url,x)).status,409);}));
+test('plain prompt not journaled',()=>withServer(async (url,j)=>{const x={...request(),text:'SECRET_NOT_FOR_GIT'};await post(url,x);assert.ok(!fs.readFileSync(j,'utf8').includes(x.text));}));
+test('forged live reply rejected',()=>assert.equal(check(request(),{mode:'LIVE',m1_verified:true}),false));
+test('mismatched correlation rejected',()=>{const x=request();const r={mode:'MOCK_ONLY',m1_verified:false,source:'LOCAL_FIXTURE',ack:'PERSISTED_NOT_EXECUTION',id:x.id,correlation:'OTHER_CORRELATION',mock_reply:'MOCK_REPLY:'+x.correlation};assert.equal(check(x,r),false);});
+test('restart + replay & export verified',async()=>{const d=tmp();await demo(d);assert.equal(verify(d),true);});
+test('tampered export rejected',async()=>{const d=tmp();await demo(d);fs.appendFileSync(path.join(d,'mock.json'),'x');assert.throws(()=>verify(d),/HASH_INVALID/);});
+test('forged m1 flag denied after updated digest',async()=>{const d=tmp();await demo(d);const p=path.join(d,'mock.json');let a=JSON.parse(fs.readFileSync(p));a.m1_verified=true;fs.writeFileSync(p,JSON.stringify(a));const b=fs.readFileSync(p);fs.writeFileSync(path.join(d,'manifest.json'),JSON.stringify({sha256:(await import('./mock.mjs')).sha256(b),bytes:b.length,m1_verified:false}));assert.throws(()=>verify(d),/FAKE_LIVE/);});
