@@ -11,3 +11,4 @@ Source: Owen, direct, 2026-10-16 02:4x Paris, in AION PM chat. Status: verified 
 8. **AION PM limits coding** to minimal PM glue (ledger files, quick checks). Real builds are specced by PM and handed to ZCode/OpenCode on Owen's PC, then tracked and verified.
 9. **Dashboard style:** almost no words; visual first (rings, bars, dots, colors), details on tap.
 10. **Communication channel (Owen, 2026-10-16 03:11):** all team communication happens ONLY in the ChatGPT web app (001.PROJECTS.PM). No side rooms.
+11. **Seed rule (Owen+AION, 2026-10-16):** every build must grow from an existing planned seed (ACP/UAH, IANG/IAM, VOMEGA, GPM Cognitive OS, ZCode/OpenCode) and leave it more capable; no seed means research/reconcile first.
