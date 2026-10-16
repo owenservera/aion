@@ -22,4 +22,6 @@ cd $D && t=$(timeout 60 node -e "const {chromium}=require('playwright');(async()
 node -e "require('$D/node_modules/chrome-remote-interface');require('$D/node_modules/puppeteer-core')" 2>/dev/null && ok "CDP libs (chrome-remote-interface, puppeteer-core)" || bad "CDP libs"
 port=$(pgrep -af chrome | grep -o 'remote-debugging-port=[0-9]*' | head -1 | cut -d= -f2)
 [ -n "$port" ] && curl -s localhost:$port/json/version | grep -q Browser && ok "desktop Chrome CDP on :$port" || echo "INFO  no desktop CDP port; launch chrome with --remote-debugging-port=9222"
+OC=/home/box/.opencode/bin/opencode; [ -x "$OC" ] || OC=$(command -v opencode)
+[ -n "$OC" ] && v=$("$OC" --version 2>/dev/null) && [ -n "$v" ] && ok "opencode $v ($OC)" || bad "opencode missing (curl -fsSL https://opencode.ai/install | bash)"
 echo "SUMMARY pass=$P fail=$F"; [ $F = 0 ]
