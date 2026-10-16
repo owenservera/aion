@@ -52,3 +52,16 @@ Issue comments, reviewers, timestamps, and immutable Git raw blobs are primary. 
 `PUBLISHED` = raw + metadata + derivative links present; it does not imply review.
 `REVIEW_OPEN` = issue live for commentary. `REVIEWED` = enough genuine structured reviews, not consensus.
 `ADOPTED` / `REJECTED` / `IN_PROGRESS` belong to downstream authority, not employee 07.
+
+## v0.2 additive routing metadata (optional until first real pilot)
+Keep existing `aion.proposal/0.1` and `aion.proposal-index/0.1` compatible; the following are **optional additive fields**, not retroactively required of empty/old records.
+- `atomic_ideas`: list of `{idea_id, source_anchor, abstract, source_type}`, with IDs `ATP-YYYYMMDD-NNNN:A01` etc. `source_type` = `AUTHOR_CLAIM` or `INTAKE_INFERENCE` and source references must resolve to RAW text.
+- `routing`: `{primary_role, optional_secondary_role, review_request_urls, requested_at_utc, ack_urls, acknowledged_at_utc, state}` where state in `NOT_NEEDED`, `NEEDS_REVIEW`, `REQUESTED`, `ACKNOWLEDGED`, `REVIEWED`, `BLOCKED`. A request without a reply remains REQUESTED.
+- `decision_refs`: array of actual role 02/05 issue permalink + decision status; never asserted by role 07.
+- `downstream_refs`: real approved task, implementation, skill, test or proof links; null/empty until evidence.
+- `consumer_packet`: optional short 5-line briefing included in issue or decomposition, not a standalone file; traceable to source and addressed to one role.
+- `relevance_labels`: source-derived/mapped keywords, not the worker's numerical judgment of value.
+- `review_last_updated_at_utc`: actual source comment time, not guessed system time.
+All fields stored in META/INDEX are snapshots of authoritative Git objects/issues and must retain source URLs. The GitHub issue remains the canonical event journal; no new per-event file or chat channel. Use optimistic conflict-safe index writes.
+
+**Additional states are orthogonal:** source custody/complete, routing/review, executive decision and separately approved execution are different dimensions. `REVIEWED` does not imply `ADOPTED`, and `DECISION_RECORDED` does not imply `TASK_APPROVED` or `EXECUTION_VERIFIED`.
