@@ -5,6 +5,8 @@ const {
   getToken,
   commentsUrl,
   githubFetch,
+  parseLinkLastPage,
+  readLinkHeader,
   readError,
   sendJson,
   sendNoToken,
@@ -72,7 +74,48 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // GitHub returns issue comments oldest-first; readback wants newest-first.
+  // GitHub pages issue comments oldest-first, so the page above is the OLDEST
+  // batch. The newest `limit` comments only exist on the LAST page, whose index
+  // is advertised by this same response's Link header — so the first request is
+  // page 1 with the final per_page, and the page numbers stay meaningful. No
+  // Link header (or a last page of 1) means the whole issue fits in one page and
+  // what we already hold is the newest data available.
+  const lastPage = parseLinkLastPage(readLinkHeader(res2));
+  if (lastPage && lastPage > 1) {
+    let last;
+    try {
+      last = await githubFetch(token, commentsUrl(`per_page=${limit}&page=${lastPage}`), {
+        method: 'GET',
+      });
+    } catch (_) {
+      sendJson(res, 502, { ok: false, error: 'Could not reach GitHub API' });
+      return;
+    }
+
+    if (!last.ok) {
+      const error = await readError(last, token);
+      const status = last.status >= 400 && last.status < 500 ? last.status : 502;
+      sendJson(res, status, { ok: false, error });
+      return;
+    }
+
+    let lastList;
+    try {
+      lastList = await last.json();
+    } catch (_) {
+      sendJson(res, 502, { ok: false, error: 'GitHub returned an unreadable body' });
+      return;
+    }
+
+    if (!Array.isArray(lastList)) {
+      sendJson(res, 502, { ok: false, error: 'GitHub returned an unexpected body' });
+      return;
+    }
+
+    list = lastList;
+  }
+
+  // Within the page GitHub still returns oldest-first; readback wants newest-first.
   const newestFirst = list
     .slice()
     .sort((a, b) => {

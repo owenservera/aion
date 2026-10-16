@@ -50,6 +50,48 @@ async function githubFetch(token, url, init) {
   });
 }
 
+/**
+ * This endpoint has no "sort=newest" parameter and returns comments
+ * oldest-first, so the newest comments only exist on the LAST page. GitHub
+ * advertises it in the `Link` response header; that header is the only way to
+ * find the page index. Returns null when there is no usable rel="last" link
+ * (single page, or a header shape we do not recognise) so callers can fall back
+ * to the one page they already hold.
+ */
+function parseLinkLastPage(header) {
+  if (typeof header !== 'string' || !header) return null;
+  for (const part of header.split(',')) {
+    const seg = part.trim();
+    if (!seg) continue;
+    const rel = /rel\s*=\s*(?:"([^"]*)"|'([^']*)'|([^;,\s]+))/i.exec(seg);
+    if (!rel) continue;
+    const rels = (rel[1] || rel[2] || rel[3] || '')
+      .trim()
+      .toLowerCase()
+      .split(/\s+/);
+    if (!rels.includes('last')) continue;
+    const target = /<([^>]*)>/.exec(seg);
+    if (!target) continue;
+    const page = /[?&]page=(\d+)(?:[&#>]|$)/.exec(target[1]);
+    if (!page) continue;
+    const n = Number.parseInt(page[1], 10);
+    if (Number.isSafeInteger(n) && n > 0) return n;
+  }
+  return null;
+}
+
+/** Tolerant read of the `Link` header from a fetch Response or a stub. */
+function readLinkHeader(res) {
+  const h = res && res.headers;
+  if (!h) return null;
+  try {
+    if (typeof h.get === 'function') return h.get('link');
+    return h.link || h.Link || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function readError(res, token) {
   let msg = `GitHub responded ${res.status}`;
   try {
@@ -114,6 +156,8 @@ module.exports = {
   getToken,
   commentsUrl,
   githubFetch,
+  parseLinkLastPage,
+  readLinkHeader,
   readError,
   sendJson,
   sendNoToken,
