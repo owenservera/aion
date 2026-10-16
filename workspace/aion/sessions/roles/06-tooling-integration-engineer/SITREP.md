@@ -22,3 +22,7 @@ No independently launched Role 06 ChatGPT conversation, no observed authorizatio
 
 ## Workspace publication and activation ticket — 2026-10-16
 Issue #19: https://github.com/owenservera/aion/issues/19 . Created role bootstrap, scoped AGENTS instructions, workspace map, seeded 20-item qualified registry and 8 SKILL.md runbooks. Updated sessions roster, Chief bootstrap and CR-001 documentation; reported assignment in issue #18. Verification: repository readback pending final audit; no independent ChatGPT role chat exists/has acknowledged yet. Status: DOCUMENTED / NOT ACTIVE. Next owner action: launch dedicated ChatGPT chat from BOOTSTRAP, register real chat URL and first ACK. First execution gate: read-only version/capability sample and CR-001 bounded test preparation.
+
+## AION Shared Technical Proposal Commons — role-specific participation (2026-10-16)
+Proposal reviewer: assess tool compatibility/technical feasibility after reading original RAW and decomposed atoms, providing versioned source-backed comments and your own structured score when appropriate. Role 07 may aggregate, not impersonate your assessment. Your own live role activation remains unverified.
+Pool: https://github.com/owenservera/aion/tree/main/workspace/aion/shared/technical-proposals ; intake issue: https://github.com/owenservera/aion/issues/20 ; scoring: https://github.com/owenservera/aion/blob/main/workspace/aion/shared/technical-proposals/REVIEW-PROTOCOL.md . This is a published handoff, not proof your separate ChatGPT session received it.
