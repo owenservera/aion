@@ -1,0 +1,2 @@
+#!/bin/bash
+while true; do /usr/local/bin/aion-autopush; sleep 60; done
