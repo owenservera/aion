@@ -65,3 +65,14 @@ Owen has launched the standing independent ChatGPT roles and designated the orig
 **Verified:** GitHub role instruction exists and was read; M0.5 and #17 actual requirements independently reviewed; role 02 strategic plan already committed. **Unknown/not proven:** execution stop lifted, live browser ChatGPT roundtrip, independent M0.5 acceptance, true <5-second push receipt, Vercel deployment health of new code, running OpenCode session assignments, Route Bot endpoint, ChatGPT URL for this session, other roles' acknowledgments.
 
 **Next concrete action without Grok:** this role will reconcile new proof from #14/#16/#17 and revise the critical-path plan **only when it changes the dependencies or gates**. Operational Chief of Staff can carry the two minimal specifications to current responsible teams via existing GitHub workflow; no duplicate task or new channel is needed.
+
+### 2026-10-16 — LP-06 Build 1 task-to-proof pilot contract and CoS handoff
+
+**Owner direction:** "Build 1" from the five ranked leapfrog ideas.  
+**Artifact:** [Task-to-Proof v0.1](./task-to-proof/README.md), [machine-readable task schema](./task-to-proof/task.v1.schema.json), [proof schema](./task-to-proof/proof.v1.schema.json), [pilot task](./task-to-proof/pilot-001.task.json), and [OpenCode work order](./task-to-proof/OPENCODE-IMPLEMENTATION-WORK-ORDER.md). All five authored within role 02 folder, committed to `main` and independently fetched. The 8 structural smoke checks passed (JSON parse, required keys, no unknown top-level task keys, declared correlation, basic authority boundaries). **No runtime JSON Schema validator implemented or tested yet**.
+
+**Operational CoS handoff:** [Issue #4 comment 6207447611](https://github.com/owenservera/aion/issues/4#issuecomment-6207447611) published and independently fetched via issue-comment readback. This is a **planning/assignment publication**, not proof that CoS, Route Bot or OpenCode actually received/executed the job.
+
+**Status and owner split:** contract `V2/PUBLISHED`; OpenCode implementation `NOT STARTED / NO VERIFIED EXECUTOR ACK`; CoS (role 03) owns actual authorized coding-session selection/dispatch/receipt; OpenCode/ZCode implements the offline Node validator and negative tests; role 02 verifies strategic acceptance; no Grok Bot interruption. Existing host/browser stop order and D4 privilege dispatch freeze unchanged.
+
+**Next verification gate:** genuine OpenCode session ID, real code/tests, actual commit SHA and artifact SHA-256; independent runner must reproduce tests and reject a forged proof before declaring `VERIFIED`. 
