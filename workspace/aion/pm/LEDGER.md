@@ -146,7 +146,6 @@ ZCode evidence: zcode-setup: hub + pocket-link playbook (claimed via bff/PROJECT
 - atomic-1000 counts as 1000 'tasks' but all Unverified/owner TBD (AION itself flags as provisional).
 - AION thread said /pm/ and /pm/inbox/ 404 on aion main vs ledger auto-pushed to workspace/aion/pm/ (path difference, not absence).
 
-<<<<<<< HEAD
 ## Running atomic tasks (100)
 
 **Canonical machine ledger:** [`ledger.json`](./ledger.json) → `atomic_tasks`. This table is a human-readable mirror; the machine ledger wins.
@@ -259,7 +258,7 @@ ZCode evidence: zcode-setup: hub + pocket-link playbook (claimed via bff/PROJECT
 | AT-100 | P2 | AION PM | Select next ten ready tasks from dependency graph | AION / ACP / GPM Cognitive OS (PM-000) | Ready queue grounded in completed evidence | Unacknowledged |
 
 **Running-list rule:** append AT-101 onward as new tasks arise; update `ledger.json` first, regenerate this view, and record actual receipts separately. No unverifiable green statuses. No GitHub issue text authorizes Windows execution.
-=======
+
 ## Tasks register (T-001..T-100, generated from ledger.json `tasks`)
 All start status todo; evidence none unless a repo file is cited.
 
@@ -365,4 +364,3 @@ All start status todo; evidence none unless a repo file is cited.
 |T-098|AION weekly acceptance review of P0 tasks|AION|P1|todo|PM-000|GPM Cognitive OS||AION signs off P0 statuses in thread|none|
 |T-099|Owen: free disk for OpenCode/ZCode working dirs if T-011 < 20 GB|Owen|P1|todo|PM-015|GPM Cognitive OS|T-012|>=20 GB free recorded|none|
 |T-100|Receipt schema registration in ACP contracts|ZCode|P1|todo|PM-033|ACP/UAH|T-008|schema validates T-008 receipt|none|
->>>>>>> 9d616b2 (auto: 2026-10-16 03:22:28 CEST)

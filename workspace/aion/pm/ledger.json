@@ -712,7 +712,6 @@
       "tag": "claimed (AION self-report)"
     }
   ],
-<<<<<<< HEAD
   "atomic_tasks": [
     {
       "id": "AT-001",
@@ -2324,9 +2323,7 @@
     "human_rule": "Owen is strategic authority; BFF handles exception-only reporting; no owner task tracking.",
     "security_rule": "Existing D4 GitHub execution dispatch freeze remains; no Windows execution without explicit scoped authorization.",
     "append_rule": "Future tasks append as AT-101 onward; do not reset or replace these 100."
-  }
-}
-=======
+  },
   "tasks": [
     {
       "id": "T-001",
@@ -4241,4 +4238,3 @@
     }
   ]
 }
->>>>>>> 9d616b2 (auto: 2026-10-16 03:22:28 CEST)
