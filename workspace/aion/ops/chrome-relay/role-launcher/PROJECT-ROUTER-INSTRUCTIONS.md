@@ -1,5 +1,5 @@
 # Project Instructions Snippet — AION First-Message Role Keywords
-**Usage:** Paste the block below into the existing AION ChatGPT Project's Project settings / instructions if the owner wants keyword-triggered role bootstrap in manually created *new* chats. The GitHub repo file by itself does not install Project instructions. This snippet does not create a new chat, rename its native title or grant GitHub permissions. Project instructions affect chats created within that Project; test on a disposable new chat before broad reliance.
+**Usage:** **APPEND** the block below to the existing AION ChatGPT Project's Project settings / instructions; do not replace existing project instructions. The owner must make this change in the ChatGPT UI. Use it for keyword-triggered role bootstrap in manually created *new* chats. The GitHub repo file by itself does not install Project instructions. This snippet does not create a new chat, rename its native title or grant GitHub permissions. Project instructions affect chats created within that Project; test on a disposable new chat before broad reliance.
 
 ## Paste into Project instructions
 ```
