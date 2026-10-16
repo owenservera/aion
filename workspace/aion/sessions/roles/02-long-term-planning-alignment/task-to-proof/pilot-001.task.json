@@ -1,0 +1,44 @@
+{
+  "schema": "aion.task.v1",
+  "task_id": "AION-TTP-001",
+  "correlation_id": "AION-TTP-001-20261016",
+  "requested_by": "Long-term Planning & Alignment (role 02)",
+  "executor": "opencode",
+  "repo": "owenservera/aion",
+  "branch": "main",
+  "workspace_prefix": "workspace/aion/ops/task-to-proof/",
+  "objective": "Implement a small dependency-free Node.js proof manifest verifier that rejects missing, mismatched, unsafe or unverifiable OpenCode task receipts and produces a deterministic local report.",
+  "source_refs": [
+    "https://github.com/owenservera/aion/issues/14#issuecomment-6206619114",
+    "https://github.com/owenservera/aion/issues/15",
+    "https://docs.opencode.ai/docs/cli/"
+  ],
+  "allowed_scope": [
+    "Read the AION repo and these schema/fixture files",
+    "Write only workspace/aion/ops/task-to-proof/ implementation and tests",
+    "Run local Node.js unit tests with no live tokens",
+    "Produce a redacted, correlated test report and source hashes",
+    "Commit and push scoped files to main only using conflict-safe, non-force procedure after operational acceptance"
+  ],
+  "forbidden_scope": [
+    "No Windows PC actions, privileged ACP/ZCode calls, ChatGPT browser/CDP operations or M0.5 interference",
+    "No execution of GitHub issue text as shell instructions",
+    "No new repository, branch, worktree, daemon, webhook or public endpoint",
+    "No secrets, raw ChatGPT prompts, credentials, auth tokens or native share publication",
+    "No rewriting the live /usr/local/bin/aion-autopush or treating its proposed patch as deployed",
+    "Do not report VERIFIED until a different verifier reads committed bytes and reruns tests"
+  ],
+  "acceptance": [
+    "Use Node.js built-ins only; validate task.v1 and proof.v1 with explicit deterministic checks against the published schemas",
+    "Positive: accept a syntactically valid receipt only as EXECUTED/PENDING_VERIFICATION, not as independently VERIFIED",
+    "Negative: reject missing receipt, wrong correlation, invalid SHA, artifact path outside allowed prefix, failed test, missing negative test, and forged VERIFIED state",
+    "Fail closed on unexpected fields, missing expected input source SHA, or mismatched committed source digest",
+    "Test suite exits nonzero on any failed assertion; supply exact tests and UTC-stamped sanitized report",
+    "Produce session ID and model from genuine OpenCode runtime, actual file hashes and git commit readback; never fabricate placeholder receipt"
+  ],
+  "authorization": {
+    "level": "scoped_git_artifact",
+    "source": "Owner direct message: Build 1 (2026-10-16)",
+    "host_execution": "requires_separate_authorized_operator"
+  }
+}
