@@ -50,3 +50,6 @@
 30. [ ] [Role 05] Audit role receipts and promote next actionable tasks
 
 **This is a coordination directive; GitHub commit does not establish that a live independent chat has consumed it.**
+
+## Owner directive: keep going, 30-item queue (2026-10-16)
+Never stop just because one discovery or task is complete. Verify outcomes and move to the next highest-value authorized task. Maintain a shared rolling queue of at least 30 real, actionable, prioritized items across the five standing roles; replenish completed entries. Track owner, evidence, blocker and next action. Do not invent busywork, exceed authorization, distract Grok Bot from M0.5, or claim work continues autonomously between turns. Distribute this rule to the other standing roles.
