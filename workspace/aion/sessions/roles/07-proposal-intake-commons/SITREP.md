@@ -18,3 +18,6 @@ Created: 2026-10-16 (document scaffold).
 
 ## Event log
 - 2026-10-16: Founder requested distinct proposal intake employee with shared comment/score/rank pool. Scaffolding underway; publication and verification to be recorded separately. No live receipt claimed.
+
+## Publication milestone — 2026-10-16
+Submission inbox: https://github.com/owenservera/aion/issues/20 . The pool, index, review protocol, derived leaderboard, and role skill/workspace files were committed. No genuine source submission has yet been accepted in the new pool; no votes exist, and the worker's live conversation remains unverified. The next operational gate is a real role ACK followed by first eligible inbound source preservation and readback.
