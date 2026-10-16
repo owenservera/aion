@@ -1,8 +1,7 @@
-*
-!.gitignore
-!README.md
-!workspace/
-workspace/*
-!workspace/aion/
-!workspace/aion/**
-workspace/aion/**/node_modules/
+/*
+!/.gitignore
+!/README.md
+!/workspace
+/workspace/*
+!/workspace/aion
+/workspace/aion/**/node_modules/
