@@ -973,10 +973,22 @@ async function runReadLast(browser, opts) {
  * page.evaluate(fn, payload), so it must stay fully self-contained
  * (no Node closures; all inputs come through `opts`).
  *
- * For every element matching ANY of the selectors it returns a
- * TEXT-FREE summary: index, tag, selected attributes, booleans derived
- * from the text, text length, depth and an ancestor chain of
- * tags+data-testid. The element text itself is NEVER returned.
+ * Returns TEXT-FREE `{ elements, tree, markers }` (+ `markerNodes` /
+ * `textNodes` aliases for `markers`):
+ * - elements: for every element matching ANY of the selectors: index,
+ *   tag, selected attributes, which selector(s) matched, class tokens
+ *   (max 12), booleans derived from the text, text length, depth and an
+ *   ancestor chain of tags+data-testid. The element text itself is
+ *   NEVER returned.
+ * - tree: descendant summary starting from the deepest common ancestor
+ *   of all text nodes containing the correlation ID, depth-limited to 6
+ *   levels and capped at 200 nodes. Per node: tag, data-testid, role,
+ *   aria-label presence (boolean only), class tokens (max 8), dir,
+ *   containsCorrelation / containsAck booleans, textLength.
+ * - markers: one entry per text node containing the correlation ID or
+ *   the ACK marker: ancestor chain (tag+data-testid+class tokens max 4,
+ *   up to 12 levels) plus which-marker booleans. Text itself NEVER
+ *   returned.
  */
 function inspectDomEvaluate(opts) {
   const o = opts || {};
@@ -988,6 +1000,83 @@ function inspectDomEvaluate(opts) {
   const maxAncestors = typeof o.maxAncestors === 'number' && o.maxAncestors > 0
     ? Math.min(o.maxAncestors, 12)
     : 6;
+  const markerMaxAncestors = typeof o.markerMaxAncestors === 'number' && o.markerMaxAncestors > 0
+    ? Math.min(o.markerMaxAncestors, 12)
+    : 12;
+  const classMaxEl = typeof o.classMaxEl === 'number' && o.classMaxEl > 0
+    ? Math.min(o.classMaxEl, 12)
+    : 12;
+  const classMaxTree = typeof o.classMaxTree === 'number' && o.classMaxTree > 0
+    ? Math.min(o.classMaxTree, 8)
+    : 8;
+  const classMaxMarker = typeof o.classMaxMarker === 'number' && o.classMaxMarker > 0
+    ? Math.min(o.classMaxMarker, 4)
+    : 4;
+  const treeMaxDepth = typeof o.treeMaxDepth === 'number' && o.treeMaxDepth > 0
+    ? Math.min(o.treeMaxDepth, 6)
+    : 6;
+  const treeMaxNodes = typeof o.treeMaxNodes === 'number' && o.treeMaxNodes > 0
+    ? Math.min(o.treeMaxNodes, 200)
+    : 200;
+
+  const getAttr = (el, name) => {
+    try {
+      if (el && el.getAttribute) {
+        const v = el.getAttribute(name);
+        return v !== null && v !== undefined ? String(v) : null;
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  };
+  const hasAttr = (el, name) => {
+    try {
+      if (el && el.hasAttribute) return !!el.hasAttribute(name);
+      return getAttr(el, name) !== null;
+    } catch {
+      return false;
+    }
+  };
+  // Class tokens only (never the raw string path beyond tokens), truncated.
+  const classTokensOf = (el, max) => {
+    try {
+      let raw = null;
+      try {
+        raw = el && el.getAttribute ? el.getAttribute('class') : null;
+      } catch {
+        raw = null;
+      }
+      if ((raw === null || raw === undefined || raw === '') && el && el.className !== undefined) {
+        try {
+          raw = typeof el.className === 'string' ? el.className : null;
+        } catch {
+          raw = null;
+        }
+      }
+      if (raw === null || raw === undefined) return [];
+      const toks = String(raw).split(/\s+/).filter(Boolean);
+      return toks.slice(0, max);
+    } catch {
+      return [];
+    }
+  };
+  const textOf = (el) => {
+    try {
+      if (el.innerText !== undefined && el.innerText !== null) return String(el.innerText);
+      return String(el.textContent || '');
+    } catch {
+      return '';
+    }
+  };
+  const tagOf = (el) => {
+    try {
+      return String(el.tagName || '').toUpperCase();
+    } catch {
+      return '';
+    }
+  };
+
   let nodes = [];
   try {
     const combined = selectors.join(',');
@@ -995,37 +1084,30 @@ function inspectDomEvaluate(opts) {
   } catch {
     nodes = [];
   }
-  return nodes.map((el, index) => {
-    let text = '';
+  const elements = nodes.map((el, index) => {
+    const text = textOf(el);
+    const tag = tagOf(el);
+    // Which selector(s) matched this element (best effort, read-only).
+    let matchedSelectors = [];
     try {
-      text = el.innerText !== undefined && el.innerText !== null
-        ? String(el.innerText)
-        : String(el.textContent || '');
-    } catch {
-      text = '';
-    }
-    let tag = '';
-    try {
-      tag = String(el.tagName || '').toUpperCase();
-    } catch {
-      tag = '';
-    }
-    const attr = (name) => {
-      try {
-        if (el.getAttribute) {
-          const v = el.getAttribute(name);
-          return v !== null && v !== undefined ? String(v) : null;
-        }
-      } catch {
-        /* ignore */
+      if (el && typeof el.matches === 'function') {
+        matchedSelectors = selectors.filter((s) => {
+          try {
+            return !!el.matches(s);
+          } catch {
+            return false;
+          }
+        });
       }
-      return null;
-    };
+    } catch {
+      matchedSelectors = [];
+    }
+    const toks = classTokensOf(el, classMaxEl);
     let hasDataMessageId = false;
     try {
       hasDataMessageId = el.hasAttribute
         ? !!el.hasAttribute('data-message-id')
-        : attr('data-message-id') !== null;
+        : getAttr(el, 'data-message-id') !== null;
     } catch {
       hasDataMessageId = false;
     }
@@ -1035,12 +1117,7 @@ function inspectDomEvaluate(opts) {
       let node = el;
       let n = 0;
       while (node && n < maxAncestors) {
-        let t = '';
-        try {
-          t = String(node.tagName || '').toUpperCase();
-        } catch {
-          t = '';
-        }
+        const t = tagOf(node);
         if (!t) break;
         let tid = null;
         try {
@@ -1077,10 +1154,15 @@ function inspectDomEvaluate(opts) {
     return {
       index,
       tag,
-      'data-testid': attr('data-testid'),
-      'data-message-author-role': attr('data-message-author-role'),
-      'data-turn': attr('data-turn'),
+      'data-testid': getAttr(el, 'data-testid'),
+      'data-message-author-role': getAttr(el, 'data-message-author-role'),
+      'data-turn': getAttr(el, 'data-turn'),
       hasDataMessageId,
+      matchedSelectors: matchedSelectors.slice(),
+      matchingSelectors: matchedSelectors.slice(),
+      classTokens: toks.slice(),
+      classList: toks.slice(),
+      classes: toks.slice(),
       containsCorrelation: correlation ? text.indexOf(correlation) !== -1 : false,
       containsAck: text.indexOf(ackMarker) !== -1,
       textLength: text.length,
@@ -1088,6 +1170,283 @@ function inspectDomEvaluate(opts) {
       ancestors,
     };
   });
+
+  // ---- marker text nodes: every text node containing correlation or ACK ----
+  const textMatches = [];
+  try {
+    const root = (document.body || document.documentElement) || null;
+    let walker = null;
+    try {
+      if (root && typeof document.createTreeWalker === 'function') {
+        try {
+          const nf = (typeof NodeFilter !== 'undefined' && NodeFilter.SHOW_TEXT)
+            ? NodeFilter.SHOW_TEXT
+            : 4;
+          walker = document.createTreeWalker(root, nf);
+        } catch {
+          walker = null;
+        }
+      }
+    } catch {
+      walker = null;
+    }
+    if (walker) {
+      try {
+        let tn = walker.nextNode();
+        let guard = 0;
+        while (tn && guard < 100000) {
+          guard += 1;
+          let val = '';
+          try {
+            val = String(tn.nodeValue !== undefined && tn.nodeValue !== null
+              ? tn.nodeValue
+              : (tn.textContent || ''));
+          } catch {
+            val = '';
+          }
+          const hasCorr = correlation ? val.indexOf(correlation) !== -1 : false;
+          let hasAck = false;
+          try {
+            hasAck = val.indexOf(ackMarker) !== -1;
+          } catch {
+            hasAck = false;
+          }
+          if (hasCorr || hasAck) {
+            let parent = null;
+            try {
+              parent = tn.parentElement || tn.parentNode || null;
+            } catch {
+              parent = null;
+            }
+            textMatches.push({
+              parent,
+              valueLength: val.length,
+              containsCorrelation: hasCorr,
+              containsAck: hasAck,
+            });
+          }
+          try {
+            tn = walker.nextNode();
+          } catch {
+            break;
+          }
+        }
+      } catch {
+        /* best effort */
+      }
+    }
+  } catch {
+    /* best effort */
+  }
+  // Fallback when TreeWalker is unavailable (e.g. minimal stubs): scan all
+  // elements for marker text and treat the element as the text-node parent.
+  // Read-only; still text-free (lengths + booleans only).
+  if (textMatches.length === 0) {
+    try {
+      let all = null;
+      try {
+        all = Array.from(document.querySelectorAll('*'));
+      } catch {
+        all = null;
+      }
+      const pool = (all && all.length > 0) ? all : nodes;
+      for (const el of (pool || [])) {
+        let t = '';
+        try {
+          t = textOf(el);
+        } catch {
+          t = '';
+        }
+        const hasCorr = correlation ? t.indexOf(correlation) !== -1 : false;
+        let hasAck = false;
+        try {
+          hasAck = t.indexOf(ackMarker) !== -1;
+        } catch {
+          hasAck = false;
+        }
+        if (hasCorr || hasAck) {
+          textMatches.push({
+            parent: el,
+            valueLength: t.length,
+            containsCorrelation: hasCorr,
+            containsAck: hasAck,
+          });
+        }
+        if (textMatches.length > 1000) break;
+      }
+    } catch {
+      /* best effort */
+    }
+  }
+
+  // Ancestor chain for each marker text node (up to 12 levels).
+  const markers = textMatches.map((m, index) => {
+    const ancestors = [];
+    const ancestorDetails = [];
+    try {
+      let node = m.parent;
+      let n = 0;
+      while (node && n < markerMaxAncestors) {
+        const t = tagOf(node);
+        if (!t) break;
+        const tid = getAttr(node, 'data-testid');
+        const toks = classTokensOf(node, classMaxMarker);
+        let label = t;
+        if (tid !== null && tid !== '') label += `[data-testid=${tid}]`;
+        if (toks.length > 0) label += `.${toks.join('.')}`;
+        ancestors.push(label);
+        ancestorDetails.push({ tag: t, testid: tid, 'data-testid': tid, classTokens: toks.slice() });
+        try {
+          node = node.parentElement || node.parentNode || null;
+          // Stop above the document node (no tagName).
+          if (node && !node.tagName) break;
+        } catch {
+          break;
+        }
+        n += 1;
+        if (t === 'HTML') break;
+      }
+    } catch {
+      /* best effort */
+    }
+    return {
+      index,
+      containsCorrelation: !!m.containsCorrelation,
+      containsAck: !!m.containsAck,
+      textLength: typeof m.valueLength === 'number' ? m.valueLength : 0,
+      ancestors: ancestors.slice(),
+      ancestorChain: ancestors.slice(),
+      ancestorDetails,
+    };
+  });
+
+  // ---- tree: deepest common ancestor of correlation text-node parents ----
+  const chainToRoot = (el) => {
+    const chain = [];
+    try {
+      let node = el;
+      let guard = 0;
+      while (node && node.tagName && guard < 1000) {
+        guard += 1;
+        chain.push(node);
+        try {
+          node = node.parentElement || node.parentNode || null;
+        } catch {
+          break;
+        }
+        if (node && !node.tagName) break;
+      }
+    } catch {
+      /* best effort */
+    }
+    return chain; // innermost first
+  };
+  let dca = null;
+  try {
+    const corrParents = textMatches
+      .filter((m) => m.containsCorrelation && m.parent && m.parent.tagName)
+      .map((m) => m.parent);
+    if (corrParents.length === 1) {
+      dca = corrParents[0];
+    } else if (corrParents.length > 1) {
+      const chains = corrParents.map((p) => chainToRoot(p).slice().reverse()); // root first
+      let common = null;
+      const minLen = Math.min.apply(null, chains.map((c) => c.length));
+      for (let d = 0; d < minLen; d++) {
+        const cand = chains[0][d];
+        let allSame = true;
+        for (let c = 1; c < chains.length; c++) {
+          if (chains[c][d] !== cand) {
+            allSame = false;
+            break;
+          }
+        }
+        if (!allSame) break;
+        common = cand;
+      }
+      dca = common;
+    }
+  } catch {
+    dca = null;
+  }
+
+  const tree = [];
+  let treeRoot = null;
+  try {
+    if (dca) {
+      treeRoot = {
+        tag: tagOf(dca),
+        'data-testid': getAttr(dca, 'data-testid'),
+        testid: getAttr(dca, 'data-testid'),
+      };
+      const seen = new Set();
+      const queue = [{ el: dca, relDepth: 0 }];
+      let qi = 0;
+      while (qi < queue.length && tree.length < treeMaxNodes) {
+        const cur = queue[qi];
+        qi += 1;
+        if (!cur || !cur.el || !cur.el.tagName) continue;
+        if (seen.has(cur.el)) continue;
+        seen.add(cur.el);
+        if (cur.relDepth >= treeMaxDepth) continue;
+        const text = textOf(cur.el);
+        const toks = classTokensOf(cur.el, classMaxTree);
+        const tid = getAttr(cur.el, 'data-testid');
+        const role = getAttr(cur.el, 'role');
+        const entry = {
+          index: tree.length,
+          relativeDepth: cur.relDepth,
+          depth: cur.relDepth,
+          tag: tagOf(cur.el),
+          'data-testid': tid,
+          testid: tid,
+          role,
+          hasAriaLabel: hasAttr(cur.el, 'aria-label'),
+          ariaLabelPresent: hasAttr(cur.el, 'aria-label'),
+          classTokens: toks.slice(),
+          classList: toks.slice(),
+          dir: getAttr(cur.el, 'dir'),
+          containsCorrelation: correlation ? text.indexOf(correlation) !== -1 : false,
+          containsAck: text.indexOf(ackMarker) !== -1,
+          textLength: text.length,
+        };
+        tree.push(entry);
+        if (tree.length >= treeMaxNodes) break;
+        if (cur.relDepth + 1 >= treeMaxDepth) continue;
+        let kids = [];
+        try {
+          if (cur.el.children && typeof cur.el.children.length === 'number') {
+            kids = Array.from(cur.el.children);
+          } else if (cur.el.childNodes && typeof cur.el.childNodes.length === 'number') {
+            kids = Array.from(cur.el.childNodes).filter((n) => {
+              try {
+                return !!(n && n.tagName);
+              } catch {
+                return false;
+              }
+            });
+          }
+        } catch {
+          kids = [];
+        }
+        for (const k of kids) {
+          if (tree.length + queue.length - qi >= treeMaxNodes) break;
+          queue.push({ el: k, relDepth: cur.relDepth + 1 });
+        }
+      }
+    }
+  } catch {
+    /* best effort: keep partial tree */
+  }
+
+  return {
+    elements,
+    tree,
+    treeRoot,
+    markers,
+    markerNodes: markers,
+    textNodes: markers,
+  };
 }
 
 /**
@@ -1108,17 +1467,50 @@ async function collectInspectDom(page, opts) {
     ackMarker: INSPECT_ACK_MARKER,
     selectors: INSPECT_DOM_SELECTORS,
     maxAncestors: INSPECT_MAX_ANCESTORS,
+    markerMaxAncestors: INSPECT_MARKER_MAX_ANCESTORS,
+    classMaxEl: INSPECT_CLASS_TOKENS_MAX_ELEMENT,
+    classMaxTree: INSPECT_CLASS_TOKENS_MAX_TREE,
+    classMaxMarker: INSPECT_CLASS_TOKENS_MAX_MARKER,
+    treeMaxDepth: INSPECT_TREE_MAX_DEPTH,
+    treeMaxNodes: INSPECT_TREE_MAX_NODES,
   };
-  let elements;
+  let raw;
   try {
-    elements = await page.evaluate(inspectDomEvaluate, payload);
+    raw = await page.evaluate(inspectDomEvaluate, payload);
   } catch (err) {
     throw new AdapterError('E_INSPECT', `Inspect-dom evaluate failed: ${err && err.message}`);
   }
-  if (!Array.isArray(elements)) {
-    throw new AdapterError('E_INSPECT', 'Inspect-dom returned no element list; refusing to guess.');
+  // New shape: { elements, tree, markers (+aliases) }. Legacy fakes may
+  // still return a bare array — normalize to the object shape.
+  if (Array.isArray(raw)) {
+    return {
+      elements: raw,
+      tree: [],
+      treeRoot: null,
+      markers: [],
+      markerNodes: [],
+      textNodes: [],
+    };
   }
-  return elements;
+  if (raw && typeof raw === 'object' && Array.isArray(raw.elements)) {
+    const markers = Array.isArray(raw.markers)
+      ? raw.markers
+      : Array.isArray(raw.markerNodes)
+        ? raw.markerNodes
+        : Array.isArray(raw.textNodes)
+          ? raw.textNodes
+          : [];
+    const tree = Array.isArray(raw.tree) ? raw.tree : [];
+    return {
+      elements: raw.elements,
+      tree,
+      treeRoot: raw.treeRoot || null,
+      markers,
+      markerNodes: markers,
+      textNodes: markers,
+    };
+  }
+  throw new AdapterError('E_INSPECT', 'Inspect-dom returned no element list; refusing to guess.');
 }
 
 /**
@@ -1151,7 +1543,8 @@ async function runInspectDom(browser, opts) {
   } catch {
     tabTitle = '';
   }
-  const elements = await collectInspectDom(page, { correlation });
+  const collected = await collectInspectDom(page, { correlation });
+  const elements = collected.elements;
   const endedAt = new Date().toISOString();
   return {
     tool: 'aion-m05-chatgpt-webapp-adapter',
@@ -1164,6 +1557,13 @@ async function runInspectDom(browser, opts) {
     selectors: INSPECT_DOM_SELECTORS.slice(),
     elementCount: elements.length,
     elements,
+    tree: collected.tree,
+    treeRoot: collected.treeRoot,
+    treeNodeCount: collected.tree.length,
+    markers: collected.markers,
+    markerNodes: collected.markers,
+    textNodes: collected.markers,
+    markerCount: collected.markers.length,
     startedAt,
     endedAt,
   };
@@ -1344,6 +1744,12 @@ module.exports = {
   INSPECT_DOM_SELECTORS,
   INSPECT_ACK_MARKER,
   INSPECT_MAX_ANCESTORS,
+  INSPECT_MARKER_MAX_ANCESTORS,
+  INSPECT_CLASS_TOKENS_MAX_ELEMENT,
+  INSPECT_CLASS_TOKENS_MAX_TREE,
+  INSPECT_CLASS_TOKENS_MAX_MARKER,
+  INSPECT_TREE_MAX_DEPTH,
+  INSPECT_TREE_MAX_NODES,
   inspectDomEvaluate,
   collectInspectDom,
   runInspectDom,
