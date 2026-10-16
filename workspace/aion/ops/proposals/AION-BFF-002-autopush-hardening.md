@@ -144,10 +144,8 @@ fi
 ## 4. Test plan (throwaway temp git repo + bare remote — no live paths)
 
 No credential values are used anywhere. Secret-like fixtures contain only
-obviously fake placeholders (e.g. `AKIAIOSFODNN7EXAMPLE`-style is avoided;
-use `FAKE_TOKEN_FOR_TEST_123` matched by the `token` path rule and a
-`-----BEGIN FAKE TEST KEY-----` marker matched by a test-only rule, or the
-real patterns with redacted bodies).
+obviously fake placeholders (e.g. a `FAKE_TOKEN_FOR_TEST` value matched by the `token` path rule and a
+`-----BEGIN FAKE TEST KEY-----` marker, or redacted pattern bodies).
 
 ```bash
 set -u
