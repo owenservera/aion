@@ -2,6 +2,7 @@
 Generated 2026-10-16 02:45 CEST. Mirror of ledger.json (that file wins). Tags: **verified** = confirmed in repo bytes; **claimed** = not confirmed. Unknowns marked explicitly.
 
 ## Initiatives
+- **AION-PC (#1 P0)**: #1 P0: give AION (ChatGPT Digital CEO) Grok Bot-style capabilities (shell, files, browser, desktop) running ON Owen's Windows PC
 - **UAH** — Universal Agent Hub (CLI-centred) (owner: ZCode (exec) / AION PM (plan))
 - **IANG** — Integration Automation Network (owner: ZCode / AION PM)
 - **IAM** — Integration Automation Model (data model; canonical DB home SOFTWARE_HQ/integrations/iam/) (owner: ZCode / AION PM)
@@ -28,6 +29,7 @@ Generated 2026-10-16 02:45 CEST. Mirror of ledger.json (that file wins). Tags: *
 ## Work items
 |ID|Title|Initiative|Owner|Status|Tag|Evidence|
 |-|-|-|-|-|-|-|
+|PM-000|P0 #1 AION gets Grok Bot-style shell/files/browser/desktop on Owen's Windows PC (ChatGPT -> tunnel/MCP -> ACP Bridge/UAH -> ZCode)|AION-PC|ZCode|not live; plan only (bff/ZCODE-PATH.md). Blocked by: ACP Bridge missing; No authenticated receipt consumer (D4); Tailscale/HTTPS approvals pending (reported by BFF, not observed); Owen Windows approval needed; PC disk ~6.3 GB free (R7); No real P1 ZCode session yet; Security model for AION shell/desktop on PC undefined. Linked: enabler/blocker: PM-007 ACP Bridge (missing); enabler: owenservera/zcode-setup (hub, pocket-link); enabler: VOMEGA gh-bridge retirement (status UNKNOWN, not checked); enabler: PM-013 CDP twin CLI (browser layer); PM-014 receipt consumer; aion#3 AION-03|claimed|bff/ZCODE-PATH.md; https://github.com/owenservera/aion/issues/3|
 |PM-001|IANG-D01 Integration Mapping & Alignment work package|IANG|ZCode|defined, not started|claimed|threads/pm-thread-1.md|
 |PM-002|IAM v0.1 baseline handoff doc (commit 85476c3)|IAM|ZCode|done|verified|https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/iam/IAM_CORE_V0_1.md|
 |PM-003|IAM v0.1 SQLite: 33 tables, 27 seed nodes, 5 queue entries, integrity/FK pass|IAM|ZCode|exists only in ChatGPT sandbox|claimed|threads/pm-thread-1.md; IAM_CORE_V0_1.md says not uploaded|
@@ -50,3 +52,6 @@ Generated 2026-10-16 02:45 CEST. Mirror of ledger.json (that file wins). Tags: *
 - UNKNOWN: ZCode version
 - UNKNOWN: Current PC free disk
 - UNKNOWN: Scope of 'AION self-reflection'
+
+## Inbox
+- Pinned: https://github.com/owenservera/aion/issues/4 · Test: #5 (closed)
