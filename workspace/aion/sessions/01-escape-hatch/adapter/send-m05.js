@@ -11,6 +11,12 @@
  * LIVE SEND requires BOTH flags (otherwise refused):
  *   --live --confirm-correlation AION-M05-20261016-COC-001
  *
+ * READ-LAST (no-send recovery) attaches over CDP, finds the single
+ * chatgpt.com tab, locates the LAST user turn containing the correlation
+ * ID and captures the assistant turn immediately after it. It NEVER
+ * types, focuses, clicks or submits anything:
+ *   --read-last --correlation AION-M05-20261016-COC-001
+ *
  * Hard rules:
  * - Message text comes ONLY from ../AION-OUTBOUND-M05-001.md (verbatim).
  * - One submit, no retries. No profiles, no cookie/token logging,
@@ -129,8 +135,73 @@ async function live(args, outbound) {
   }
 }
 
+async function readLast(args, correlation) {
+  const { chromium } = require('playwright');
+  let browser;
+  try {
+    browser = await chromium.connectOverCDP(args.cdp);
+  } catch (err) {
+    fail('E_CDP_CONNECT', `Cannot attach to preexisting Chrome CDP endpoint at ${args.cdp}: ${err.message}.`);
+  }
+  const startedAt = new Date().toISOString();
+  try {
+    // No-send path: never types, focuses, clicks or submits (see lib.runReadLast).
+    const receipt = await lib.runReadLast(browser, { correlation });
+    const fname = `receipt-${correlation}-${startedAt.replace(/[:.]/g, '-')}-read-last.json`;
+    const fpath = path.join(args.receiptDir, fname);
+    fs.writeFileSync(fpath, JSON.stringify(receipt, null, 2) + '\n');
+    console.log(JSON.stringify({ ok: true, receiptFile: fname, receipt }));
+    process.exit(0);
+  } catch (err) {
+    if (err instanceof lib.AdapterError) {
+      try {
+        const fname = `receipt-${correlation}-${startedAt.replace(/[:.]/g, '-')}-read-last-FAILED.json`;
+        fs.writeFileSync(
+          path.join(args.receiptDir, fname),
+          JSON.stringify({
+            tool: 'aion-m05-chatgpt-webapp-adapter',
+            mode: 'read-last',
+            correlation,
+            matched: false,
+            code: err.code,
+            message: err.message,
+            startedAt,
+            endedAt: new Date().toISOString(),
+          }, null, 2) + '\n',
+        );
+      } catch {
+        /* best effort */
+      }
+      fail(err.code, err.message);
+    }
+    fail('E_UNEXPECTED', `Unexpected failure: ${err && err.message}`);
+  } finally {
+    try {
+      await browser.close();
+    } catch {
+      /* best effort */
+    }
+  }
+}
+
 async function main() {
   const args = lib.parseArgs(process.argv.slice(2));
+  // Read-last (no-send) path takes precedence over dry-run; live gate unchanged.
+  if (args.readLast) {
+    let correlation = args.correlation ?? args.confirmCorrelation;
+    try {
+      const checked = lib.assertReadLastConfirmed(
+        { readLast: true, correlation },
+        lib.EXPECTED_CORRELATION,
+      );
+      correlation = checked.correlation;
+    } catch (err) {
+      if (err instanceof lib.AdapterError) fail(err.code, err.message);
+      fail('E_UNEXPECTED', `Unexpected failure: ${err && err.message}`);
+    }
+    await readLast(args, correlation);
+    return;
+  }
   if (!args.live) {
     await dryRun(args.cdp);
     return;

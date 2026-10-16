@@ -3,7 +3,16 @@
 <head><meta charset="utf-8"><title>ChatGPT fixture (mock, NOT the real site)</title></head>
 <body>
 <main>
-  <div data-message-author-role="assistant"><div class="markdown">ACK-M05-COC-001</div></div>
+  <article data-testid="conversation-turn-1">
+    <div data-message-author-role="user"><div class="markdown">AION-M05-20261016-COC-001
+
+This is an authorized AION-originated transport verification request. Please reply with exactly the following text on one line:
+
+ACK-M05-COC-001</div></div>
+  </article>
+  <article data-testid="conversation-turn-2">
+    <div data-message-author-role="assistant"><div class="markdown">ACK-M05-COC-001</div></div>
+  </article>
   <form>
     <div id="prompt-textarea" class="ProseMirror" contenteditable="true">Type here</div>
     <textarea name="prompt-textarea" class="wcDTda" style="display:none" aria-hidden="true" hidden tabindex="-1"></textarea>

@@ -1039,7 +1039,7 @@ async function runOnce(browser, opts) {
   const deadline = now() + timeoutMs;
   let after = before;
   while (now() < deadline) {
-    await sleep(Math.min(1000, Math.max(1, deadline - now())));
+    await sleep(Math.min(250, Math.max(1, deadline - now())));
     after = await countAssistantMessages(page);
     if (after > before) break;
   }
@@ -1047,8 +1047,10 @@ async function runOnce(browser, opts) {
     throw new AdapterError('E_NO_RESPONSE', `No new assistant reply appeared within ${timeoutMs}ms; failing without resend.`);
   }
 
-  // 6. Capture visible reply text from THIS conversation and verify.
-  const actualResponse = await readLastAssistantText(page);
+  // 6. Streaming finished when [data-testid=stop-button] disappears;
+  // then capture stable text (two consecutive equal reads).
+  await waitForStreamingEnd(page, deadline, now);
+  const actualResponse = await readStableAssistantText(page, deadline, now);
   verifyReply(actualResponse, opts.expectedReply);
 
   const endedAt = new Date().toISOString();
@@ -1070,10 +1072,19 @@ module.exports = {
   OUTBOUND_MESSAGE,
   COMPOSER_SELECTORS,
   SEND_BUTTON_SELECTORS,
+  TURN_SELECTOR,
+  ASSISTANT_IN_TURN_SELECTOR,
+  USER_IN_TURN_SELECTOR,
+  USER_SELECTOR,
+  MARKDOWN_SELECTOR,
+  STOP_BUTTON_SELECTOR,
+  ASSISTANT_SELECTORS,
+  USER_SELECTORS,
   AdapterError,
   parseArgs,
   loadOutbound,
   assertLiveConfirmed,
+  assertReadLastConfirmed,
   isChatGptWebAppTab,
   isLoginUrl,
   selectTargetTab,
@@ -1081,8 +1092,18 @@ module.exports = {
   locateComposer,
   isFallbackTextarea,
   isInComposerForm,
+  getAssistantHandles,
   countAssistantMessages,
+  readHandleText,
   readLastAssistantText,
+  isStreaming,
+  waitForStreamingEnd,
+  readStableAssistantText,
+  getTurnInfo,
+  findCorrelatedReply,
+  buildReadLastReceipt,
+  collectTabRefs,
+  runReadLast,
   verifyReply,
   buildReceipt,
   runOnce,
