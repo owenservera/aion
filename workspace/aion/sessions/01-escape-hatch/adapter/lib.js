@@ -185,14 +185,245 @@ function safeTabUrl(url) {
 }
 
 /**
+ * Stable dedup key from injected describe metadata (unit-test fakes).
+ * Returns a string key when the handle carries one, else null.
+ */
+function describeKey(handle) {
+  try {
+    const d = handle && handle.describe;
+    if (d && typeof d === 'object') {
+      for (const k of ['key', 'backendNodeId', 'nodeId', 'uid']) {
+        if (d[k] !== undefined && d[k] !== null && String(d[k]) !== '') {
+          return `describe:${k}=${String(d[k])}`;
+        }
+      }
+      if (d.id !== undefined && d.id !== null && String(d.id) !== '') {
+        const tag = String(d.tagName || d.tag || '').toUpperCase();
+        return `describe:id=${String(d.id)}|tag=${tag}`;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/**
+ * Stable DOM-identity key via handle.evaluate marking.
+ * The marker is stored ON the DOM node, so distinct ElementHandle wrappers
+ * for the SAME node (one per $$ call, as Playwright returns) collapse
+ * to one key, while genuinely different nodes get different keys.
+ * Returns null when evaluate is unavailable (fakes) — caller then falls
+ * back to object identity.
+ */
+async function domMarkKey(handle) {
+  if (!handle || typeof handle.evaluate !== 'function') return null;
+  try {
+    const k = await handle.evaluate((el) => {
+      try {
+        if (!el.__aionComposerKey) {
+          el.__aionComposerKey = `k${Math.random().toString(36).slice(2)}`;
+        }
+        return el.__aionComposerKey;
+      } catch {
+        return null;
+      }
+    });
+    if (typeof k === 'string' && k) return `dom:${k}`;
+  } catch {
+    /* evaluate blocked (CSP etc.) — fall back to object identity */
+  }
+  return null;
+}
+
+/** Read one attribute best-effort (real handles and describe fakes). */
+async function safeAttr(handle, name) {
+  try {
+    if (handle && typeof handle.getAttribute === 'function') {
+      const v = await handle.getAttribute(name);
+      if (v !== null && v !== undefined) return String(v);
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const d = handle && handle.describe;
+    if (d && typeof d === 'object') {
+      if (d[name] !== undefined && d[name] !== null) return String(d[name]);
+      if (name === 'class' && d.className !== undefined && d.className !== null) return String(d.className);
+      if (name === 'aria-hidden' && d.ariaHidden !== undefined && d.ariaHidden !== null) return String(d.ariaHidden);
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/**
+ * True when the handle is a hidden/fallback <textarea> that must NOT count
+ * as a composer candidate: display:none, zero-size, hidden attr,
+ * aria-hidden, or the known fallback markers (name=prompt-textarea,
+ * class wcDTda). Non-textarea editors (the ProseMirror contenteditable div)
+ * are NEVER fallback. Unknown-tag handles without evaluate/describe info
+ * (legacy unit fakes) default to genuine so existing tests keep passing.
+ */
+async function isFallbackTextarea(handle) {
+  // Fast path 1: live DOM inspection via evaluate (most reliable).
+  if (handle && typeof handle.evaluate === 'function') {
+    try {
+      const r = await handle.evaluate((el) => {
+        try {
+          const tag = ((el.tagName || '') + '').toUpperCase();
+          if (tag !== 'TEXTAREA') return false;
+          if (el.hidden) return true;
+          if (el.getAttribute && el.getAttribute('aria-hidden') === 'true') return true;
+          if (el.getAttribute && el.getAttribute('name') === 'prompt-textarea') return true;
+          const cls = el.getAttribute ? (el.getAttribute('class') || '') : '';
+          if ((` ${cls} `).split(/\s+/).includes('wcDTda')) return true;
+          const style = el.getAttribute ? (el.getAttribute('style') || '') : '';
+          if (/display\s*:\s*none/i.test(style)) return true;
+          try {
+            const cs = typeof getComputedStyle === 'function' ? getComputedStyle(el) : null;
+            if (cs && (cs.display === 'none' || cs.visibility === 'hidden')) return true;
+          } catch {
+            /* ignore */
+          }
+          try {
+            const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+            if (rect && (rect.width === 0 || rect.height === 0)) return true;
+          } catch {
+            /* ignore */
+          }
+          if (el.clientWidth === 0 && el.clientHeight === 0) return true;
+          return false;
+        } catch {
+          return false;
+        }
+      });
+      if (r === true) return true;
+      // r === false may still be a describe-fake whose evaluate stub does
+      // not reflect its describe metadata — fall through to describe checks.
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // Fast path 2: describe metadata (unit-test fakes).
+  try {
+    const d = handle && handle.describe;
+    if (d && typeof d === 'object') {
+      const tag = String(d.tagName || d.tag || '').toUpperCase();
+      const cls = String(d.className || d.class || '');
+      const classes = cls.split(/\s+/).filter(Boolean);
+      const name = d.name !== undefined && d.name !== null ? String(d.name) : null;
+      const ariaHidden = d.ariaHidden !== undefined ? d.ariaHidden : d['aria-hidden'];
+      const hidden = d.hidden === true || d.hidden === 'true';
+      const dispNone = d.display === 'none';
+      const visHidden = d.visibility === 'hidden';
+      const zeroSize = (d.width === 0 || d.height === 0) && (d.width !== undefined || d.height !== undefined);
+      const hasFallbackMarker = (name !== null && FALLBACK_TEXTAREA_NAMES.has(name)) ||
+        classes.some((c) => FALLBACK_TEXTAREA_CLASSES.has(c));
+      if (tag === 'TEXTAREA') {
+        if (hidden || ariaHidden === true || ariaHidden === 'true' || dispNone || visHidden || zeroSize) return true;
+        if (hasFallbackMarker) return true;
+        return false;
+      }
+      if (tag !== '' && tag !== 'TEXTAREA') return false; // DIV etc. never fallback
+      if (hasFallbackMarker && (hidden || ariaHidden === true || ariaHidden === 'true' || dispNone || visHidden || zeroSize)) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // Fast path 3: individual getAttribute/boundingBox probes (no evaluate).
+  try {
+    if (handle && typeof handle.getAttribute === 'function') {
+      const tagProp = handle.tagName || handle.tag || null;
+      const tag = tagProp ? String(tagProp).toUpperCase() : null;
+      const [aria, name, cls, style] = await Promise.all([
+        safeAttr(handle, 'aria-hidden'),
+        safeAttr(handle, 'name'),
+        safeAttr(handle, 'class'),
+        safeAttr(handle, 'style'),
+      ]);
+      const classes = String(cls || '').split(/\s+/).filter(Boolean);
+      const hasMarker = (name !== null && FALLBACK_TEXTAREA_NAMES.has(name)) ||
+        classes.some((c) => FALLBACK_TEXTAREA_CLASSES.has(c));
+      const isHiddenAttr = aria === 'true' || /display\s*:\s*none/i.test(String(style || ''));
+      if (tag === 'TEXTAREA' && (isHiddenAttr || hasMarker)) return true;
+      if (tag === null && hasMarker && isHiddenAttr) return true;
+      if (typeof handle.boundingBox === 'function' && (tag === 'TEXTAREA' || (tag === null && hasMarker))) {
+        try {
+          const box = await handle.boundingBox();
+          if (box === null) return true; // display:none reports null
+          if (box && (box.width === 0 || box.height === 0)) return true;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return false;
+}
+
+/**
+ * Best-effort check: is this handle inside the <form> that contains the
+ * send button? Used only to label candidates (preference), never to
+ * silently discard a genuinely different visible editor.
+ * Returns true/false, or null when it cannot be determined.
+ */
+async function isInComposerForm(handle) {
+  if (!handle || typeof handle.evaluate !== 'function') return null;
+  try {
+    const r = await handle.evaluate(
+      (el, sels) => {
+        try {
+          const form = el.closest ? el.closest('form') : null;
+          if (!form) return false;
+          return sels.some((s) => {
+            try {
+              return !!form.querySelector(s);
+            } catch {
+              return false;
+            }
+          });
+        } catch {
+          return null;
+        }
+      },
+      SEND_BUTTON_SELECTORS,
+    );
+    return r === true ? true : r === false ? false : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Defensively locate the editable composer on a page.
  * page: minimal interface { $$(selector) -> [handle], } where each handle
- * has isVisible() and describe metadata. Returns { selector, handle }.
- * Throws E_NO_COMPOSER (none) or E_AMBIGUOUS_COMPOSER (more than one).
+ * has isVisible() and optionally evaluate/getAttribute/describe metadata.
+ * Returns { selector, handle }.
+ *
+ * Fixed behaviour (was E_AMBIGUOUS_COMPOSER on live ChatGPT UI):
+ * - The ProseMirror <div id="prompt-textarea" contenteditable> inside the
+ *   send-button form is preferred (selectors run most-specific first).
+ * - Hidden/fallback <textarea> (name=prompt-textarea, class wcDTda,
+ *   display:none, zero-size, aria-hidden, hidden) are non-candidates.
+ * - The SAME DOM node found via several selectors (Playwright returns a
+ *   fresh ElementHandle per $$ call) is deduped via DOM marking, so one
+ *   editor matching N selectors still counts as ONE candidate.
+ * - Throws E_NO_COMPOSER (none genuine) or E_AMBIGUOUS_COMPOSER (more than
+ *   one genuinely different visible editor — never guessed).
  */
 async function locateComposer(page) {
-  const seen = new Set();
+  const seenDomKeys = new Set();
+  const seenHandles = new Set();
   const visible = [];
+  const genuine = [];
   for (const sel of COMPOSER_SELECTORS) {
     let handles = [];
     try {
@@ -201,31 +432,69 @@ async function locateComposer(page) {
       continue;
     }
     for (const h of handles) {
-      if (seen.has(h)) continue;
-      seen.add(h);
       let vis = false;
       try {
         vis = await h.isVisible();
       } catch {
         vis = false;
       }
-      if (vis) visible.push({ selector: sel, handle: h });
+      if (!vis) continue;
+      // Dedupe the same DOM node seen via an earlier (more specific) selector.
+      let key = describeKey(h);
+      if (!key) {
+        try {
+          key = await domMarkKey(h);
+        } catch {
+          key = null;
+        }
+      }
+      if (key ? seenDomKeys.has(key) : seenHandles.has(h)) continue;
+      if (key) seenDomKeys.add(key);
+      else seenHandles.add(h);
+
+      const entry = { selector: sel, handle: h, key };
+      visible.push(entry);
+      let fallback = false;
+      try {
+        fallback = await isFallbackTextarea(h);
+      } catch {
+        fallback = false;
+      }
+      entry.fallback = fallback;
+      if (fallback) continue;
+      try {
+        entry.inComposerForm = await isInComposerForm(h);
+      } catch {
+        entry.inComposerForm = null;
+      }
+      genuine.push(entry);
     }
   }
-  if (visible.length === 0) {
+  if (genuine.length === 0) {
+    const ignored = visible.length;
     throw new AdapterError(
       'E_NO_COMPOSER',
       'No editable ChatGPT composer found (tried: ' + COMPOSER_SELECTORS.join(', ') + '). ' +
+        (ignored > 0
+          ? `${ignored} hidden/fallback textarea candidate(s) ignored ` +
+            '(display:none/zero-size/aria-hidden/name=prompt-textarea/class=wcDTda). '
+          : '') +
         'Failing: login may be required or UI changed.',
     );
   }
-  if (visible.length > 1) {
+  if (genuine.length > 1) {
+    const detail = genuine
+      .map((g) => `${g.selector}${g.inComposerForm === true ? '[in-send-form]' : ''}`)
+      .join(', ');
     throw new AdapterError(
       'E_AMBIGUOUS_COMPOSER',
-      `Ambiguous UI: ${visible.length} visible composer candidates; refusing to guess.`,
+      `Ambiguous UI: ${genuine.length} visible composer candidates; refusing to guess. (selectors: ${detail})`,
     );
   }
-  return visible[0];
+  // Single genuine editor: because selectors run most-specific first, this
+  // is the #prompt-textarea contenteditable (or, when that id is absent,
+  // the editor inside the send-button form) — fallbacks already excluded.
+  return { selector: genuine[0].selector, handle: genuine[0].handle };
 }
 
 /** Count assistant messages currently rendered in the conversation. */
@@ -401,6 +670,7 @@ module.exports = {
   CDP_DEFAULT,
   OUTBOUND_MESSAGE,
   COMPOSER_SELECTORS,
+  SEND_BUTTON_SELECTORS,
   AdapterError,
   parseArgs,
   loadOutbound,
@@ -410,6 +680,8 @@ module.exports = {
   selectTargetTab,
   safeTabUrl,
   locateComposer,
+  isFallbackTextarea,
+  isInComposerForm,
   countAssistantMessages,
   readLastAssistantText,
   verifyReply,
