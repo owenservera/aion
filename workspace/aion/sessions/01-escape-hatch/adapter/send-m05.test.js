@@ -316,3 +316,253 @@ test('hidden fallback textarea alone is E_NO_COMPOSER (non-candidate, never gues
   // Even though the textarea reports visible, it is filtered → no composer.
   await assert.rejects(lib.locateComposer(page), (e) => e.code === 'E_NO_COMPOSER');
 });
+
+// ---- turn-aware fakes (current ChatGPT DOM) ----
+
+function fakeMarkdown(text) {
+  return { async innerText() { return text; } };
+}
+
+function fakeAssistantNode(text) {
+  return {
+    _text: text,
+    async innerText() { return this._text; },
+    async $(sel) {
+      if (sel === '.markdown') return fakeMarkdown(this._text);
+      return null;
+    },
+  };
+}
+
+function fakeTurn(role, text) {
+  return {
+    _role: role,
+    _text: text,
+    describe: { role, text },
+    async innerText() { return this._text; },
+    async $(sel) {
+      if (sel === '.markdown') return fakeMarkdown(this._text);
+      if (sel === '[data-message-author-role="user"]') return this._role === 'user' ? fakeMarkdown(this._text) : null;
+      if (sel === '[data-message-author-role="assistant"]') return this._role === 'assistant' ? fakeMarkdown(this._text) : null;
+      return null;
+    },
+    async evaluate() {
+      // Mimics the real-DOM evaluate branch in getTurnInfo.
+      return { role: this._role, text: this._text };
+    },
+  };
+}
+
+// Minimal turn-aware page: tracks queried selectors for no-touch proofs,
+// serves article turns + assistant descendants + stop-button + one composer.
+function fakeTurnPage(opts = {}) {
+  const state = {
+    turns: (opts.turns || []).map((t) => ({ role: t.role, text: t.text })),
+    streaming: !!opts.streaming,
+    submitted: 0,
+    bringToFrontCalls: 0,
+    composerTouched: 0,
+    queriedSelectors: [],
+    composerCount: opts.composerCount ?? 1,
+    _composer: null,
+    _firstComposerSel: null,
+  };
+  const page = {
+    _state: state,
+    _url: opts.url || CHAT_URL,
+    url() { return this._url; },
+    async bringToFront() { state.bringToFrontCalls += 1; },
+    async $$(sel) {
+      state.queriedSelectors.push(sel);
+      if (sel === 'article[data-testid^="conversation-turn-"]') {
+        return state.turns.map((t) => fakeTurn(t.role, t.text));
+      }
+      if (sel === 'article[data-testid^="conversation-turn-"] [data-message-author-role="assistant"]') {
+        return state.turns.filter((t) => t.role === 'assistant').map((t) => fakeAssistantNode(t.text));
+      }
+      if (sel === 'article[data-testid^="conversation-turn-"] [data-message-author-role="user"]') {
+        return state.turns.filter((t) => t.role === 'user').map((t) => fakeAssistantNode(t.text));
+      }
+      if (sel === '[data-testid="stop-button"]') {
+        return state.streaming ? [fakeHandle({ text: 'stop' })] : [];
+      }
+      if (state.composerCount > 0 && /prompt-textarea|contenteditable|textarea/.test(sel)) {
+        if (!state._composer) {
+          state._composer = [];
+          for (let i = 0; i < state.composerCount; i++) {
+            state._composer.push(fakeHandle({
+              onPress: async () => {
+                state.submitted += 1;
+                if (opts.onSubmit) await opts.onSubmit(state, page);
+              },
+            }));
+          }
+          state._firstComposerSel = sel;
+        }
+        return sel === state._firstComposerSel ? state._composer : [];
+      }
+      return [];
+    },
+  };
+  return page;
+}
+
+test('fixture uses current ChatGPT turn DOM (article turns + markdown)', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'fixture.html'), 'utf8');
+  assert.ok(html.includes('article'), 'fixture has article turns');
+  assert.ok(html.includes('data-testid="conversation-turn-'), 'fixture turns carry conversation-turn testids');
+  assert.ok(html.includes('data-message-author-role="assistant"'), 'assistant turn present');
+  assert.ok(html.includes('data-message-author-role="user"'), 'user turn present');
+  assert.ok(html.includes('class="markdown"'), 'text lives in .markdown');
+  assert.ok(html.includes(CORR), 'user turn carries the correlation ID');
+  assert.ok(html.includes(ACK), 'assistant turn carries the expected marker');
+});
+
+test('turn-aware reply: baseline count then new assistant turn after submit', async () => {
+  const page = fakeTurnPage({
+    url: CHAT_URL,
+    turns: [
+      { role: 'user', text: `hello ${CORR}` },
+      { role: 'assistant', text: 'older reply' },
+    ],
+    onSubmit: async (state) => {
+      state.turns.push({ role: 'user', text: `follow-up ${CORR}` });
+      state.turns.push({ role: 'assistant', text: ACK });
+    },
+  });
+  const before = await lib.countAssistantMessages(page);
+  assert.equal(before, 1, 'baseline assistant-turn count before submit');
+  const receipt = await lib.runOnce(fakeBrowser([page]), {
+    message: lib.OUTBOUND_MESSAGE, correlation: CORR, expectedReply: ACK, timeoutMs: 5000,
+  });
+  assert.equal(page._state.submitted, 1, 'exactly one submit');
+  assert.equal(await lib.countAssistantMessages(page), 2, 'new assistant turn detected after send');
+  assert.equal(receipt.actualResponse, ACK);
+  assert.equal(receipt.mode, 'live');
+});
+
+test('streaming reply: stop-button disappears then stable text is captured', async () => {
+  const page = fakeTurnPage({
+    url: CHAT_URL,
+    turns: [{ role: 'assistant', text: 'older reply' }],
+    onSubmit: async (state) => {
+      // Streaming starts: partial text + stop button visible.
+      state.streaming = true;
+      state.turns.push({ role: 'assistant', text: 'ACK-M05' });
+      setTimeout(() => {
+        // Streaming finishes: full text, stop button gone.
+        const last = state.turns[state.turns.length - 1];
+        last.text = ACK;
+        state.streaming = false;
+      }, 300);
+    },
+  });
+  assert.equal(await lib.isStreaming(page), false, 'not streaming before submit');
+  const receipt = await lib.runOnce(fakeBrowser([page]), {
+    message: lib.OUTBOUND_MESSAGE, correlation: CORR, expectedReply: ACK, timeoutMs: 8000,
+  });
+  assert.equal(page._state.submitted, 1);
+  assert.equal(await lib.isStreaming(page), false, 'streaming finished (stop-button gone)');
+  assert.equal(receipt.actualResponse, ACK, 'stable full text captured, not the partial chunk');
+});
+
+test('read-last parses --read-last --correlation and gates on exact match', () => {
+  const args = lib.parseArgs(['--read-last', '--correlation', CORR]);
+  assert.equal(args.readLast, true);
+  assert.equal(args.mode, 'read-last');
+  assert.deepEqual(lib.assertReadLastConfirmed(args, CORR), { readLast: true, correlation: CORR });
+  assert.throws(
+    () => lib.assertReadLastConfirmed(lib.parseArgs(['--read-last']), CORR),
+    (e) => e.code === 'E_CONFIRMATION',
+  );
+  assert.throws(
+    () => lib.assertReadLastConfirmed(lib.parseArgs(['--read-last', '--correlation', 'WRONG']), CORR),
+    (e) => e.code === 'E_CONFIRMATION',
+  );
+  // Existing live gate unchanged.
+  assert.throws(() => lib.assertLiveConfirmed(lib.parseArgs(['--live']), CORR),
+    (e) => e.code === 'E_CONFIRMATION');
+});
+
+test('read-last happy path: last correlated user turn + next assistant, sanitized receipt', async () => {
+  const page = fakeTurnPage({
+    url: 'https://chatgpt.com/c/abc123?utm_source=x#frag',
+    turns: [
+      { role: 'user', text: `first ${CORR}` },
+      { role: 'assistant', text: 'first reply' },
+      { role: 'user', text: `second ${CORR} with more context` },
+      { role: 'assistant', text: `here you go\n${ACK}\nbye` },
+    ],
+  });
+  const receipt = await lib.runReadLast(fakeBrowser([page]), { correlation: CORR });
+  assert.equal(receipt.mode, 'read-last');
+  assert.equal(receipt.correlation, CORR);
+  assert.equal(receipt.matched, true);
+  assert.ok(receipt.actualResponse.includes(ACK), 'assistant turn immediately after LAST match captured');
+  assert.equal(receipt.tabUrlSafe, 'https://chatgpt.com/c/abc123', 'query/hash stripped');
+  assert.ok(receipt.startedAt && receipt.endedAt);
+  assert.ok(!JSON.stringify(receipt).includes('utm_source'));
+  assert.ok(!/cookie|token/i.test(JSON.stringify(receipt)));
+});
+
+test('read-last NEVER touches composer, send button, fill/press/click/focus', async () => {
+  const touched = { fill: 0, press: 0, click: 0, focus: 0, type: 0 };
+  const composer = {
+    async isVisible() { return true; },
+    async fill() { touched.fill += 1; throw new Error('must not fill'); },
+    async press() { touched.press += 1; throw new Error('must not press'); },
+    async click() { touched.click += 1; throw new Error('must not click'); },
+    async focus() { touched.focus += 1; throw new Error('must not focus'); },
+    async type() { touched.type += 1; throw new Error('must not type'); },
+  };
+  const page = fakeTurnPage({
+    turns: [
+      { role: 'user', text: `ping ${CORR}` },
+      { role: 'assistant', text: ACK },
+    ],
+  });
+  const orig$$ = page.$$.bind(page);
+  page.$$ = async (sel) => {
+    if (/prompt-textarea|contenteditable|composer-submit|send-button/.test(sel)) {
+      throw new Error(`read-last must never query composer/send selector: ${sel}`);
+    }
+    if (sel === '#prompt-textarea' || sel === 'form textarea') {
+      return [composer];
+    }
+    return orig$$(sel);
+  };
+  // No bringToFront on the read path either (avoids focus steal).
+  let broughtToFront = 0;
+  page.bringToFront = async () => { broughtToFront += 1; };
+  const receipt = await lib.runReadLast(fakeBrowser([page]), { correlation: CORR });
+  assert.equal(receipt.actualResponse, ACK);
+  assert.deepEqual(touched, { fill: 0, press: 0, click: 0, focus: 0, type: 0 }, 'no type/focus/click/submit');
+  assert.equal(broughtToFront, 0, 'read-last never brings the tab to front (no focus)');
+  for (const sel of page._state.queriedSelectors) {
+    assert.ok(!/prompt-textarea|contenteditable|composer-submit/.test(sel), `composer selector never queried: ${sel}`);
+    assert.ok(!/send-button/.test(sel), `send-button selector never queried: ${sel}`);
+  }
+});
+
+test('read-last refuses when no user turn carries the correlation', async () => {
+  const page = fakeTurnPage({
+    turns: [
+      { role: 'user', text: 'unrelated question' },
+      { role: 'assistant', text: ACK },
+    ],
+  });
+  await assert.rejects(
+    lib.runReadLast(fakeBrowser([page]), { correlation: CORR }),
+    (e) => e.code === 'E_NO_CORRELATED_MESSAGE',
+  );
+});
+
+test('read-last fails clearly when no assistant turn follows the correlated user', async () => {
+  const page = fakeTurnPage({
+    turns: [{ role: 'user', text: `waiting ${CORR}` }],
+  });
+  await assert.rejects(
+    lib.runReadLast(fakeBrowser([page]), { correlation: CORR }),
+    (e) => e.code === 'E_NO_RESPONSE',
+  );
+});
