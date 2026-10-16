@@ -1030,3 +1030,247 @@ test('inspect-dom uses the same tab selection as read-last (refuses none/ambiguo
     (e) => e.code === 'E_INSPECT',
   );
 });
+
+// ---- live-DOM fallback (2026-10-16: no article/turn/role elements) ----
+
+// Minimal mock DOM for fixture-live-2026-10-16.html when jsdom is unavailable.
+// Supports only what lib.fallbackTurnsEvaluate needs: querySelectorAll('*'),
+// getAttribute('class'), className, textContent/innerText, parent links, tagName.
+function decodeEntities(s) {
+  return String(s || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function parseLiveFixtureToMockDoc(html) {
+  const all = [];
+  const mkEl = (tag, attrs, parent) => {
+    const el = {
+      tagName: String(tag || '').toUpperCase(),
+      _attrs: attrs || {},
+      parentElement: parent || null,
+      parentNode: parent || null,
+      children: [],
+      childNodes: [],
+      _ownText: '',
+      textContent: '',
+      innerText: '',
+      getAttribute(name) {
+        const v = this._attrs[name];
+        return v !== undefined && v !== null ? String(v) : null;
+      },
+      hasAttribute(name) {
+        return this._attrs[name] !== undefined && this._attrs[name] !== null;
+      },
+    };
+    Object.defineProperty(el, 'className', {
+      get() { return this._attrs.class !== undefined && this._attrs.class !== null ? String(this._attrs.class) : ''; },
+    });
+    el.childNodes = el.children;
+    return el;
+  };
+  const root = mkEl('HTML', {}, null);
+  all.push(root);
+  const stack = [root];
+  const tokenRe = /<!--[\s\S]*?-->|<\/?[a-zA-Z][^>]*>|[^<]+/g;
+  let m;
+  while ((m = tokenRe.exec(html)) !== null) {
+    const tok = m[0];
+    if (tok.startsWith('<!--')) continue;
+    if (tok.startsWith('</')) {
+      if (stack.length > 1) {
+        const done = stack.pop();
+        const parts = [done._ownText];
+        for (const k of done.children) parts.push(k.textContent);
+        done.textContent = decodeEntities(parts.join(''));
+        done.innerText = done.textContent;
+      }
+      continue;
+    }
+    if (tok.startsWith('<')) {
+      const tagM = tok.match(/^<\s*([a-zA-Z0-9]+)/);
+      if (!tagM) continue;
+      const tag = tagM[1];
+      const attrs = {};
+      const classM = tok.match(/class\s*=\s*"([^"]*)"/);
+      if (classM) attrs.class = decodeEntities(classM[1]);
+      const el = mkEl(tag, attrs, stack[stack.length - 1]);
+      stack[stack.length - 1].children.push(el);
+      el.parentElement = stack[stack.length - 1];
+      el.parentNode = stack[stack.length - 1];
+      all.push(el);
+      if (/\/\s*>$/.test(tok) || /^(meta|br|hr|img|input|link)$/i.test(tag)) {
+        el.textContent = '';
+        el.innerText = '';
+      } else {
+        stack.push(el);
+      }
+      continue;
+    }
+    // text node
+    const top = stack[stack.length - 1];
+    top._ownText += tok;
+  }
+  while (stack.length > 1) {
+    const done = stack.pop();
+    const parts = [done._ownText];
+    for (const k of done.children) parts.push(k.textContent);
+    done.textContent = decodeEntities(parts.join(''));
+    done.innerText = done.textContent;
+  }
+  // fix root text
+  {
+    const parts = [root._ownText];
+    for (const k of root.children) parts.push(k.textContent);
+    root.textContent = decodeEntities(parts.join(''));
+    root.innerText = root.textContent;
+  }
+  const doc = {
+    body: root,
+    documentElement: root,
+    querySelectorAll(sel) {
+      if (String(sel) === '*') return all;
+      return [];
+    },
+  };
+  return doc;
+}
+
+function loadLiveDoc(html) {
+  // Prefer a real jsdom when available in /home/box/aion-tools/node_modules,
+  // otherwise fall back to the minimal mock above.
+  try {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM(html);
+    return { doc: dom.window.document, kind: 'jsdom' };
+  } catch {
+    return { doc: parseLiveFixtureToMockDoc(html), kind: 'mock' };
+  }
+}
+
+// Read-only live page: legacy selectors return [] (forcing the fallback),
+// evaluate() runs the REAL lib.fallbackTurnsEvaluate against the fixture doc.
+// Every interaction entry point throws if ever touched.
+function fakeLivePage(doc) {
+  const queriedSelectors = [];
+  const calls = { evaluate: 0, fill: 0, press: 0, click: 0, focus: 0, type: 0 };
+  const page = {
+    _queriedSelectors: queriedSelectors,
+    _calls: calls,
+    _url: CHAT_URL,
+    url() { return this._url; },
+    async $$(sel) {
+      queriedSelectors.push(sel);
+      return [];
+    },
+    async $(sel) {
+      queriedSelectors.push(`$:$(sel)`);
+      return null;
+    },
+    async evaluate(fn, payload) {
+      calls.evaluate += 1;
+      const prev = globalThis.document;
+      globalThis.document = doc;
+      try {
+        return await fn(payload);
+      } finally {
+        if (prev === undefined) delete globalThis.document;
+        else globalThis.document = prev;
+      }
+    },
+    async fill() { calls.fill += 1; throw new Error('read-last must never fill'); },
+    async press() { calls.press += 1; throw new Error('read-last must never press'); },
+    async click() { calls.click += 1; throw new Error('read-last must never click'); },
+    async focus() { calls.focus += 1; throw new Error('read-last must never focus'); },
+    async type() { calls.type += 1; throw new Error('read-last must never type'); },
+  };
+  return page;
+}
+
+test('live fixture reproduces 2026-10-16 structure (no legacy turns, fallback markers present)', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'fixture-live-2026-10-16.html'), 'utf8');
+  assert.ok(!html.includes('<article'), 'no article elements');
+  assert.ok(!html.includes('conversation-turn'), 'no conversation-turn testids');
+  assert.ok(!html.includes('data-message-author-role'), 'no role attributes');
+  assert.ok(!html.includes('data-turn='), 'no data-turn attributes');
+  assert.ok(html.includes('user-message'), 'user turns via user-message classes');
+  assert.ok(html.includes('bg-user-message'), 'bg-user-message container');
+  assert.ok(html.includes('group/user-message'), 'group/user-message containers');
+  assert.ok(html.includes('text-size-chat') && html.includes('whitespace-pre-wrap'), 'user text cell');
+  assert.ok(html.includes('MarkdownRoot-'), 'assistant MarkdownRoot containers');
+  assert.ok(html.includes('DilRenderer-') && html.includes('DilResponseRoot-'), 'DilRenderer nesting');
+  assert.ok(html.includes('[data-virtualized-turn-content]') || html.includes('virtualized-turn-content'), 'virtualized ancestor');
+  const corrCount = html.split(CORR).length - 1;
+  assert.ok(corrCount >= 2, `two correlated user turns (got ${corrCount})`);
+  assert.ok(html.includes(ACK), 'assistant replies carry ACK');
+  // The user prompt itself contains ACK-M05 (trap): ACK must come from assistant only.
+  const userCellRe = /whitespace-pre-wrap[^>]*>([\s\S]*?)<\/div>/g;
+  let userCells = 0;
+  let mm;
+  while ((mm = userCellRe.exec(html)) !== null) {
+    userCells += 1;
+    assert.ok(mm[1].includes(CORR), 'each user cell carries the correlation');
+    assert.ok(mm[1].includes('ACK-M05'), 'each user cell also contains ACK-M05 (must be ignored)');
+  }
+  assert.ok(userCells >= 2, `two user text cells (got ${userCells})`);
+  assert.equal(ACK.length, 15, 'ACK marker is 15 chars');
+});
+
+test('live fallback evaluate finds users + assistant replies in document order', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'fixture-live-2026-10-16.html'), 'utf8');
+  const { doc } = loadLiveDoc(html);
+  const prev = globalThis.document;
+  globalThis.document = doc;
+  let out;
+  try {
+    out = lib.fallbackTurnsEvaluate();
+  } finally {
+    if (prev === undefined) delete globalThis.document;
+    else globalThis.document = prev;
+  }
+  assert.ok(out && Array.isArray(out.users) && Array.isArray(out.assistants));
+  assert.equal(out.users.length, 2, 'two leaf-most user turns');
+  assert.equal(out.assistants.length, 2, 'two assistant replies');
+  for (const u of out.users) {
+    assert.ok(u.text.includes(CORR), 'user text carries correlation');
+    assert.ok(u.text.includes('ACK-M05'), 'user text also contains ACK-M05 (trap)');
+  }
+  for (const a of out.assistants) assert.equal(a.text.trim(), ACK, 'assistant text is exactly the ACK');
+  // Document order: user1 < asst1 < user2 < asst2.
+  const seq = [...out.users.map((u) => ({ ...u, k: 'u' })), ...out.assistants.map((a) => ({ ...a, k: 'a' }))]
+    .sort((x, y) => x.order - y.order).map((e) => e.k).join(',');
+  assert.equal(seq, 'u,a,u,a', `turns interleave in document order (got ${seq})`);
+});
+
+test('read-last returns ACK-M05-COC-001 from the live fixture via the real DOM-evaluate', async () => {
+  const html = fs.readFileSync(path.join(__dirname, 'fixture-live-2026-10-16.html'), 'utf8');
+  const { doc } = loadLiveDoc(html);
+  const page = fakeLivePage(doc);
+  const found = await lib.findCorrelatedReply(page, CORR);
+  assert.equal(found.replyText, ACK, 'LAST correlated user pairs with its following assistant reply');
+  assert.equal(await lib.countAssistantMessages(page), 2, 'live reply detection counts both replies');
+  assert.equal(await lib.readLastAssistantText(page), ACK, 'live reply detection reads the last reply');
+});
+
+test('read-last end-to-end on live fixture: sanitized receipt, no interaction', async () => {
+  const html = fs.readFileSync(path.join(__dirname, 'fixture-live-2026-10-16.html'), 'utf8');
+  const { doc } = loadLiveDoc(html);
+  const page = fakeLivePage(doc);
+  let broughtToFront = 0;
+  page.bringToFront = async () => { broughtToFront += 1; };
+  const receipt = await lib.runReadLast(fakeBrowser([page]), { correlation: CORR });
+  assert.equal(receipt.mode, 'read-last');
+  assert.equal(receipt.correlation, CORR);
+  assert.equal(receipt.actualResponse, ACK, 'reply text trimmed, assistant-only (not the user prompt trap)');
+  assert.equal(receipt.matched, true);
+  assert.deepEqual(page._calls, { evaluate: page._calls.evaluate, fill: 0, press: 0, click: 0, focus: 0, type: 0 });
+  assert.ok(page._calls.evaluate >= 1, 'read-only evaluate used');
+  assert.equal(broughtToFront, 0, 'never brings tab to front');
+  for (const sel of page._queriedSelectors) {
+    assert.ok(!/prompt-textarea|contenteditable|composer-submit/.test(sel), `composer selector never queried: ${sel}`);
+    assert.ok(!/send-button/.test(sel), `send-button selector never queried: ${sel}`);
+  }
+});
