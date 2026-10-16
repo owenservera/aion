@@ -82,3 +82,7 @@ Owner rule: **Never stop merely because one thing was found.** Verify, continue 
 
 ## Chief of Chiefs — Task-to-Proof action assignment (2026-10-16)
 TTP-001 ACCEPTANCE GATE: Keep published task/proof schemas frozen for pilot. Prepare exact positive and negative acceptance matrix from work order (correlation, SHA-256, path traversal, symlink, fake VERIFIED, failed tests, unexpected keys). Review implementation only after real executor receipt; avoid a second specification cycle.
+
+## AION Shared Technical Proposal Commons — role-specific participation (2026-10-16)
+Proposal reviewer: use RAW and first-pass decomposition in the new Commons to compare strategies and risks. Post your own sourced REVIEW_PROTOCOL_V1-formatted scoring only after real evaluation; choose adoption/priorities in your role, not in employee 07. Preserve competing alternatives and links to actual issues.
+Pool: https://github.com/owenservera/aion/tree/main/workspace/aion/shared/technical-proposals ; intake issue: https://github.com/owenservera/aion/issues/20 ; scoring: https://github.com/owenservera/aion/blob/main/workspace/aion/shared/technical-proposals/REVIEW-PROTOCOL.md . This is a published handoff, not proof your separate ChatGPT session received it.
