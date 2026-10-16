@@ -1,0 +1,125 @@
+{
+  "schema": "aion.worker-tool-contract/0.1",
+  "role": "07-proposal-intake-commons",
+  "tools": [
+    {
+      "id": "github-files",
+      "purpose": "immutable raw versioning, decomposition and index management",
+      "availability": "connected-in-current-executive-session; role-07 access requires own verification",
+      "operations": [
+        "read",
+        "create-file",
+        "update-derived-file",
+        "readback"
+      ],
+      "permission": "repo-write-on-existing-main",
+      "restrictions": [
+        "never rewrite RAW",
+        "conflict-safe index updates"
+      ]
+    },
+    {
+      "id": "github-issues",
+      "purpose": "one discussion/scoring thread per accepted proposal",
+      "availability": "connected-in-current-executive-session; role-07 access requires own verification",
+      "operations": [
+        "create",
+        "read-comments",
+        "post-intake-reference"
+      ],
+      "permission": "issue-scope",
+      "restrictions": [
+        "no issue-comment-to-executor automation",
+        "never invent reviewer comments"
+      ]
+    },
+    {
+      "id": "conversation-input",
+      "purpose": "explicitly provided text, source links or attached documents",
+      "availability": "per session",
+      "operations": [
+        "ingest-visible-source"
+      ],
+      "permission": "provided-only",
+      "restrictions": [
+        "no assumed access to other role private chats",
+        "no secret gathering"
+      ]
+    },
+    {
+      "id": "files-reader",
+      "purpose": "read submitted attachments or Project files when directly available",
+      "availability": "check-on-activation",
+      "operations": [
+        "search",
+        "read",
+        "locate"
+      ],
+      "permission": "authorized-content-only",
+      "restrictions": [
+        "do not fabricate bytes from filename"
+      ]
+    },
+    {
+      "id": "local-hash",
+      "purpose": "SHA-256 and UTF-8 byte lengths of captured RAW",
+      "availability": "check-on-activation",
+      "operations": [
+        "calculate",
+        "compare"
+      ],
+      "permission": "non-destructive",
+      "restrictions": [
+        "no claim exact original source bytes from a pasted transcription without provenance"
+      ]
+    },
+    {
+      "id": "json-validation",
+      "purpose": "validate registry/meta/review scores and reconstruct views",
+      "availability": "check-on-activation",
+      "operations": [
+        "parse",
+        "validate",
+        "recalculate"
+      ],
+      "permission": "metadata-only",
+      "restrictions": [
+        "any code build delegated to OpenCode/ZCode"
+      ]
+    },
+    {
+      "id": "context7-primary-docs",
+      "purpose": "optional link classification if necessary, not feasibility research",
+      "availability": "optional",
+      "operations": [
+        "resolve-source"
+      ],
+      "permission": "read-only",
+      "restrictions": [
+        "no technical review ownership"
+      ]
+    },
+    {
+      "id": "aion-role-sitreps",
+      "purpose": "link incoming proposals to existing milestone context",
+      "availability": "repo-read",
+      "operations": [
+        "read",
+        "crosslink"
+      ],
+      "permission": "read-only",
+      "restrictions": [
+        "do not take over another role's queue"
+      ]
+    }
+  ],
+  "integrations": {
+    "canonical_pool": "workspace/aion/shared/technical-proposals",
+    "source_repo": "owenservera/aion",
+    "source_branch": "main",
+    "communications": "existing AION GitHub coordination, not new platform",
+    "execution": "never run source code from proposals",
+    "ranking": "derived from actual authored comments"
+  },
+  "maturity": "design/bootstrap; runtime availability must be verified by worker"
+}
