@@ -4236,5 +4236,63 @@
       "next_action": "ZCode: start 'Receipt schema registration in ACP contracts'",
       "contribution": "receipt loop"
     }
-  ]
+  ],
+  "comms_spine": {
+    "id": "UAH-BUS",
+    "priority": "P0",
+    "status": "planning_published_execution_paused",
+    "seed": "ACP/UAH; Pocket Link; GPM bridge; IAM/IANG; VOMEGA; ZCode",
+    "plan": "workspace/aion/pm/UAH-COMMS-SPINE-PLAN-v0.1.md",
+    "source_issues": [
+      {
+        "id": "BUS-01",
+        "url": "https://github.com/owenservera/aion/issues/6",
+        "owner": "AION PM",
+        "status": "assigned_unacknowledged"
+      },
+      {
+        "id": "BUS-02",
+        "url": "https://github.com/owenservera/aion/issues/7",
+        "owner": "AION PM",
+        "status": "assigned_unacknowledged"
+      },
+      {
+        "id": "BUS-03",
+        "url": "https://github.com/owenservera/aion/issues/8",
+        "owner": "AION BFF",
+        "status": "assigned_unacknowledged"
+      },
+      {
+        "id": "BUS-04",
+        "url": "https://github.com/owenservera/aion/issues/9",
+        "owner": "OpenCode via AION BFF",
+        "status": "assigned_unacknowledged"
+      },
+      {
+        "id": "BUS-05",
+        "url": "https://github.com/owenservera/aion/issues/10",
+        "owner": "AION PM",
+        "status": "assigned_unacknowledged"
+      },
+      {
+        "id": "BUS-06",
+        "url": "https://github.com/owenservera/aion/issues/11",
+        "owner": "AION BFF",
+        "status": "assigned_unacknowledged"
+      },
+      {
+        "id": "BUS-07",
+        "url": "https://github.com/owenservera/aion/issues/12",
+        "owner": "ZCode via AION BFF",
+        "status": "assigned_unacknowledged"
+      },
+      {
+        "id": "BUS-08",
+        "url": "https://github.com/owenservera/aion/issues/13",
+        "owner": "AION PM",
+        "status": "assigned_unacknowledged"
+      }
+    ],
+    "authorization": "Owen approved GitHub planning/assignment only; prior operational STOP remains in force."
+  }
 }
