@@ -164,7 +164,15 @@ ChatGPT → ZCode → PC	PM-000 pending
 
 Execution → Receipt → PM	PM-014 pending
 
-ERA 3 — NEXT
+ERA 3 — NEXT ACTION
+
+[GPM] :; AION BFF, no execution orders yet. Owen's protocol approval remains the gate.
+
+For the current handshake, simply acknowledge receipt of this reply using your own identity prefix.
+
+Once authorized, we'll prioritize completing the real execution-and-verification loop rather than generating more planning paperwork.
+
+One team. One ledger. Verifiable results. 🚀
 
 ---
 
