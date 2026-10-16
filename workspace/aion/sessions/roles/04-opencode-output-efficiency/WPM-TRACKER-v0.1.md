@@ -12,14 +12,14 @@ Status: IMPLEMENTATION DESIGN + LINUX REFERENCE TESTED; BFF runtime deployment N
 6. Safety: no host-browser activity, no arbitrary GitHub comment execution, no public inbound listener, no extra repository, no new branch, no modification of the current autopush script as a shortcut. Existing BFF host stop/order policy and OpenCode-only code-implementation rule remain gating constraints for deployment.
 
 ## Local Linux reference validation (not BFF proof)
-A portable stdlib Python reference was implemented in the ChatGPT Linux sandbox at `/mnt/data/opencode-wpm/opencode_wpm.py` with `/mnt/data/opencode-wpm/test_opencode_wpm.py`. Linux CPython unittest discovery: 8/8 PASS on 2026-10-16:
+A portable stdlib Python reference was implemented in the ChatGPT Linux sandbox at `/mnt/data/opencode-wpm/opencode_wpm.py` with `/mnt/data/opencode-wpm/test_opencode_wpm.py`. Linux CPython unittest discovery: 9/9 PASS on 2026-10-16:
 - word parsing and assistant-only text filtering
 - first-sample baseline, incremental rolling 60-second count and replay dedup
 - multiple distinct session IDs
 - missing runtime and failed export reported as unknown, not 0 WPM
-- complete `--once` file emission and 0600 private state using absent binary
+- complete `--once` file emission and 0600 private state using absent binary; 4.7-second continuous loop with fake growing bot and refreshed WPM feed
 - mocked OpenCode CLI subprocess integration using `session list --format json` and `export ID --sanitize`
-SHA256 reference: `opencode_wpm.py` 62984f9a2de22ecfc52becb70548fe364d9b9bc7dc928a8bff7ef6ca426ce282 ; `test_opencode_wpm.py` 6119f97b731b67a61d741c9e8fd5cedc2e3ae83f6422366bbfe079d50d77fd64.
+SHA256 reference: `opencode_wpm.py` 62984f9a2de22ecfc52becb70548fe364d9b9bc7dc928a8bff7ef6ca426ce282 ; `test_opencode_wpm.py` 8065ca1e4a783058416227f258691013c6ff1f30949e1dabb0ada120d0ff39f7.
 Caveat: ChatGPT's sandbox is Linux but does NOT have OpenCode installed and cannot see BFF host; mock and negative-path tests are NOT evidence of actual BFF runtime compatibility, active sessions, successful 1-minute sync, or live feed reachability. Reference artifact must be adopted/reviewed or reauthored through OpenCode/ZCode for BFF production.
 
 ## Runtime deployment package for BFF / OpenCode after scoped operating approval
