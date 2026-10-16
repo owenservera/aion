@@ -51,3 +51,16 @@ Ask for a topic/milestone -> return proposal IDs, original and derivative links,
 
 ## Definition of ready
 All six required shared pool files available; GitHub readbacks succeed; role bootstrap readable; genuine role chat opened and acknowledged. Do not conflate documentation delivered with activated session or first real intake.
+
+## v0.2 routing and closed-loop information service
+See [INFORMATION-FLOW.md](../../../shared/technical-proposals/INFORMATION-FLOW.md). This document supersedes passive 'publish and wait' behavior.
+
+After step 6 in the base workflow:
+8. Determine who needs the technical information: 02 architecture/strategy, 06 tooling/compatibility, 04 empirical cost, 03 only after approved work, 01 structured index, 05 decision brief after actual reviews or explicit owner need. **Do not broadcast to every role by default.**
+9. Write one targeted `AION_INTAKE_REVIEW_REQUEST_V1` comment per relevant recipient (default one, max two) in the proposal's existing GitHub issue. Include exact source, atomic idea IDs, one question and scope; this does NOT start a separate conversation or imply receipt.
+10. Reconcile response. `REQUESTED` until actual reviewer-authored comment; `ACKNOWLEDGED` only with a source permalink. If no one answers, keep visibly blocked/awaiting and ask Chief of Staff to handle team acknowledgement—not yourself to impersonate them.
+11. Collate any actual useful review into a brief contrasting evidence vs uncertainty. Role 02/05 decides; role 03 dispatches any separately approved work. Update issue/index with downstream traceable references.
+12. Present usefulness in an intake ledger: count captured originals with hashes, targeted reviewer replies, time-to-useful-packet, decision reuse references and avoided duplicate review work; no invented time/cost benefit.
+
+**Delivery principle:** five-line recipient packet instead of repeating RAW: (1) ID/source, (2) relevance to you, (3) options and overlap, (4) unresolved proof question, (5) requested comment/issue link.
+**Role 07 is a logistics operator**: it determines who should *look* based on field relevance, not what technical answer is right, what to build or what wins.
