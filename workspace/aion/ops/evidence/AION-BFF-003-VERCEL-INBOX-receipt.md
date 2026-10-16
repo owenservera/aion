@@ -69,6 +69,40 @@ dist/index.html  17746 B   (updated page present in build output)
 > (rejected 401, no state change). Fixed by awaiting inside `withToken()`; the harness now installs
 > a guard stub that throws on any unstubbed fetch. No real credential was involved at any point.
 
+## Follow-up fix (same day): `recent` returned the OLDEST comments
+
+**Bug.** `GET /repos/{owner}/{repo}/issues/{n}/comments` returns comments **oldest-first** and has
+no sort parameter. The handler fetched `per_page=<limit>&page=1` — the *oldest* `limit` comments —
+and then re-sorted them newest-first. On an issue with more than `limit` comments, "recent
+readback" silently showed the beginning of the thread instead of the end.
+
+**Fix** (`pm/dashboard/api/inbox/recent.js` + two new helpers in `pm/dashboard/api/_lib/github.js`,
+`parseLinkLastPage` / `readLinkHeader`):
+
+1. First request stays `per_page=<limit>&page=1` — with the final `per_page`, so the page indices in
+   its `Link` header are the ones that apply to the second request.
+2. The `Link` header is parsed for `rel="last"`; if it yields a page `> 1`, the handler re-fetches
+   `per_page=<limit>&page=<lastPage>`, which is the newest `limit` comments (still oldest-first
+   inside that page, then re-sorted as before). Response shape is unchanged.
+3. No `Link` header, `rel="last"` pointing at page 1, or an unparsable `Link` → the single page 1
+   response is used as-is, exactly one upstream request, same output as before.
+4. A failing last-page fetch (5xx → `502`, unreachable → `502`, 4xx forwarded, non-array body →
+   `502`) surfaces as an error. There is deliberately **no** silent fallback to page 1, because that
+   would reinstate the oldest-page bug behind a `200`.
+
+No new endpoints, no new dependencies, still CommonJS, still Node 18 global `fetch`. Unchanged: the
+`503` when `GITHUB_TOKEN`/`AION_GITHUB_TOKEN` is unset, the `405` on `POST`, token never echoed, and
+the `redact()` scrubbing of GitHub error strings.
+
+**Verification.** `./scripts/smoke-inbox.sh` → **90 passed, 0 failed — exit 0** (was 57). New section 6
+asserts, against a mocked `Link` header with `rel="last"`: two requests are made, the second is
+`?per_page=10&page=3`, `per_page` matches on both, the payload is ids 120–129 with none of the
+oldest-page ids leaking in, and the single-page path issues exactly one request when `Link` is
+absent / `next`-only / `rel="last"` page=1 / malformed. Mutation check: forcing the handler back to
+"never fetch the last page" fails 11 of those assertions and returns the oldest ids 100–109, so the
+tests detect the original bug rather than restating the new code. INBOX-CONTRACT.md §3 and §4 note
+the last-page behaviour; still **NOT deployed**.
+
 ## curl examples
 
 Offline, no token set — this is the expected default state:

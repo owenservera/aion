@@ -130,9 +130,11 @@ GET /api/inbox/recent?limit=10
 `author` is `user.login`, `createdAt` is `created_at`, `bodyTruncated` is the body flattened to a
 single line (newlines and runs of whitespace collapsed) and clipped to 200 characters.
 
-GitHub returns issue comments **oldest-first**, so the handler re-sorts by `created_at` descending
-and slices the newest N. Errors and the missing-token `503` behave exactly as in §2. `POST` to this
-route returns `405`.
+GitHub returns issue comments **oldest-first** and has no sort parameter, so the handler discovers the
+last page from the response's `Link` header (`rel="last"`) and re-fetches `per_page=<limit>` at that
+page index — otherwise `page=1` would return the *oldest* `limit` comments — then re-sorts by
+`created_at` descending and slices the newest N. Errors and the missing-token `503` behave exactly as
+in §2. `POST` to this route returns `405`.
 
 ---
 
@@ -141,7 +143,7 @@ route returns `405`.
 | Route | Method | GitHub operation | Auth |
 | --- | --- | --- | --- |
 | `/api/inbox/send` | POST | create comment on issue #14 | server env token |
-| `/api/inbox/recent` | GET | list comments on issue #14, page 1 | server env token |
+| `/api/inbox/recent` | GET | list comments on issue #14, page 1 then last page | server env token |
 
 Shared helpers live in `api/_lib/github.js`. The leading underscore keeps Vercel from routing it.
 
@@ -201,7 +203,7 @@ cd pm/dashboard
 
 Syntax-checks `api/_lib/github.js`, `api/inbox/send.js`, `api/inbox/recent.js` and the harness
 with `node --check`, then executes the real exported handlers against a stubbed `globalThis.fetch`.
-57 assertions, zero network calls, no token required. Exit code `0` means pass.
+90 assertions, zero network calls, no token required. Exit code `0` means pass.
 
 ### 7.2 Expected responses when no token is set
 
