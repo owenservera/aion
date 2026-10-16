@@ -31,6 +31,12 @@
 - Z.ai web Agent Mode is distinct from ZCode desktop, AutoClaw and API. Experimental sandbox coding permitted as the user-directed turn; no production repo write without separate approval and independent verification. No Playwright/Puppeteer.
 - Send real capability evidence to TOOLSMITH, measured output to Efficiency, conceptual agent proposals to INTAKE, approved deliverables to CoS, and final acceptance to Chief.
 
+## Keyword-based role launches (RL-001, design only)
+- [Role launcher canonical registry](../ops/chrome-relay/role-launcher/ROLES.json): all eight identifiers, aliases, titles and bootstrap paths.
+- [Quickstart](../ops/chrome-relay/role-launcher/KEYWORD-QUICKSTART.md): `aion 08` from Chrome omnibox **after** extension installation, or `AION:08` in manually created new chat with project router instructions installed. Neither mechanism is installed/verified by publishing repo files.
+- [ChatGPT Project instructions snippet](../ops/chrome-relay/role-launcher/PROJECT-ROUTER-INSTRUCTIONS.md) must be added manually to designated Project settings for zero-code first-message recognition.
+- Native ChatGPT conversation renaming is a separate observed UI action; role title suggestion alone is not a rename. [Implementation issue #22](https://github.com/owenservera/aion/issues/22).
+
 ## Shared handoff rules
 - Every role may raise action items to **Route Bot** via a verified existing GitHub route. First confirm its real destination/acknowledgment. No invented GitHub endpoint.
 - Keep the SITREP updated with current state, prompt handoffs, actual commits, evidence, blockers and next actions.
