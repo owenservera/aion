@@ -1,0 +1,105 @@
+{
+  "schema": "aion.m1-council-package/v0.1",
+  "status": "ASSIGNED_NOT_ACKNOWLEDGED",
+  "created_date": "2026-10-16",
+  "canonical_source": "workspace/aion/canon/AION-MILESTONE-1-INTROSPECTION.md",
+  "merge_owner": "08-zai-sandbox-strategist",
+  "contract": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/README.md",
+  "live_test_scope": "EXCLUDED_FROM_ZAI_SANDBOX",
+  "items": [
+    {
+      "id": "M1C-01",
+      "role": "Dashboard",
+      "role_workspace": "workspace/aion/sessions/roles/01-dashboard-tracking",
+      "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/OBSERVABILITY.md",
+      "state": "REQUESTED_NOT_ACKNOWLEDGED",
+      "artifact_url": null,
+      "review_url": null,
+      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "fallback": "canonical M1/relay spec with explicit missing-contribution label"
+    },
+    {
+      "id": "M1C-02",
+      "role": "Planning",
+      "role_workspace": "workspace/aion/sessions/roles/02-long-term-planning-alignment",
+      "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/CRITICAL-PATH.md",
+      "state": "REQUESTED_NOT_ACKNOWLEDGED",
+      "artifact_url": null,
+      "review_url": null,
+      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "fallback": "canonical M1/relay spec with explicit missing-contribution label"
+    },
+    {
+      "id": "M1C-03",
+      "role": "Chief of Staff",
+      "role_workspace": "workspace/aion/sessions/roles/03-chief-of-staff-operations",
+      "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/HANDOFF-AND-EXPORT.md",
+      "state": "REQUESTED_NOT_ACKNOWLEDGED",
+      "artifact_url": null,
+      "review_url": null,
+      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "fallback": "canonical M1/relay spec with explicit missing-contribution label"
+    },
+    {
+      "id": "M1C-04",
+      "role": "Efficiency",
+      "role_workspace": "workspace/aion/sessions/roles/04-opencode-output-efficiency",
+      "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/TURN-ECONOMICS.md",
+      "state": "REQUESTED_NOT_ACKNOWLEDGED",
+      "artifact_url": null,
+      "review_url": null,
+      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "fallback": "canonical M1/relay spec with explicit missing-contribution label"
+    },
+    {
+      "id": "M1C-05",
+      "role": "Chief of Chiefs",
+      "role_workspace": "workspace/aion/sessions/roles/05-chief-of-chiefs",
+      "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/ACCEPTANCE-GATES.md",
+      "state": "REQUESTED_NOT_ACKNOWLEDGED",
+      "artifact_url": null,
+      "review_url": null,
+      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "fallback": "canonical M1/relay spec with explicit missing-contribution label"
+    },
+    {
+      "id": "M1C-06",
+      "role": "TOOLSMITH",
+      "role_workspace": "workspace/aion/sessions/roles/06-tooling-integration-engineer",
+      "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/BROWSER-AND-ACP.md",
+      "state": "REQUESTED_NOT_ACKNOWLEDGED",
+      "artifact_url": null,
+      "review_url": null,
+      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "fallback": "canonical M1/relay spec with explicit missing-contribution label"
+    },
+    {
+      "id": "M1C-07",
+      "role": "INTAKE",
+      "role_workspace": "workspace/aion/sessions/roles/07-proposal-intake-commons",
+      "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/SOURCE-MAP.md",
+      "state": "REQUESTED_NOT_ACKNOWLEDGED",
+      "artifact_url": null,
+      "review_url": null,
+      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "fallback": "canonical M1/relay spec with explicit missing-contribution label"
+    },
+    {
+      "id": "M1C-08",
+      "role": "Z-FORGE",
+      "role_workspace": "workspace/aion/sessions/roles/08-zai-sandbox-strategist",
+      "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/PACKAGE-MANIFEST.md",
+      "state": "REQUESTED_NOT_ACKNOWLEDGED",
+      "artifact_url": null,
+      "review_url": null,
+      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "fallback": "canonical M1/relay spec with explicit missing-contribution label"
+    }
+  ],
+  "merge": {
+    "zai_clone_package_status": "NOT_READY",
+    "run_prompts_status": "PENDING_REAL_CONTRIBUTIONS",
+    "actual_sandbox_run": "NOT_STARTED",
+    "actual_authenticated_chatgpt_test": "NOT_AUTHORIZED_BY_THIS_PLAN"
+  }
+}
