@@ -1,6 +1,6 @@
 # AION — Standing Independent Chat Sessions
 
-**Five standing roles — not one chat per task.** Open a role's `BOOTSTRAP.md`, paste it into a new ChatGPT chat, then add that real chat URL to its `SITREP.md` after creation. These are simple operational folders in the existing `main` branch, not branches, new repos or automatic ChatGPT conversation links.
+**Six designed standing roles — not one chat per task.** Five are established; Role 06 needs an owner-launched conversation and its own acknowledgment. Open a role's `BOOTSTRAP.md`, paste it into a new ChatGPT chat, then add that real chat URL to its `SITREP.md` after creation. These are simple operational folders in the existing `main` branch, not branches, new repos or automatic ChatGPT conversation links.
 
 | Standing chat | Launch prompt | SITREP | Owns |
 |---|---|---|---|
@@ -10,6 +10,12 @@
 | 04 OpenCode Output & Team Efficiency | [BOOTSTRAP](./roles/04-opencode-output-efficiency/BOOTSTRAP.md) | [SITREP](./roles/04-opencode-output-efficiency/SITREP.md) | Actual OpenCode session output, telemetry, transcripts, efficiency and bottlenecks |
 
 | 05 Chief of Chiefs (current assistant) | [BOOTSTRAP](./roles/05-chief-of-chiefs/BOOTSTRAP.md) | [SITREP](./roles/05-chief-of-chiefs/SITREP.md) | Executive oversight, resource alignment, delegation and independent verification |
+| 06 TOOLSMITH — Tooling & Integration Engineer (pending launch) | [BOOTSTRAP](./roles/06-tooling-integration-engineer/BOOTSTRAP.md) | [SITREP](./roles/06-tooling-integration-engineer/SITREP.md) | Tool inventory, skills, environment readiness, ACP/UAH interoperability, Chrome relay integration and recovery |
+
+## Role 06 launch instructions
+- Create a dedicated ChatGPT conversation named **AION — 06 TOOLSMITH** and paste its BOOTSTRAP.md.
+- After genuine role acknowledgment, provide the chat URL for the role SITREP; until then its status is **DESIGNED / NOT ACTIVE**.
+- Existing five roles remain separately accountable; role 06 does not replace Chief of Staff or OpenCode implementers.
 
 ## Shared handoff rules
 - Every role may raise action items to **Route Bot** via a verified existing GitHub route. First confirm its real destination/acknowledgment. No invented GitHub endpoint.
