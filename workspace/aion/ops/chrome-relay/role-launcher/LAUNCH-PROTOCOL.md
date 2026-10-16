@@ -32,3 +32,7 @@ If extension isn't installed: user opens a new chat in the Project, sends AION:N
 ## Error states
 INVALID_KEYWORD, AMBIGUOUS_ROLE, TAB_BLOCKED, LOGIN_REQUIRED, PROJECT_CONTEXT_UNVERIFIED, GITHUB_UNAVAILABLE, SOURCE_READ_FAILED, CHAT_URL_MISSING, COMPOSER_AMBIGUOUS, SEND_UNCONFIRMED, TITLE_UI_UNAVAILABLE, TITLE_MISMATCH, ROLE_ACK_MISSING, DUPLICATE_LAUNCH, RUNTIME_DISCONNECTED.
 Each error has manual fallback; none is reported as READY.
+
+## Optional in-chat keyword surface (after core launcher)
+If owner specifically wants to type `AION:08` **inside an existing ChatGPT composer**, an explicitly enabled site-scoped content script may recognize that *the entire current draft* exactly matches an allowlisted role command. It must offer a visible **Launch as NEW chat** affordance; only a click or dedicated keyboard shortcut launches a new tab. Do not silently hijack Enter, scan past messages, read full transcripts or trigger on source-code quotations. Before launching, show which role/Project/new conversation will be created; clear the old draft only after user confirms. When script disabled or DOM no longer matches, the text behaves normally as chat text and cannot create a new session. The content script has no host shell privileges and speaks only to the trusted extension runtime.
+This optional composer UX uses the same registry, state machine and new-chat flow as the omnibox/sidepanel, and is NOT a native ChatGPT keyword API.
