@@ -10,3 +10,5 @@
 |R7|Ops|PC disk ~6.3 GB free (10-14 reading); current value UNKNOWN|hq#7|
 |R8|Process|aion autopush loop pushes all of /workspace/aion every 60 s with no review gate|bff/aion-autopush|
 |R9|Process|Dispatch issues piling up in 001.PROJECTS.PM with no consumer|D4|
+
+|R0|Blocker|P0#1 AION capabilities on Owen's PC blocked: ACP Bridge missing, no receipt consumer, Tailscale/Windows approvals pending, low disk|PM-000|
