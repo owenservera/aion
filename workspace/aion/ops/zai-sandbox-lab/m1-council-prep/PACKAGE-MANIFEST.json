@@ -56,10 +56,10 @@
       "role": "Chief of Chiefs",
       "role_workspace": "workspace/aion/sessions/roles/05-chief-of-chiefs",
       "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/ACCEPTANCE-GATES.md",
-      "state": "REQUESTED_NOT_ACKNOWLEDGED",
-      "artifact_url": null,
+      "state": "DELIVERED_AS_DOCUMENT_NOT_INDEPENDENTLY_TESTED",
+      "artifact_url": "https://github.com/owenservera/aion/blob/main/workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/ACCEPTANCE-GATES.md",
       "review_url": null,
-      "source_provenance": "ROLE_SITREP_REVIEWED",
+      "source_provenance": "CHIEF_OF_CHIEFS_CURRENT_CONVERSATION",
       "fallback": "canonical M1/relay spec with explicit missing-contribution label"
     },
     {
