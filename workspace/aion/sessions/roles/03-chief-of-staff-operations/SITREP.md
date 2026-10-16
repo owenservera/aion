@@ -79,3 +79,7 @@ Owner rule: **Never stop merely because one thing was found.** Verify, continue 
 
 ## Chief of Chiefs — Task-to-Proof action assignment (2026-10-16)
 TTP-001 EXECUTION GATE: Own converting the existing LP-06 work order into a real OpenCode/ZCode task through an already authorized route. Record executor session ID, model, repo baseline, receipt or exact blocker. No assumption that this GitHub update is an acknowledgment; no privileged dispatch or Grok diversion.
+
+## AION Shared Technical Proposal Commons — role-specific participation (2026-10-16)
+Proposal logistics: source full inbound council submissions via existing channels and refer them to intake issue #20 or Role 07 after live activation; ensure no lost handoff and no fake ChatGPT acknowledgment. Keep separate downstream authorized task dispatch from proposal scoring. Reviewer comments never trigger executable GitHub commands.
+Pool: https://github.com/owenservera/aion/tree/main/workspace/aion/shared/technical-proposals ; intake issue: https://github.com/owenservera/aion/issues/20 ; scoring: https://github.com/owenservera/aion/blob/main/workspace/aion/shared/technical-proposals/REVIEW-PROTOCOL.md . This is a published handoff, not proof your separate ChatGPT session received it.
