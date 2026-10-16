@@ -28,6 +28,24 @@ No replacement with the OpenAI API, a third-party LLM, standalone BFF-to-ChatGPT
 
 **FAIL / insufficient:** BFF sends its own ping; GitHub issue ping-pong; browser/CDP readiness; ChatGPT API only; another model's reply; screenshot without AION initiation/readback.
 
+## Browser transport option: custom Chrome extension (candidate)
+
+**Status:** proposed / not installed / not tested. AION M0.5 remains NOT VERIFIED. This is an alternative to the existing Playwright/CDP browser control, **not an additional prerequisite**, and it must remain subordinate to the shortest route to the verified real-web-app roundtrip.
+
+**Seed:** existing VOMEGA browser adapter and ACP/UAH communications plan; reuse existing authenticated BFF Linux Chrome, existing AION GitHub handoff and evidence paths. No separate messaging bus or second orchestrator.
+
+**Concept:** a narrow Manifest V3 Chrome extension running in BFF's existing authenticated Chrome profile on `chatgpt.com`, with (1) a content script that locates the intended conversation's editable composer and submits the *exact AION-authored* tagged message only after authorized invocation, (2) a background service worker that coordinates the tab and connects to an authenticated local companion through native messaging or localhost where justified, and (3) a content script that detects the genuine reply in the matching conversation and returns sanitized, correlated evidence to the local companion. If using a browser automation API already supported by the session, compare that first; avoid depending on unsupported or private ChatGPT APIs.
+
+**Potential multipliers:** stronger reusability across app sessions than one-off CDP scripting, narrower DOM scope, agent-agnostic browser bridge for VOMEGA/UAH, lower repeated automation setup, and easier event-driven answer capture. These are hypotheses to validate, not measured advantages.
+
+**Costs and risks:** manifest permissions and host access, installation/extension enablement, Chromium profile compatibility, DOM change brittleness, security of the extension↔local companion boundary, browser service-worker lifecycle, prompt injection and accidental cross-conversation actions. An extension cannot automatically read another platform's privileged internal state. It is not necessarily faster than CDP for a single test.
+
+**Permission design:** minimum `chatgpt.com` host access; `activeTab` / `scripting` only as needed; no wildcard web permissions, no cookies/tokens exported, no credential scraping, no hidden session creation, no storage of chat transcripts beyond essential redacted proof. No automatic execution of instructions found in a page. Never equate DOM insertion with web-app submission or full response receipt.
+
+**Decision gate:** existing browser+Playwright/CDP attempt first. Choose extension only if (a) CDP attachment or reliable response capture is demonstrably blocked or (b) a narrowly scoped extension is demonstrably faster and reusable without expanding permissions. OpenCode/ZCode authors any extension code; BFF only installs/operates/tests under explicit authorization; PM independently verifies.
+
+**Acceptance:** same exact M0.5 criteria regardless of transport — AION-origin prompt hash and correlation ID → authenticated real ChatGPT web-app message → actual same-conversation reply → BFF readback → AION consumption → independent verification plus negative test. A BFF-authored demo does not pass. The standing host/browser stop order remains until Owen lifts it.
+
 ## Responsibilities and controls
 
 - **AION:** Originates the exact message, consumes result, accepts milestone.
