@@ -210,3 +210,109 @@ test('receipt never carries secrets; URLs are scrubbed', () => {
   assert.ok(!/cookie|token/i.test(s));
   assert.equal(r.tabUrlSafe, 'https://chatgpt.com/c/abc');
 });
+
+test('fixture models live ChatGPT composer: ProseMirror div + hidden fallback textarea + send button', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'fixture.html'), 'utf8');
+  assert.ok(html.includes('id="prompt-textarea"'), 'fixture has #prompt-textarea editor');
+  assert.ok(html.includes('contenteditable'), 'fixture editor is contenteditable');
+  assert.ok(html.includes('name="prompt-textarea"'), 'fixture has hidden fallback textarea');
+  assert.ok(html.includes('wcDTda'), 'fixture fallback carries wcDTda marker');
+  assert.ok(html.includes('aria-hidden'), 'fixture fallback is aria-hidden');
+  assert.ok(
+    html.includes('data-testid="send-button"') || html.includes('id="composer-submit-button"'),
+    'fixture form contains the send button',
+  );
+});
+
+test('composer prefers visible #prompt-textarea over hidden/fallback textarea (live E_AMBIGUOUS_COMPOSER fix)', async () => {
+  // Live ChatGPT UI: one ProseMirror div (matching several selectors via
+  // distinct ElementHandle wrappers for the SAME node) plus one hidden
+  // fallback <textarea> that still reports visible. Must resolve to the div.
+  const editorDesc = { key: 'prosemirror-div-1', tagName: 'DIV', id: 'prompt-textarea' };
+  const fallbackDesc = {
+    key: 'fallback-textarea-1', tagName: 'TEXTAREA', name: 'prompt-textarea',
+    className: 'wcDTda', hidden: true, ariaHidden: 'true', display: 'none', width: 0, height: 0,
+  };
+  const mkEditorWrapper = () => {
+    const h = fakeHandle({});
+    h.describe = editorDesc;
+    return h;
+  };
+  const fallback = fakeHandle({});
+  fallback.describe = fallbackDesc;
+  assert.equal(await lib.isFallbackTextarea(fallback), true, 'hidden textarea is a non-candidate');
+  const probeEditor = mkEditorWrapper();
+  assert.equal(await lib.isFallbackTextarea(probeEditor), false, 'ProseMirror div is genuine');
+
+  const page = {
+    async $$(sel) {
+      if (sel === '#prompt-textarea') return [mkEditorWrapper()];
+      if (sel === 'div#prompt-textarea[contenteditable="true"]') return [mkEditorWrapper()];
+      if (sel === 'form [contenteditable="true"]') return [mkEditorWrapper()];
+      if (sel === 'main [contenteditable="true"]') return [mkEditorWrapper()];
+      if (sel === 'form textarea') return [fallback];
+      return [];
+    },
+  };
+  const found = await lib.locateComposer(page);
+  assert.equal(found.selector, '#prompt-textarea', 'most-specific #prompt-textarea wins');
+  assert.equal(found.handle.describe.key, 'prosemirror-div-1');
+});
+
+test('same DOM node via multiple selectors dedupes via evaluate marking (Playwright wrapper duplicates)', async () => {
+  // Playwright returns a FRESH ElementHandle per $$ call, so the same div
+  // appears as distinct objects. DOM marking must collapse them to one.
+  const backing = {};
+  const mkWrapper = () => ({
+    async isVisible() { return true; },
+    async evaluate(fn) {
+      const src = String(typeof fn === 'function' ? fn : '');
+      if (src.includes('__aionComposerKey')) {
+        if (!backing.key) backing.key = 'live-div-1';
+        return backing.key;
+      }
+      if (src.includes('closest')) return null; // form check indeterminate
+      return false; // fallback probe: DIV is never a fallback textarea
+    },
+  });
+  const page = {
+    async $$(sel) {
+      if (/prompt-textarea|contenteditable/.test(sel)) return [mkWrapper()];
+      return [];
+    },
+  };
+  const found = await lib.locateComposer(page);
+  assert.ok(found && found.handle, 'single editor resolves despite wrapper duplicates');
+  assert.equal(found.selector, '#prompt-textarea');
+});
+
+test('two genuinely different visible editors still refuse with E_AMBIGUOUS_COMPOSER', async () => {
+  const a = fakeHandle({});
+  a.describe = { key: 'editor-a', tagName: 'DIV', id: 'prompt-textarea' };
+  const b = fakeHandle({});
+  b.describe = { key: 'editor-b', tagName: 'DIV', id: 'other-editor' };
+  const page = {
+    async $$(sel) {
+      if (sel === '#prompt-textarea') return [a];
+      if (sel === 'form [contenteditable="true"]') return [b];
+      return [];
+    },
+  };
+  await assert.rejects(lib.locateComposer(page), (e) => e.code === 'E_AMBIGUOUS_COMPOSER');
+});
+
+test('hidden fallback textarea alone is E_NO_COMPOSER (non-candidate, never guessed)', async () => {
+  const fallback = fakeHandle({});
+  fallback.describe = {
+    key: 'fallback-only', tagName: 'TEXTAREA', name: 'prompt-textarea',
+    className: 'wcDTda', ariaHidden: 'true', display: 'none', width: 0, height: 0,
+  };
+  const page = {
+    async $$(sel) {
+      if (sel === 'form textarea') return [fallback];
+      return [];
+    },
+  };
+  // Even though the textarea reports visible, it is filtered → no composer.
+  await assert.rejects(lib.locateComposer(page), (e) => e.code === 'E_NO_COMPOSER');
+});

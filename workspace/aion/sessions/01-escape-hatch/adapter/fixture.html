@@ -5,7 +5,10 @@
 <main>
   <div data-message-author-role="assistant"><div class="markdown">ACK-M05-COC-001</div></div>
   <form>
-    <div id="prompt-textarea" contenteditable="true">Type here</div>
+    <div id="prompt-textarea" class="ProseMirror" contenteditable="true">Type here</div>
+    <textarea name="prompt-textarea" class="wcDTda" style="display:none" aria-hidden="true" hidden tabindex="-1"></textarea>
+    <button type="submit" data-testid="send-button">Send</button>
+    <button type="submit" id="composer-submit-button" style="display:none">Send</button>
   </form>
 </main>
 </body>
