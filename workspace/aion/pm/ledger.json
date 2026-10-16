@@ -8,7 +8,7 @@
  "initiatives": [
   {
    "id": "AION-PC",
-   "name": "#1 P0: give AION (ChatGPT Digital CEO) Grok Bot-style capabilities (shell, files, browser, desktop) running ON Owen's Windows PC",
+   "name": "#1 P0 GOAL: AION's text in chatgpt.com reaches ZCode, which executes it on Owen's Windows PC with Grok Bot-style reach (shell, files, browser, desktop)",
    "owner": "ZCode (exec) / AION PM (plan); Owen approves privileged Windows steps"
   },
   {
@@ -95,10 +95,10 @@
  "items": [
   {
    "id": "PM-000",
-   "title": "P0 #1 AION gets Grok Bot-style shell/files/browser/desktop on Owen's Windows PC (ChatGPT -> tunnel/MCP -> ACP Bridge/UAH -> ZCode)",
+   "title": "P0 #1 GOAL: chatgpt.com text -> ZCode executes on Owen's PC (Grok Bot-style reach)",
    "initiative": "AION-PC",
    "owner": "ZCode",
-   "status": "not live; plan only (bff/ZCODE-PATH.md)",
+   "status": "option evaluation; nothing live",
    "tag": "claimed",
    "priority": "P0#1",
    "linked": [
@@ -118,7 +118,45 @@
     "No real P1 ZCode session yet",
     "Security model for AION shell/desktop on PC undefined"
    ],
-   "evidence": "bff/ZCODE-PATH.md; https://github.com/owenservera/aion/issues/3"
+   "evidence": "bff/ZCODE-PATH.md; https://github.com/owenservera/aion/issues/3",
+   "bridge_options": [
+    {
+     "opt": "A",
+     "path": "ChatGPT custom connector / MCP server exposed from the PC over tunnel",
+     "support": "canon/thread describe ChatGPT->tunnel->MCP ingress; SOFTWARE_HQ integrations/uah/contracts/MCP-INGRESS.md referenced",
+     "tag": "claimed (file not re-read)"
+    },
+    {
+     "opt": "B",
+     "path": "Browser extension in Owen's ChatGPT tab relaying to a local agent",
+     "support": "none found",
+     "tag": "UNKNOWN"
+    },
+    {
+     "opt": "C",
+     "path": "CDP-driven relay (local process drives/parses the chatgpt.com tab)",
+     "support": "vivim-omega D-419 CDP lane, plugins/provider-browser (CDP leg future/fixtures only), streaming D-339/D-352, parser.ts",
+     "tag": "verified (files exist; not live)"
+    },
+    {
+     "opt": "D",
+     "path": "ACP bridge (UAH) -> ZCode on PC",
+     "support": "SOFTWARE_HQ integrations/uah/MAP.md, uah/cli core modules; ACP Bridge itself missing; zcode-setup hub/pocket-link (claimed via BFF briefing)",
+     "tag": "verified partial (docs+scaffold); bridge claimed missing"
+    },
+    {
+     "opt": "E",
+     "path": "GitHub issues as relay (current gh-bridge / bridge:dispatch)",
+     "support": "001.PROJECTS.PM #16-18,#20; frozen by D4; VOMEGA gh-bridge retirement status UNKNOWN",
+     "tag": "claimed"
+    }
+   ],
+   "zcode_evidence": {
+    "zcode-setup": "hub + pocket-link playbook (claimed via bff/PROJECT-BRIEFING.md; not re-read)",
+    "zcode-bots": "ZBot roster; main stale 10-08, draft PR #1 (claimed via briefing)",
+    "zcode-pocket": "Android app + PWA web/, P0 shell deployed, no transport (claimed via briefing)"
+   },
+   "current_state": "UNKNOWN / unproven. No repo evidence of a working path. W03 'ChatGPT -> local execution' is only a historically reported manual round trip; unattended path unverified (workload-registry.json)."
   },
   {
    "id": "PM-001",
