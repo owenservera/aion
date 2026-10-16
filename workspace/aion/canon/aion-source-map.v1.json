@@ -1,0 +1,159 @@
+{
+  "schema": "aion.source-map.v1",
+  "date": "2026-10-16",
+  "steward": "AION",
+  "evidence_policy": "References are readback-verified Git blobs when indicated. BFF-replayed text is NOT source-native ChatGPT message proof; Vercel READY is not phone acceptance; preexisting historical claims are not promoted to runtime states.",
+  "chat_source": {
+    "original_url": "https://chatgpt.com/g/g-p-6ad11a203c5c8191830e60d8dd471200-001-projects-pm/c/6ad160f5-d7fc-83eb-9045-2409b21e96c2",
+    "complete_export_verified": false,
+    "relay_replay_up_to_prompt": 23,
+    "relayed_prompt_count_in_current_chat": 24
+  },
+  "sources": [
+    {
+      "id": "aion-chat-relay",
+      "repository": "owenservera/aion",
+      "path": "workspace/aion/store/aion-bff-thread.jsonl",
+      "ref": "main",
+      "blob_sha": "9992a4846dd7fbbb8efc828ae4e7fd162cfc6a96",
+      "classification": "bff-relayed-transcript",
+      "verified_readback": true
+    },
+    {
+      "id": "aion-replay",
+      "repository": "owenservera/aion",
+      "path": "workspace/aion/store/replay/part-01.md",
+      "ref": "main",
+      "blob_sha": "d85c2718a73f3ffe05e1cd67fd362da7584e15be",
+      "classification": "bff-generated-replay",
+      "verified_readback": true
+    },
+    {
+      "id": "aion-recorder",
+      "repository": "owenservera/aion",
+      "path": "workspace/aion/recorder/recorder.py",
+      "ref": "main",
+      "blob_sha": "fce6ecf8d639cb01a8679fbc9e36f2958235caf3",
+      "classification": "implementation",
+      "verified_readback": true
+    },
+    {
+      "id": "aion-tests",
+      "repository": "owenservera/aion",
+      "path": "workspace/aion/recorder/test_recorder.py",
+      "ref": "main",
+      "blob_sha": "9c4220cfcedaa3fa5d4477e050cd3e258335e132",
+      "classification": "test-source",
+      "verified_readback": true
+    },
+    {
+      "id": "aion-sync",
+      "repository": "owenservera/aion",
+      "path": "workspace/aion/bff/aion-autopush",
+      "ref": "main",
+      "blob_sha": "118d2a2f91dfe8a0add71317591350aeb0143ef6",
+      "classification": "automation-source",
+      "verified_readback": true
+    },
+    {
+      "id": "aion-bootstrap",
+      "repository": "owenservera/aion",
+      "path": "workspace/aion/canon/AION-BOOTSTRAP-2026-10-16.md",
+      "ref": "main",
+      "blob_sha": "38a4b8154caf1acba7fb60b2d260b1208fb41879",
+      "classification": "aion-authored-synthesis",
+      "verified_readback": true
+    },
+    {
+      "id": "pocket-app",
+      "repository": "owenservera/zcode-pocket",
+      "path": "web/main.js",
+      "ref": "main",
+      "blob_sha": "f083d366d44b4b6c45cb15f6f921806b8b0be8fe",
+      "classification": "canonical-pwa-public-mirror",
+      "verified_readback": true
+    },
+    {
+      "id": "pocket-workbook",
+      "repository": "owenservera/zcode-pocket",
+      "path": "product-design/01-bots/PHONE-FIRST-ITERATION-WORKBOOK-v0.1.md",
+      "ref": "main",
+      "blob_sha": "a80365bd829b0ffc3907f710d9e63609dff5cf73",
+      "classification": "owner-decisions-and-acceptance",
+      "verified_readback": true
+    },
+    {
+      "id": "pocket-link",
+      "repository": "owenservera/zcode-setup",
+      "path": "playbook/toolkit/pocket-link/README.md",
+      "ref": "main",
+      "blob_sha": "405a869161a8a17b62ce1fe9d768904f3cbb71ef",
+      "classification": "backend-contract",
+      "verified_readback": true
+    },
+    {
+      "id": "zbot-bridge",
+      "repository": "owenservera/zcode-bots",
+      "path": "apps/zbot-host/mcp/bridge.mjs",
+      "ref": "aion/local-mcp-diagnostics-v0-20261016",
+      "blob_sha": "59ac7112181fa099b28376c8c7d53ed2ab506cde",
+      "classification": "prototype-code-pr",
+      "verified_readback": true
+    },
+    {
+      "id": "zbot-bridge-test",
+      "repository": "owenservera/zcode-bots",
+      "path": "apps/zbot-host/mcp/bridge.test.mjs",
+      "ref": "aion/local-mcp-diagnostics-v0-20261016",
+      "blob_sha": "e99ce486a255625d063f9c5191cd17e217f8a82f",
+      "classification": "prototype-tests-pr",
+      "verified_readback": true
+    },
+    {
+      "id": "pm-execution-register",
+      "repository": "owenservera/001.PROJECTS.PM",
+      "path": "governance/aion-execution-register-2026-10-16.md",
+      "ref": "main",
+      "blob_sha": "32a8322e00f0116fc23687fd4ae288e5c5bb9583",
+      "classification": "preexisting-execution-baseline",
+      "verified_readback": true
+    },
+    {
+      "id": "pm-handoff",
+      "repository": "owenservera/001.PROJECTS.PM",
+      "path": "governance/bun-github-zcode-auto-trigger-v1.md",
+      "ref": "main",
+      "blob_sha": "268c371be49ef3223302679c12aad690e59d3b50",
+      "classification": "dispatch-contract",
+      "verified_readback": true
+    }
+  ],
+  "work_orders": [
+    {
+      "id": "AION-01",
+      "url": "https://github.com/owenservera/aion/issues/1",
+      "gate": "pwa-hosted-and-authenticated-android-test"
+    },
+    {
+      "id": "AION-02",
+      "url": "https://github.com/owenservera/aion/issues/2",
+      "gate": "continuous-collision-safe-recorder-and-replay"
+    },
+    {
+      "id": "AION-03",
+      "url": "https://github.com/owenservera/aion/issues/3",
+      "gate": "zbot-real-receipt"
+    }
+  ],
+  "missing_artifacts": [
+    {
+      "id": "GPM-Cognitive-OS ZIP / SQLite",
+      "status": "not currently present in aion; prior sandbox paths insufficient",
+      "action": "recover bytes only from verified saved archives"
+    }
+  ],
+  "verification": {
+    "github_file_reads": 13,
+    "total_refs": 13
+  }
+}
