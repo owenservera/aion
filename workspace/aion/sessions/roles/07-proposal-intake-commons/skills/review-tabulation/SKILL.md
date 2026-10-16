@@ -19,3 +19,6 @@ Employee 07 facilitates and *calculates*. The council and role leads author revi
 
 ## Output
 Reproducible leaderboard with evidence and dissent, not an intake-worker recommendation. Provide drilldown links to GitHub discussion.
+
+## v0.2 small reviews, useful decisions
+A useful ordinary reviewer comment answers a concrete sourced question but is **not** a scored review. Preserve and reference it; never create numeric ratings from prose. Only complete genuine `AION_PROPOSAL_REVIEW_V1` blocks contribute scores. In urgent M1 work, route the evidence plus remaining uncertainty to Role 02/05 without waiting for numerical scores; reflect UNSCORED accurately. Distinguish mere REQUESTED from reviewer ACKNOWLEDGED using a real reply URL. Record decision/implementation links only after actual authorized external receipts.
