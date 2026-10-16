@@ -28,7 +28,7 @@ function render(){const L=D.ledger,p0=L.items.find(i=>i.id==='PM-000')||{},ini=L
 const n=L.items.length,nv=L.items.filter(i=>/^verified/i.test(i.tag)).length;
 const opts=(k)=>[...new Set(L.items.map(i=>i[k]))].map(v=>`<option${F[k]===v?' selected':''}>${esc(v)}</option>`).join('');
 const stale=(Date.now()-new Date(D.build.builtAt))/36e5;
-document.getElementById('ts').innerHTML=`Ledger generated ${esc(L.generated)} · built ${esc(new Date(D.build.builtAt).toLocaleString())} (${ago(D.build.builtAt)}) · commit <code>${esc(D.build.commit.slice(0,7))}</code>`;
+document.getElementById('ts').innerHTML=`Ledger generated ${esc(L.generated)} · built ${esc(new Date(D.build.builtAt).toLocaleString())} (${ago(D.build.builtAt)}) · commit <code>${esc(D.build.commit.replace(/^([0-9a-f]{7})[0-9a-f]+$/,"$1"))}</code>`;
 document.getElementById('m').innerHTML=`
 <section class="card wide banner"><h2>P0 #1 GOAL</h2><b>${esc(ini.name)}</b>
 <p><b>Current state:</b> ${esc(p0.current_state||p0.status)}</p>
@@ -47,7 +47,7 @@ ${L.items.filter(filt).map(i=>`<tr><td>${esc(i.id)}${i.priority?` <span class="b
 <section class="card"><h2>Risks, drift, blockers</h2><table>${D.risks.map(r=>`<tr><td><b>${esc(r.id)}</b></td><td><span class="b ${r.type==='Blocker'?'u':r.type==='Drift'?'c':'v'}">${esc(r.type)}</span></td><td>${esc(r.risk)}<div class="mut">${esc(r.evidence)}</div></td></tr>`).join('')}</table></section>
 <section class="card"><h2>Decisions</h2><ul>${D.decisions.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section>
 <section class="card"><h2>Local vs GitHub drift</h2>
-<p>This page is built from GitHub <code>owenservera/aion@main</code>, commit <code>${esc(D.build.commit.slice(0,7))}</code> ${esc(D.build.commitMsg)}.</p>
+<p>This page is built from GitHub <code>owenservera/aion@main</code>, commit <code>${esc(D.build.commit.replace(/^([0-9a-f]{7})[0-9a-f]+$/,"$1"))}</code> ${esc(D.build.commitMsg)}.</p>
 <p>Local box edits reach GitHub within about 1 min (autopush), then Vercel rebuilds (about 1 min). ${stale>1?'<span class="b u">Build older than 1 h: check autopush/Vercel</span>':'<span class="b v">Build is fresh</span>'}</p>
 <p class="mut">Unknowns: ${esc((L.unknowns||[]).join(' · '))}</p></section>`;
 const on=(id,k,ev)=>document.getElementById(id).addEventListener(ev||'change',e=>{F[k]=k==='q'?e.target.value.toLowerCase():e.target.value;render();if(k==='q'){const q=document.getElementById('fq');q.focus();q.setSelectionRange(99,99)}});
