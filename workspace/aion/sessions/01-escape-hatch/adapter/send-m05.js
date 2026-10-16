@@ -17,6 +17,18 @@
  * types, focuses, clicks or submits anything:
  *   --read-last --correlation AION-M05-20261016-COC-001
  *
+ * INSPECT-DOM (read-only structure probe) attaches over CDP, uses exactly
+ * the same tab selection and the same no-interaction guarantees as
+ * --read-last (no focus, typing, clicking, key presses, no navigation),
+ * evaluates in the page and prints JSON to stdout: per-element index,
+ * tag, data-testid, data-message-author-role, data-turn, data-message-id
+ * presence (boolean), containsCorrelation (boolean), containsAck
+ * (boolean, text contains 'ACK-M05'), textLength, and a depth /
+ * ancestor-chain summary of tags+data-testid (no text). The element text
+ * itself is NEVER printed. Page URL (scrubbed) and title are included.
+ * Writes no receipt file:
+ *   --inspect-dom --correlation AION-M05-20261016-COC-001
+ *
  * Hard rules:
  * - Message text comes ONLY from ../AION-OUTBOUND-M05-001.md (verbatim).
  * - One submit, no retries. No profiles, no cookie/token logging,
@@ -184,6 +196,34 @@ async function readLast(args, correlation) {
   }
 }
 
+async function inspectDom(args, correlation) {
+  const { chromium } = require('playwright');
+  let browser;
+  try {
+    browser = await chromium.connectOverCDP(args.cdp);
+  } catch (err) {
+    fail('E_CDP_CONNECT', `Cannot attach to preexisting Chrome CDP endpoint at ${args.cdp}: ${err.message}.`);
+  }
+  try {
+    // Read-only path: same tab selection and same no-interaction
+    // guarantees as --read-last (see lib.runInspectDom). Evaluate-only:
+    // no focus, typing, clicking, key presses, no navigation.
+    // Prints TEXT-FREE JSON to stdout; writes no receipt file.
+    const summary = await lib.runInspectDom(browser, { correlation });
+    console.log(JSON.stringify({ ok: true, ...summary }));
+    process.exit(0);
+  } catch (err) {
+    if (err instanceof lib.AdapterError) fail(err.code, err.message);
+    fail('E_UNEXPECTED', `Unexpected failure: ${err && err.message}`);
+  } finally {
+    try {
+      await browser.close();
+    } catch {
+      /* best effort */
+    }
+  }
+}
+
 async function main() {
   const args = lib.parseArgs(process.argv.slice(2));
   // Read-last (no-send) path takes precedence over dry-run; live gate unchanged.
@@ -200,6 +240,23 @@ async function main() {
       fail('E_UNEXPECTED', `Unexpected failure: ${err && err.message}`);
     }
     await readLast(args, correlation);
+    return;
+  }
+  // Inspect-dom (read-only) path: same tab selection + no-interaction
+  // guarantees as read-last; takes precedence over dry-run/live.
+  if (args.inspectDom) {
+    let correlation = args.correlation ?? args.confirmCorrelation;
+    try {
+      const checked = lib.assertInspectDomConfirmed(
+        { inspectDom: true, correlation },
+        lib.EXPECTED_CORRELATION,
+      );
+      correlation = checked.correlation;
+    } catch (err) {
+      if (err instanceof lib.AdapterError) fail(err.code, err.message);
+      fail('E_UNEXPECTED', `Unexpected failure: ${err && err.message}`);
+    }
+    await inspectDom(args, correlation);
     return;
   }
   if (!args.live) {
