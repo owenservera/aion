@@ -79,7 +79,7 @@ module.exports = async function handler(req, res) {
       const ta = Date.parse(a && a.created_at) || 0;
       const tb = Date.parse(b && b.created_at) || 0;
       if (tb !== ta) return tb - ta;
-      return (b && b.id) || 0 - ((a && a.id) || 0);
+      return ((b && b.id) || 0) - ((a && a.id) || 0);
     })
     .slice(0, limit);
 

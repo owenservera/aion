@@ -29,24 +29,64 @@ th{color:var(--mut);font-weight:600}a{color:#8ab4ff;word-break:break-all}ol{marg
 .comms .comms-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .comms button:focus-visible,.comms a:focus-visible,.comms textarea:focus-visible{outline:2px solid #9b8bff;outline-offset:2px}
 @media(max-width:650px){.comms{margin:10px 10px 0;padding:14px}.comms-actions a,.comms-actions button{flex:1 1 140px;text-align:center}}
+
+/* in-page inbox send + readback */
+.comms-actions button.primary{background:#6b4bf7;border-color:#7c64ff;color:#fff}
+.comms-actions button.primary:disabled{opacity:.55;cursor:progress;filter:none}
+.comms-actions button.ghost{background:#1c2337}
+.comms-warn{display:flex;gap:9px;align-items:flex-start;border:1px solid #8a4b1f;background:#3a2113;color:#ffcb8f;border-radius:9px;padding:10px 12px;margin:12px 0 0;font-size:12.5px;line-height:1.5}
+.comms-warn b{color:#ffe0b8}
+.comms-out{margin-top:10px;border:1px solid #2f3b5c;background:#0d1422;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#cfd7ea;overflow-wrap:anywhere}
+.comms-out.ok{border-color:#2c6b41;color:#8ce0a8}
+.comms-out.err{border-color:#7d2f2f;color:#ffb4ab}
+.comms-out .pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:700;background:#3a2e0f;color:#ffd788;border:1px solid #7a6222}
+.comms-in{margin-top:14px;border-top:1px solid #384465;padding-top:12px}
+.comms-in h3{margin:0;font-size:13px;color:#dbe2f5;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.comms-in h3 button{margin-left:auto;background:#1c2337;border:1px solid #465575;color:#dfe6f7;border-radius:8px;padding:4px 10px;font:600 12px/1.3 system-ui;cursor:pointer}
+.comms-in h3 button:hover{filter:brightness(1.17)}
+.comms-in ol{list-style:none;margin:10px 0 0;padding:0;max-height:290px;overflow:auto}
+.comms-in li{border:1px solid #333d5b;background:#101728;border-radius:8px;padding:8px 10px;margin:0 0 7px}
+.comms-in .meta{font-size:11px;color:#8e9ab8;display:flex;gap:8px;flex-wrap:wrap;margin-bottom:3px}
+.comms-in .meta b{color:#c8d2ea}
+.comms-in .body{font-size:12.5px;color:#dbe2f5;overflow-wrap:anywhere}
+.comms-in .empty{color:#8e9ab8;font-size:12.5px}
 </style></head><body>
 <header><h1>AION PM Dashboard</h1><span class="mut" id="ts">loading…</span></header>
 
 <section id="aion-comms" class="comms" aria-label="AION BFF communications">
- <div class="comms-head"><h2>↔ AION / BFF — Comms</h2><span class="comms-status">GitHub-backed · BFF receipt pending</span></div>
- <p>One shared coordination inbox for AION, BFF and Owen. GitHub holds the messages and receipts; this page does not store private chat or credentials.</p>
- <div class="comms-actions">
+  <div class="comms-head"><h2>↔ AION / BFF — Comms</h2><span class="comms-status">GitHub-backed · BFF receipt pending</span></div>
+  <p>One shared coordination inbox for AION, BFF and Owen. GitHub holds the messages and receipts; this page does not store private chat or credentials.</p>
+  <div class="comms-actions">
    <a class="primary" href="https://github.com/owenservera/aion/issues/14" target="_blank" rel="noopener noreferrer">Open BFF inbox ↗</a>
    <a href="https://github.com/owenservera/aion/issues/4" target="_blank" rel="noopener noreferrer">PM inbox ↗</a>
    <a href="https://github.com/owenservera/aion/blob/main/workspace/aion/canon/AION-MILESTONE-1-INTROSPECTION.md" target="_blank" rel="noopener noreferrer">M1 acceptance ↗</a>
- </div>
- <label for="bff-compose">Quick note for BFF (copy and paste into the shared GitHub thread)</label>
- <textarea id="bff-compose" placeholder="Write a task, question or update. Do not include tokens, secrets or private transcript bodies."></textarea>
- <div class="comms-foot">
-  <div class="comms-actions" style="margin:8px 0"><button id="copy-open-bff" type="button">Copy note + open inbox ↗</button></div>
-  <span id="bff-feedback" class="note" role="status" aria-live="polite">Send requires an authenticated GitHub comment. No automatic execution.</span>
- </div>
-</section>
+  </div>
+
+  <div class="comms-warn" role="note">
+   <span aria-hidden="true">⚠</span>
+   <span><b>Writing here does NOT talk to ChatGPT and does NOT wake AION.</b> Send posts a comment to GitHub issue
+   <a href="https://github.com/owenservera/aion/issues/14" target="_blank" rel="noopener noreferrer">#14</a> through a server-side function.
+   That is a durable note only. The result is <b>PENDING_AION_READ</b> — it means "stored on GitHub, not yet read". It is <b>not</b> an acknowledgement.
+   No browser, chat window or agent is started by this page.</span>
+  </div>
+
+  <label for="bff-compose">Compose note for BFF — send it in-page to the shared GitHub thread</label>
+  <textarea id="bff-compose" placeholder="Write a task, question or update. Do not include tokens, secrets or private transcript bodies."></textarea>
+  <div class="comms-actions" style="margin:10px 0">
+   <button id="send-bff" class="primary" type="button">Send to GitHub inbox ↗</button>
+   <button id="copy-open-bff" class="ghost" type="button">Copy note + open inbox ↗</button>
+  </div>
+  <div class="comms-foot">
+   <span id="bff-feedback" class="note" role="status" aria-live="polite">Idle. Send writes a GitHub comment via /api/inbox/send; no automatic execution, no ChatGPT ACK.</span>
+  </div>
+  <div id="bff-out" class="comms-out" hidden></div>
+
+  <div class="comms-in">
+   <h3><span>Recent inbox comments</span><button id="reload-inbox" type="button">Refresh</button></h3>
+   <div class="mut" style="margin-top:4px">Newest first, read back from GitHub issue #14 via /api/inbox/recent.</div>
+   <ol id="inbox-list"><li class="empty">Loading…</li></ol>
+  </div>
+ </section>
 
 <main id="m"></main>
 <script>
@@ -89,19 +129,104 @@ load();setInterval(load,60000);
 </script>
 <script>
 (function(){
- const b=document.getElementById('copy-open-bff');
- const feedback=document.getElementById('bff-feedback');
- b.addEventListener('click',function(){
-   const message=document.getElementById('bff-compose').value.trim();
-   if(!message){feedback.textContent='Write a note first.';return}
-   const thread=window.open('https://github.com/owenservera/aion/issues/14','_blank','noopener,noreferrer');
-   if(navigator.clipboard&&navigator.clipboard.writeText){
-     navigator.clipboard.writeText(message).then(function(){
-       feedback.textContent='Copied. Paste into the GitHub comment field and submit.';
-     }).catch(function(){feedback.textContent='Copy blocked by browser. Select text and copy manually.'});
-   }else{feedback.textContent='Clipboard unavailable. Select and copy your note manually.'}
-   if(!thread){feedback.textContent+=' Allow the new tab or use Open BFF inbox.'}
- });
+  var compose=document.getElementById('bff-compose');
+  var copyBtn=document.getElementById('copy-open-bff');
+  var sendBtn=document.getElementById('send-bff');
+  var reloadBtn=document.getElementById('reload-inbox');
+  var feedback=document.getElementById('bff-feedback');
+  var out=document.getElementById('bff-out');
+  var list=document.getElementById('inbox-list');
+  var LIMIT=10;
+
+  // No credentials live in this file. The token is only ever used server-side.
+  function say(msg){feedback.textContent=msg}
+  function showBox(kind,html){out.hidden=false;out.className='comms-out '+kind;out.innerHTML=html}
+  function hideBox(){out.hidden=true;out.className='comms-out';out.innerHTML=''}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  function busy(on){sendBtn.disabled=!!on;sendBtn.textContent=on?'Sending…':'Send to GitHub inbox ↗'}
+
+  function renderComments(comments){
+    if(!comments||!comments.length){list.innerHTML='<li class="empty">No comments returned.</li>';return}
+    list.innerHTML=comments.map(function(c){
+      var when='';
+      if(c.createdAt){var d=new Date(c.createdAt);when=isNaN(d)?esc(c.createdAt):esc(d.toLocaleString())}
+      var url=c.htmlUrl?'<a href="'+esc(c.htmlUrl)+'" target="_blank" rel="noopener noreferrer">open ↗</a>':'';
+      return '<li><div class="meta"><b>'+esc(c.author)+'</b><span>'+when+'</span><span>#'+esc(c.id)+'</span>'+url+'</div>'+
+             '<div class="body">'+esc(c.bodyTruncated||'')+'</div></li>';
+    }).join('');
+  }
+
+  async function loadRecent(){
+    list.innerHTML='<li class="empty">Loading…</li>';
+    try{
+      var r=await fetch('/api/inbox/recent?limit='+LIMIT,{cache:'no-store',headers:{Accept:'application/json'}});
+      var j=null;
+      try{j=await r.json()}catch(e){}
+      if(!r.ok||!j||!j.ok){
+        var m=(j&&j.error)||('HTTP '+r.status);
+        list.innerHTML='<li class="empty">Readback unavailable: '+esc(m)+' — this is a server-side token/config issue, not a GitHub problem.</li>';
+        return;
+      }
+      renderComments(j.comments);
+    }catch(e){
+      list.innerHTML='<li class="empty">Readback unavailable: '+esc(e.message||'network error')+'</li>';
+    }
+  }
+
+  async function send(){
+    var text=compose.value.trim();
+    if(!text){say('Write a note first.');return}
+    busy(true);
+    showBox('','Posting to GitHub issue #14…');
+    say('Sending. GitHub only — this does not message ChatGPT and does not wake AION.');
+    try{
+      var r=await fetch('/api/inbox/send',{
+        method:'POST',
+        cache:'no-store',
+        headers:{'Content-Type':'application/json',Accept:'application/json'},
+        body:JSON.stringify({text:text})
+      });
+      var j=null;
+      try{j=await r.json()}catch(e){}
+      if(!r.ok||!j||!j.ok){
+        var err=(j&&j.error)||('HTTP '+r.status);
+        showBox('err','<b>Not sent.</b> '+esc(err));
+        say('Send failed. Use "Copy note + open inbox" as a fallback.');
+        return;
+      }
+      var link=j.htmlUrl?'<a href="'+esc(j.htmlUrl)+'" target="_blank" rel="noopener noreferrer">'+esc(j.htmlUrl)+'</a>':'—';
+      showBox('ok','<b>Written to GitHub.</b> commentId <b>'+esc(j.commentId)+'</b> · created '+esc(j.createdAt||'—')+'<br>'+
+                     link+'<br>status <span class="pill">'+esc(j.status)+'</span> — stored on GitHub. AION has not necessarily read it. This is not a ChatGPT ACK.');
+      compose.value='';
+      say('Stored on GitHub as comment '+j.commentId+'. Status PENDING_AION_READ. No agent was woken.');
+      loadRecent();
+    }catch(e){
+      showBox('err','<b>Not sent.</b> '+esc(e.message||'network error'));
+      say('Send failed. Use "Copy note + open inbox" as a fallback.');
+    }finally{
+      busy(false);
+    }
+  }
+
+  sendBtn.addEventListener('click',send);
+  reloadBtn.addEventListener('click',loadRecent);
+  compose.addEventListener('keydown',function(e){
+    if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();send()}
+  });
+
+  copyBtn.addEventListener('click',function(){
+    var message=compose.value.trim();
+    if(!message){say('Write a note first.');return}
+    var thread=window.open('https://github.com/owenservera/aion/issues/14','_blank','noopener,noreferrer');
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(message).then(function(){
+        say('Copied. Paste into the GitHub comment field and submit.');
+      }).catch(function(){say('Copy blocked by browser. Select text and copy manually.')});
+    }else{say('Clipboard unavailable. Select and copy your note manually.')}
+    if(!thread){feedback.textContent+=' Allow the new tab or use Open BFF inbox.'}
+  });
+
+  loadRecent();
 })();
 </script>
 </body></html>
