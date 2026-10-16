@@ -19,3 +19,6 @@ Prepare tooling expertise, runbook skills and reproducible acceptance for Chrome
 
 ## Initial blocker
 No independently launched Role 06 ChatGPT conversation, no observed authorization/executor session. Repository publications are not delivery into a live role.
+
+## Workspace publication and activation ticket — 2026-10-16
+Issue #19: https://github.com/owenservera/aion/issues/19 . Created role bootstrap, scoped AGENTS instructions, workspace map, seeded 20-item qualified registry and 8 SKILL.md runbooks. Updated sessions roster, Chief bootstrap and CR-001 documentation; reported assignment in issue #18. Verification: repository readback pending final audit; no independent ChatGPT role chat exists/has acknowledged yet. Status: DOCUMENTED / NOT ACTIVE. Next owner action: launch dedicated ChatGPT chat from BOOTSTRAP, register real chat URL and first ACK. First execution gate: read-only version/capability sample and CR-001 bounded test preparation.
