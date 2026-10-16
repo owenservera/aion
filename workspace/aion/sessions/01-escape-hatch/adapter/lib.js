@@ -69,6 +69,19 @@ const USER_SELECTORS = [
   USER_SELECTOR,
 ];
 
+// Selectors for read-only DOM inspection (--inspect-dom). Any element
+// matching ANY of these is summarized (no text is ever returned).
+const INSPECT_DOM_SELECTORS = [
+  'article',
+  '[data-testid*="conversation-turn"]',
+  '[data-message-author-role]',
+  '[data-turn]',
+  'div.whitespace-pre-wrap',
+  '.markdown',
+];
+const INSPECT_ACK_MARKER = 'ACK-M05';
+const INSPECT_MAX_ANCESTORS = 6;
+
 // URL fragments that indicate the tab is NOT authenticated.
 const LOGIN_MARKERS = ['/auth/login', '/auth/signup', '/login'];
 
@@ -84,6 +97,7 @@ function parseArgs(argv) {
   const args = {
     live: false,
     readLast: false,
+    inspectDom: false,
     confirmCorrelation: null,
     correlation: null,
     cdp: CDP_DEFAULT,
@@ -95,6 +109,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--live') args.live = true;
     else if (a === '--read-last') args.readLast = true;
+    else if (a === '--inspect-dom') args.inspectDom = true;
     else if (a === '--confirm-correlation') args.confirmCorrelation = argv[++i] ?? null;
     else if (a.startsWith('--confirm-correlation=')) args.confirmCorrelation = a.split('=').slice(1).join('=');
     else if (a === '--correlation') args.correlation = argv[++i] ?? null;
@@ -104,7 +119,7 @@ function parseArgs(argv) {
     else if (a === '--outbound-file') args.outboundFile = argv[++i] ?? args.outboundFile;
     else if (a === '--timeout-ms') args.timeoutMs = Number(argv[++i]);
   }
-  args.mode = args.readLast ? 'read-last' : args.live ? 'live' : 'dry-run';
+  args.mode = args.readLast ? 'read-last' : args.inspectDom ? 'inspect-dom' : args.live ? 'live' : 'dry-run';
   return args;
 }
 
@@ -159,6 +174,20 @@ function assertReadLastConfirmed(args, correlation = EXPECTED_CORRELATION) {
     );
   }
   return { readLast: true, correlation };
+}
+
+/** Inspect-dom (read-only) requires --inspect-dom AND exact --correlation. Never sends. */
+function assertInspectDomConfirmed(args, correlation = EXPECTED_CORRELATION) {
+  if (!args.inspectDom) return { inspectDom: false };
+  const got = args.correlation ?? args.confirmCorrelation;
+  if (got !== correlation) {
+    throw new AdapterError(
+      'E_CONFIRMATION',
+      'Inspect-dom refused: requires BOTH --inspect-dom AND --correlation ' +
+        `${correlation} (exact match). Got: ${JSON.stringify(got)}.`,
+    );
+  }
+  return { inspectDom: true, correlation };
 }
 
 /** True only for https chatgpt.com web-app tab URLs (no login pages). */
@@ -934,6 +963,207 @@ async function runReadLast(browser, opts) {
 }
 
 /**
+ * In-page inspector for --inspect-dom. Runs INSIDE the page via
+ * page.evaluate(fn, payload), so it must stay fully self-contained
+ * (no Node closures; all inputs come through `opts`).
+ *
+ * For every element matching ANY of the selectors it returns a
+ * TEXT-FREE summary: index, tag, selected attributes, booleans derived
+ * from the text, text length, depth and an ancestor chain of
+ * tags+data-testid. The element text itself is NEVER returned.
+ */
+function inspectDomEvaluate(opts) {
+  const o = opts || {};
+  const correlation = typeof o.correlation === 'string' ? o.correlation : '';
+  const ackMarker = typeof o.ackMarker === 'string' && o.ackMarker ? o.ackMarker : 'ACK-M05';
+  const selectors = Array.isArray(o.selectors) && o.selectors.length > 0
+    ? o.selectors
+    : ['article'];
+  const maxAncestors = typeof o.maxAncestors === 'number' && o.maxAncestors > 0
+    ? Math.min(o.maxAncestors, 12)
+    : 6;
+  let nodes = [];
+  try {
+    const combined = selectors.join(',');
+    nodes = Array.from(document.querySelectorAll(combined));
+  } catch {
+    nodes = [];
+  }
+  return nodes.map((el, index) => {
+    let text = '';
+    try {
+      text = el.innerText !== undefined && el.innerText !== null
+        ? String(el.innerText)
+        : String(el.textContent || '');
+    } catch {
+      text = '';
+    }
+    let tag = '';
+    try {
+      tag = String(el.tagName || '').toUpperCase();
+    } catch {
+      tag = '';
+    }
+    const attr = (name) => {
+      try {
+        if (el.getAttribute) {
+          const v = el.getAttribute(name);
+          return v !== null && v !== undefined ? String(v) : null;
+        }
+      } catch {
+        /* ignore */
+      }
+      return null;
+    };
+    let hasDataMessageId = false;
+    try {
+      hasDataMessageId = el.hasAttribute
+        ? !!el.hasAttribute('data-message-id')
+        : attr('data-message-id') !== null;
+    } catch {
+      hasDataMessageId = false;
+    }
+    // Ancestor chain: tags + data-testid only, innermost first, capped.
+    const ancestors = [];
+    try {
+      let node = el;
+      let n = 0;
+      while (node && n < maxAncestors) {
+        let t = '';
+        try {
+          t = String(node.tagName || '').toUpperCase();
+        } catch {
+          t = '';
+        }
+        if (!t) break;
+        let tid = null;
+        try {
+          tid = node.getAttribute ? node.getAttribute('data-testid') : null;
+        } catch {
+          tid = null;
+        }
+        ancestors.push(tid !== null && tid !== undefined && String(tid) !== ''
+          ? `${t}[data-testid=${String(tid)}]`
+          : t);
+        try {
+          node = node.parentElement;
+        } catch {
+          break;
+        }
+        n += 1;
+        if (t === 'HTML') break;
+      }
+    } catch {
+      /* best effort */
+    }
+    // Full depth: number of ancestors up to the root (uncapped loop guard).
+    let depth = 0;
+    try {
+      let p = el;
+      while (p && p.parentElement) {
+        depth += 1;
+        p = p.parentElement;
+        if (depth > 1000) break;
+      }
+    } catch {
+      /* keep partial depth */
+    }
+    return {
+      index,
+      tag,
+      'data-testid': attr('data-testid'),
+      'data-message-author-role': attr('data-message-author-role'),
+      'data-turn': attr('data-turn'),
+      hasDataMessageId,
+      containsCorrelation: correlation ? text.indexOf(correlation) !== -1 : false,
+      containsAck: text.indexOf(ackMarker) !== -1,
+      textLength: text.length,
+      depth,
+      ancestors,
+    };
+  });
+}
+
+/**
+ * Run the in-page inspector against a page handle (read-only).
+ * Only calls page.evaluate + (read-only) page.url()/page.title().
+ * NEVER focuses, types, clicks, presses keys or navigates.
+ */
+async function collectInspectDom(page, opts) {
+  const correlation = opts && opts.correlation;
+  if (!correlation) {
+    throw new AdapterError('E_CONFIRMATION', 'Inspect-dom requires a correlation (exact match).');
+  }
+  if (!page || typeof page.evaluate !== 'function') {
+    throw new AdapterError('E_INSPECT', 'Inspect-dom requires a page with evaluate(); refusing to guess.');
+  }
+  const payload = {
+    correlation,
+    ackMarker: INSPECT_ACK_MARKER,
+    selectors: INSPECT_DOM_SELECTORS,
+    maxAncestors: INSPECT_MAX_ANCESTORS,
+  };
+  let elements;
+  try {
+    elements = await page.evaluate(inspectDomEvaluate, payload);
+  } catch (err) {
+    throw new AdapterError('E_INSPECT', `Inspect-dom evaluate failed: ${err && err.message}`);
+  }
+  if (!Array.isArray(elements)) {
+    throw new AdapterError('E_INSPECT', 'Inspect-dom returned no element list; refusing to guess.');
+  }
+  return elements;
+}
+
+/**
+ * READ-ONLY flow: same tab selection and same no-interaction guarantees
+ * as runReadLast (no bringToFront/fill/press/click/focus/type/navigation).
+ * Evaluates inspectDomEvaluate in the page and returns a TEXT-FREE
+ * summary plus the (scrubbed) page URL and title.
+ */
+async function runInspectDom(browser, opts) {
+  const startedAt = new Date().toISOString();
+  const correlation = opts && opts.correlation;
+  if (!correlation) {
+    throw new AdapterError('E_CONFIRMATION', 'Inspect-dom requires a correlation (exact match).');
+  }
+  const tabs = await collectTabRefs(browser);
+  const target = selectTargetTab(tabs);
+  const page = target.ref;
+  const tabUrl = target.url;
+  if (isLoginUrl(tabUrl)) {
+    throw new AdapterError('E_LOGIN_REQUIRED', `Login required at ${safeTabUrl(tabUrl)}; refusing to bypass. Log in manually and retry.`);
+  }
+  // NOTE: deliberately NO bringToFront / fill / press / click / focus /
+  // type / goto / reload / navigation here — evaluate-only, like read-last.
+  let tabTitle = '';
+  try {
+    if (page && typeof page.title === 'function') {
+      const t = await page.title();
+      if (typeof t === 'string') tabTitle = t;
+    }
+  } catch {
+    tabTitle = '';
+  }
+  const elements = await collectInspectDom(page, { correlation });
+  const endedAt = new Date().toISOString();
+  return {
+    tool: 'aion-m05-chatgpt-webapp-adapter',
+    mode: 'inspect-dom',
+    correlation,
+    tabUrlSafe: safeTabUrl(tabUrl),
+    tabTitle: String(tabTitle || '').slice(0, 300),
+    url: safeTabUrl(tabUrl),
+    title: String(tabTitle || '').slice(0, 300),
+    selectors: INSPECT_DOM_SELECTORS.slice(),
+    elementCount: elements.length,
+    elements,
+    startedAt,
+    endedAt,
+  };
+}
+
+/**
  * Verify the captured reply contains the expected exact marker.
  * Throws E_MISMATCH otherwise (reject synthetic/other-LLM output).
  */
@@ -1085,6 +1315,7 @@ module.exports = {
   loadOutbound,
   assertLiveConfirmed,
   assertReadLastConfirmed,
+  assertInspectDomConfirmed,
   isChatGptWebAppTab,
   isLoginUrl,
   selectTargetTab,
@@ -1104,6 +1335,12 @@ module.exports = {
   buildReadLastReceipt,
   collectTabRefs,
   runReadLast,
+  INSPECT_DOM_SELECTORS,
+  INSPECT_ACK_MARKER,
+  INSPECT_MAX_ANCESTORS,
+  inspectDomEvaluate,
+  collectInspectDom,
+  runInspectDom,
   verifyReply,
   buildReceipt,
   runOnce,
