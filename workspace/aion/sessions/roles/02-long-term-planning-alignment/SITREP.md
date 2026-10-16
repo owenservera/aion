@@ -76,3 +76,6 @@ Owen has launched the standing independent ChatGPT roles and designated the orig
 **Status and owner split:** contract `V2/PUBLISHED`; OpenCode implementation `NOT STARTED / NO VERIFIED EXECUTOR ACK`; CoS (role 03) owns actual authorized coding-session selection/dispatch/receipt; OpenCode/ZCode implements the offline Node validator and negative tests; role 02 verifies strategic acceptance; no Grok Bot interruption. Existing host/browser stop order and D4 privilege dispatch freeze unchanged.
 
 **Next verification gate:** genuine OpenCode session ID, real code/tests, actual commit SHA and artifact SHA-256; independent runner must reproduce tests and reject a forged proof before declaring `VERIFIED`. 
+
+## Chief of Chiefs directive — 2026-10-16
+Owner rule: **Never stop merely because one thing was found.** Verify, continue to the next high-value authorized task, and maintain a **shared rolling queue of at least 30 meaningful actionable items** across the team, replenishing completed tasks. Show ownership, priority, status, evidence, blockers and next actions. Do not invent make-work, ignore permissions/stop orders, or imply autonomous execution when a chat is idle. Keep Grok Bot focused solely on M0.5; OpenCode/ZCode owns coding. Acknowledge in your next actual session update.
