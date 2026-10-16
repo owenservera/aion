@@ -22,7 +22,7 @@ If source bytes cannot be safely published, leave RAW absent, mark META status `
 - `received_at_utc`, `captured_at_utc`: exact timestamps (don't invent)
 - `raw_sha256`: SHA-256 of *stored* RAW bytes, or null
 - `raw_bytes`: raw UTF-8 bytes count, or null
-- `raw_preservation`: `EXACT`, `NOT_CAPTURED`, `REDACTED_WITH_CONSENT` (not `EXACT`)
+- `raw_preservation`: `EXACT_SOURCE_BYTES` (original byte stream independently verified), `EXACT_CAPTURED_TEXT` (text exactly as received in intake, original upstream bytes not independently verified), `NOT_CAPTURED`, or `REDACTED_WITH_CONSENT` (not exact raw)
 - `intake_status`: `SOURCE_CAPTURED`, `DECOMPOSED`, `PUBLISHED`, `REVIEW_OPEN`, `PARTIAL`, `QUARANTINED`, `SOURCE_MISSING`
 - `issue_url`: populated only after confirmed GitHub issue creation
 - `related_ids`: array of plausible or exact links with reason
