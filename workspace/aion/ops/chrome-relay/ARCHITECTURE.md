@@ -1,11 +1,11 @@
 # AION Chrome Relay Station — Architecture v0.1
 Date: 2026-10-16
 Status: PROPOSED DESIGN / NOT INSTALLED OR RUNNING
-Executive owner: Role 05 (Chief of Chiefs); execution owner: Role 03 (Chief of Staff)
+Executive owner: Role 05 (Chief of Chiefs); execution coordinator: Role 03 (Chief of Staff); technical tooling owner: Role 06 (TOOLSMITH, pending live session)
 Seed: UAH/ACP + IANG/SQLite + OpenCode/ZCode + GitHub + AION role sessions. No separate repository or competing event bus.
 
 ## Mission
-A Chrome Manifest V3 extension is the *browser-facing edge node* of an extensible AION communications bus. Its purpose is to make task dispatch, agent visibility, receipts, context re-entry, and approvals frictionless while the durable executor continues off-tab. Keep five standing chatgpt.com roles easy to reopen; never claim they independently think while idle. Chrome keep-alive refers only to an extension transport, not a ChatGPT model turn.
+A Chrome Manifest V3 extension is the *browser-facing edge node* of an extensible AION communications bus. Its purpose is to make task dispatch, agent visibility, receipts, context re-entry, and approvals frictionless while the durable executor continues off-tab. Keep six designed standing chatgpt.com roles (sixth pending launch) easy to reopen; never claim they independently think while idle. Chrome keep-alive refers only to an extension transport, not a ChatGPT model turn.
 
 ## Architecture / authority
 User in chatgpt.com or Chrome side panel -> extension UI + explicit user-action content adapter -> MV3 service worker -> native messaging host `com.aion.relay` -> UAH ACP client/router -> ZCode/OpenCode authorized runtimes -> signed/hashed evidence -> IANG SQLite outbox/inbox -> existing GitHub AION authoritative PM receipts.
@@ -14,7 +14,7 @@ An optional *explicitly configured* authenticated localhost wss/ws service is fa
 
 ## Chrome implementation
 - MV3 `background.service_worker`: event-driven, persistent state in chrome.storage.local/IndexedDB as appropriate, alarms/restart hooks, idempotent reconnection; do NOT assume immortal JavaScript globals.
-- `sidePanel` or extension popup: five role tiles (tab open/stale/unknown), relay connection status, current executor activities, outbox, receipts, approvals, manual reconnect and pause.
+- `sidePanel` or extension popup: six role tiles (including TOOLSMITH when launched) (tab open/stale/unknown), relay connection status, current executor activities, outbox, receipts, approvals, manual reconnect and pause.
 - `tabs`/optional permission and user-selected site access: remember role tab URLs locally; open/focus tabs on user action; recover last known GitHub-backed context capsule.
 - Minimal optional content script on chatgpt.com: only selected text or user-clicked 'Send to AION' capture; never mass-read transcripts, cookies, credentials, or undocumented page internals. Drafting into ChatGPT composer requires a clear user gesture; automated prompts are NOT a baseline capability.
 - Host native messaging: `chrome.runtime.connectNative` with locked `allowed_origins`, fixed extension ID, OS-installed host manifest. Length-framed JSON transport. Never accept web-page message as a command without capability authorization in native host.
@@ -22,7 +22,7 @@ An optional *explicitly configured* authenticated localhost wss/ws service is fa
 - ACP negotiation: initialize/version/capabilities; supported session/new, resume, prompt, update, cancel; feature-probe actual installed version, do not assume ACP v2 semantics in a v1 runtime.
 
 ## Role model
-Chief/Planning/CoS/Efficiency/Dashboard are *named human-facing role contexts*, NOT five independent continuously executing ChatGPT web-app processes. Mapping: role_id -> approved chat URL + canonical GitHub capsule + assigned runtime identity (if any) + last evidence time.
+Chief/Planning/CoS/Efficiency/Dashboard/TOOLSMITH are *named human-facing role contexts*, NOT five independent continuously executing ChatGPT web-app processes. Mapping: role_id -> approved chat URL + canonical GitHub capsule + assigned runtime identity (if any) + last evidence time.
 Future autonomous workers use ACP sessions with explicit authorization, and may send role-directed events that the extension shows. ChatGPT tab presence remains UI metadata; backend workers' liveness is verified separately.
 
 ## Authority model
