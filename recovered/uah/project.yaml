@@ -1,0 +1,359 @@
+schema: unified-project-map/v0.2
+generated_from: uah_integration_project_v0_2.sqlite3
+generated_at_utc: '2026-10-15T20:03:12.028903+00:00'
+purpose: Logical unified project map; source references are pointers, not copied or moved files
+policy:
+  source_of_truth: SQLite for inventory and wave state; repository files for implementation truth
+  missing_means: unknown, not absent
+  merge_mode: linked entry nodes; no ownership transfer
+  execution: discovery and documentation only
+  evidence_levels:
+  - explicit
+  - manifest-observed
+  - referenced
+  - documented-unverified
+  - proposed
+entry_nodes:
+- id: UAH_CLI
+  logical_root: /UAH/CLI
+  state: partial scaffold, not executable
+- id: IANG
+  logical_root: /Integration-Automation
+  state: registered; second-repo census pending
+repositories:
+- id: SOFTWARE_HQ
+  url: https://github.com/owenservera/SOFTWARE_HQ
+  scan: partial
+  manifest: integrations/project.yaml
+  reported_subprojects: 9
+  reported_files: 146
+logical_tree:
+  /UAH/CLI: CLI-specific code and design
+  /UAH/Hub-Kit: UAH integration kit and contracts
+  /Integration-Automation: IANG second entry point, reserved
+  /Shared/Integration-Adapters: CCR, ZCode, OpenCode and integration tooling
+  /Shared/Software-Intelligence: Application graph, tool effects and twin research
+  /Project-Management: waves, coverage, status, provenance
+waves:
+- id: W00
+  sequence: 0
+  name: Baseline and provenance
+  status: in_progress
+  depends_on: []
+  scope: Establish canonical inventory, status vocabulary, repository coverage
+  exit_gate: Every recorded artifact has source location and evidence class
+  artifact_count: 0
+- id: W01
+  sequence: 1
+  name: UAH CLI direct census
+  status: pending
+  depends_on:
+  - W00
+  scope: Enumerate all UAH CLI files, direct name hits, command surfaces and source modules
+  exit_gate: All 19 UAH subtree files reconciled against source manifest
+  artifact_count: 4
+- id: W02
+  sequence: 2
+  name: UAH dependency periphery
+  status: pending
+  depends_on:
+  - W01
+  scope: Traverse contracts, CCR-ZCode, ACP Bridge, OpenCode, ZCode and reusable CLI engines
+  exit_gate: Each dependency linked with evidence, implementation status and blockers
+  artifact_count: 15
+- id: W03
+  sequence: 3
+  name: Cross-repository dispersion
+  status: pending
+  depends_on:
+  - W02
+  scope: Scan other repositories one at a time and reconcile duplicate identities
+  exit_gate: Repository coverage and unresolved locations explicit
+  artifact_count: 0
+- id: W04
+  sequence: 4
+  name: Integration Automation convergence
+  status: pending
+  depends_on:
+  - W03
+  scope: Populate second entry node and connect shared concepts and reusable components
+  exit_gate: IANG artifacts and relations cross-linked, not copied
+  artifact_count: 4
+- id: W05
+  sequence: 5
+  name: Canonical model validation
+  status: pending
+  depends_on:
+  - W04
+  scope: Test entity identity, graph relations, wave gates and provenance completeness
+  exit_gate: Repeatable validation checks pass
+  artifact_count: 0
+- id: W06
+  sequence: 6
+  name: Execution-ready roadmap
+  status: pending
+  depends_on:
+  - W05
+  scope: Translate verified gaps into bounded implementation packages
+  exit_gate: Prioritized tasks with owner, acceptance evidence and rollback boundaries
+  artifact_count: 0
+inventory:
+- id: A0001
+  logical_path: /UAH/CLI/integrations__uah__cli__DESIGN.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/cli/DESIGN.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/cli/DESIGN.md
+  layer: 0
+  kind: design
+  evidence_status: explicit
+  wave: W01
+  notes: CLI intent, seven domains, invariants, roadmap
+- id: A0006
+  logical_path: /UAH/CLI/integrations__uah__cli__src__core__fsx.mjs
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/cli/src/core/fsx.mjs
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/cli/src/core/fsx.mjs
+  layer: 0
+  kind: code
+  evidence_status: documented-unverified
+  wave: W01
+  notes: Reported partial unwired scaffold
+- id: A0005
+  logical_path: /UAH/CLI/integrations__uah__cli__src__core__gate.mjs
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/cli/src/core/gate.mjs
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/cli/src/core/gate.mjs
+  layer: 0
+  kind: code
+  evidence_status: documented-unverified
+  wave: W01
+  notes: Reported partial unwired scaffold
+- id: A0004
+  logical_path: /UAH/CLI/integrations__uah__cli__src__core__safety.mjs
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/cli/src/core/safety.mjs
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/cli/src/core/safety.mjs
+  layer: 0
+  kind: code
+  evidence_status: documented-unverified
+  wave: W01
+  notes: Reported partial unwired scaffold
+- id: A0002
+  logical_path: /UAH/Hub-Kit/integrations__uah__MAP.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/MAP.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/MAP.md
+  layer: 1
+  kind: map
+  evidence_status: explicit
+  wave: W02
+  notes: Hub dependencies and blockers
+- id: A0011
+  logical_path: /UAH/Hub-Kit/integrations__uah__PHASE-2-EXECUTION.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/PHASE-2-EXECUTION.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/PHASE-2-EXECUTION.md
+  layer: 1
+  kind: plan
+  evidence_status: referenced
+  wave: W02
+  notes: Execution gates
+- id: A0003
+  logical_path: /UAH/Hub-Kit/integrations__uah__README.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/README.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/README.md
+  layer: 1
+  kind: kit
+  evidence_status: explicit
+  wave: W02
+  notes: UAH kit and boundaries
+- id: A0007
+  logical_path: /UAH/Hub-Kit/integrations__uah__contracts__ACCEPTANCE.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/contracts/ACCEPTANCE.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/contracts/ACCEPTANCE.md
+  layer: 1
+  kind: contract
+  evidence_status: referenced
+  wave: W02
+  notes: Acceptance scenarios
+- id: A0008
+  logical_path: /UAH/Hub-Kit/integrations__uah__contracts__BOUNDARIES.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/contracts/BOUNDARIES.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/contracts/BOUNDARIES.md
+  layer: 1
+  kind: contract
+  evidence_status: referenced
+  wave: W02
+  notes: Authority boundaries
+- id: A0009
+  logical_path: /UAH/Hub-Kit/integrations__uah__contracts__MCP-INGRESS.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/contracts/MCP-INGRESS.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/contracts/MCP-INGRESS.md
+  layer: 1
+  kind: contract
+  evidence_status: referenced
+  wave: W02
+  notes: Remote ingress
+- id: A0010
+  logical_path: /UAH/Hub-Kit/integrations__uah__contracts__UPSTREAM-CORRECTIONS.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/uah/contracts/UPSTREAM-CORRECTIONS.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/uah/contracts/UPSTREAM-CORRECTIONS.md
+  layer: 1
+  kind: contract
+  evidence_status: referenced
+  wave: W02
+  notes: Protocol corrections
+- id: A0019
+  logical_path: /Shared/Integration-Adapters/integrations__TRACKER.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/TRACKER.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/TRACKER.md
+  layer: 2
+  kind: tracker
+  evidence_status: explicit
+  wave: W02
+  notes: Integration status board
+- id: A0016
+  logical_path: /Shared/Integration-Adapters/integrations__ccr-zcode__PLAN.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/ccr-zcode/PLAN.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/ccr-zcode/PLAN.md
+  layer: 2
+  kind: plan
+  evidence_status: explicit
+  wave: W02
+  notes: Paused dependency
+- id: A0014
+  logical_path: /Shared/Integration-Adapters/integrations__ccr-zcode__engine__ccr-inventory.mjs
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/ccr-zcode/engine/ccr-inventory.mjs
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/ccr-zcode/engine/ccr-inventory.mjs
+  layer: 2
+  kind: code
+  evidence_status: manifest-observed
+  wave: W02
+  notes: Provider inventory
+- id: A0012
+  logical_path: /Shared/Integration-Adapters/integrations__ccr-zcode__engine__cli.mjs
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/ccr-zcode/engine/cli.mjs
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/ccr-zcode/engine/cli.mjs
+  layer: 2
+  kind: code
+  evidence_status: manifest-observed
+  wave: W02
+  notes: Existing CLI engine to reuse
+- id: A0013
+  logical_path: /Shared/Integration-Adapters/integrations__ccr-zcode__engine__map-engine.mjs
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/ccr-zcode/engine/map-engine.mjs
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/ccr-zcode/engine/map-engine.mjs
+  layer: 2
+  kind: code
+  evidence_status: manifest-observed
+  wave: W02
+  notes: Existing mapping engine
+- id: A0015
+  logical_path: /Shared/Integration-Adapters/integrations__ccr-zcode__engine__zcode-schema.mjs
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/ccr-zcode/engine/zcode-schema.mjs
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/ccr-zcode/engine/zcode-schema.mjs
+  layer: 2
+  kind: code
+  evidence_status: manifest-observed
+  wave: W02
+  notes: ZCode schema
+- id: A0018
+  logical_path: /Shared/Integration-Adapters/integrations__project.yaml
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/project.yaml
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/project.yaml
+  layer: 2
+  kind: manifest
+  evidence_status: explicit
+  wave: W02
+  notes: Recursive integration inventory; 9 projects, 146 files
+- id: A0017
+  logical_path: /Shared/Integration-Adapters/integrations__zcode-opencode__README.md
+  source:
+    repo: SOFTWARE_HQ
+    path: integrations/zcode-opencode/README.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/integrations/zcode-opencode/README.md
+  layer: 2
+  kind: kit
+  evidence_status: manifest-observed
+  wave: W02
+  notes: Delegation kit
+- id: A0023
+  logical_path: /Shared/Software-Intelligence/AGENTS.md
+  source:
+    repo: SOFTWARE_HQ
+    path: AGENTS.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/AGENTS.md
+  layer: 3
+  kind: governance
+  evidence_status: explicit
+  wave: W04
+  notes: Owner and evidence rules
+- id: A0021
+  logical_path: /Shared/Software-Intelligence/docs__ACTIVE-TOOL-EFFECT-MODEL.md
+  source:
+    repo: SOFTWARE_HQ
+    path: docs/ACTIVE-TOOL-EFFECT-MODEL.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/docs/ACTIVE-TOOL-EFFECT-MODEL.md
+  layer: 3
+  kind: ontology
+  evidence_status: explicit
+  wave: W04
+  notes: Effects, authority and capability graph
+- id: A0022
+  logical_path: /Shared/Software-Intelligence/docs__FOUR-D-APPLICATION-TWIN-BACKLOG.md
+  source:
+    repo: SOFTWARE_HQ
+    path: docs/FOUR-D-APPLICATION-TWIN-BACKLOG.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/docs/FOUR-D-APPLICATION-TWIN-BACKLOG.md
+  layer: 3
+  kind: design
+  evidence_status: explicit
+  wave: W04
+  notes: Deferred multidimensional twin
+- id: A0020
+  logical_path: /Shared/Software-Intelligence/docs__INTELLIGENCE-MODEL.md
+  source:
+    repo: SOFTWARE_HQ
+    path: docs/INTELLIGENCE-MODEL.md
+    url: https://github.com/owenservera/SOFTWARE_HQ/blob/main/docs/INTELLIGENCE-MODEL.md
+  layer: 3
+  kind: ontology
+  evidence_status: explicit
+  wave: W04
+  notes: Software graph schema
+open_gaps:
+- Complete enumeration of 19 UAH subtree files
+- Repository-wide exact content search for UAH and CLI references
+- Verify three CLI core files directly and reconcile scaffold status
+- Populate IANG repository in separate pass
+- GitHub commit/push pending
