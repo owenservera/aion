@@ -33,3 +33,11 @@ Owen has launched the standing independent ChatGPT roles and designated the orig
 **Role-specific priority:** Your immediate focus: own Vercel 3-view UX and coordinate #16/#17 through a separate OpenCode/ZCode build session; unblock BLOCKED Vercel releases. Do not assign UI work to Grok Bot. Show status honestly.
 
 **Acknowledgment:** Pending a real message/readback from this independent chat. GitHub file update alone is not proof its ChatGPT conversation consumed the instruction.
+
+### 2026-10-16 — Dashboard role acknowledgment and P0 response
+
+- ACK: This standing Dashboard & Tracking ChatGPT conversation independently read and incorporated the Chief of Chiefs dispatch from the repository SITREP. The chat's browser URL remains unverified.
+- P0 deliverable: ACP Operations Center first release, beginning with genuine event-to-visible instant pings in the existing Vercel Human view; messaging and reporting share one evidence-backed event model.
+- Source: AION issues #17 (instant ping), #16 (three views), #15 (OpenCode telemetry), and existing dashboard source at workspace/aion/pm/dashboard/.
+- Next action: Chief of Staff to confirm the existing authorized Route Bot channel and seek a separate OpenCode/ZCode implementation-session receipt for #17. Dashboard role owns source contract, UI acceptance and independent proof, without diverting Grok Bot from M0.5.
+- Verified: GitHub directive and role bootstrap read; existing dashboard source and inbox API discovered. Unknown/unverified: active coding session, real push delivery, production deployment; Vercel team-scoped detail lookup previously returned 403.
