@@ -27,3 +27,9 @@ PASS  CDP libs (chrome-remote-interface, puppeteer-core)
 PASS  desktop Chrome CDP on :9244
 SUMMARY pass=18 fail=0
 ```
+
+## OpenCode CLI
+- Installed via official script (`curl -fsSL https://opencode.ai/install | bash`) at `/home/box/.opencode/bin/opencode`; PATH set in `~/.bashrc` and `~/.profile`.
+- Version 1.19.1 (2026-10-16). `box-readiness.sh` checks presence + version.
+- Free OpenCode-provider models work without login, e.g. `opencode/space-bunny-free` (preferred), `opencode/deepseek-v4.1-flash-free`.
+- Smoke: `opencode run -m opencode/space-bunny-free "Reply with exactly: OPENCODE_OK" </dev/null` → `OPENCODE_OK`. Note: redirect stdin from /dev/null in non-interactive shells or `run` hangs waiting on stdin.
