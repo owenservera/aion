@@ -1,0 +1,5 @@
+#!/bin/bash
+cd / || exit 1
+git add -A /.gitignore /README.md /workspace/aion 2>/dev/null
+git diff --cached --quiet || git commit -q -m "auto: $(date '+%F %T %Z')"
+git push -q origin HEAD:main 2>>/var/log/aion-autopush.log
