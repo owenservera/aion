@@ -306,5 +306,17 @@
  "inbox": {
   "pinned": "https://github.com/owenservera/aion/issues/4",
   "test": "https://github.com/owenservera/aion/issues/5 (closed)"
- }
+ },
+ "top10": [
+  "P0#1 Evaluate chatgpt.com -> ZCode bridge options A-E (PM-000)",
+  "Recover IAM sqlite + schema.sql + build.py (PM-004)",
+  "Recover UAH dispersion sqlite + generated project.yaml (PM-005)",
+  "Check current PC free disk (D5 / R7)",
+  "ACP Bridge (PM-007)",
+  "Receipt consumer, then lift dispatch freeze (PM-014)",
+  "UAH CLI entry point (PM-006)",
+  "Prove W01-W03 (PM-008)",
+  "Merge UAH 8 / IANG 23 / IAM 33 schemas into one IAM DB (PM-009)",
+  "CDP web-app twin CLI reusing vivim-omega, ChatGPT first (PM-013); then AION self-reflection (PM-012)"
+ ]
 }

@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>AION PM Dashboard</title>
+<style>
+:root{--bg:#0f1117;--card:#181b24;--bd:#2a2f3d;--fg:#e6e8ee;--mut:#9aa1b2;--ok:#2ea043;--warn:#d29922;--bad:#f85149;--acc:#7c5cff}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+header{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}
+h1{font-size:18px;margin:0}h2{font-size:15px;margin:0 0 10px;color:var(--acc)}
+main{padding:14px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;overflow:auto}.wide{grid-column:1/-1}
+.banner{border-left:4px solid var(--bad)}.mut{color:var(--mut);font-size:12px}
+.b{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:600;white-space:nowrap}
+.v{background:#173a24;color:#5fd47f}.c{background:#3d2e0f;color:#e8b44a}.u{background:#3a1717;color:#ff8a80}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--bd);padding:6px;text-align:left;vertical-align:top;font-size:13px}
+th{color:var(--mut);font-weight:600}a{color:#8ab4ff;word-break:break-all}ol{margin:0;padding-left:22px}li{margin:3px 0}
+.board{display:flex;gap:8px;flex-wrap:wrap}.tile{flex:1 1 120px;background:#11141c;border:1px solid var(--bd);border-radius:8px;padding:8px}
+.tile b{display:block}select,input{background:#11141c;color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:5px;margin:0 6px 8px 0}
+</style></head><body>
+<header><h1>AION PM Dashboard</h1><span class="mut" id="ts">loading…</span></header>
+<main id="m"></main>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tag=t=>{t=String(t||'');const k=/^verified/i.test(t)?'v':/unknown/i.test(t)?'u':'c';return `<span class="b ${k}">${esc(t)}</span>`};
+const link=e=>esc(e).replace(/(https?:\/\/[^\s;,)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+const ago=iso=>{const s=(Date.now()-new Date(iso))/1000;return s<120?Math.round(s)+'s ago':s<7200?Math.round(s/60)+' min ago':Math.round(s/3600)+' h ago'};
+let D,F={status:'',owner:'',tag:'',q:''},sig='';
+function filt(i){return(!F.owner||i.owner===F.owner)&&(!F.tag||(/^verified/i.test(i.tag)?'verified':'claimed')===F.tag)&&(!F.status||i.status===F.status)&&(!F.q||JSON.stringify(i).toLowerCase().includes(F.q))}
+function render(){const L=D.ledger,p0=L.items.find(i=>i.id==='PM-000')||{},ini=L.initiatives[0]||{};
+const n=L.items.length,nv=L.items.filter(i=>/^verified/i.test(i.tag)).length;
+const opts=(k)=>[...new Set(L.items.map(i=>i[k]))].map(v=>`<option${F[k]===v?' selected':''}>${esc(v)}</option>`).join('');
+const stale=(Date.now()-new Date(D.build.builtAt))/36e5;
+document.getElementById('ts').innerHTML=`Ledger generated ${esc(L.generated)} · built ${esc(new Date(D.build.builtAt).toLocaleString())} (${ago(D.build.builtAt)}) · commit <code>${esc(D.build.commit.slice(0,7))}</code>`;
+document.getElementById('m').innerHTML=`
+<section class="card wide banner"><h2>P0 #1 GOAL</h2><b>${esc(ini.name)}</b>
+<p><b>Current state:</b> ${esc(p0.current_state||p0.status)}</p>
+<p class="mut"><b>Blocked by:</b> ${esc((p0.blocked_by||[]).join(' · '))}</p>
+<table><tr><th>Opt</th><th>Bridge path</th><th>Existing support</th><th>Tag</th></tr>${(p0.bridge_options||[]).map(b=>`<tr><td>${esc(b.opt)}</td><td>${esc(b.path)}</td><td>${link(b.support)}</td><td>${tag(b.tag)}</td></tr>`).join('')}</table></section>
+<section class="card"><h2>Top-10 priorities</h2><ol>${(L.top10||[]).map(t=>`<li>${esc(t)}</li>`).join('')}</ol></section>
+<section class="card"><h2>Initiatives</h2><table>${L.initiatives.map(i=>`<tr><td><b>${esc(i.id)}</b></td><td>${esc(i.name)}<div class="mut">${esc(i.owner)}</div></td></tr>`).join('')}</table>
+<p class="mut">Items: ${n} · <span class="b v">verified ${nv}</span> <span class="b c">claimed ${n-nv}</span></p></section>
+<section class="card wide"><h2>Waves W00–W06</h2><div class="board">${L.waves.map(w=>`<div class="tile"><b>${esc(w.id)}</b>${esc(w.scope)}<div class="mut">${esc(w.status)}</div></div>`).join('')}</div>
+<h2 style="margin-top:14px">Workloads W01–W03</h2><div class="board">${L.workloads.map(w=>`<div class="tile"><b>${esc(w.id)} · ${esc(w.name)}</b><div class="mut">${esc(w.repo_status)}</div>${tag(w.tag)}</div>`).join('')}</div></section>
+<section class="card wide"><h2>Work items</h2>
+<select id="fo"><option value="">all owners</option>${opts('owner')}</select><select id="fs"><option value="">all statuses</option>${opts('status')}</select>
+<select id="ft"><option value="">verified + claimed</option><option${F.tag==='verified'?' selected':''}>verified</option><option${F.tag==='claimed'?' selected':''}>claimed</option></select><input id="fq" placeholder="search" value="${esc(F.q)}">
+<table><tr><th>ID</th><th>Title</th><th>Init.</th><th>Owner</th><th>Status</th><th>Tag</th><th>Evidence</th></tr>
+${L.items.filter(filt).map(i=>`<tr><td>${esc(i.id)}${i.priority?` <span class="b u">${esc(i.priority)}</span>`:''}</td><td>${esc(i.title)}</td><td>${esc(i.initiative)}</td><td>${esc(i.owner)}</td><td>${esc(i.status)}</td><td>${tag(i.tag)}</td><td>${link(i.evidence)}</td></tr>`).join('')}</table></section>
+<section class="card"><h2>Risks, drift, blockers</h2><table>${D.risks.map(r=>`<tr><td><b>${esc(r.id)}</b></td><td><span class="b ${r.type==='Blocker'?'u':r.type==='Drift'?'c':'v'}">${esc(r.type)}</span></td><td>${esc(r.risk)}<div class="mut">${esc(r.evidence)}</div></td></tr>`).join('')}</table></section>
+<section class="card"><h2>Decisions</h2><ul>${D.decisions.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section>
+<section class="card"><h2>Local vs GitHub drift</h2>
+<p>This page is built from GitHub <code>owenservera/aion@main</code>, commit <code>${esc(D.build.commit.slice(0,7))}</code> ${esc(D.build.commitMsg)}.</p>
+<p>Local box edits reach GitHub within about 1 min (autopush), then Vercel rebuilds (about 1 min). ${stale>1?'<span class="b u">Build older than 1 h: check autopush/Vercel</span>':'<span class="b v">Build is fresh</span>'}</p>
+<p class="mut">Unknowns: ${esc((L.unknowns||[]).join(' · '))}</p></section>`;
+const on=(id,k,ev)=>document.getElementById(id).addEventListener(ev||'change',e=>{F[k]=k==='q'?e.target.value.toLowerCase():e.target.value;render();if(k==='q'){const q=document.getElementById('fq');q.focus();q.setSelectionRange(99,99)}});
+on('fo','owner');on('fs','status');on('ft','tag');on('fq','q','input');}
+async function load(){try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});const t=await r.text();if(t!==sig){sig=t;D=JSON.parse(t);render()}}catch(e){document.getElementById('ts').textContent='refresh failed: '+e}}
+load();setInterval(load,60000);
+</script></body></html>
