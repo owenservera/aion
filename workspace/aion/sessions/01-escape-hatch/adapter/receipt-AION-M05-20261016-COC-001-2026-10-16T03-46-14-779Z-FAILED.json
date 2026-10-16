@@ -1,0 +1,10 @@
+{
+  "tool": "aion-m05-chatgpt-webapp-adapter",
+  "mode": "live",
+  "correlation": "AION-M05-20261016-COC-001",
+  "matched": false,
+  "code": "E_NO_RESPONSE",
+  "message": "No new assistant reply appeared within 120000ms; failing without resend.",
+  "startedAt": "2026-10-16T03:46:14.779Z",
+  "endedAt": "2026-10-16T03:48:15.301Z"
+}
