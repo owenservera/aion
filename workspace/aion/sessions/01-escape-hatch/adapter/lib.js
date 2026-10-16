@@ -81,6 +81,12 @@ const INSPECT_DOM_SELECTORS = [
 ];
 const INSPECT_ACK_MARKER = 'ACK-M05';
 const INSPECT_MAX_ANCESTORS = 6;
+const INSPECT_MARKER_MAX_ANCESTORS = 12;
+const INSPECT_CLASS_TOKENS_MAX_ELEMENT = 12;
+const INSPECT_CLASS_TOKENS_MAX_TREE = 8;
+const INSPECT_CLASS_TOKENS_MAX_MARKER = 4;
+const INSPECT_TREE_MAX_DEPTH = 6;
+const INSPECT_TREE_MAX_NODES = 200;
 
 // URL fragments that indicate the tab is NOT authenticated.
 const LOGIN_MARKERS = ['/auth/login', '/auth/signup', '/login'];
