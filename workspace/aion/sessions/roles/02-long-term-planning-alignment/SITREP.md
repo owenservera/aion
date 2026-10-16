@@ -46,3 +46,22 @@ Owen has launched the standing independent ChatGPT roles and designated the orig
 **Role-specific priority:** Your immediate focus: identify the minimal dependencies to make M0.5 real and instant pings separately shippable, while keeping roadmap scope limited and minimizing repeated infrastructure. Do not take daily GitHub dispatch from Chief of Staff.
 
 **Acknowledgment:** Pending a real message/readback from this independent chat. GitHub file update alone is not proof its ChatGPT conversation consumed the instruction.
+
+### 2026-10-16 — Role 02 acknowledgment of Chief of Chiefs directive
+
+**ACK — RECEIVED AND READ IN THIS CHATGPT SESSION.** This role fetched the live GitHub SITREP containing the Chief of Chiefs operating-model update and independently checked the two primary sources below. This acknowledgment confirms *this session* consumed the update; it does not establish live receipts from roles 01/03/04 or an independently verified ChatGPT conversation URL.
+
+**Immediate P0 planning deliverable: LP-P0-01 — Minimal twin-track dependency and acceptance cut (DEFINED + ACKNOWLEDGED, NOT EXECUTED).**
+
+| Track / priority | Irreducible dependencies | Smallest acceptance evidence | Owner and next no-Grok action |
+|---|---|---|---|
+| **M0.5 escape hatch (P0 #1)** | AION's exact outbound prompt/correlation already prepared; permitted authenticated ChatGPT **web-app** browser session on BFF Linux; scoped lift/clarification of documented host/browser stop controls; BFF transport; genuine reply captured and returned; independent negative-case readback | Exact AION-origin prompt + authenticated web-app send + real same-conversation answer + BFF→AION readback + mismatched/blocked case rejected. No OpenAI API/GitHub echo substituted | **Grok Bot** only for browser wiring/test when authorized; **OpenCode/ZCode** for any code. **This role** maintains one minimal gate sheet from existing [M0.5 canon](../../../canon/AION-MILESTONE-0.5-BFF-LINUX-INTROSPECTION.md). **Chief of Staff** handles any dispatch/ack. Do not send a new request to Grok just for documentation. |
+| **Instant pings (P0 #2; independent)** | Existing dashboard #16; confirmed event producer and authenticated server-side real-time subscription/push; Vercel deployment access; client connected-state/replay/negative tests; independent test runtime | Correlated signal visible in Human view in **<5 sec** when connected on 10 test pings, Android + desktop, including reconnect/duplicates/authorization | **Role 01 Dashboarding** owns #16/#17 acceptance; **dedicated OpenCode/ZCode** implements; **Role 03 CoS** obtains real session ACKs/deployment proof. **This role** maps dependencies only; do not assign this to Grok. |
+
+**No artificial dependency:** instant ping implementation does not wait for M0.5 or Windows ZCode reach if a harmless independent producer can prove genuine browser delivery. Conversely a dashboard release or GitHub comment does not pass M0.5. Both tracks reuse the existing repo/channels and keep role separation.
+
+**Source references:** [M0.5 canon](../../../canon/AION-MILESTONE-0.5-BFF-LINUX-INTROSPECTION.md), [instant-ping issue #17](https://github.com/owenservera/aion/issues/17), [dashboard #16](https://github.com/owenservera/aion/issues/16), [GitHub AION/BFF inbox #14](https://github.com/owenservera/aion/issues/14), [Chief of Chiefs directive](./SITREP.md).
+
+**Verified:** GitHub role instruction exists and was read; M0.5 and #17 actual requirements independently reviewed; role 02 strategic plan already committed. **Unknown/not proven:** execution stop lifted, live browser ChatGPT roundtrip, independent M0.5 acceptance, true <5-second push receipt, Vercel deployment health of new code, running OpenCode session assignments, Route Bot endpoint, ChatGPT URL for this session, other roles' acknowledgments.
+
+**Next concrete action without Grok:** this role will reconcile new proof from #14/#16/#17 and revise the critical-path plan **only when it changes the dependencies or gates**. Operational Chief of Staff can carry the two minimal specifications to current responsible teams via existing GitHub workflow; no duplicate task or new channel is needed.
