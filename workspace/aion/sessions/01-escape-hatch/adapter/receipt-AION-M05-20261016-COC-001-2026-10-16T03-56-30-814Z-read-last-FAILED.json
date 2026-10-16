@@ -1,0 +1,10 @@
+{
+  "tool": "aion-m05-chatgpt-webapp-adapter",
+  "mode": "read-last",
+  "correlation": "AION-M05-20261016-COC-001",
+  "matched": false,
+  "code": "E_NO_CORRELATED_MESSAGE",
+  "message": "No user message containing \"AION-M05-20261016-COC-001\" was found; refusing to guess.",
+  "startedAt": "2026-10-16T03:56:30.814Z",
+  "endedAt": "2026-10-16T03:56:30.975Z"
+}
