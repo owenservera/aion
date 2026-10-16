@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ChatGPT live-DOM fixture 2026-10-16 (mock, NOT the real site)</title></head>
+<body>
+<!-- Live structure observed 2026-10-16 via --inspect-dom (sanitized):
+     NO article, NO [data-testid*=conversation-turn], NO [data-message-author-role],
+     NO [data-turn]. Two correlated user turns, each followed by an assistant reply. -->
+<div class="[&amp;_[data-virtualized-turn-content]]">
+  <div class="group flex flex-col">
+    <div class="flex flex-col gap-3">
+      <!-- user turn 1 -->
+      <div class="block-BQZwFn">
+        <div class="group/user-message w-full">
+          <div class="w-full">
+            <div class="group/user-message flex w-full">
+              <div class="bg-user-message text-user-message rounded-3xl px-5 py-2.5">
+                <div class="text-size-chat whitespace-pre-wrap break-words">AION-M05-20261016-COC-001
+
+This is an authorized AION-originated transport verification request. Please reply with exactly the following text on one line:
+
+ACK-M05-COC-001</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- assistant reply 1 (following sibling turn block) -->
+      <div class="assistant-turn">
+        <div class="MarkdownRoot-abc123">
+          <p><span>ACK-M05-COC-001</span></p>
+        </div>
+      </div>
+      <!-- user turn 2 -->
+      <div class="block-BQZwFn">
+        <div class="group/user-message w-full">
+          <div class="w-full">
+            <div class="group/user-message flex w-full">
+              <div class="bg-user-message text-user-message rounded-3xl px-5 py-2.5">
+                <div class="text-size-chat whitespace-pre-wrap break-words">AION-M05-20261016-COC-001 follow-up ping — still waiting for exactly:
+
+ACK-M05-COC-001</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- assistant reply 2 with DilRenderer nesting -->
+      <div class="assistant-turn">
+        <div class="DilRenderer-x1y2">
+          <div class="DilResponseRoot-z9">
+            <div class="MarkdownRoot-def456">
+              <p><span>ACK-M05-COC-001</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
