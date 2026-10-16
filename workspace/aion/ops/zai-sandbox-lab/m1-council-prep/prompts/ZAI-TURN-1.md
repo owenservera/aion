@@ -39,3 +39,6 @@ MANDATORY COMMANDS: print working directory, node --version, npm --version if av
 STOP: no actual ChatGPT login/session, cookies, tokens, profiles, browser automation against real ChatGPT, or owner-host changes. Stop any operation requiring privileged access. Do not claim M1 complete.
 
 RETURN: selected visible model or UNKNOWN; actual sandbox capabilities; exact commands and exit codes; file tree; positive and negative test counts; ZIP name and actual SHA256; blockers; changes requiring a second turn; independent-review instructions. Do not claim exported or tested unless the bytes/logs actually exist.
+
+## Z-FORGE pinned integration addendum — read before coding
+Read `m1-council-prep/INTERFACE-RECONCILIATION.md` for exact source-derived event/ACK/readback boundaries; `m1-council-prep/fixtures/M1-MOCK-VECTORS.json` for 1 positive + 15 named negative/recovery scenarios (DESIGN_VECTORS_NOT_EXECUTED); and `m1-council-prep/TEST-AND-EXPORT.md` for mandatory hash, ZIP, clean-extract rerun and failure handling. Implement actual assertions for each vector ID or explicitly mark any missing test FAIL/NOT_RUN. Do not assume vectors themselves represent executed tests. Only if the first turn fails, use `prompts/ZAI-TURN-2-REPAIR-ONLY.md` with actual prior artifacts. Maintain one primary Z.ai turn; model selected only after visible observation.
