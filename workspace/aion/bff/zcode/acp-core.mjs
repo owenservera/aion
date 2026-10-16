@@ -31,6 +31,15 @@ export function makeHub({ base, token, fetchImpl = globalThis.fetch }) {
       if (!r.id) throw new Error("create returned no instance id");
       return r.id;
     },
+    // Real hub: a new bridge registers asynchronously (~20 s, per Kotlin PocketViewModel). Poll before opening /acp.
+    async waitInstance(id, { timeoutMs = 30000, everyMs = 2000 } = {}) {
+      const end = Date.now() + timeoutMs;
+      for (;;) {
+        if ((await this.instances()).some(i => i.id === id)) return true;
+        if (Date.now() > end) throw new Error(`instance ${id} did not register within ${timeoutMs / 1000}s`);
+        await new Promise(r => setTimeout(r, everyMs));
+      }
+    },
     acpUrl(instanceId) {
       return b.replace(/^http/, "ws") + `/acp?instance=${encodeURIComponent(instanceId)}&token=${encodeURIComponent(token)}`;
     },
@@ -90,6 +99,7 @@ export function openAcp({ url, WebSocketImpl = globalThis.WebSocket, onEvent = (
 // Full turn: (optionally create instance) → connect → initialize → session/new → prompt. Returns {instanceId, sessionId, stopReason, text}.
 export async function runTurn({ hub, workspacePath, instanceId, prompt, onEvent = () => {}, WebSocketImpl, decidePermission }) {
   const id = instanceId || await hub.createInstance(workspacePath);
+  if (!instanceId) { onEvent({ type: "created", instanceId: id }); await hub.waitInstance(id); }
   let text = "";
   const acp = openAcp({ url: hub.acpUrl(id), WebSocketImpl, decidePermission, onEvent: e => { if (e.type === "chunk") text += e.text; onEvent(e); } });
   await acp.opened;

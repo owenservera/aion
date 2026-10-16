@@ -53,3 +53,10 @@ One PC session (~15 min): install Tailscale (PC + phone), enable HTTPS certs + a
 - Exact hub route prefix for WS through `tailscale serve` set-path (verify hub tolerates `/hub` prefix; else use a second port `--https=8443`).
 - Which provider currently works on the PC (grok-build-oauth was proven 2026-10-07).
 - `?token=` on WS URL for browser (browsers can't set WS headers) — confirm hub accepts query token; pocket-link does.
+
+## 7. Live findings 2026-10-16 02:30 Paris (BFF via tailnet + SOCKS)
+- Hub reachable at `https://desktop-9kb03lu.taild7271a.ts.net/hub` — `/api/health` ok, `/api/instances` `[]` (no bridge running), `/api/projects` lists 19 registered workspaces. The `/hub` prefix works for REST.
+- `POST /api/instances` with an unregistered dir → 403 `unknown project` (only registered ZCode projects are accepted; temp dirs are not).
+- `POST /api/instances {workspacePath:"C:\0-BlackBoxProject-0\001.PROJECTS.PM"}` → 502 from tailscale serve; the hub dropped for ~5 s, then health was ok again and instances was still `[]`. **The hub crashes or restarts when it spawns a bridge.** WS `/acp` is untested (no instance yet).
+- Diagnose on the PC: newest `playbook\toolkit\zcode-pocket\.logs\hub-*.err.log` / `serve-*.err.log` (zcode-setup checkout), then `powershell -File playbook\toolkit\zcode-pocket\launcher.ps1 status`. Likely culprits: ZCODE_BIN/ZCODE_NODE/ZCODE_PROVIDER env not present in the hub process if the hub was started outside launcher.ps1.
+- Driver now: SOCKS5 (`ZCODE_SOCKS=localhost:1055`) for REST + WS; it polls until the new instance registers (≤30 s) before `/acp`.
