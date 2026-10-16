@@ -566,3 +566,257 @@ test('read-last fails clearly when no assistant turn follows the correlated user
     (e) => e.code === 'E_NO_RESPONSE',
   );
 });
+
+// ---- inspect-dom fakes (read-only structure probe) ----
+
+const SECRET_A = 'SECRET-BODY-AAA-UNIQUE-7f3a';
+const SECRET_B = 'SECRET-BODY-BBB-UNIQUE-9c1e';
+
+function fakeDomEl({ tag = 'DIV', attrs = {}, text = '', parent = null }) {
+  return {
+    tagName: tag,
+    innerText: text,
+    textContent: text,
+    parentElement: parent,
+    getAttribute(name) {
+      const v = attrs[name];
+      return v !== undefined && v !== null ? String(v) : null;
+    },
+    hasAttribute(name) {
+      return attrs[name] !== undefined && attrs[name] !== null;
+    },
+  };
+}
+
+function stubDocWithSecrets() {
+  const html = fakeDomEl({ tag: 'HTML', text: '' });
+  const body = fakeDomEl({ tag: 'BODY', text: '', parent: html });
+  const main = fakeDomEl({ tag: 'MAIN', text: '', parent: body });
+  const el1Text = `user says ${CORR} plus ${SECRET_A}`;
+  const el2Text = `reply marker ACK-M05 plus ${SECRET_B}`;
+  const el3Text = 'plain hello';
+  const el1 = fakeDomEl({
+    tag: 'ARTICLE', attrs: { 'data-testid': 'conversation-turn-3' }, text: el1Text, parent: main,
+  });
+  const el2 = fakeDomEl({
+    tag: 'DIV', attrs: { class: 'markdown' }, text: el2Text, parent: el1,
+  });
+  const el3 = fakeDomEl({
+    tag: 'DIV',
+    attrs: { 'data-message-author-role': 'assistant', 'data-turn': '3', 'data-message-id': 'msg-123' },
+    text: el3Text,
+    parent: main,
+  });
+  const all = [el1, el2, el3];
+  const doc = {
+    // Ignores the actual selector string: returns the fixed candidate set,
+    // mirroring "matches ANY of the selectors".
+    querySelectorAll() { return all; },
+  };
+  return { doc, all, texts: [el1Text, el2Text, el3Text] };
+}
+
+// Minimal read-only page: url()/title()/evaluate() only. Every interaction
+// or navigation entry point is a counted spy that throws if ever called.
+function fakeInspectPage({ url = CHAT_URL, title = 'ChatGPT', doc = null } = {}) {
+  const calls = {
+    evaluate: 0, $$: 0, $: 0,
+    bringToFront: 0, fill: 0, press: 0, click: 0, focus: 0, type: 0,
+    goto: 0, reload: 0, goBack: 0, goForward: 0, keyboard: 0, mouse: 0,
+  };
+  const boom = (name) => { calls[name] += 1; throw new Error(`inspect-dom must never call ${name}`); };
+  const page = {
+    _calls: calls,
+    _url: url,
+    _title: title,
+    url() { return this._url; },
+    async title() { return this._title; },
+    async evaluate(fn, payload) {
+      calls.evaluate += 1;
+      // Execute the REAL in-page function against the stub document so the
+      // test proves the shipped fn itself never returns element text.
+      const prev = globalThis.document;
+      globalThis.document = doc || stubDocWithSecrets().doc;
+      try {
+        return await fn(payload);
+      } finally {
+        if (prev === undefined) delete globalThis.document;
+        else globalThis.document = prev;
+      }
+    },
+    async $$(...a) { calls.$$ += 1; throw new Error(`inspect-dom must never call $$ (${a[0]})`); },
+    async $(...a) { calls.$ += 1; throw new Error(`inspect-dom must never call $ (${a[0]})`); },
+    async bringToFront() { boom('bringToFront'); },
+    async fill() { boom('fill'); },
+    async press() { boom('press'); },
+    async click() { boom('click'); },
+    async focus() { boom('focus'); },
+    async type() { boom('type'); },
+    async goto() { boom('goto'); },
+    async reload() { boom('reload'); },
+    async goBack() { boom('goBack'); },
+    async goForward() { boom('goForward'); },
+    get keyboard() { calls.keyboard += 1; throw new Error('inspect-dom must never touch keyboard'); },
+    get mouse() { calls.mouse += 1; throw new Error('inspect-dom must never touch mouse'); },
+  };
+  return page;
+}
+
+test('inspect-dom parses --inspect-dom --correlation and gates on exact match', () => {
+  const args = lib.parseArgs(['--inspect-dom', '--correlation', CORR]);
+  assert.equal(args.inspectDom, true);
+  assert.equal(args.mode, 'inspect-dom');
+  assert.deepEqual(lib.assertInspectDomConfirmed(args, CORR), { inspectDom: true, correlation: CORR });
+  assert.throws(
+    () => lib.assertInspectDomConfirmed(lib.parseArgs(['--inspect-dom']), CORR),
+    (e) => e.code === 'E_CONFIRMATION',
+  );
+  assert.throws(
+    () => lib.assertInspectDomConfirmed(lib.parseArgs(['--inspect-dom', '--correlation', 'WRONG']), CORR),
+    (e) => e.code === 'E_CONFIRMATION',
+  );
+  // Existing gates unchanged.
+  assert.throws(() => lib.assertLiveConfirmed(lib.parseArgs(['--live']), CORR),
+    (e) => e.code === 'E_CONFIRMATION');
+  assert.deepEqual(
+    lib.assertReadLastConfirmed(lib.parseArgs(['--read-last', '--correlation', CORR]), CORR),
+    { readLast: true, correlation: CORR },
+  );
+});
+
+test('inspect-dom evaluate fn never returns element text (document stub, direct call)', () => {
+  const { doc, texts } = stubDocWithSecrets();
+  const prev = globalThis.document;
+  globalThis.document = doc;
+  let out;
+  try {
+    out = lib.inspectDomEvaluate({
+      correlation: CORR,
+      ackMarker: 'ACK-M05',
+      selectors: lib.INSPECT_DOM_SELECTORS,
+      maxAncestors: 6,
+    });
+  } finally {
+    if (prev === undefined) delete globalThis.document;
+    else globalThis.document = prev;
+  }
+  assert.equal(out.length, 3);
+  const dumped = JSON.stringify(out);
+  assert.ok(!dumped.includes(SECRET_A), 'element text must never leak');
+  assert.ok(!dumped.includes(SECRET_B), 'element text must never leak');
+  assert.ok(!dumped.includes('plain hello'), 'not even short element text leaks');
+  for (const el of out) {
+    assert.ok(typeof el.index === 'number');
+    assert.ok(typeof el.tag === 'string' && el.tag);
+    assert.ok('data-testid' in el);
+    assert.ok('data-message-author-role' in el);
+    assert.ok('data-turn' in el);
+    assert.equal(typeof el.hasDataMessageId, 'boolean');
+    assert.equal(typeof el.containsCorrelation, 'boolean');
+    assert.equal(typeof el.containsAck, 'boolean');
+    assert.equal(typeof el.textLength, 'number');
+    assert.equal(typeof el.depth, 'number');
+    assert.ok(Array.isArray(el.ancestors));
+    for (const a of el.ancestors) {
+      assert.match(a, /^(ARTICLE|DIV|MAIN|BODY|HTML|FORM|SECTION)(\[data-testid=[^\]]+\])?$/);
+    }
+    assert.ok(!('text' in el), 'raw text key must never be present');
+  }
+  assert.equal(out[0].containsCorrelation, true);
+  assert.equal(out[0].containsAck, false);
+  assert.equal(out[0].textLength, texts[0].length);
+  assert.equal(out[0].tag, 'ARTICLE');
+  assert.equal(out[1].containsAck, true, "text contains 'ACK-M05'");
+  assert.equal(out[1].containsCorrelation, false);
+  assert.equal(out[2].hasDataMessageId, true, 'data-message-id presence is boolean true');
+  assert.equal(out[2]['data-message-author-role'], 'assistant');
+  assert.equal(out[2]['data-turn'], '3');
+  assert.equal(out[0].hasDataMessageId, false);
+});
+
+test('inspect-dom happy path via mock: scrubbed URL + title, text-free summaries', async () => {
+  const { doc, texts } = stubDocWithSecrets();
+  const page = fakeInspectPage({
+    url: 'https://chatgpt.com/c/abc123?utm_source=x#frag',
+    title: 'ChatGPT — probe',
+    doc,
+  });
+  const summary = await lib.runInspectDom(fakeBrowser([page]), { correlation: CORR });
+  assert.equal(summary.mode, 'inspect-dom');
+  assert.equal(summary.correlation, CORR);
+  assert.equal(summary.tabUrlSafe, 'https://chatgpt.com/c/abc123', 'query/hash stripped');
+  assert.equal(summary.url, 'https://chatgpt.com/c/abc123');
+  assert.equal(summary.title, 'ChatGPT — probe');
+  assert.equal(summary.tabTitle, 'ChatGPT — probe');
+  assert.equal(summary.elementCount, 3);
+  assert.deepEqual(summary.selectors, lib.INSPECT_DOM_SELECTORS);
+  const dumped = JSON.stringify(summary);
+  assert.ok(!dumped.includes(SECRET_A) && !dumped.includes(SECRET_B), 'no element text in output');
+  assert.ok(!dumped.includes('plain hello'), 'not even short element text leaks');
+  assert.ok(!dumped.includes('utm_source') && !dumped.includes('#frag'));
+  assert.ok(!/cookie|token/i.test(dumped));
+  const byIndex = summary.elements;
+  assert.equal(byIndex[0].containsCorrelation, true);
+  assert.equal(byIndex[1].containsAck, true);
+  assert.equal(byIndex[0].textLength, texts[0].length);
+});
+
+test('inspect-dom NEVER interacts: no focus/typing/clicking/keys/navigation, evaluate-only', async () => {
+  const { doc } = stubDocWithSecrets();
+  const page = fakeInspectPage({ doc });
+  const summary = await lib.runInspectDom(fakeBrowser([page]), { correlation: CORR });
+  assert.ok(summary.elementCount >= 0);
+  const c = page._calls;
+  assert.equal(c.evaluate, 1, 'exactly one read-only evaluate');
+  assert.equal(c.bringToFront, 0, 'never brings tab to front (no focus)');
+  assert.deepEqual(
+    { fill: c.fill, press: c.press, click: c.click, focus: c.focus, type: c.type },
+    { fill: 0, press: 0, click: 0, focus: 0, type: 0 },
+    'no typing/clicking/key presses',
+  );
+  assert.deepEqual(
+    { goto: c.goto, reload: c.reload, goBack: c.goBack, goForward: c.goForward },
+    { goto: 0, reload: 0, goBack: 0, goForward: 0 },
+    'no navigation',
+  );
+  assert.equal(c.$$, 0, 'never queries composer/send selectors via $$');
+  assert.equal(c.$, 0, 'never queries via $');
+  assert.equal(c.keyboard, 0, 'never touches keyboard');
+  assert.equal(c.mouse, 0, 'never touches mouse');
+});
+
+test('inspect-dom uses the same tab selection as read-last (refuses none/ambiguous)', async () => {
+  const { doc } = stubDocWithSecrets();
+  await assert.rejects(
+    lib.runInspectDom(fakeBrowser([]), { correlation: CORR }),
+    (e) => e.code === 'E_NO_TAB',
+  );
+  await assert.rejects(
+    lib.runInspectDom(
+      fakeBrowser([
+        fakeInspectPage({ url: 'https://example.com/', doc }),
+        fakeInspectPage({ url: 'https://mail.google.com/', doc }),
+      ]),
+      { correlation: CORR },
+    ),
+    (e) => e.code === 'E_NO_TAB',
+  );
+  await assert.rejects(
+    lib.runInspectDom(
+      fakeBrowser([
+        fakeInspectPage({ url: CHAT_URL, doc }),
+        fakeInspectPage({ url: 'https://chatgpt.com/c/other', doc }),
+      ]),
+      { correlation: CORR },
+    ),
+    (e) => e.code === 'E_AMBIGUOUS_TAB',
+  );
+  await assert.rejects(
+    lib.runInspectDom(fakeBrowser([fakeInspectPage({ url: CHAT_URL, doc })]), {}),
+    (e) => e.code === 'E_CONFIRMATION',
+  );
+  await assert.rejects(
+    lib.collectInspectDom({ url: () => CHAT_URL }, { correlation: CORR }),
+    (e) => e.code === 'E_INSPECT',
+  );
+});
