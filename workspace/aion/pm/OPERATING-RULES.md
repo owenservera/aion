@@ -8,3 +8,5 @@ Source: Owen, direct, 2026-10-16 02:4x Paris, in AION PM chat. Status: verified 
 5. **Model order for fanned-out work:** 1) OpenCode free models, 2) Space Bunny (free), 3) Muse Spark 1.3, 4) DeepSeek Flash 4.1, 5) MiMo 2.6.
 6. **Sources of truth:** Owen's local repos in C:\0-BlackBoxProject-0 and their GitHub remotes; ledger lives at workspace/aion/pm/ on owenservera/aion main (main only, never branch).
 7. Owen is on Windows + Android; never send him untested claims.
+8. **AION PM limits coding** to minimal PM glue (ledger files, quick checks). Real builds are specced by PM and handed to ZCode/OpenCode on Owen's PC, then tracked and verified.
+9. **Dashboard style:** almost no words; visual first (rings, bars, dots, colors), details on tap.
