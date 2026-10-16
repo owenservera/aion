@@ -75,3 +75,23 @@ Sources: https://developers.openai.com/api/docs/guides/background ; https://deve
 - The system can resume after interruption without losing task provenance, and can be disabled on request.
 
 **Owner-level framing:** `nearly always active` should mean **continuously reachable + automatically resumed + accountable until verified acceptance**, not permanent generation or browser tab keep-alive.
+
+## 2026-10-16 addendum — third-party browser keep-alive proposal reviewed
+
+**Decision:** Browser keep-alive is an optional UI reliability experiment only; REJECT as the foundational AION autonomous execution strategy. Three different readiness states must never be confused: (1) browser/authentication session responsive; (2) AI model actively processing an instructed turn; (3) a durable worker automatically taking the next approved task and verifying completion. Auto-pings may help (1), never by themselves prove (2) or (3).
+
+**Named source checks:**
+- [xcanwin/KeepChatGPT](https://github.com/xcanwin/KeepChatGPT): real multi-feature userscript advertising keepalive, auto-refresh, cloning, tracking interception and other intrusive changes. Claims originate from developer, not independently measured in our ChatGPT workspaces.
+- [adamlui/chatgpt-auto-refresh](https://gitlab.com/adamlui/chatgpt-auto-refresh), with Codeberg upstream: real project; claims to eliminate network/Cloudflare issues are developer assertions, not OpenAI commitments.
+- [PulseGPT Chrome extension](https://chromewebstore.google.com/detail/pulsegpt/jccblmejeebkiblnonfndhnaopmaclgf): real extension, but retrieved store page showed 11 users, providing little external testing confidence.
+- [OpenAI Temporary Chats](https://help.openai.com/en/articles/8914046): no universal ten-minute inactivity deadline corroborated in current official documentation.
+- [OpenAI GPT-6 limits](https://help.openai.com/en/articles/20001354-gpt-6-and-other-models-in-chatgpt): unlimited everyday text specifically documented for Free/Go, with abuse controls and other model/feature-specific caps; don't claim unrestricted 4–5 simultaneous agent turns on any plan.
+- [OpenAI Terms (EEA)](https://openai.com/es-ES/policies/terms-of-use/): prohibit circumventing rate limits/protective measures and automated/programmatic extraction of output. Do not deploy a keep-alive for the purpose of bypassing platform protections or automate conversation scraping.
+
+**No deployment recommendation:** AION's private GitHub/ZCode/ACP/browser conversations are high-value. Do not install a third-party script with full chat-page access into the production authenticated browser without explicit approved source-code/permission/security review and isolated testing. Never claim prevention of Cloudflare challenges, timeouts, session expiry or context resets. In particular, do not run automatic Cloudflare-bypass or synthetic message loops to keep models busy.
+
+**Practical lowest-overhead path:** retain the five browser chats for human continuity, use browser-native tab keep-open/sleep settings only when actually useful, use Work Cloud for real bounded tasks, Scheduled Tasks to initiate supported recurring/event monitoring (on Plus up to five active and hourly cadence, subject to account/approval), and a GitHub-backed authorized external worker only if sub-hour action is a real requirement. Supported GitHub event triggers cover certain PR activity; do not assume Issue #14 comments or changes on main wake the exact existing chat. Dots are a separate product and current personal Pro rollout excludes the EEA, including Spain. Use durable GitHub evidence, idempotent claims and verification, not browser-tab heartbeat counts.
+
+**Acceptance experiment:** compare a control ChatGPT tab and, only with explicit approval, an isolated vetted script-equipped tab for UI stability over a normal work period; measure actual access failures/recovery and operational safety, not purported autonomy. Separately prove a legitimate unattended Work/Scheduled task created a meaningful GitHub readback receipt while its browser is closed. Keep two experiments distinct.
+
+**Operational status:** assessment complete; browser keep-alive NOT installed; no native scheduled or API worker provisioned; WPM-001 and always-active operational acceptance remain OPEN.
