@@ -1,0 +1,73 @@
+{
+  "schema": "aion.zforge/turn-feed-v0.1",
+  "updated_at_utc": null,
+  "source_of_truth": "workspace/aion/ops/zai-sandbox-lab",
+  "mode": "Owner manually submits each Z.ai WEB Full-Stack Agent turn",
+  "policy": {
+    "ready_does_not_mean_sent": true,
+    "no_playwright_puppeteer": true,
+    "repo_write_requires_approval": true,
+    "one_main_outcome_per_turn": true,
+    "artifact_proof_required": true
+  },
+  "queue": [
+    {
+      "mission_id": "ZFT-20261016-001",
+      "status": "PREPARED_NOT_SUBMITTED",
+      "priority": "P0",
+      "model": "OWNER_SELECTS",
+      "input": "FIRST-MISSION.md",
+      "purpose": "Map actual sandbox/tool capabilities AND build verified disposable Chrome MV3 fixture",
+      "research_ids": [
+        "ZFR-02",
+        "ZFR-03",
+        "ZFR-19",
+        "ZFR-20",
+        "ZFR-21",
+        "ZFR-22"
+      ],
+      "preconditions": [
+        "Owner launches Z.ai web Full-Stack Agent turn",
+        "No private credentials",
+        "Disposable isolated sandbox"
+      ],
+      "pass_gate": "Real build+native tests+export or exact fallback with captured evidence",
+      "fallback": "Local patch/ZIP and reported unavailable Chrome extension testing"
+    },
+    {
+      "mission_id": "ZFT-002",
+      "status": "BLOCKED_ON_REAL_FIRST_RECEIPT",
+      "priority": "P1",
+      "model": "TBD_ACTUAL_MODEL",
+      "purpose": "Measure same-turn subagent decomposition and independent test-review quality",
+      "research_ids": [
+        "ZFR-25",
+        "ZFR-26",
+        "ZFR-27"
+      ],
+      "preconditions": [
+        "First receipt gathered",
+        "Subagent feature actually confirmed"
+      ],
+      "pass_gate": "Real multi-unit output with separately checkable test/critique evidence"
+    },
+    {
+      "mission_id": "ZFT-003",
+      "status": "BLOCKED_ON_PERSISTENCE_TEST",
+      "priority": "P1",
+      "model": "TBD_ACTUAL_MODEL",
+      "purpose": "Validate second-turn state reconstruction and repeatable export",
+      "research_ids": [
+        "ZFR-10",
+        "ZFR-16",
+        "ZFR-18",
+        "ZFR-28"
+      ],
+      "preconditions": [
+        "At least one real executed first mission",
+        "Artifact checkpoint captured"
+      ],
+      "pass_gate": "Accurate rehydration and independently verified file hashes"
+    }
+  ]
+}
