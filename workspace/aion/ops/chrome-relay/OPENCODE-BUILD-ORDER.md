@@ -1,6 +1,6 @@
 # AION Chrome ACP Relay — OpenCode Build Order CR-001
 Status: READY FOR AUTHORIZED EXECUTOR HANDOFF, NOT DISPATCHED TO A VERIFIED EXECUTOR
-Technical owner: Chief of Staff (Role 03); implementation: OpenCode/ZCode only.
+Implementation coordinator: Chief of Staff (Role 03); technical reviewer: TOOLSMITH (Role 06, once launched); implementation: OpenCode/ZCode only.
 Repo: owenservera/aion, main branch. Seed: UAH / ACP / IANG. No new repo.
 References: ARCHITECTURE.md, ENVELOPE-CONTRACT.md, FALLBACK-AND-ACCEPTANCE.md in this directory.
 
@@ -8,7 +8,7 @@ References: ARCHITECTURE.md, ENVELOPE-CONTRACT.md, FALLBACK-AND-ACCEPTANCE.md in
 Build extension fixture-based MVP first. Do not provision privileges, install a native messaging host, or initiate live ChatGPT browser automation as part of this code-only step.
 
 1. Create minimal Manifest V3 unpacked extension with a side panel and service worker using compatible Chrome versions; selected role tabs only.
-2. Render five role tiles with tab status, transport status, queue count, evidence age, fallback mode and a visible permission/approval gate. Distinguish no data from idle.
+2. Render six role tiles (including TOOLSMITH pending launch) with tab status, transport status, queue count, evidence age, fallback mode and a visible permission/approval gate. Distinguish no data from idle.
 3. Create sample envelope encoder/decoder and validation (allowlisted event kinds, sequence, expiry, idempotency key) with fixture event store. No credentials inside extension.
 4. Implement transport abstraction supporting disabled/native adapter, disabled local loopback adapter and offline fixture adapter; do not connect real hosts or silently send tasks in MVP.
 5. Add deterministic tests for restart/outbox retention, duplicate ACK, dropped connection, stale presence and proof vs transport status.
