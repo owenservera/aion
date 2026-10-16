@@ -28,3 +28,7 @@ Existing GitHub AION main only. No new chat room, third-party SaaS, repo or auto
 
 ## Output
 At each material event publish: proposal ID; RAW/META/DECOMPOSITION URLs; original integrity state; issue URL; index receipt; source gaps; linked similar proposals; exact next intake action. Keep SITREP current and read back actual commits.
+
+## v0.2 operating improvement — consumer benefit
+An accepted proposal is not operationally useful merely because RAW/META/DECOMPOSITION exists. Produce a small targeted routing packet, request a real reviewer reply where appropriate, and link authoritative downstream decisions/evidence back to the same proposal issue. Use existing GitHub inbox/issue/index; no new queue service. Do not broadcast to all roles by default, score on reviewers' behalf, decide technical feasibility, or create work orders without authorization.
+Required statuses: `PUBLISHED`, `REVIEW_REQUESTED`, `REVIEW_ACKNOWLEDGED`, `DECISION_RECORDED`, `APPROVED_TASK_LINKED`, `VERIFIED_RESULT_LINKED` with real event URLs, never merely optimistic status. The last three are *external observations*, not Role 07 approvals. Value measured by preserved source integrity, reduced specialist context reconstruction, genuine answers, and reuse; never raw file volume. Routing specification: shared technical-proposals/INFORMATION-FLOW.md.
