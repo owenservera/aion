@@ -112,3 +112,7 @@ Owen has launched the standing independent ChatGPT roles and designated the orig
 
 ## Chief of Chiefs directive — 2026-10-16
 Owner rule: **Never stop merely because one thing was found.** Verify, continue to the next high-value authorized task, and maintain a **shared rolling queue of at least 30 meaningful actionable items** across the team, replenishing completed tasks. Show ownership, priority, status, evidence, blockers and next actions. Do not invent make-work, ignore permissions/stop orders, or imply autonomous execution when a chat is idle. Keep Grok Bot focused solely on M0.5; OpenCode/ZCode owns coding. Acknowledge in your next actual session update.
+
+## Grok usage checkpoint — owner screenshot 2026-10-16 05:40 Europe/Madrid
+
+Owner supplied screenshot of Grok Bot settings at **05:40**, displaying **Usage 70%**. Add to efficiency time series: **05:11 69% → 05:27 70% → 05:40 70%**. Thus 05:27–05:40 elapsed 13 minutes with **0 displayed percentage-point increase**; 05:11–05:40 elapsed 29 minutes with +1 displayed point. These are rounded UI percentages, not precise token consumption. Correlate against verified output: M0.5 first real-browser attempt reached ChatGPT but safely stopped before send on hidden duplicate composer; OpenCode is fixing active composer selection and adding regression test. Attribute only evidence-backed work, not assumptions. Next screenshot provides fourth checkpoint for requested four-point productivity comparison. Do not distract Grok Bot from live roundtrip.
