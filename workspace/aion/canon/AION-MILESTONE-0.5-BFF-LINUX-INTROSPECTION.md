@@ -41,3 +41,15 @@ No replacement with the OpenAI API, a third-party LLM, standalone BFF-to-ChatGPT
 **Execution authorization:** The prior host/browser stop order in `workspace/aion/pm/UAH-COMMS-SPINE-PLAN-v0.1.md` remains active until explicitly lifted. This document corrects the scope and is not itself proof of completed execution.
 
 **Relationship to M1:** [Top-level M1 Introspection](./AION-MILESTONE-1-INTROSPECTION.md) defines the AION send-and-read capability; **M0.5 tests that exact capability via BFF Linux**, rather than first testing BFF separately. Successful M0.5 is direct evidence toward M1; the milestone owner decides any additional M1 requirements.
+
+## P0 constrained-capacity directive (Owen, 2026-10-16)
+
+Grok Bot app screenshot displays **69% Usage**. Treat the displayed remaining ~31% as a scarce budget (the screenshot does not establish exact credits, reset horizon or cost per operation). **No other Grok Bot tasks outrank obtaining the smallest real AION -> BFF Linux -> authenticated ChatGPT WEB APP -> BFF Linux -> AION round trip.**
+
+**Highest-leverage BFF-only work:** inspect/control its already-authenticated Linux browser, confirm chatgpt.com tab/session, submit the exact AION-originated prompt, capture the real displayed response, and place a correlated return receipt through the already existing AION GitHub handoff. This is work that AION PM cannot perform locally from the ChatGPT conversation. Do NOT hand Linux-specific browser/session discovery back to Owen's Windows machine if BFF can do it.
+
+**Effort allocation:** (1) Verify existing Chrome/CDP browser and authorized authenticated tab; (2) attempt minimally invasive AION-authored one-message send; (3) read actual web-app response; (4) send it back to AION, recording prompt/response correlation and times; (5) report the narrowest blocker if a gate fails. Start with the already-installed browser tools. If code changes are essential, Grok Bot delegates all coding to OpenCode/ZCode; it writes none itself.
+
+**Stop doing:** no dashboarding, general infrastructure, broad audits, multi-session instrumentation, autonomous comms fabric, refactors, multiple alternate transport builds, model comparisons, or noisy progress chatter. No mass transcript copying, no token/cookie exposure. Favor one evidence-backed outcome over plans and repeated status messages. No standalone BFF-originated probe counts as AION introspection.
+
+**Progress/reporting:** one short acknowledgment, then report only new concrete evidence or a specific blocker. Record actual send and receive proof; do not declare the milestone passed merely from Linux readiness or GitHub delivery. Respect existing operating approvals/stop order; if the intended live browser operation remains forbidden, report that exact blocker immediately rather than consuming budget on side quests.
