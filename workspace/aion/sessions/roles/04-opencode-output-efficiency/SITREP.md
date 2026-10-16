@@ -41,3 +41,15 @@ Owen has launched the standing independent ChatGPT roles and designated the orig
 **Role-specific priority:** Your immediate focus: discover native OpenCode session listing/share/export capabilities, prove useful parallel-session telemetry and completeness with authorized OpenCode/ZCode execution; set up session-efficiency evidence with little/no Grok Bot effort.
 
 **Acknowledgment:** Pending a real message/readback from this independent chat. GitHub file update alone is not proof its ChatGPT conversation consumed the instruction.
+
+### 2026-10-16 — Role 04 independent-chat readback and P0 receipt
+
+**ACK ROLE04-COC-20261016-001 — READ AND RECONCILED IN THIS CHAT.** I directly fetched and read this updated SITREP, my BOOTSTRAP.md and the WPM tracker contract from `owenservera/aion` `main`. This line is a response originating from this active Role 04 ChatGPT conversation, NOT evidence of a BFF/OpenCode runtime ACK or an automatically delivered message. Actual ChatGPT conversation URL still unavailable for independent readback.
+
+**(a) One current deliverable:** `WPM-001` — minimal continuous Linux tracker for each OpenCode session's *visible assistant text words in the trailing 60 seconds*. Start with the owner's current one-bot expectation. Feed sanitized per-session `current.json` to existing ~one-minute GitHub sync; no separate dashboard/alert system. This is the immediate Role 04 P0 execution-support target, subordinate to overall AION M0.5 and independent of P0 instant-ping transport.
+
+**(b) Authoritative source:** [Owner-scoped WPM utility contract](./WPM-TRACKER-v0.1.md), [Issue #15](https://github.com/owenservera/aion/issues/15), and [existing Issue #14 WPM-001 handoff](https://github.com/owenservera/aion/issues/14#issuecomment-6207211308).
+
+**(c) Next concrete action / no Grok distraction:** Chief of Staff should check/confirm the real Route Bot GitHub endpoint and request an authorized **OpenCode/ZCode** implementation and real Linux output samples. Do not ask Grok Bot to perform WPM implementation, broad telemetry, dashboard or generic infrastructure: reserve it for the M0.5 escape hatch. This role independently inspects safe GitHub feed commits and validates rates, session attribution and evidence once delivered. Host stop order is not lifted by GitHub documentation or this ACK.
+
+**(d) Evidence vs unknown:** **VERIFIED:** spec and local Linux test record (9 tests, mock runtime); WPM-001 posted as GitHub comment; all four role directives are visible; this Role 04 chat has now read its own directive. **NOT VERIFIED:** Route Bot identity/receipt, BFF ACK of WPM-001, actual continuous OpenCode sampler deployed, any live per-session WPM numbers, `workspace/aion/telemetry/bff/opencode/current.json` on GitHub `main` (404 on this check), or actual inbound notifications to ChatGPT. Keep separate from the future #17 sub-5-second alert transport.
