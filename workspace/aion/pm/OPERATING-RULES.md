@@ -12,3 +12,5 @@ Source: Owen, direct, 2026-10-16 02:4x Paris, in AION PM chat. Status: verified 
 9. **Dashboard style:** almost no words; visual first (rings, bars, dots, colors), details on tap.
 10. **Communication channel (Owen, 2026-10-16 03:11):** all team communication happens ONLY in the ChatGPT web app (001.PROJECTS.PM). No side rooms.
 11. **Seed rule (Owen+AION, 2026-10-16):** every build must grow from an existing planned seed (ACP/UAH, IANG/IAM, VOMEGA, GPM Cognitive OS, ZCode/OpenCode) and leave it more capable; no seed means research/reconcile first.
+
+12. **Grok Bot helper / non-coding hard rule (Owen, direct 2026-10-16):** Grok Bot may operate and configure its own Linux environment, use existing signed-in sessions and GitHub access, download/install/run tools, test and verify. **Grok Bot must not author or edit code or implement code changes**; all coding goes through **OpenCode or ZCode**. Source: [AION top-level M1 Introspection](../canon/AION-MILESTONE-1-INTROSPECTION.md). This rule does not lift the pre-existing execution stop order or prove a live ChatGPT roundtrip.
