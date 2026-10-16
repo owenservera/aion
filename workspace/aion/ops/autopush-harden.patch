@@ -1,0 +1,134 @@
+--- a/usr/local/bin/aion-autopush
++++ b/usr/local/bin/aion-autopush
+@@ -1,6 +1,125 @@
+ #!/bin/bash
+-cd / || exit 1
+-git add -A /.gitignore /README.md /workspace/aion 2>/dev/null
+-git diff --cached --quiet || git commit -q -m "auto: $(date '+%F %T %Z')"
+-git pull -q --rebase origin main 2>>/var/log/aion-autopush.log
+-git push -q origin HEAD:main 2>>/var/log/aion-autopush.log
+\ No newline at end of file
++# aion-autopush - hardened autopush cycle (PROPOSAL, AION-BFF-002 Task 2).
++# Deltas vs the live script: flock single-writer, staged-secret scan that
++# aborts before commit, and rebase --abort + skip-push on pull failure.
++# `set -e` is deliberately omitted: every failure mode is handled explicitly,
++# and an implicit abort mid-rebase is exactly the failure we are fixing.
++set -uo pipefail
++
++ROOT=${ROOT:-/}                  # repo worktree root (git toplevel is "/")
++SCAN_PATH=${SCAN_PATH:-/workspace/aion}
++LOG=${LOG:-/var/log/aion-autopush.log}
++LOCK=${LOCK:-/var/lock/aion-autopush.lock}
++BRANCH=${BRANCH:-main}
++SECRET_SCAN=${SECRET_SCAN:-1}    # 0 = emergency escape hatch, logged loudly
++BLOCK_SOFT=${BLOCK_SOFT:-1}      # 1 = block heuristic hits, 0 = log only
++
++log() { printf '%s [autopush] %s\n' "$(date -Is)" "$*" >>"$LOG" 2>/dev/null; }
++fatal() { log "FATAL: $*"; exit 1; }
++
++# ---- single writer (B3) -----------------------------------------------------
++# Without this, an overlapping manual run or a >60s cycle interleaves
++# add/commit/rebase/push against the shared index and the ref lock.
++command -v flock >/dev/null 2>&1 || fatal "flock not found; refusing to run unlocked"
++mkdir -p "$(dirname "$LOCK")" 2>/dev/null
++exec 9>"$LOCK" || fatal "cannot open lock file $LOCK"
++flock -n 9 || { log "SKIP: another autopush holds $LOCK"; exit 0; }
++
++cd "$ROOT" || fatal "cannot cd $ROOT"
++
++# ---- stage ------------------------------------------------------------------
++# Same three paths as the live script, minus the error-swallowing 2>/dev/null,
++# minus pathspecs that do not exist in this worktree.
++add_paths=()
++for p in "$ROOT/.gitignore" "$ROOT/README.md" "$SCAN_PATH"; do
++  [ -e "$p" ] && add_paths+=("$p")
++done
++if [ "${#add_paths[@]}" -eq 0 ]; then
++  log "SKIP: nothing to stage (no matching paths under $ROOT)"
++  exit 0
++fi
++git add -A -- "${add_paths[@]}" || fatal "git add failed"
++
++mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR)
++if [ "${#staged[@]}" -eq 0 ]; then
++  # Do NOT exit here: pull/push still have to run so that a commit stranded by
++  # an earlier failed cycle gets retried. The live script did this implicitly.
++  log "idle: no local changes at $(git rev-parse --short HEAD 2>/dev/null); syncing only"
++fi
++
++# ---- staged secret scan (B1) ------------------------------------------------
++# Gitignore is one root-owned file that already demonstrably misses secrets,
++# and it cannot untrack a file committed before a rule existed. So the real
++# gate is this scan, run against the index: exactly the bytes this cycle is
++# about to commit, not whatever the working tree happens to hold.
++DENY_HARD_RE='-----BEGIN ([A-Z ]+)?PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|glpat-[A-Za-z0-9_-]{16,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|sk-(live|test|proj)-[A-Za-z0-9_-]{12,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
++DENY_NAME_RE='^(\.env($|\.)|.*\.(pem|key|p12|pfx|jks|keystore|kdbx|ovpn)$|auth\.json|credentials(\.json)?|\.netrc|\.npmrc|id_(rsa|dsa|ecdsa|ed25519))$'
++DENY_SOFT_RE='(api[_-]?key|secret|token|password|passwd|client[_-]?secret)[[:space:]]*[:=][[:space:]]*.?[A-Za-z0-9/+_.-]{16,}'
++
++block_path=()
++block_why=()
++
++# one log line per path, even when several rules match it
++block_add() {
++  local p=$1 w=$2 i
++  for i in "${!block_path[@]}"; do
++    [ "${block_path[$i]}" = "$p" ] && return
++  done
++  block_path+=("$p"); block_why+=("$w")
++}
++
++if [ "${#staged[@]}" -eq 0 ]; then
++  : # nothing staged, nothing to scan
++elif [ "$SECRET_SCAN" = "1" ]; then
++  for f in "${staged[@]}"; do
++    if [[ "${f##*/}" =~ $DENY_NAME_RE ]]; then block_add "$f" "filename-denied"; fi
++  done
++  # `git grep --cached` reads the index, so this sees post-`git add` content.
++  hits=$(git grep --cached -I -l -E -e "$DENY_HARD_RE" -- "${staged[@]}" 2>/dev/null)
++  if [ -n "$hits" ]; then
++    while IFS= read -r f; do block_add "$f" "hard-pattern"; done <<<"$hits"
++  fi
++  if [ "$BLOCK_SOFT" = "1" ]; then
++    hits=$(git grep --cached -I -l -i -E -e "$DENY_SOFT_RE" -- "${staged[@]}" 2>/dev/null)
++    if [ -n "$hits" ]; then
++      while IFS= read -r f; do block_add "$f" "soft-pattern"; done <<<"$hits"
++    fi
++  fi
++else
++  log "WARN: SECRET_SCAN=0 - secret scan disabled by operator override"
++fi
++
++if [ "${#block_path[@]}" -gt 0 ]; then
++  for i in "${!block_path[@]}"; do
++    log "BLOCK-SECRET staged:${block_path[$i]} reason=${block_why[$i]}"
++  done
++  for f in "${block_path[@]}"; do
++    git reset -q HEAD -- "$f" 2>/dev/null || log "WARN: could not unstage $f"
++  done
++  log "ABORT: ${#block_path[@]} secret-shaped staged path(s); nothing committed or pushed"
++  log "offenders left in the worktree - gitignore or move them, then retry next cycle"
++  exit 2
++fi
++
++# ---- commit (leaves the tree clean, which makes the rebase safe) -----------
++# Skipped when nothing is staged; the sync steps below still run.
++if [ "${#staged[@]}" -gt 0 ]; then
++  git commit -q -m "auto: $(date '+%F %T %Z')" || fatal "git commit failed"
++fi
++
++# ---- pull --rebase, abort on failure (B2) ----------------------------------
++# The live script ignored the exit status and pushed anyway: a transient
++# failure left a half-rebased tree that the *next* 60s cycle would commit.
++if ! git pull -q --rebase origin "$BRANCH" >>"$LOG" 2>&1; then
++  git rebase --abort >>"$LOG" 2>&1 || log "WARN: rebase --abort found no rebase in progress"
++  log "SKIP PUSH: pull --rebase failed; rebase aborted, local commit retained for next cycle"
++  exit 1
++fi
++
++# ---- push ------------------------------------------------------------------
++if git push -q origin "HEAD:$BRANCH" >>"$LOG" 2>&1; then
++  log "OK $(git rev-parse --short HEAD) -> origin/$BRANCH"
++else
++  log "ERROR: push failed; will retry next cycle"
++  exit 1
++fi
