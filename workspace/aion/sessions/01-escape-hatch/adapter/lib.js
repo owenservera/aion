@@ -69,6 +69,19 @@ const USER_SELECTORS = [
   USER_SELECTOR,
 ];
 
+// Fallback selectors for the live ChatGPT DOM observed 2026-10-16
+// (no article / conversation-turn / message-author-role / data-turn).
+// User turns: elements inside [class*='user-message'] (bg-user-message /
+// group/user-message); user text lives in DIV.text-size-chat.whitespace-pre-wrap.
+// Assistant replies: DIV[class^=MarkdownRoot-] (match via substring) with a
+// .markdown fallback; both must exclude anything inside a user-message container
+// because the user prompt text itself contains the correlation AND 'ACK-M05'.
+const USER_FALLBACK_SELECTOR = "[class*='user-message']";
+const ASSISTANT_FALLBACK_SELECTORS = [
+  "[class*='MarkdownRoot-']",
+  '.markdown',
+];
+
 // Selectors for read-only DOM inspection (--inspect-dom). Any element
 // matching ANY of these is summarized (no text is ever returned).
 const INSPECT_DOM_SELECTORS = [
@@ -608,12 +621,269 @@ async function getAssistantHandles(page) {
       continue;
     }
   }
+  // Live-DOM fallback (2026-10-16, no article/role/turn elements):
+  // assistant replies via [class*='MarkdownRoot-'] or .markdown, excluding
+  // anything inside a user-message container. Kept AFTER existing selectors.
+  for (const sel of ASSISTANT_FALLBACK_SELECTORS) {
+    let handles = [];
+    try {
+      handles = (await page.$$(sel)) || [];
+    } catch {
+      continue;
+    }
+    if (handles.length === 0) continue;
+    const kept = [];
+    for (const h of handles) {
+      let insideUser = false;
+      if (h && typeof h.evaluate === 'function') {
+        try {
+          insideUser = await h.evaluate((el) => {
+            try {
+              let p = el.parentElement || el.parentNode || null;
+              let g = 0;
+              while (p && g < 1000) {
+                g += 1;
+                try {
+                  let c = null;
+                  try {
+                    c = p.getAttribute ? p.getAttribute('class') : null;
+                  } catch (e) { c = null; }
+                  if ((c === null || c === undefined) && typeof p.className === 'string') c = p.className;
+                  if (c !== null && c !== undefined && String(c).indexOf('user-message') !== -1) return true;
+                } catch (e) { /* ignore */ }
+                try {
+                  p = p.parentElement || p.parentNode || null;
+                } catch (e) { break; }
+                if (p && !p.tagName) break;
+              }
+              return false;
+            } catch (e) { return false; }
+          });
+        } catch {
+          insideUser = false;
+        }
+      }
+      if (!insideUser) kept.push(h);
+    }
+    if (kept.length > 0) return kept;
+    // All candidates were inside user-message containers: not replies.
+  }
   return [];
+}
+
+/**
+ * In-page (evaluate-only, read-only) fallback extractor for the live DOM
+ * observed 2026-10-16. Fully self-contained: uses only `document`, no Node
+ * closures, so it can run via page.evaluate(fn).
+ *
+ * - User turns: leaf-most elements whose class contains 'user-message'
+ *   (covers bg-user-message / group/user-message without relying on hashed
+ *   suffixes like block-BQZwFn).
+ * - Assistant replies: outermost elements whose class contains 'MarkdownRoot-'
+ *   OR has a 'markdown' class token, excluding anything inside a user-message
+ *   container (the user prompt itself contains both the correlation ID and
+ *   'ACK-M05', so the ACK must come only from the assistant reply).
+ * - Order is document order (index in querySelectorAll('*')); caller pairs
+ *   each user turn with the first assistant reply that follows it.
+ *
+ * Returns { users: [{text, order}], assistants: [{text, order}] } (texts
+ * untrimmed here; caller trims). Never throws: returns empty lists on failure.
+ */
+function fallbackTurnsEvaluate() {
+  try {
+    var all = [];
+    try {
+      var list = document.querySelectorAll('*');
+      all = Array.prototype.slice.call(list);
+    } catch (e) {
+      all = [];
+    }
+    var classStr = function (el) {
+      try {
+        if (el.getAttribute) {
+          var c = el.getAttribute('class');
+          if (c !== null && c !== undefined) return String(c);
+        }
+      } catch (e) { /* ignore */ }
+      try {
+        if (typeof el.className === 'string') return el.className;
+        if (el.className !== undefined && el.className !== null) return String(el.className);
+      } catch (e) { /* ignore */ }
+      return '';
+    };
+    var textOf = function (el) {
+      try {
+        var t = el.innerText;
+        if (typeof t === 'string' && t.length > 0) return t;
+      } catch (e) { /* ignore */ }
+      try {
+        return String(el.textContent || '');
+      } catch (e) {
+        return '';
+      }
+    };
+    var isUser = function (el) {
+      try {
+        return classStr(el).indexOf('user-message') !== -1;
+      } catch (e) {
+        return false;
+      }
+    };
+    var isAsst = function (el) {
+      try {
+        var c = classStr(el);
+        if (c.indexOf('MarkdownRoot-') !== -1) return true;
+        var parts = c.split(/\s+/);
+        for (var i = 0; i < parts.length; i++) {
+          if (parts[i] === 'markdown') return true;
+        }
+        return false;
+      } catch (e) {
+        return false;
+      }
+    };
+    var parentOf = function (el) {
+      try {
+        return el.parentElement || el.parentNode || null;
+      } catch (e) {
+        return null;
+      }
+    };
+    var isAncestor = function (anc, desc) {
+      var p = parentOf(desc);
+      var g = 0;
+      while (p && g < 1000) {
+        g += 1;
+        if (p === anc) return true;
+        if (!p.tagName) break;
+        p = parentOf(p);
+      }
+      return false;
+    };
+    var hasUserAncestor = function (el) {
+      var p = parentOf(el);
+      var g = 0;
+      while (p && g < 1000) {
+        g += 1;
+        if (p.tagName && isUser(p)) return true;
+        if (!p.tagName) break;
+        p = parentOf(p);
+      }
+      return false;
+    };
+    var users = [];
+    var assts = [];
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (isUser(el)) users.push({ el: el, order: i });
+      else if (isAsst(el)) assts.push({ el: el, order: i });
+    }
+    var leafUsers = users.filter(function (u) {
+      for (var k = 0; k < users.length; k++) {
+        if (users[k].el !== u.el && isAncestor(u.el, users[k].el)) return false;
+      }
+      return true;
+    });
+    var cleanAssts = assts.filter(function (a) {
+      return !hasUserAncestor(a.el);
+    });
+    var outerAssts = cleanAssts.filter(function (a) {
+      for (var k = 0; k < cleanAssts.length; k++) {
+        if (cleanAssts[k].el !== a.el && isAncestor(cleanAssts[k].el, a.el)) return false;
+      }
+      return true;
+    });
+    var toOut = function (list2) {
+      return list2.map(function (e) {
+        var t = '';
+        try {
+          t = textOf(e.el);
+        } catch (x) {
+          t = '';
+        }
+        return { text: t, order: e.order };
+      });
+    };
+    return { users: toOut(leafUsers), assistants: toOut(outerAssts) };
+  } catch (e) {
+    return { users: [], assistants: [] };
+  }
+}
+
+/** Run fallbackTurnsEvaluate inside the page (read-only evaluate). */
+async function getFallbackTurns(page) {
+  if (!page || typeof page.evaluate !== 'function') return null;
+  try {
+    const r = await page.evaluate(fallbackTurnsEvaluate);
+    if (r && typeof r === 'object' && Array.isArray(r.users) && Array.isArray(r.assistants)) {
+      return r;
+    }
+  } catch {
+    /* evaluate blocked — caller falls back to $$ handles */
+  }
+  return null;
+}
+
+/**
+ * Pairing helper on fallback-evaluate data: LAST user turn containing
+ * `correlation` + FIRST assistant reply that follows it in document order.
+ * Returns { replyText, userOrder, assistantOrder } or throws AdapterError.
+ */
+function pairFallbackReply(data, correlation) {
+  const users = (data && Array.isArray(data.users) ? data.users : []).slice()
+    .sort((a, b) => a.order - b.order);
+  const assts = (data && Array.isArray(data.assistants) ? data.assistants : []).slice()
+    .sort((a, b) => a.order - b.order);
+  let target = null;
+  for (let i = users.length - 1; i >= 0; i--) {
+    if ((users[i].text || '').includes(correlation)) {
+      // Scan from the END would give the last; but there may be nested
+      // duplicates — since evaluate already returns leaf-most users in order,
+      // the LAST match in document order is the target.
+      target = users[i];
+      break;
+    }
+  }
+  // Because users are sorted ascending, walking from the end picks the LAST.
+  if (!target) {
+    throw new AdapterError(
+      'E_NO_CORRELATED_MESSAGE',
+      `No user turn containing ${JSON.stringify(correlation)} was found; refusing to guess.`,
+    );
+  }
+  let best = null;
+  for (const a of assts) {
+    if (a.order > target.order) {
+      const t = (a.text || '').trim();
+      if (!t) continue;
+      if (!best || a.order < best.order) best = a;
+    }
+  }
+  if (!best) {
+    throw new AdapterError(
+      'E_NO_RESPONSE',
+      'No assistant reply found after the correlated message.',
+    );
+  }
+  const replyText = (best.text || '').trim();
+  if (!replyText) {
+    throw new AdapterError('E_NO_RESPONSE', 'Assistant reply after the correlated message could not be read.');
+  }
+  return { replyText, userOrder: target.order, assistantOrder: best.order };
 }
 
 /** Count assistant turns currently rendered in the conversation. */
 async function countAssistantMessages(page) {
   const handles = await getAssistantHandles(page);
+  if (handles.length > 0) return handles.length;
+  // Live-DOM fallback: count via read-only evaluate when $$ yields nothing
+  // (e.g. minimal mock pages that only implement evaluate).
+  const data = await getFallbackTurns(page);
+  if (data && Array.isArray(data.assistants)) {
+    const nonEmpty = data.assistants.filter((a) => ((a.text || '').trim() !== ''));
+    if (nonEmpty.length > 0) return nonEmpty.length;
+    if (data.assistants.length > 0) return data.assistants.length;
+  }
   return handles.length;
 }
 
@@ -648,6 +918,16 @@ async function readLastAssistantText(page) {
   for (let i = handles.length - 1; i >= 0; i--) {
     const t = await readHandleText(handles[i]);
     if (t) return t;
+  }
+  // Live-DOM fallback: read-only evaluate (user text contains ACK too, so
+  // only assistant-side texts are considered here).
+  const data = await getFallbackTurns(page);
+  if (data && Array.isArray(data.assistants)) {
+    const sorted = data.assistants.slice().sort((a, b) => a.order - b.order);
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const t = (sorted[i].text || '').trim();
+      if (t) return t;
+    }
   }
   throw new AdapterError('E_NO_RESPONSE', 'Assistant reply arrived but its text could not be read.');
 }
