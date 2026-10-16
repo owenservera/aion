@@ -5,3 +5,12 @@
 /workspace/*
 !/workspace/aion
 /workspace/aion/**/node_modules/
+
+# Approved AION executive canon and PM exchange on the one main branch
+!/canon/
+!/pm/
+/pm/**/node_modules/
+/pm/**/*.sqlite*
+/pm/**/*.db*
+/pm/**/.env*
+/canon/**/.env*
