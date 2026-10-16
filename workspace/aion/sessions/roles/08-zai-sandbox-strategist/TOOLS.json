@@ -1,0 +1,71 @@
+{
+  "schema": "aion.zforge/tool-registry-v0.1",
+  "status": "SCOPED_ACCESS_PENDING_VERIFICATION",
+  "role": "08-zai-sandbox-strategist",
+  "actual_zai_session_access": "not-connected",
+  "tools": [
+    {
+      "id": "zai-fullstack-web",
+      "purpose": "Target agent sandbox for owner-submitted heavy-duty development turns",
+      "status": "OWNER_REPORTED",
+      "probe": "Inspect current web UI model menu, turn interface, sandbox tools, artifacts and caps",
+      "boundary": "No claim of API/agent mode equivalence; no unattended submit"
+    },
+    {
+      "id": "github-aion",
+      "purpose": "Canonical repo research ledger, missions, receipts and source references",
+      "status": "REQUIRES_ROLE_CONNECTOR_CONFIRMATION",
+      "probe": "Fetch branch/main and commit readback",
+      "boundary": "Default read-only repo input; master Windows source authority"
+    },
+    {
+      "id": "zai-official-web",
+      "purpose": "Vendor Full-Stack mode feature discovery",
+      "status": "PARTIALLY_VERIFIED",
+      "probe": "Recheck official Z.ai Full-Stack feature docs",
+      "boundary": "Do not substitute separate ZCode or AutoClaw docs"
+    },
+    {
+      "id": "zcode-official-docs",
+      "purpose": "Related ecosystem reference, not proof of Z.ai web app",
+      "status": "VERIFIED_SEPARATE_PRODUCT",
+      "probe": "Compare documented agent/browser/subagent capabilities",
+      "boundary": "Mark transfer to web Full-Stack unverified"
+    },
+    {
+      "id": "context7",
+      "purpose": "Retrieve versioned technical docs and write requests to SOFTWARE_HQ per existing policy",
+      "status": "OPTIONAL_CONNECTOR",
+      "probe": "Resolve library/version and cite source",
+      "boundary": "No fictional connected tools"
+    },
+    {
+      "id": "open-code-zcode",
+      "purpose": "Independent review or experiment build lane after result export",
+      "status": "EXISTING_AION_INFRA_REPORTED",
+      "probe": "Genuine session ID, runtime version and tests",
+      "boundary": "No unsanctioned production write"
+    },
+    {
+      "id": "test-runner",
+      "purpose": "Node/Bun/Vitest built-in tests, static manifests and browser UI if available",
+      "status": "SANDBOX_DISCOVERY_REQUIRED",
+      "probe": "Actual versions and allowed local preview",
+      "boundary": "No Playwright/Puppeteer"
+    },
+    {
+      "id": "artifact-export",
+      "purpose": "GitHub verified limited-scope commit, ZIP or patch + hashes",
+      "status": "UNKNOWN",
+      "probe": "Test low-risk export on disposable fixture",
+      "boundary": "No private credentials or unapproved pushes"
+    },
+    {
+      "id": "aion-proposal-commons",
+      "purpose": "Send independent findings/proposals to Intake 07 with raw provenance",
+      "status": "EXISTING_REPO",
+      "probe": "Source-linked issue and ack",
+      "boundary": "No fake agent consumption"
+    }
+  ]
+}
