@@ -1,6 +1,6 @@
 {
   "schema": "aion.m1-council-package/v0.1",
-  "status": "ASSIGNED_NOT_ACKNOWLEDGED",
+  "status": "PARTIAL_SOURCE_FALLBACK_PACKAGE_PREPARED",
   "created_date": "2026-10-16",
   "canonical_source": "workspace/aion/canon/AION-MILESTONE-1-INTROSPECTION.md",
   "merge_owner": "08-zai-sandbox-strategist",
@@ -89,17 +89,26 @@
       "role": "Z-FORGE",
       "role_workspace": "workspace/aion/sessions/roles/08-zai-sandbox-strategist",
       "expected_artifact": "workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/PACKAGE-MANIFEST.md",
-      "state": "REQUESTED_NOT_ACKNOWLEDGED",
-      "artifact_url": null,
+      "state": "DELIVERED_AS_DOCUMENT_NOT_SANDBOX_TESTED",
+      "artifact_url": "https://github.com/owenservera/aion/blob/main/workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/PACKAGE-MANIFEST.md",
       "review_url": null,
       "source_provenance": "ROLE_SITREP_REVIEWED",
       "fallback": "canonical M1/relay spec with explicit missing-contribution label"
     }
   ],
   "merge": {
-    "zai_clone_package_status": "NOT_READY",
-    "run_prompts_status": "PENDING_REAL_CONTRIBUTIONS",
+    "zai_clone_package_status": "SOURCE_PACKAGE_PREPARED_UNTESTED",
+    "run_prompts_status": "FIRST_PROMPT_AUTHORED_NOT_SUBMITTED",
     "actual_sandbox_run": "NOT_STARTED",
-    "actual_authenticated_chatgpt_test": "NOT_AUTHORIZED_BY_THIS_PLAN"
+    "actual_authenticated_chatgpt_test": "NOT_AUTHORIZED_BY_THIS_PLAN",
+    "input_commit_candidate": "03a905bda7cd6f6e9237db0d46b24f736636ed3c",
+    "pending_employee_reports": [
+      "M1C-01",
+      "M1C-02",
+      "M1C-03",
+      "M1C-04",
+      "M1C-06",
+      "M1C-07"
+    ]
   }
 }
