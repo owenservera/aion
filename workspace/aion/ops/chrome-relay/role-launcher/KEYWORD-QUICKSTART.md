@@ -21,3 +21,6 @@
 - ChatGPT title rename is independent; only observed native UI rename counts. Asking an assistant to call itself a certain title does not prove the chat was renamed.
 - GitHub private source reading requires a connected authorized connector within the new ChatGPT chat. The extension itself should not hold a GitHub personal-access token.
 - Role 05 is supervisory; opening an additional new chat with its role title does not override the current Chief of Chiefs.
+
+## In-chat keyword option (after separate extension test)
+If you want `AION:08` typed **in an already-open ChatGPT composer** to open a new role chat, an optional narrowly scoped extension helper can detect only that exact draft and offer a visible **Launch new role** action. The new tab must actually be opened by the extension; sending the keyword as an ordinary chat message does not create a new session. This future adapter is not deployed or verified today.
