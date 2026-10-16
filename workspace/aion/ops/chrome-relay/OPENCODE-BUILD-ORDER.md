@@ -8,7 +8,7 @@ References: ARCHITECTURE.md, ENVELOPE-CONTRACT.md, FALLBACK-AND-ACCEPTANCE.md in
 Build extension fixture-based MVP first. Do not provision privileges, install a native messaging host, or initiate live ChatGPT browser automation as part of this code-only step.
 
 1. Create minimal Manifest V3 unpacked extension with a side panel and service worker using compatible Chrome versions; selected role tabs only.
-2. Render six role tiles (including TOOLSMITH pending launch) with tab status, transport status, queue count, evidence age, fallback mode and a visible permission/approval gate. Distinguish no data from idle.
+2. Render eight role tiles (including TOOLSMITH, INTAKE and Z-FORGE, with honest pending-launch states) with tab status, transport status, queue count, evidence age, fallback mode and a visible permission/approval gate. Distinguish no data from idle.
 3. Create sample envelope encoder/decoder and validation (allowlisted event kinds, sequence, expiry, idempotency key) with fixture event store. No credentials inside extension.
 4. Implement transport abstraction supporting disabled/native adapter, disabled local loopback adapter and offline fixture adapter; do not connect real hosts or silently send tasks in MVP.
 5. Add deterministic tests for restart/outbox retention, duplicate ACK, dropped connection, stale presence and proof vs transport status.
@@ -22,3 +22,6 @@ After fixture MVP passes, Chief of Staff must secure explicit approval to instal
 
 ## Acceptance of MVP
 AION independently fetches exact commit and reruns tests; an unpacked extension shows five role cards and changing simulated modes. Restart and duplicate cases must not lose/execute work. Role tab open must NOT show agent as RUNNING. All source code authored by OpenCode/ZCode and verified, not declared done on file publication. No new platform, Slack, or branch.
+
+## Related RL-001 launcher slice
+AION added [keyword role launcher #22](https://github.com/owenservera/aion/issues/22), registry [role-launcher/ROLES.json](./role-launcher/ROLES.json), and [scoped OpenCode work order](./role-launcher/OPENCODE-WORK-ORDER.md). Reuse the existing MV3 extension; keep RL-001 as a bounded subfeature with independent acceptance. Do not bundle untested native conversation rename/UI injection into the fixture MVP.
