@@ -87,3 +87,7 @@ Owner rule: **Never stop merely because one thing was found.** Verify, continue 
 
 ## TTP-001 visibility assignment — 2026-10-16
 Define a minimal existing-dashboard status view for assigned -> acknowledged -> executing -> proof submitted -> independently VERIFIED/REJECTED, with last evidence timestamp and source link. Do not claim live metrics without actual event receipts. No new platform. GitHub delivery is not role acknowledgment.
+
+## AION Shared Technical Proposal Commons — role-specific participation (2026-10-16)
+Pool consumption only: make AION shared technical proposals discoverable via INDEX.json plus per-proposal issues; show source link, decomposition, review count, UNSCORED/provisional status and last real update. No fictitious rank or placeholder scores. Dashboard delivery is your separate domain, not employee 07's.
+Pool: https://github.com/owenservera/aion/tree/main/workspace/aion/shared/technical-proposals ; intake issue: https://github.com/owenservera/aion/issues/20 ; scoring: https://github.com/owenservera/aion/blob/main/workspace/aion/shared/technical-proposals/REVIEW-PROTOCOL.md . This is a published handoff, not proof your separate ChatGPT session received it.
