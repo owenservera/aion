@@ -42,6 +42,29 @@ cookie/token logging, no unrelated tabs, no secrets on stdout. A short
 sanitized JSON receipt (`correlation`, timestamps, actual response,
 scrubbed tab URL) is written to `receipt-<correlation>-<ts>.json`.
 
+Reply detection targets the current ChatGPT DOM: turns are
+`article[data-testid^="conversation-turn-"]`, assistant turns contain
+`[data-message-author-role="assistant"]`, text in `.markdown`. The live
+flow snapshots the assistant-turn count before submit, waits for a new
+assistant turn, then waits for streaming to finish
+(`[data-testid=stop-button]` disappears) and for the text to stabilize
+before verifying.
+
+No-send recovery (read-only): if a live run submitted but reported
+`E_NO_RESPONSE` while ChatGPT actually replied, recover without sending
+anything:
+
+```sh
+NODE_PATH=/home/box/aion-tools/node_modules node send-m05.js --read-last --correlation AION-M05-20261016-COC-001
+```
+
+It attaches over CDP, requires the single authenticated chatgpt.com tab,
+locates the LAST user turn containing the correlation ID, captures the
+assistant turn immediately after it, and writes a sanitized
+`receipt-<correlation>-<ts>-read-last.json` (`mode: read-last`,
+correlation, reply text, query/hash-stripped tab URL, UTC ISO times). It
+never types, focuses, clicks or submits.
+
 ## Tests
 
 ```sh
