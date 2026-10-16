@@ -1,6 +1,6 @@
 # AION — M1: INTROSPECTION
 
-**Prerequisite (top-level M0.5):** [Introspection via BFF Linux](./AION-MILESTONE-0.5-BFF-LINUX-INTROSPECTION.md) — BFF Linux must first prove a real ChatGPT send/read cycle and independently verified receipt. M0.5 is the BFF-to-ChatGPT-to-BFF proof; M1 is the later AION-originated/AION-consumed roundtrip. Neither is the UAH Communications Spine's separately numbered milestones. M0.5 is defined, not yet verified.
+**M0.5 implementation gate (owner corrected):** [AION -> BFF Linux -> ChatGPT web app -> AION](./AION-MILESTONE-0.5-BFF-LINUX-INTROSPECTION.md). In M0.5, **AION** is the sender; BFF Linux is only the browser transport. A separate BFF-authored probe does not count. M0.5 directly tests AION's ability to send a real message into chatgpt.com and read its answer. Status NOT VERIFIED. This numbering is distinct from the UAH Communications Spine's gates.
 
 **Authority:** Owen, direct instruction in the current AION SITREP conversation, 2026-10-16.
 **Milestone definition (verbatim):** "Milestone 1 - INTROSPECTION - AION CAN SEND A MESSAGE TO CHATGPT AND READ THE RESPONSE"
