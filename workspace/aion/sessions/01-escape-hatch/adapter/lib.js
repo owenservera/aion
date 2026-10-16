@@ -1117,25 +1117,42 @@ async function findCorrelatedReply(page, correlation) {
       }
     }
     if (userIdx === -1) {
+      // No correlated article turn: fall through to legacy + live-DOM
+      // fallbacks below (which throw E_NO_CORRELATED_MESSAGE if truly absent).
+    } else {
+      for (let j = userIdx + 1; j < infos.length; j++) {
+        const txt = (infos[j].text || '').trim();
+        if (!txt) continue;
+        if (infos[j].role === 'assistant' || !infos[j].role) {
+          if (infos[j].role === 'user') continue;
+          return { replyText: txt, userIndex: userIdx, assistantIndex: j };
+        }
+      }
+      // Correlated article user exists but no assistant follows yet: still give
+      // the live-DOM fallback a chance (different subtree), else report.
+      try {
+        const fbAfterArticle = await getFallbackTurns(page);
+        if (fbAfterArticle && (fbAfterArticle.users.length > 0 || fbAfterArticle.assistants.length > 0)) {
+          const paired = pairFallbackReply(fbAfterArticle, correlation);
+          return { replyText: paired.replyText, userIndex: paired.userOrder, assistantIndex: paired.assistantOrder };
+        }
+      } catch (fbErr) {
+        if (fbErr instanceof AdapterError && fbErr.code === 'E_NO_CORRELATED_MESSAGE') {
+          // Fallback sees no correlated user either; fall through to the
+          // canonical legacy error path below.
+        } else if (fbErr instanceof AdapterError) {
+          throw fbErr;
+        }
+      }
       throw new AdapterError(
-        'E_NO_CORRELATED_MESSAGE',
-        `No user turn containing ${JSON.stringify(correlation)} was found; refusing to guess.`,
+        'E_NO_RESPONSE',
+        `No assistant turn after the correlated user turn (index ${userIdx}); reply may still be streaming.`,
       );
     }
-    for (let j = userIdx + 1; j < infos.length; j++) {
-      const txt = (infos[j].text || '').trim();
-      if (!txt) continue;
-      if (infos[j].role === 'assistant' || !infos[j].role) {
-        if (infos[j].role === 'user') continue;
-        return { replyText: txt, userIndex: userIdx, assistantIndex: j };
-      }
-    }
-    throw new AdapterError(
-      'E_NO_RESPONSE',
-      `No assistant turn after the correlated user turn (index ${userIdx}); reply may still be streaming.`,
-    );
   }
   // Legacy fallback (no article turns): last user match + last assistant text.
+  // NOTE: existing selectors stay first choice; live-DOM fallbacks below run
+  // only when the above found nothing.
   let userHandles = [];
   for (const sel of USER_SELECTORS) {
     try {
@@ -1166,21 +1183,71 @@ async function findCorrelatedReply(page, correlation) {
       break;
     }
   }
-  if (lastUser === -1) {
-    throw new AdapterError(
-      'E_NO_CORRELATED_MESSAGE',
-      `No user message containing ${JSON.stringify(correlation)} was found; refusing to guess.`,
-    );
+  if (lastUser !== -1) {
+    const asst = await getAssistantHandles(page);
+    if (asst.length === 0) {
+      // Before giving up, try the live-DOM evaluate fallback (may see replies
+      // the legacy selectors miss). Falls through to its own E_NO_RESPONSE.
+      const fbEarly = await getFallbackTurns(page);
+      if (fbEarly && (fbEarly.users.length > 0 || fbEarly.assistants.length > 0)) {
+        return (function () {
+          const paired = pairFallbackReply(fbEarly, correlation);
+          return { replyText: paired.replyText, userIndex: paired.userOrder, assistantIndex: paired.assistantOrder };
+        })();
+      }
+      throw new AdapterError('E_NO_RESPONSE', 'No assistant reply found after the correlated message.');
+    }
+    const replyText = await readHandleText(asst[asst.length - 1]);
+    if (!replyText) {
+      throw new AdapterError('E_NO_RESPONSE', 'Assistant reply after the correlated message could not be read.');
+    }
+    return { replyText, userIndex: lastUser, assistantIndex: asst.length - 1 };
   }
-  const asst = await getAssistantHandles(page);
-  if (asst.length === 0) {
-    throw new AdapterError('E_NO_RESPONSE', 'No assistant reply found after the correlated message.');
+  // Live-DOM fallback (2026-10-16): read-only evaluate pairing.
+  // LAST user turn containing the correlation + FIRST assistant reply that
+  // follows it in document order. Assistant-only text (user prompt itself
+  // contains 'ACK-M05', so user text must never count as the reply).
+  const fb = await getFallbackTurns(page);
+  if (fb && (fb.users.length > 0 || fb.assistants.length > 0)) {
+    const paired = pairFallbackReply(fb, correlation);
+    return { replyText: paired.replyText, userIndex: paired.userOrder, assistantIndex: paired.assistantOrder };
   }
-  const replyText = await readHandleText(asst[asst.length - 1]);
-  if (!replyText) {
-    throw new AdapterError('E_NO_RESPONSE', 'Assistant reply after the correlated message could not be read.');
+  // Last resort when evaluate is unavailable: $$ with the fallback selectors.
+  // Only read-only $$/innerText; never composer/send selectors.
+  let fbUserHandles = [];
+  try {
+    fbUserHandles = (await page.$$(USER_FALLBACK_SELECTOR)) || [];
+  } catch {
+    fbUserHandles = [];
   }
-  return { replyText, userIndex: lastUser, assistantIndex: asst.length - 1 };
+  let fbLastUser = -1;
+  for (let i = fbUserHandles.length - 1; i >= 0; i--) {
+    let t = '';
+    try {
+      if (typeof fbUserHandles[i].innerText === 'function') t = await fbUserHandles[i].innerText();
+    } catch {
+      t = '';
+    }
+    if ((t || '').includes(correlation)) {
+      fbLastUser = i;
+      break;
+    }
+  }
+  if (fbLastUser !== -1) {
+    const asst = await getAssistantHandles(page);
+    if (asst.length === 0) {
+      throw new AdapterError('E_NO_RESPONSE', 'No assistant reply found after the correlated message.');
+    }
+    const replyText = await readHandleText(asst[asst.length - 1]);
+    if (!replyText) {
+      throw new AdapterError('E_NO_RESPONSE', 'Assistant reply after the correlated message could not be read.');
+    }
+    return { replyText: replyText.trim(), userIndex: fbLastUser, assistantIndex: asst.length - 1 };
+  }
+  throw new AdapterError(
+    'E_NO_CORRELATED_MESSAGE',
+    `No user message containing ${JSON.stringify(correlation)} was found; refusing to guess.`,
+  );
 }
 
 /** Build the sanitized read-last receipt (never includes cookies/tokens). */
