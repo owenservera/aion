@@ -18,3 +18,6 @@ Real RAW artifact, source META with hash, derived DECOMPOSITION, authorized priv
 
 ## Acceptance
 Accessible source, derivative, valid index, real review issue and readback. If any part fails, mark PARTIAL with exact succeeding/failed stages and recover using existing IDs.
+
+## v0.2 follow-through — publication to consumption
+After the canonical issue and index have been fetched successfully, read `INFORMATION-FLOW.md`. If a review is useful, identify one domain-matched reviewer and (only if needed) a contrasting second reviewer. Post the five-line source-backed packet and `AION_INTAKE_REVIEW_REQUEST_V1` issue comment, with request timestamp and permalink. Don't invent notifications or presume another ChatGPT chat woke up. Keep request pending until actual reviewer-authored issue response; Chief of Staff is responsible for inter-role acknowledgement. For truly duplicate/low-relevance archival sources, record NO_REVIEW_NEEDED with explicit rationale (not a quality rejection). Update INDEX snapshot with actual route links and source freshness. Link back real decision/work receipt only if independently observed. This follow-through is **source logistics, not technical selection, implementation or priority decision**.
