@@ -14,6 +14,9 @@ One team-shared resource for unsolicited/solicited technical proposals from huma
 - **INDEX**: `INDEX.json` and `RANKINGS.md` are rebuildable views, never the primary record; review comments and exact Git blobs are authoritative.
 - **OWNERSHIP**: Employee 07 administers intake, dedupe suggestions, publishing and score tabulation. Role 02 synthesizes strategy, Role 06 assesses feasibility, Role 04 efficiency, Role 03 assigns approved work, Role 01 renders views, Role 05 chooses priorities. Never elevate intake to an executive approval role.
 
+## Central submission inbox
+The standing submission queue is [AION issue #20](https://github.com/owenservera/aion/issues/20); actual proposal discussions happen in per-proposal issues created from accepted source. GitHub issues do not automatically wake worker chat sessions. Directly provided eligible source text is also valid input.
+
 ## Intake paths (no new platform)
 1. A team member supplies full proposal text/file or an accessible source link via the existing authorized coordination channels.
 2. Role 07 obtains exact source content; creates stable ID `ATP-YYYYMMDD-NNNN`; records original text and SHA-256.
