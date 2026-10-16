@@ -129,7 +129,7 @@ test('missing composer fails (login/changed UI), single chatgpt tab', async () =
   await assert.rejects(
     lib.runOnce(fakeBrowser([page]), {
       message: lib.OUTBOUND_MESSAGE, correlation: CORR, expectedReply: ACK, timeoutMs: 10,
-    },
+    }),
     (e) => e.code === 'E_NO_COMPOSER',
   );
 });
@@ -144,7 +144,7 @@ test('mismatched live reply fails end-to-end against mock', async () => {
   await assert.rejects(
     lib.runOnce(fakeBrowser([page]), {
       message: lib.OUTBOUND_MESSAGE, correlation: CORR, expectedReply: ACK, timeoutMs: 5000,
-    },
+    }),
     (e) => e.code === 'E_MISMATCH',
   );
   assert.equal(page._submitted, 1, 'composer must be submitted exactly once');
