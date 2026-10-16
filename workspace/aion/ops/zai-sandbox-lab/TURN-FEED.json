@@ -12,6 +12,22 @@
   },
   "queue": [
     {
+      "mission_id": "ZFT-M1-PRELIVE",
+      "status": "DESIGN_ASSIGNED_NOT_ACKNOWLEDGED",
+      "priority": "P0",
+      "model": "OWNER_SELECTS",
+      "input": "M1-PRELIVE-RUN-DESIGN.md",
+      "purpose": "Optimize turn-sized Z.ai sandbox development runs preparing AION-originated real ChatGPT webapp roundtrip, excluding authenticated session live test",
+      "preconditions": [
+        "Role 08 genuinely receives assignment and reads canonical M1",
+        "Z.ai sandbox has no access to owner's authenticated ChatGPT session",
+        "No Playwright/Puppeteer",
+        "No actual host authorization inferred"
+      ],
+      "pass_gate": "Versioned run matrix, adapter contract, mock positive/negative tests plan, artifact export and gated live-test handoff, with zero fake M1 PASS",
+      "fallback": "Deliver copy-ready first bounded run plus exact sandbox unknowns, no live session access"
+    },
+    {
       "mission_id": "ZFT-20261016-001",
       "status": "PREPARED_NOT_SUBMITTED",
       "priority": "P0",
