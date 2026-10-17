@@ -40,12 +40,13 @@ test("token file permissions enforced per platform", () => {
   }
 });
 test("token file must live outside the tracked tree", () => {
-  const tracked = path.join(os.tmpdir(), "workspace", "aion", "tok");
-  fs.mkdirSync(path.dirname(tracked), { recursive: true });
-  fs.writeFileSync(tracked, "x"); fs.chmodSync(tracked, 0o600);
-  if (process.platform === "win32") fs.chmodSync(tracked, 0o666);
-  try { assert.throws(() => readToken(tracked), /outside the tracked/); }
-  finally { fs.rmSync(tracked, { force: true }); }
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "aionroot-"));
+  const tracked = path.join(root, "tok"); fs.writeFileSync(tracked, "x");
+  process.env.AION_REPO_ROOT = root;
+  try {
+    assert.throws(() => readToken(tracked), /outside the tracked/);
+    assert.doesNotThrow(() => readToken(tokFile("x")));
+  } finally { delete process.env.AION_REPO_ROOT; fs.rmSync(root, { recursive: true, force: true }); }
 });
 test("unreachable hub fails at health stage", async () => {
   await assert.rejects(main(["--hub", "http://127.0.0.1:1", "--workspace", "x", "--prompt", "hi", "--token-file", tokFile("x")], sink()), /health/);
