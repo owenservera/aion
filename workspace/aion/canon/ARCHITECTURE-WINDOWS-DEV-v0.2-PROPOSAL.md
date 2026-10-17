@@ -1,6 +1,6 @@
 # AION Windows dev plane — architecture proposal v0.2
 
-Status: **PROPOSAL, not installed, nothing here is verified on a Windows machine.** Written 2026-10-17 as a companion to [the decision record](./DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md). It builds on, and does not replace, the [Chrome Relay design](../ops/chrome-relay/ARCHITECTURE.md), the [relay envelope](../ops/chrome-relay/ENVELOPE-CONTRACT.md) and the [Windows M1 architecture](./AION-M1-WINDOWS-MASTER-EXECUTION.md).
+Status: **OPTIONAL FUTURE ARCHITECTURE, not installed or a prerequisite for M1.** Start with direct local Windows agents + existing ACPX/Chrome and GitHub. Add this multi-plane design only when observed workload justifies it. Written 2026-10-17 as a companion to [the decision record](./DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md). It builds on, and does not replace, the [Chrome Relay design](../ops/chrome-relay/ARCHITECTURE.md), the [relay envelope](../ops/chrome-relay/ENVELOPE-CONTRACT.md) and the [Windows M1 architecture](./AION-M1-WINDOWS-MASTER-EXECUTION.md).
 
 ## 1. Goal
 
@@ -27,32 +27,32 @@ Let local agents on the owner's Windows machine write and run code, while ChatGP
  +-------------+   +----------------+   +---------------+
 ```
 
-- **Host plane:** `aiond` is the single owner of state changes on the machine. Everything else asks it.
+- **Host plane (OPTIONAL):** `aiond` may later coordinate longer-running work. For current M1, local agents can invoke existing tools directly; no centralized daemon hop is required.
 - **Agent plane:** ZCode, OpenCode, Codex and Claude Code run as workers behind ACP. The daemon is the ACP client, as the relay design already says.
 - **Edge plane:** the Chrome extension (reuse ACPX if review passes) talks to the daemon over native messaging. It cannot grant itself permissions.
 - **Ledger plane:** an append-only local SQLite log is the source of truth for jobs and receipts. GitHub holds the shared audit copy and anchors.
-- **Policy plane:** authorizations are data the daemon enforces, not prose it is trusted to remember.
+- **Policy plane (OPTIONAL):** structured grants are useful for unattended privileged operations, not mandatory for regular development or a clearly scoped owner-authorized live session.
 
 ## 3. Architectural suggestions
 
 ### 3.1 Make the stop order enforceable
-Today the stop order is a sentence in a Markdown file. Turn it into a signed or owner-written **grant file** (the `AION_AUTHORIZATION_V1` fields in the decision record). The daemon refuses any browser or install action without a valid, unexpired grant whose scope matches. This also gives verifiers an artifact to check.
+For unattended privileged operations, an explicit machine-readable grant can be valuable. For owner-supervised work, an explicit owner instruction and a recorded result are sufficient. Do not require creating a daemon or signing a template before development. The existing stop order still applies to live signed-in browser/account operations until explicitly lifted for that scope.
 
 ### 3.2 One envelope for browser and agent traffic
 Reuse the relay envelope v0.1 for local agent jobs as well, so there is a single schema and a single pair of state machines (task and delivery). Add a `lease_expires_at` and a heartbeat to the task machine so a crashed agent's job becomes reclaimable. If your existing lease-based build control plane already models this, adopt its semantics rather than inventing another queue.
 
 ### 3.3 One git integrator
-The autopush loop (root, every 60 s, `git add -A`, no gate) is the wrong pattern for multiple agents. Instead:
-- Each agent works in its own **local git worktree** on a local-only branch.
-- Agents submit a finished change to the daemon as a job result (commit hash plus test output).
-- The daemon runs the gate (tests, secret scan, size check), rebases onto `main`, fast-forwards and pushes. It is the only pusher.
+Blind global `git add -A` autopush is risky for concurrent agents. Begin with ordinary guarded Git operations; add a single integrator only if conflicts persist. Optional scaled pattern:
+- An agent **may** use its own local git worktree when tasks overlap.
+- An agent may submit a finished change via normal Git; a daemon handoff is optional.
+- Verify relevant tests and non-fast-forward status, then push to `main` normally. A daemon-only pusher is optional if concurrency demands it.
 This keeps "one public branch" while removing races with other writers, including the cloud-side assistants that commit through GitHub.
 
 ### 3.4 Isolate agents; the ACP hole is real
 The repo already records that native ACP tool behavior is not fully governed by the host approval layer. On Windows, prefer defense in depth:
-- Run agents under a **dedicated low-privilege Windows user**, or in WSL2 / Windows Sandbox for risky tasks.
-- Put each agent process in a **Job Object** with CPU, memory and process-count limits and kill-on-close.
-- Restrict agent file access to its worktree path with ACLs; give the daemon a separate, protected state directory.
+- Use the normal Windows development account for routine work. Consider a low-privilege Windows user or Windows Sandbox only for untrusted/high-risk programs; WSL2 is optional and not assumed.
+- Apply Job Object limits only if actual runaway-process/resource issues occur.
+- Use existing Windows filesystem permissions. Introduce worktree ACL restrictions only if a concrete isolation need emerges.
 - Keep GitHub tokens and provider keys in Windows Credential Manager or DPAPI, never in worktrees or the extension.
 
 ### 3.5 Treat disk space as a gating precondition
@@ -78,12 +78,12 @@ Replace the hardcoded correlation ID and reply with per-attempt values (`AION-M1
 
 ## 4. Suggested build order (smallest useful slices)
 
-1. **S0 — Skeleton, no accounts touched.** `aiond` with SQLite ledger, envelope validation, job lease, grant parser, disk preflight. Passes the conformance suite with a fake agent.
-2. **S1 — One real local agent over ACP.** Run one task in a worktree, produce a receipt, verify it from another process.
-3. **S2 — Git integrator.** Gate and push `main` from the daemon; retire autopush for this machine.
-4. **S3 — Native messaging hello.** Extension and host handshake, restart recovery, read-only status. Still no ChatGPT interaction.
-5. **S4 — Authorization.** Owner issues a scoped grant; M1a live test (one message, one reply, one negative case).
-6. **S5 — M1b and role expansion.** ChatGPT-side reads receipts; add Claude and additional agents.
+1. **S0 — Direct Windows inventory:** confirm Chrome session availability, ACPX kit, local tools and existing adapter/tests. No new infrastructure.
+2. **S1 — Reuse existing components:** run relevant tests, inspect ACPX, and implement only missing browser/bridge functions.
+3. **S2 — Prepare shortest live-path test:** ordinary Git commit and evidence, avoid concurrent blind pushes; no git-integrator service required.
+4. **S3 — Confirm adapter transport:** use working ACPX Bun loopback/native messaging capabilities; native-host build only if genuinely needed.
+5. **S4 — Explicit owner go-ahead:** perform one signed-in Windows Chrome M1 live roundtrip and one negative case; record the response and AION readback.
+6. **S5 — Expand only after the result:** integrate UAH/SQLite, long-running agent coordination, recovery or ChatGPT-side receipt reading based on measured need.
 
 Each slice ends with receipts, independent verification and a `STATE.json` update.
 
