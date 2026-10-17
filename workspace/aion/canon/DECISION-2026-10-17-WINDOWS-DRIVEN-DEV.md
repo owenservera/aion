@@ -26,15 +26,15 @@ Does **not** change: the M1 acceptance contract, the evidence rules, or the host
 | **BFF Linux / Grok Bot** | Optional secondary executor | Linux-side tests and evidence | Override Windows authority; author code |
 | **Z.ai** | Disposable sandbox | Mock-only experiments | Anything live |
 
-Rule of independence: the actor that produced a result must not be the only one that verifies it. Builder, runner and verifier are different identities for any milestone claim.
+Verification principle: same agent may build, test and report routine work; independent verification is reserved for actual M1 acceptance, security-critical boundary changes and contested evidence. Do not manufacture three identities for each change.
 
 ## 3. Working agreement
 
 1. **Windows first.** Anything that matters is proven on the Windows machine. Cloud or Linux results are supporting evidence only.
-2. **One public branch: `main`.** Local agents may use local-only git worktrees and branches. Only `main` is pushed, and only by the single integrator (see the architecture proposal, section 4). This keeps the "one main branch" rule and ends push races.
+2. **Simple Git first:** target `main` and use ordinary pull/commit/push with non-fast-forward/conflict checks. Local worktrees are useful for genuine concurrent work but optional. A single integrator daemon may be added only if measured push races justify it; it is not required now.
 3. **Proof before status.** Unchanged from `STATE-PROTOCOL.md`.
 4. **Agents read `AGENTS.md` at the repo root first**, then `STATE.json`.
-5. **Handoffs use `AION_HANDOFF_V1`** (see `ONBOARDING.md`), so ChatGPT, Claude and local agents can swap context without a human relaying.
+5. **Handoff when needed:** a short `AION_HANDOFF_V1` is useful for unfinished work or a cross-agent transfer, not a mandatory ritual after every local change.
 
 ## 4. M1 split (PROPOSED — needs owner confirmation)
 
@@ -47,7 +47,7 @@ Until the owner confirms, `AION-MILESTONE-1-INTROSPECTION.md` remains the canoni
 
 ## 5. Authorization (stop order unchanged)
 
-Choosing Windows-driven dev is a **direction**, not a scoped grant. `live_execution_authorized` remains `false` until the owner posts a scoped authorization. Suggested template (copy into a GitHub issue comment or an `authorization/` file):
+Windows-driven development authorizes routine local coding, testing, building and non-destructive diagnostics under the user's normal machine/tool permissions. It does **not** itself lift the earlier stop order on controlling the signed-in ChatGPT browser or privileged account/host operations. A clear owner instruction in chat or an issue specifying the browser target and action is sufficient when that live step is approved—no separate policy plane, expiry field or authorization file is mandatory. `live_execution_authorized` remains `false` pending such an instruction. Optional example for auditable sessions:
 
 ```text
 AION_AUTHORIZATION_V1
@@ -71,4 +71,4 @@ Local code work (editing, running unit tests, building, mock fixtures on loopbac
 2. Build the Windows dev plane skeleton from `ARCHITECTURE-WINDOWS-DEV-v0.2-PROPOSAL.md` (daemon, ledger, envelope validation, one fake agent) — no account access needed.
 3. Check free disk space on the Windows machine before any heavy work (last reported 6.3 GB free; current value unknown).
 4. Obtain the ACPX source into the repo or a shared location so it can be reviewed (STATE block `ACPX_SOURCE`).
-5. Owner issues the scoped authorization for the first live test.
+5. Owner explicitly authorizes the first signed-in browser test in ordinary language; record the instruction and observed execution proof.
