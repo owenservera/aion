@@ -1,5 +1,8 @@
 # AION — M1: INTROSPECTION
 
+> **CURRENT TARGET UPDATE — 2026-10-17:** M1 must now use the owner's **official Windows master machine** as the intended Chrome/ChatGPT execution host. The M1 success contract below (AION-originated real request, authenticated real ChatGPT reply, independent AION readback and negative verification) remains unchanged. Earlier references to BFF Linux are **historical implementation planning**, not current host instructions. See [Windows execution architecture](./AION-M1-WINDOWS-MASTER-EXECUTION.md) and [experiments/methods evidence index](./AION-M1-EXPERIMENTS-AND-METHODS.md). The host/browser execution stop order remains until explicitly lifted for the scoped Windows test. **M1_VERIFIED=false.**
+
+
 **M0.5 implementation gate (owner corrected):** [AION -> BFF Linux -> ChatGPT web app -> AION](./AION-MILESTONE-0.5-BFF-LINUX-INTROSPECTION.md). In M0.5, **AION** is the sender; BFF Linux is only the browser transport. A separate BFF-authored probe does not count. M0.5 directly tests AION's ability to send a real message into chatgpt.com and read its answer. Status NOT VERIFIED. This numbering is distinct from the UAH Communications Spine's gates.
 
 **Authority:** Owen, direct instruction in the current AION SITREP conversation, 2026-10-16.
