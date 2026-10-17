@@ -97,34 +97,44 @@ the browser target and the action is sufficient — no separate grant-file templ
 
 ---
 
-## B6 — no AION Chrome extension exists, and installing one needs authorization · **OPEN**
+## B6 — AION extension is fully designed but deliberately not built · **OWNER DECISION REQUIRED**
 
-**Verified 2026-10-17** by reading Chrome's `Secure Preferences` for all four profiles.
+**Verified 2026-10-17.** The Chrome Relay Station design is **complete and tracked**, not absent:
+`ARCHITECTURE.md` v0.1, `ENVELOPE-CONTRACT.md` v0.1, `FALLBACK-AND-ACCEPTANCE.md`, build order
+`OPENCODE-BUILD-ORDER.md` (CR-001) and the role launcher (`ROLES.json`, 8 roles). Open issues
+**#18**, **#22**, **#25**. The only thing missing is code: `ops/chrome-relay/extension/` has never
+existed in git history.
 
-- **No AION-owned Chrome extension exists.** `ops/chrome-relay/` holds design documents only, and the
-  `com.aion.relay` native-messaging host described in its architecture note is not registered.
-- **`extensions/chatgpt` (ChatGPT Full Exporter 1.1.0) is NOT loaded in any profile.** It is dormant
-  source on disk. It already does the hard part — driving the real `#prompt-textarea` — but it has no
-  `nativeMessaging` permission and writes only a ZIP to `Downloads`.
-- **The MAGIC API Graph extension is also not installed**, so the Bun↔TCP↔native-messaging transport
-  exists only as a reference implementation to copy from, never as running infrastructure.
-- Only three local-path extensions are loaded at all, and all are unrelated to AION (two `vivim`
-  builds and a `REVERSE-EXTENSIONS` build).
+**Chrome-side facts (read from `Secure Preferences`):** no AION extension is installed;
+`extensions/chatgpt` (ChatGPT Full Exporter 1.1.0) is **not loaded in any profile** despite doing the
+hard part of driving the real composer; the MAGIC API Graph native-messaging extension is likewise not
+installed, so it is a reference to copy, never running infra. Only 3 local-path extensions load at all,
+none AION-related. `Profile 3` is the ChatGPT-heavy candidate.
 
-**Consequence for M1:** the missing unit is **extension + bridge**, not a single bridge file. See the
-correction in [`M1-PATH.md`](M1-PATH.md).
+**Why it is blocked — and this is the owner's call, not an agent's.** The design's own
+**2026-10-17 priority override** defers CR-001:
 
-**Why this needs the owner.** Loading an unpacked extension into the profile that holds the signed-in
-ChatGPT session is exactly the kind of privileged, account-touching action the stop order covers. It
-also changes the browser the owner is signed into, so it should not be done unilaterally.
+> Inspect ACPX source and current Windows browser/adapter availability first; write **only demonstrated
+> missing code**. Do not build a second extension without source-backed reuse/replace justification.
 
-**Sequence that needs no authorization:** write the extension and the bridge, run both against local
-fixtures and a local mock ChatGPT page, and have them reviewed. Only **installing into the signed-in
-profile** and **exercising it against chatgpt.com** are gated.
+ACPX is exactly what cannot be inspected (see B4 — `owenservera/ACPX` 404s, `acpx-kit.zip` not on disk).
+So the override's precondition is unsatisfiable until ACPX is supplied **or** declared unavailable.
 
-**Known candidate:** `Profile 3` is the ChatGPT-heavy profile (Superpower for ChatGPT 8.5.0,
-WebChatGPT 4.2.0, Claude 1.0.100, `open-claude-in-chrome`). Its per-extension enabled/disabled state was
-not readable in this pass, so confirm before depending on any one extension.
+**Options:**
+
+| Option | Effect |
+|---|---|
+| **A. Supply the ACPX kit** | Honours the override as written. Issue #25 becomes answerable and may show the relay should be replaced rather than built. |
+| **B. Declare ACPX unavailable; proceed with the CR-001 fixture MVP** | The MVP is code-only — no browser, no signed-in session, no authorization needed, and it already names OpenCode as implementer. |
+| C. Keep deferring | Nothing is built; M1 stays unverified for the same reason it is today. |
+
+**Gating note:** building the CR-001 MVP needs **no** authorization. Installing an unpacked extension
+into the profile holding the signed-in ChatGPT session, or exercising anything against chatgpt.com, is
+gated by B3.
+
+**Spec defect to settle before building:** the role count drifts — `ARCHITECTURE.md` and CR-001 item 2
+say **eight** tiles, `FALLBACK-AND-ACCEPTANCE.md` T0 and the CR-001 acceptance line say **five** cards,
+and `ROLES.json` says `role_count: 8`. Acceptance is untestable until this is pinned to one number.
 
 ---
 
