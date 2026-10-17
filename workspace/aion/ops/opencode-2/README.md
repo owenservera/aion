@@ -1,0 +1,39 @@
+# OpenCode 2.0 — AION research and adoption dossier
+
+**Research date:** 2026-10-17 (Europe/Madrid)  
+**Repository:** `owenservera/aion` / `main`  
+**Status:** RESEARCHED_AND_DOCUMENTED — **NOT INSTALLED, MIGRATED, BENCHMARKED OR HOST-TESTED** by this dossier.  
+**Scope:** OpenCode V2 capability research and AION-specific adoption strategy. This is *not* a new orchestration service or execution authorization.
+
+## Purpose and ownership
+OpenCode is AION's current **Windows local code execution agent**, by owner decision of 2026-10-17, while ZCode execution on Windows is deferred. This supersedes older generalized ZCode-first execution statements for **this Windows host**, not ZCode's separate ACP/transport role. Source: `workspace/aion/agents/windows-master/BLOCKERS.md`, D1.
+
+- Windows master: **OpenCode 1.18.35** last verified at `C:\ProgramData\chocolatey\bin\opencode.exe`.
+- Linux box: **OpenCode 1.19.1** last reported in `workspace/aion/ops/BOX-READINESS.md` on 2026-10-16.
+- Both are *historical repo observations*, not current interactive probes.
+- Host disk pressure is handled by **PC HQ**, not by an AION migration command; Windows C: had **1.10 GB free** in the Windows master blocker record.
+- This dossier does **not** authorize changes to the authenticated ChatGPT browser, machine packages, services, credentials or active workloads.
+- No Playwright or Puppeteer.
+
+## Contents
+1. [RESEARCH-2026-10-17.md](./RESEARCH-2026-10-17.md) — released feature inventory, architecture, compatibility and provenance.
+2. [MIGRATION-AND-VALIDATION.md](./MIGRATION-AND-VALIDATION.md) — read-only discovery, staged migration, test matrix and rollback.
+3. [AION-INTEGRATION.md](./AION-INTEGRATION.md) — existing system boundaries, proposed high-leverage integration points, acceptance receipts.
+4. [RISKS-AND-SOURCES.md](./RISKS-AND-SOURCES.md) — regressions, disputed/unknown claims, upstream primary documentation and issue trackers.
+
+## Operating decision
+**Recommended: controlled V2 pilot, not an in-place bulk upgrade.** Verify versions and disk headroom; inventory API consumers/plugins; preserve V1 configuration and a recoverable state backup; exercise a standalone, mock-repository V2 evaluation where possible; only then change the production Windows/Linus runtime with an approved rollback. The V2 server API and plugin API are genuinely incompatible with V1.
+
+## Five evidence stages
+`RESEARCHED` -> `HOST_INVENTORIED` -> `ISOLATED_PILOT_PASS` -> `MIGRATED_AND_VALIDATED` -> `PRODUCTION_ACCEPTED`.
+
+Only **RESEARCHED** is established by these files. Repo publication is not proof an employee chat has acknowledged a handoff, a runner has installed software, or a live workflow works.
+
+## Existing AION neighbors
+- [Windows execution owner and blockers](../../agents/windows-master/BLOCKERS.md)
+- [Role 04 OpenCode output / WPM contract](../../sessions/roles/04-opencode-output-efficiency/WPM-TRACKER-v0.1.md)
+- [BFF/Linux historical readiness](../BOX-READINESS.md)
+- [AION Chrome relay fixture MVP](../chrome-relay/extension/README.md)
+- [AION project ownership](../../pm/OWNERS.md)
+
+**Important:** The V2 `@opencode/client` and OpenCode HTTP API are *not* ACP JSON-RPC, and neither is the AION relay envelope. A bridge must map these explicitly; do not blend their contracts.
