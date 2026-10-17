@@ -11,9 +11,10 @@
 //
 // It reads no web page content. There is no content script in this manifest.
 
-import { createEventStore, createTransport, isExpired } from '../lib/index.js';
+import { createEventStore, createTransport, isExpired, TASK_STATES } from '../lib/index.js';
 
 const STORAGE_KEY = 'aion.relay.state.v1';
+const EVENTS_KEY = 'aion.relay.events.v1';
 const SCHEMA = 'aion.relay.worker-state/0.1';
 
 // Presence refresh cadence. Two minutes is well inside Chrome's alarm floor of
@@ -21,6 +22,18 @@ const SCHEMA = 'aion.relay.worker-state/0.1';
 const PRESENCE_ALARM = 'aion.presence.refresh';
 const PRESENCE_PERIOD_MINUTES = 2;
 const MAX_EVENTS = 500;
+
+// State names are the literals named in ENVELOPE-CONTRACT.md. TASK_STATES is
+// used only to CONFIRM they are real states. If the contract and the lib ever
+// disagree, this worker reports UNKNOWN rather than counting a state that does
+// not exist and showing a confident zero.
+const APPROVAL_PENDING_STATE = 'APPROVAL_PENDING';
+const OUTBOX_STATE = 'OUTBOX';
+
+const STATE_NAMES_CONFIRMED =
+  Array.isArray(TASK_STATES) &&
+  TASK_STATES.includes(APPROVAL_PENDING_STATE) &&
+  typeof OUTBOX_STATE === 'string';
 
 /* ------------------------------------------------------------------ *
  * chrome.* availability
@@ -46,6 +59,13 @@ function readStorage() {
   }
 }
 
+/**
+ * Write one value under STORAGE_KEY.
+ *
+ * Takes the value itself, not a pre-keyed object. Wrapping here and again at
+ * the call site produced a doubly-nested record that readStorage could never
+ * unwrap, which silently reset the boot counter on every restart.
+ */
 function writeStorage(value) {
   if (!hasStorage) return Promise.resolve(false);
   return chrome.storage.local.set({ [STORAGE_KEY]: value }).then(
@@ -60,38 +80,45 @@ function writeStorage(value) {
 
 // Defaults describe a station that has observed nothing. "never observed" is a
 // distinct value from every live state; the panel renders it as UNKNOWN.
+// fallback_mode is null, not "E": nothing has been determined yet, and claiming
+// SAFE_MANUAL would be a claim this worker cannot support.
 function defaultState() {
   return {
     schema: SCHEMA,
     worker_started_at: null,
     worker_boot_count: 0,
     last_refresh_at: null,
-    last_evidence_at: null,
-    fallback_mode: 'E',
-    fallback_reason: 'Service worker not yet evaluated in this browser session.',
-    transport_name: 'fixture',
-    transport_enabled: false,
-    transport_detail: 'Fixture transport only. Native adapter disabled in MVP.',
-    approval_required_count: 0,
-    approval_note: 'No approval-gated item observed.',
-    outbox_count: 0,
-    outbox_oldest_created_at: null,
-    event_cursor: 0,
+    fallback_mode: null,
+    fallback_reason: 'No fallback mode has been determined. Nothing observed yet.',
     degraded_reason: null
   };
 }
 
 /**
- * Adapter handed to createEventStore({ persist }). The library's exact call
- * signature is owned by the parallel lib lane, so this adapter accepts the
- * trailing argument as the snapshot to keep. If that contract changes, the
- * adapter still persists something coherent rather than silently dropping it.
+ * Storage adapter for createEventStore({ persist }).
+ *
+ * The store requires an object with load()/save(events). save() receives the
+ * full ordered event array. The event log lives under its own storage key so a
+ * corrupt or oversized log cannot take the small status record with it.
  */
 function makePersistAdapter() {
-  return function persistSnapshot(...args) {
-    const snapshot = args.length > 0 ? args[args.length - 1] : null;
-    if (snapshot === null || snapshot === undefined) return Promise.resolve(false);
-    return writeStorage({ [STORAGE_KEY + '.events']: snapshot });
+  return {
+    async load() {
+      if (!hasStorage) return [];
+      try {
+        const bag = await chrome.storage.local.get(EVENTS_KEY);
+        const log = bag && bag[EVENTS_KEY];
+        return Array.isArray(log) ? log : [];
+      } catch (error) {
+        // An unreadable log is not an empty log. Say so instead of silently
+        // starting from zero and overwriting real outbox entries.
+        return Promise.reject(new Error('event log could not be read: ' + String(error)));
+      }
+    },
+    async save(events) {
+      if (!hasStorage) return;
+      await chrome.storage.local.set({ [EVENTS_KEY]: events });
+    }
   };
 }
 
@@ -101,7 +128,10 @@ let cachedTransport = null;
 
 async function rehydrate() {
   const stored = await readStorage();
-  const state = Object.assign(defaultState(), stored && stored.state ? stored.state : {});
+  // readStorage() already unwrapped the storage key, so `stored` IS the state
+  // record. Reading it as a nested object would silently discard everything
+  // that was persisted.
+  const state = Object.assign(defaultState(), stored && typeof stored === 'object' ? stored : {});
 
   if (state.worker_started_at) {
     state.worker_boot_count = (Number(state.worker_boot_count) || 0) + 1;
@@ -109,22 +139,37 @@ async function rehydrate() {
   state.worker_started_at = new Date().toISOString();
 
   cachedState = state;
+
+  // Persist immediately. Without this the boot counter never increments across
+  // a suspension, because nothing else writes before the first event fires.
+  await writeStorage(state);
+
   cachedStore = createEventStore({ persist: makePersistAdapter() });
-  // MVP: fixture transport, no real sockets. Transport selection is not a
-  // runtime decision in this build; the disabled adapters exist so the panel
-  // can report that they are disabled rather than absent.
-  cachedTransport = createTransport('fixture', {});
+
+  // MVP: the native adapter is constructed DISABLED. It performs no host
+  // access, has no code path that could grow into one, and refuses send().
+  // The panel therefore reports the real adapter as disabled rather than
+  // borrowing a fixture's readiness as if it were a live relay.
+  cachedTransport = createTransport('disabled-native', {});
+
+  // Reading before ready() settles would look like an empty outbox.
+  try {
+    await cachedStore.ready();
+  } catch (error) {
+    state.degraded_reason = 'Event log failed to load; outbox contents are UNKNOWN.';
+    cachedStore = null;
+  }
   return state;
 }
 
 async function ensureReady() {
-  if (cachedState && cachedStore && cachedTransport) return cachedState;
+  if (cachedState && cachedTransport) return cachedState;
   return rehydrate();
 }
 
 async function persistState() {
   if (!cachedState) return false;
-  const ok = await writeStorage({ [STORAGE_KEY]: cachedState });
+  const ok = await writeStorage(cachedState);
   if (!ok) {
     // Losing state is worse than being loud about it.
     cachedState.degraded_reason = 'chrome.storage.local write rejected; state not durable.';
@@ -137,80 +182,106 @@ async function persistState() {
  * ------------------------------------------------------------------ */
 
 function deriveStatus(state, store, transport) {
+  // A store that failed to hydrate must never be reported as an empty outbox.
+  if (!store) {
+    return {
+      observed: true,
+      observed_at: new Date().toISOString(),
+      degraded: true,
+      relay: {
+        name: transport ? transport.name : 'unknown',
+        enabled: false,
+        status: 'UNKNOWN',
+        detail: 'Event store unavailable; outbox, proof and approval are UNKNOWN.',
+        boot_count: state.worker_boot_count,
+        worker_started_at: state.worker_started_at,
+        degraded_reason: state.degraded_reason
+      },
+      outbox: { count: null, oldest_created_at: null, cursor: null },
+      proof: { last_evidence_at: null, note: 'Event store unavailable. No proof claim is made.' },
+      approval: { pending: null, note: 'Approval state not observed; event store unavailable.' },
+      fallback: { mode: state.fallback_mode, reason: state.degraded_reason || 'Event store unavailable.' },
+      role_tab_presence_note:
+        'Tab presence is browser UI metadata. It is never evidence that an agent is running.',
+      task_note: 'A delivery ACK proves delivery only. Executor acceptance is a separate event.'
+    };
+  }
+
   let events = [];
   try {
-    const listed = store.list();
-    events = Array.isArray(listed) ? listed.slice(-MAX_EVENTS) : [];
+    events = store.list().slice(-MAX_EVENTS);
   } catch (error) {
     events = [];
   }
 
+  const now = Date.now();
   const live = events.filter((event) => {
     try {
-      return !isExpired(event);
+      return !isExpired(event, now);
     } catch (error) {
       return true;
     }
   });
 
   let approvalPending = 0;
-  let newestEvidenceAt = state.last_evidence_at || null;
+  let newestEvidenceAt = null;
+  let queued = 0;
+  let oldestQueuedAt = null;
 
   for (const event of live) {
-    if (event && event.task_state === 'APPROVAL_PENDING') approvalPending += 1;
-    const at = event && (event.created_at || event.produced_at);
-    if (at && (newestEvidenceAt === null || Date.parse(at) > Date.parse(newestEvidenceAt))) {
-      if (event && typeof event.event_type === 'string' && event.event_type.startsWith('proof.')) {
+    if (!event || typeof event !== 'object') continue;
+
+    if (event.task_state === APPROVAL_PENDING_STATE) approvalPending += 1;
+
+    if (event.delivery_state === OUTBOX_STATE) {
+      queued += 1;
+      const at = event.created_at;
+      if (at && (oldestQueuedAt === null || Date.parse(at) < Date.parse(oldestQueuedAt))) {
+        oldestQueuedAt = at;
+      }
+    }
+
+    if (typeof event.event_type === 'string' && event.event_type.startsWith('proof.')) {
+      const at = event.created_at;
+      if (at && (newestEvidenceAt === null || Date.parse(at) > Date.parse(newestEvidenceAt))) {
         newestEvidenceAt = at;
       }
     }
   }
 
+  // transport.status() returns a plain string, e.g. TRANSPORT_STATUS.DISABLED.
   let transportStatus = 'UNKNOWN';
-  let transportDetail = 'Transport status not observed.';
   try {
     const reported = transport.status();
-    if (reported && typeof reported === 'object') {
-      transportStatus = reported.state || reported.status || 'UNKNOWN';
-      transportDetail = reported.detail || 'No detail reported by transport.';
-    }
+    transportStatus = typeof reported === 'string' && reported !== '' ? reported : 'UNKNOWN';
   } catch (error) {
     transportStatus = 'UNKNOWN';
-    transportDetail = 'Transport status call failed.';
   }
 
-  let outbox = 0;
-  let outboxOldest = null;
+  let cursor = null;
   try {
-    const pending = store.list({ delivery_state: 'OUTBOX' });
-    if (Array.isArray(pending)) {
-      outbox = pending.length;
-      for (const event of pending) {
-        const at = event && event.created_at;
-        if (at && (outboxOldest === null || Date.parse(at) < Date.parse(outboxOldest))) outboxOldest = at;
-      }
-    }
+    const value = store.cursor();
+    if (Number.isFinite(value)) cursor = value;
   } catch (error) {
-    outbox = 0;
+    cursor = null;
   }
 
   return {
     observed: true,
     observed_at: new Date().toISOString(),
+    degraded: false,
     relay: {
-      name: state.transport_name,
-      enabled: state.transport_enabled === true,
+      name: transport.name,
+      enabled: transport.enabled === true,
       status: transportStatus,
-      detail: transportDetail,
+      detail: transport.enabled
+        ? 'Transport reports enabled. Readiness is not execution.'
+        : 'Adapter is disabled in this build. No host was contacted.',
       boot_count: state.worker_boot_count,
       worker_started_at: state.worker_started_at,
       degraded_reason: state.degraded_reason
     },
-    outbox: {
-      count: outbox,
-      oldest_created_at: outboxOldest,
-      cursor: state.event_cursor
-    },
+    outbox: { count: queued, oldest_created_at: oldestQueuedAt, cursor },
     proof: {
       last_evidence_at: newestEvidenceAt,
       note:
@@ -219,20 +290,17 @@ function deriveStatus(state, store, transport) {
           : 'Newest proof event timestamp. Verification is a separate claim.'
     },
     approval: {
-      pending: approvalPending,
-      note:
-        approvalPending === 0
-          ? state.approval_note
+      pending: STATE_NAMES_CONFIRMED ? approvalPending : null,
+      note: STATE_NAMES_CONFIRMED
+        ? approvalPending === 0
+          ? 'No task is currently held at APPROVAL_PENDING.'
           : 'Tasks held at APPROVAL_PENDING. They are not progressing.'
+        : 'Task state vocabulary unconfirmed against the lib. Approval state is UNKNOWN.'
     },
-    fallback: {
-      mode: state.fallback_mode,
-      reason: state.fallback_reason
-    },
+    fallback: { mode: state.fallback_mode, reason: state.fallback_reason },
     role_tab_presence_note:
       'Tab presence is browser UI metadata. It is never evidence that an agent is running.',
-    task_note:
-      'A delivery ACK proves delivery only. Executor acceptance is a separate event.'
+    task_note: 'A delivery ACK proves delivery only. Executor acceptance is a separate event.'
   };
 }
 
