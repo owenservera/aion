@@ -1,5 +1,8 @@
 # AION — M0.5: AION MESSAGE TO CHATGPT WEB APP VIA BFF LINUX
 
+> **HISTORICAL ROUTE / SUPERSEDED AS PRIMARY HOST (2026-10-17):** This document preserves the 2026-10-16 Linux-target M0.5 plan and evidence, **but it is no longer the current execution location**. Owner selected the official **Windows master** instead. Do not dispatch a new M1 browser test to BFF Linux by default. Current authority: [Windows M1 architecture](./AION-M1-WINDOWS-MASTER-EXECUTION.md); [methods/experiments index](./AION-M1-EXPERIMENTS-AND-METHODS.md). Acceptance remains unchanged; live M1 unverified, applicable host stop order still active.
+
+
 **Authority:** Owen, direct correction, 2026-10-16: "No - AION send CHATGPT webapp real message via linux".
 **State:** DEFINED / NOT YET PROVEN.
 **Scope:** AION top-level M0.5, the concrete Linux execution path for introspection. This is not a Grok Bot standalone probe and not the UAH Communications Spine's separately numbered milestone.
