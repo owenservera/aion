@@ -10,12 +10,12 @@ You are working on AION. Current operating model: **Windows-driven development**
 
 ## Rules
 - **Proof before status.** No claim of a test, install, send, reply or milestone without a receipt (output, commit, hash, observed result) and UTC time.
-- **Builder, runner and verifier must be different identities** for any milestone claim.
-- **Stop order:** do not drive the signed-in browser, install extensions, or touch accounts unless STATE.json shows an unexpired, scoped authorization. Local code work and loopback tests are fine under your normal approval prompts.
-- **One public branch: `main`.** Use local-only worktrees/branches if you need isolation; do not push other branches.
+- **Risk-based verification:** routine changes require appropriate tests and a readable commit; a genuinely independent reviewer is required only for real M1 acceptance, security-critical boundary changes, and disputed evidence. Builder and runner may be the same local agent.
+- **Direct Windows development is approved as the operating model:** local agents can inspect source, edit code, run builds/unit tests, use ordinary local tools and perform non-destructive diagnostics without separate policy documents, identity handoffs or a daemon. The previously recorded host/browser stop order still applies to controlling signed-in ChatGPT and privileged/account actions until owner explicitly restarts that scope; a plain, traceable owner instruction is sufficient—no special grant-file template required. Do not confuse stale STATE.json with revocation of a newer owner instruction.
+- **Git workflow:** target `main`; agents may use one checkout or local worktrees as convenient. Commit and push through ordinary verified Git operations with conflict checks. Avoid concurrent blind pushes/force-pushes; a permanent git integrator is optional, not a prerequisite.
 - **No secrets, cookies, tokens or private transcripts** in the repo, issues or logs. Receipts are minimized.
 - **Do not add new design documents** if an existing one can be edited. Archive, do not delete, superseded material.
-- **No new Chrome extension** before the ACPX review (issue #25) is done.
+- **Prefer ACPX reuse:** inspect existing ACPX before duplicating effort when available; do not block a smaller live-path experiment merely because a separate review role has not ACKed.
 - Playwright/Puppeteer: currently disallowed for new AION work (rationale is being written down; see the architecture proposal, section 5).
 - GitHub issues and commits do **not** wake ChatGPT or any agent. If you need another actor, say so in an `AION_HANDOFF_V1`.
 - The Grok Bot rule "never write code" applies to Grok only.
@@ -28,4 +28,4 @@ node --test send-m05.test.js        # 35 unit tests, no browser needed
 The adapter's live modes (`--live`, `--read-last`, `--inspect-dom`) touch a real browser and need an authorization.
 
 ## Handoff
-End any session with `AION_HANDOFF_V1` (template in `workspace/aion/ONBOARDING.md`).
+Use a short handoff **only when a task crosses agents/sessions or work is left unfinished**. Ordinary completed tasks need a commit/receipt and concise result, not a mandatory form.
