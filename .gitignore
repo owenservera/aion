@@ -1,10 +1,13 @@
 /*
 !/.gitignore
 !/README.md
+!/AGENTS.md
 !/workspace
 /workspace/*
 !/workspace/aion
 /workspace/aion/**/node_modules/
+/workspace/aion/**/__pycache__/
+*.pyc
 
 # Approved AION executive canon and PM exchange on the one main branch
 !/canon/

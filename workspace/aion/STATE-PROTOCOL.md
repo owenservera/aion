@@ -23,7 +23,8 @@ Failures: `BLOCKED`, `REJECTED`, `UNKNOWN`.
 Transport ACK != actual model reply != AION consumption. Never skip a state on self-report. `m1_verified:true` only following full real authenticated Windows ChatGPT exchange, AION-origin proof, readback and negative case verified independently.
 
 ## Safety and consistency
-- Owner's Windows system is the master; BFF Linux optional; Z.ai mock only.
+- Owner's Windows system is the master; local Windows agents execute; ChatGPT and Claude collaborate and review; BFF Linux optional; Z.ai mock only (see `canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md`).
+- Builder, runner and verifier of a milestone claim must be different identities. Only `main` is pushed; local worktrees stay local.
 - Current recorded host/browser **stop order remains**, so publishing this infrastructure does not authorize a live test, installs or account access.
 - No Playwright/Puppeteer anywhere in AION work.
 - No secrets, browser cookies, access tokens or sensitive transcripts in snapshot, GitHub issues or logs.
