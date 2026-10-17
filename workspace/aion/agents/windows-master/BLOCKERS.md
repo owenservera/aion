@@ -97,6 +97,37 @@ the browser target and the action is sufficient — no separate grant-file templ
 
 ---
 
+## B6 — no AION Chrome extension exists, and installing one needs authorization · **OPEN**
+
+**Verified 2026-10-17** by reading Chrome's `Secure Preferences` for all four profiles.
+
+- **No AION-owned Chrome extension exists.** `ops/chrome-relay/` holds design documents only, and the
+  `com.aion.relay` native-messaging host described in its architecture note is not registered.
+- **`extensions/chatgpt` (ChatGPT Full Exporter 1.1.0) is NOT loaded in any profile.** It is dormant
+  source on disk. It already does the hard part — driving the real `#prompt-textarea` — but it has no
+  `nativeMessaging` permission and writes only a ZIP to `Downloads`.
+- **The MAGIC API Graph extension is also not installed**, so the Bun↔TCP↔native-messaging transport
+  exists only as a reference implementation to copy from, never as running infrastructure.
+- Only three local-path extensions are loaded at all, and all are unrelated to AION (two `vivim`
+  builds and a `REVERSE-EXTENSIONS` build).
+
+**Consequence for M1:** the missing unit is **extension + bridge**, not a single bridge file. See the
+correction in [`M1-PATH.md`](M1-PATH.md).
+
+**Why this needs the owner.** Loading an unpacked extension into the profile that holds the signed-in
+ChatGPT session is exactly the kind of privileged, account-touching action the stop order covers. It
+also changes the browser the owner is signed into, so it should not be done unilaterally.
+
+**Sequence that needs no authorization:** write the extension and the bridge, run both against local
+fixtures and a local mock ChatGPT page, and have them reviewed. Only **installing into the signed-in
+profile** and **exercising it against chatgpt.com** are gated.
+
+**Known candidate:** `Profile 3` is the ChatGPT-heavy profile (Superpower for ChatGPT 8.5.0,
+WebChatGPT 4.2.0, Claude 1.0.100, `open-claude-in-chrome`). Its per-extension enabled/disabled state was
+not readable in this pass, so confirm before depending on any one extension.
+
+---
+
 ## B4 — ACPX source unavailable · **OPEN**
 
 `owenservera/ACPX` returns 404 and `acpx-kit.zip` is not on this machine. `STATE.json` block

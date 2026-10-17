@@ -35,14 +35,50 @@ Observed directly on `OWNER_WINDOWS_MASTER` on 2026-10-17 by version query and f
 | Running at observation | yes (19 processes) |
 | Playwright / Puppeteer | **not installed, not permitted** for AION work |
 
-## Chromium extensions found (first-party)
+## Chromium extensions found (first-party source on disk)
 
-| Path | Name / version | Transport | Relevance |
+| Path | Name / version | Transport | Installed? |
 |---|---|---|---|
-| `extensions/chatgpt/` | ChatGPT Full Exporter 1.1.0 (MV3) | none — writes a ZIP via `chrome.downloads` | **Primary reuse candidate.** `content.js` already fills the real `#prompt-textarea` and sends (`sendPrompt`). |
-| `magic-api-graph/src/harness/extension/` | MAGIC API Graph Extension Pipe 2.0.0 (MV3) | **nativeMessaging** + TCP `127.0.0.1:9100` → Go host | **Proven transport pattern** to copy for the AION return leg. |
-| `extension/` | Claude Conversation Downloader 1.2.0 | none | claude.ai only, not ChatGPT |
-| `seed/extension/` | Vivim Sidecar 1.0 | declarativeNetRequest | unrelated |
+| `extensions/chatgpt/` | ChatGPT Full Exporter 1.1.0 (MV3) | none — writes a ZIP via `chrome.downloads` | **NO — not loaded in any profile** |
+| `magic-api-graph/src/harness/extension/` | MAGIC API Graph Extension Pipe 2.0.0 (MV3) | **nativeMessaging** + TCP `127.0.0.1:9100` → Go host | **NO — not loaded in any profile** |
+| `extension/` | Claude Conversation Downloader 1.2.0 | none | no |
+| `seed/extension/` | Vivim Sidecar 1.0 | declarativeNetRequest | no |
+
+**There is no AION-owned Chrome extension.** `ops/chrome-relay/` holds design documents only and
+`com.aion.relay` is not registered.
+
+## What Chrome actually has loaded (verified from `Secure Preferences`, 2026-10-17)
+
+**Local-path (unpacked) extensions actually loaded — 3, none AION-related:**
+
+| Profile | Location |
+|---|---|
+| Default | `vivim-app-og\vivim-app\edge-pwa\extension\dist` |
+| Default | `REVERSE-EXTENSIONS\Echoes-ai sync engine\vivim-sync-refactored\build\chrome-mv3-prod` |
+| Profile 2 | `vivim-app-og\vivim-app\edge-pwa\extension\dist` |
+
+**Profile 3 is the ChatGPT-heavy profile** and therefore the candidate for any live M1 work:
+
+`Superpower for ChatGPT 8.5.0` · `WebChatGPT 4.2.0` · `Claude 1.0.100` ·
+`Download Claude conversations 1.16.2` · `open-claude-in-chrome` (unpacked) ·
+`MCP Pointer 0.5.2` · `Chrome Extension Builder 1.3.0` · `Chrome Remote Desktop 2.1` ·
+`Gemini in Chrome` · `OpenScroll` · plus standard Google/Microsoft entries.
+
+`Default` carries `PromptForge for ChatGPT` 1.1.3, `Claude` 1.0.91, `CRX Extractor/Downloader`
+and `Extension Source Downloader`. `Profile 2` carries `Antigravity Browser Extension` and an
+`open-claude-in-chrome` unpacked copy.
+
+**Caveat on the reading:** extension `state` (enabled/disabled) did not survive JSON extraction in
+this pass, so the listing above proves *what is registered*, not *what is switched on*. Enabling
+state must be confirmed before relying on any single extension.
+
+Chrome binary is **155.0.8059.82**. Several profiles reference resource paths under 148.x/153.x,
+which is normal Chrome behaviour (older resources are retained for extension compatibility), not
+evidence of multiple installed browsers.
+
+**Security note, not an AION action:** `CRX Extractor/Downloader` and `Extension Source Downloader`
+are installed in `Default`. They exist to pull extension source off the store. Worth an owner's
+decision separately; nothing in AION depends on them.
 
 ## Native-messaging hosts registered (HKCU)
 
