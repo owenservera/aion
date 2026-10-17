@@ -128,24 +128,43 @@ So the override's precondition is unsatisfiable until ACPX is supplied **or** de
 | **B. Declare ACPX unavailable; proceed with the CR-001 fixture MVP** | The MVP is code-only — no browser, no signed-in session, no authorization needed, and it already names OpenCode as implementer. |
 | C. Keep deferring | Nothing is built; M1 stays unverified for the same reason it is today. |
 
-**Gating note:** building the CR-001 MVP needs **no** authorization. Installing an unpacked extension
-into the profile holding the signed-in ChatGPT session, or exercising anything against chatgpt.com, is
+**Owner ruling (2026-10-17):** build it. ACPX declared unavailable (B4), CR-001 MVP implementation
+started. See [`M1-PATH.md`](M1-PATH.md) for the design inventory and the four truthfulness rules the
+UI must hold.
+
+**Gating note:** building the CR-001 MVP needs **no** authorization — it is code-only, with no browser,
+no signed-in session, and disabled/fixture-only transports. Installing an unpacked extension into the
+profile holding the signed-in ChatGPT session, or exercising anything against chatgpt.com, remains
 gated by B3.
 
-**Spec defect to settle before building:** the role count drifts — `ARCHITECTURE.md` and CR-001 item 2
-say **eight** tiles, `FALLBACK-AND-ACCEPTANCE.md` T0 and the CR-001 acceptance line say **five** cards,
-and `ROLES.json` says `role_count: 8`. Acceptance is untestable until this is pinned to one number.
+**Spec defect settled during implementation (2026-10-17):** role count pinned to **eight**, per
+`ROLES.json` (`role_count: 8`). The "five role cards" wording in `FALLBACK-AND-ACCEPTANCE.md` T0 and the
+CR-001 acceptance paragraph is stale and should be corrected in those documents.
+
+**One decision still required — the live test.** "Test live" needs a scoped authorization naming the
+browser target and the action, per `DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md` §5. A plain owner
+instruction is sufficient; no grant-file ritual. Until then the MVP can be built, tested and reviewed,
+but **not** installed into the signed-in profile or driven against chatgpt.com.
 
 ---
 
-## B4 — ACPX source unavailable · **OPEN**
+## B4 — ACPX source unavailable · **CLOSED — declared unavailable by owner, 2026-10-17**
 
 `owenservera/ACPX` returns 404 and `acpx-kit.zip` is not on this machine. `STATE.json` block
-`ACPX_SOURCE` remains `NOT_SHARED_IN_REPO`; the recorded sha256
-(`273c882f…dca3b75`) cannot be checked because the bytes are absent.
+`ACPX_SOURCE` remains `NOT_SHARED_IN_REPO`; the recorded sha256 (`273c882f…dca3b75`) cannot be
+checked because the bytes are absent.
 
-**Needed from the owner:** supply the artifact, or confirm AION proceeds without it. The plan in
-[`M1-PATH.md`](M1-PATH.md) does not depend on it.
+**Owner ruling (2026-10-17):** ACPX is declared unavailable and the AION Chrome Relay Station
+(CR-001) proceeds without it. The 2026-10-17 priority override in `ARCHITECTURE.md` and
+`OPENCODE-BUILD-ORDER.md` therefore no longer blocks implementation — its precondition ("inspect ACPX
+first") is unsatisfiable by any local action, and the owner has resolved it.
+
+**What this ruling does and does not change:**
+- It does **not** assert ACPX would have been unsuitable. Issue #25 (ACPX-001, "Eight-role leverage
+  review: local ACP browser bus vs AION M1 relay") is a real open comparison that was never answered
+  because the artifact is missing. It stays open as an unanswered question, not a closed one.
+- It does **not** authorise installing anything into a signed-in browser profile. See B3.
+- The `ACPX_SOURCE` block in `STATE.json` stays `NOT_SHARED_IN_REPO` — that is still factually true.
 
 ---
 
