@@ -1,0 +1,32 @@
+{
+  "RepoPath": "C:\\0-BlackBoxProject-0\\AION",
+  "Branch": "main",
+  "RemoteName": "origin",
+  "IntervalMinutes": 5,
+  "LockStaleMinutes": 15,
+  "MaxRunSeconds": 240,
+  "MaxLogFiles": 14,
+  "TaskName": "AION-Sync",
+  "DenyPathPatterns": [
+    "(?i)\\.env",
+    "(?i)\\.pem$",
+    "(?i)\\.key$",
+    "(?i)\\.p12$",
+    "(?i)\\.pfx$",
+    "(?i)\\.crt$",
+    "(?i)id_rsa",
+    "(?i)id_ed25519",
+    "(?i)credentials",
+    "(?i)\\.secrets",
+    "(?i)\\.npmrc",
+    "(?i)\\.netrc",
+    "(?i)node_modules/",
+    "(?i)\\.log$",
+    "(?i)\\.sqlite",
+    "(?i)\\.db$",
+    "(?i)\\.lock$",
+    "(?i)secrets?\\.json",
+    "(?i)service-account.*\\.json$",
+    "(?i)token[s]?\\.json$"
+  ]
+}
