@@ -11,6 +11,24 @@
   "live_execution_authorized": false,
   "authorization_basis": "Host/browser stop order recorded in workspace/aion/pm/UAH-COMMS-SPINE-PLAN-v0.1.md; owner chose Windows-driven dev on 2026-10-17 but no scoped Windows authorization (AION_AUTHORIZATION_V1) is on record",
   "m1_verified": false,
+  "local_execution_agent": "opencode",
+  "local_execution_agent_basis": "Owner decision 2026-10-17: OpenCode is the local Windows execution agent; ZCode deferred as an execution agent. OpenCode 1.18.35 verified present and functional on OWNER_WINDOWS_MASTER, and this bootstrap was executed through it. See workspace/aion/agents/windows-master/BLOCKERS.md decision D1.",
+  "windows_bootstrap": {
+    "status": "VERIFIED",
+    "observed_utc": "2026-10-17T11:35Z",
+    "repo_path": "C:\\0-BlackBoxProject-0\\AION",
+    "remote": "https://github.com/owenservera/aion.git",
+    "cloned_head": "62758cd85e607a1ad973768ac80bd7e284ed271b",
+    "current_head_at_observation": "60a5220ca74b6b68fbfbf742a3bde729016b43b0",
+    "sync_task_name": "AION-Sync",
+    "sync_interval_minutes": 5,
+    "sync_task_state": "Ready",
+    "sync_suite": "13/13 PASS",
+    "adapter_suite": "35/35 PASS",
+    "zcode_driver_suite": "6/6 PASS",
+    "agent_folder": "workspace/aion/agents/windows-master/",
+    "notes": "Unattended operation proven on the real repository: the scheduler committed and pushed 1c07f6d and 60a5220 without prompting; git ls-remote main matched local HEAD."
+  },
   "current_goal": "AION-originated real authenticated ChatGPT web app prompt on Windows -> real reply -> independently consumed by AION with matching ID and negative-case verification",
   "current_phase": "WINDOWS_DIRECT_DEV_AND_ACPX_REUSE",
   "next_action": "Use existing local Windows tools to inventory Chrome/ACPX/adapter; directly run existing unit tests and implement only missing components. One clear owner instruction can restart the narrowly scoped signed-in browser test; no daemon, triple-signoff, grant-file ritual or mandatory worktree.",
@@ -30,8 +48,9 @@
   "blocks": [
     {
       "id": "WINDOWS_INVENTORY",
-      "status": "UNVERIFIED",
-      "proof_required": "Observed inventory of Chrome session, installed Bun/bridge/ZCode/OpenCode on official Windows machine"
+      "status": "VERIFIED_2026-10-17",
+      "proof_required": "Observed inventory of Chrome session, installed Bun/bridge/ZCode/OpenCode on official Windows machine",
+      "proof": "workspace/aion/agents/windows-master/ENVIRONMENT.md; Windows 11 build 29683, PowerShell 7.6.3, Git 2.51.2, Bun 1.4.2, Node 24.11.1, Chrome 155.0.8059.82 with 4 profiles, OpenCode 1.18.35, Claude Code, Codex, ZCode all confirmed by version query"
     },
     {
       "id": "ACPX_SOURCE",

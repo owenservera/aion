@@ -55,14 +55,43 @@ Safety properties, each of which is a test case rather than a claim:
   CRLF while `OUTBOUND_MESSAGE` is LF-joined, so the never-fabricate verbatim check could never match on
   Windows. `1/35 → 0/35` failures. The fix normalises line endings only; it does not relax the check.
 
-## Phase 3 — Verification · **DONE (sync) / PARTIAL (upstream suites)**
+## Phase 3 — Verification · **DONE**
+
+Every result below was observed by running the suite; none is inherited from a claim.
 
 | Suite | Command | Result |
 |---|---|---|
-| Sync engine | `ops/winsync/Test-AionSync.ps1` | 13/13 passed |
-| AION adapter | `node --test send-m05.test.js` | **35/35 passed** (was 34/35 before the CRLF fix) |
-| AION zcode driver | `bun test` in `bff/zcode` | 1 pass / 4 fail — see [`BLOCKERS.md`](BLOCKERS.md#b1) |
-| MAGIC API harness | `bun test` in `magic-api-graph` | 259 pass / 10 fail / 5 errors — separate project, out of AION scope |
+| Sync engine | `Test-AionSync.ps1` | **13/13 PASS**, suite exit `0`, 520.6 s |
+| AION adapter | `node --test send-m05.test.js` | **35/35 PASS** (was 34/35 before the CRLF fix) |
+| AION zcode driver | `bun test` in `bff/zcode` | **6/6 PASS** (was 1/4) — see [`BLOCKERS.md`](BLOCKERS.md#b1) |
+| MAGIC API harness | `bun test` in `magic-api-graph` | 259 pass / 10 fail / 5 errors — separate project, outside AION scope |
+
+Sync suite coverage, per test: clone integrity, authenticated remote access, local→remote,
+remote→local, concurrent prevention, stale-lock recovery, uncommitted preservation, divergent-conflict
+preservation, interrupted-run recovery, pause/resume, log redaction, deny-pattern staging, and
+recovery from an induced failure. All fixtures are disposable and under `%TEMP%`; the AION tree is
+only ever read.
+
+### Independent proof of unattended operation
+
+After the task was registered, the scheduler ran **without further prompting** and committed and
+pushed the bootstrap work itself:
+
+| Commit | Content |
+|---|---|
+| `1c07f6d` | `aionsync: 17 file(s) changed on Windows master 2026-10-17T11:10:39Z` — the agent folder, sync system, inventory and both defect fixes |
+| `60a5220` | `aionsync: 2 file(s) changed on Windows master 2026-10-17T11:15:31Z` |
+
+`git ls-remote origin refs/heads/main` returned `60a5220`, equal to local `HEAD`, with a clean working
+tree and no divergence. `state/last-success.json` recorded the successful run. This is the end-to-end
+chain — discover → commit → push → remote verify — demonstrated on the real repository rather than
+only in fixtures.
+
+## Phase 3a — Execution agent routing · **DONE (owner decision D1)**
+
+**OpenCode 1.18.35 is the local Windows execution agent**; ZCode is deferred as an execution agent.
+Full record in [`BLOCKERS.md`](BLOCKERS.md#d1). This bootstrap ran through OpenCode, which is itself
+evidence the agent is operational on this host.
 
 ## Phase 4 — Ecosystem dependency inventory · **DONE**
 

@@ -4,52 +4,84 @@ Items that must not be self-resolved. Each names the decision owner, the evidenc
 
 ---
 
-## B1 — zcode driver tests assume POSIX file permissions · **OPEN**
+## D1 — Local execution agent: OpenCode · **DECIDED 2026-10-17 (owner)**
 
-**Observed.** `cd workspace/aion/bff/zcode && bun test` → **1 pass, 4 fail.**
-The four failures all abort with:
+**Decision.** **OpenCode is the local Windows execution agent** for AION work on `OWNER_WINDOWS_MASTER`.
+ZCode is deferred as an execution agent until it is working on Windows.
 
-```
-error: token file ...\tok0.<n> must be mode 0600 (is 666)
-```
+**Owner statement (2026-10-17):** "we are going change for now to opencode as the local windows
+execution agent until we get zcode working."
 
-The driver's tests create a token file and assert that an insecure mode is rejected. On Windows the
-file mode is always reported as `666` because POSIX mode bits are not meaningful on NTFS, so the
-security check fires before the test can reach the behaviour it means to exercise
-(`auth` stage, `health` stage, full turn).
+**Verified present and functional on this host:**
 
-**Why this was not just fixed.** The check is a genuine security control. Making the tests pass on
-Windows by relaxing it would silently weaken token-file protection for the ZCode transport. That is a
-security decision, not a test fix.
+| Tool | Version | Path |
+|---|---|---|
+| OpenCode | 1.18.35 | `C:\ProgramData\chocolatey\bin\opencode.exe` |
+| ZCode | present | `C:\Users\VIVIM.inc\.local\bin\zcode.cmd`, upstream `zai-org/ZCode` |
 
-**Options for the owner:**
+OpenCode configuration is present (`~/.config/opencode/opencode.json`). This bootstrap was itself
+executed through OpenCode, which is direct evidence the agent is operational here — not an assumption.
 
-| Option | Effect |
+**Scope of the decision.** This routes *who writes and runs code*. It does not alter:
+- `live_execution_authorized: false` — the signed-in ChatGPT browser remains unauthorized (B3);
+- the M1 acceptance contract;
+- the rule that Grok Bot never authors code;
+- the preference to reuse existing components rather than build parallel ones.
+
+**ZCode's status changed, but note carefully:** B1 (the POSIX permission defect) is now **fixed** and
+`bff/zcode` is green at 6/6. ZCode's *driver* is therefore no longer the reason for deferring it.
+Whether to return ZCode to the execution rotation is a fresh owner decision, not a consequence of this
+record. ZCode also remains a transport path for the ACP/BFF work, independent of who authors code.
+
+## B1 — zcode driver tests assume POSIX file permissions · **RESOLVED 2026-10-17**
+
+**Was:** `bun test` in `workspace/aion/bff/zcode` → 1 pass, 4 fail, every failure aborting with
+`token file ... must be mode 0600 (is 666)`.
+
+**Root cause (verified empirically, not assumed).** Two separate defects, not one:
+
+1. **The permission check was meaningless on Windows.** NTFS has no POSIX mode bits — Node reports
+   `0o666` for *every* file, so `mode & 0o077` was non-zero unconditionally and the check rejected every
+   token file on this host while proving nothing about its real permissions.
+2. **The tracked-tree guard was dead code.** `path.resolve(file).startsWith("/workspace/aion")` can
+   never match on Windows, where `resolve()` returns `C:\...`. That security rule had never once fired.
+
+**Fix — controls replaced, not removed.** `assertTokenFileNotWorldReadable()` now enforces the actual
+threat model on each platform:
+
+| Platform | Control |
 |---|---|
-| **A. Gate the permission check on POSIX** — skip it when `process.platform !== 'win32'`, and instead assert the Windows equivalent (ACL restricted to the current user). | Recommended. Preserves the control's intent, makes the tests meaningful on Windows. |
-| B. Leave as-is and record the 4 failures as a known Windows limitation | Honest but leaves the suite red, which erodes its signal. |
-| C. Drop the token-file permission model in favour of the Windows Credential Manager | Larger change; touches the transport's security model. |
+| POSIX | unchanged — rejects group/other mode bits (`mode & 0o077`) |
+| Windows | reads the DACL via `icacls` and rejects grants to `Everyone`, `Authenticated Users`, `BUILTIN\Users`, `BUILTIN\Guests`. `SYSTEM` and `Administrators` are deliberately allowed — they can take ownership of any file anyway, so denying them buys nothing. |
 
-**Blocking:** the 4 zcode tests only. Not blocking M1 — the zcode driver is not on the ChatGPT
-introspection path.
+The tracked-tree guard now compares **resolved** roots for both layouts and honours an
+`AION_REPO_ROOT` override so it is testable without touching the real repo. A file inside the AION tree
+is now correctly rejected on Windows — it previously was not.
+
+**Result:** `bun test` → **6 pass / 0 fail.** Two new tests cover both rules, including a
+negative case proving the tracked-tree rejection actually fires.
+
+**Not a workaround:** the check is still enforced on Windows, now against the mechanism that platform
+actually has.
 
 ---
 
-## B2 — C: drive has 1.10 GB free · **OPEN**
+## B2 — C: drive has 1.10 GB free · **OWNED BY PC HQ — not an AION action**
 
-**Observed.** `Get-PSDrive C` → 469.70 GB used, **1.10 GB free**.
-The decision record (`DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md` §6.3) noted 6.3 GB free at the time,
-so this has degraded by roughly 5 GB and is now critical.
+**Observed.** `Get-PSDrive C` → 469.70 GB used, **1.10 GB free**. The decision record
+(`DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md` §6.3) noted 6.3 GB free at the time.
 
-**Risk.** Git object stores, Bun's cache, npm caches, Chrome profiles and the sync system's logs all
-compete for this volume. A full volume will silently break `git fetch`, the 5-minute sync, and Bun
-installs — and a failed sync under disk pressure is exactly the case where an agent might otherwise
-"fix" it destructively.
+**Ownership (owner decision, 2026-10-17):** disk and local-infrastructure management belong to
+**PC HQ**, which is the governing agent for local infra and is actively working on it. AION does not
+manage, reclaim or optimise host storage. **Nothing was deleted during the AION bootstrap**, and no
+AION task should do so.
 
-**Nothing was deleted.** Removing caches or archives is the owner's call.
+**Relevance to AION (informational only, no action required here):** Git object stores, Bun/npm caches
+and Chrome profiles share this volume. Under disk pressure a `git fetch` or the 5-minute sync can fail.
+That failure would be visible in `logs/audit.ndjson` and would surface as exit code `40` or `50`
+(see [`RUNBOOK.md`](RUNBOOK.md)) — **escalate to PC HQ rather than attempting a fix from an AION lane.**
 
-**Suggested first targets** (all regenerable, none source-of-truth): Bun/npm/pip caches, the stale
-`.gpm-sync` bare mirror, old Chrome profile caches. **Do not** delete any repository working tree.
+**Explicitly out of AION scope:** deleting caches, archives, mirrors or any repository working tree.
 
 ---
 
