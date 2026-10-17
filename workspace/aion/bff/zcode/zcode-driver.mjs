@@ -57,10 +57,26 @@ function assertTokenFileNotWorldReadable(file, st) {
   if (offending) throw new Error(`token file ${file} is readable by a non-owner principal: ${offending.trim()}`);
 }
 
+// AION's tracked tree must never contain the token. The original rule compared
+// against the literal string "/workspace/aion"; on Windows path.resolve returns
+// "C:\...", so that prefix could never match and the rule was silently dead
+// code on this host. Compare resolved roots for both layouts instead, and let
+// AION_REPO_ROOT override so the rule is testable without touching the real repo.
+function aionTrackedRoots() {
+  return [process.env.AION_REPO_ROOT, "/workspace/aion", "C:\\0-BlackBoxProject-0\\AION"]
+    .filter(Boolean)
+    .map(p => path.resolve(p).toLowerCase());
+}
+
+function isInsideTrackedTree(file) {
+  const target = path.resolve(file).toLowerCase();
+  return aionTrackedRoots().some(root => target === root || target.startsWith(root + path.sep));
+}
+
 export function readToken(file) {
   const st = fs.statSync(file);
   assertTokenFileNotWorldReadable(file, st);
-  if (path.resolve(file).startsWith("/workspace/aion")) throw new Error("token file must live outside the tracked /workspace/aion tree");
+  if (isInsideTrackedTree(file)) throw new Error("token file must live outside the tracked AION tree");
   const t = fs.readFileSync(file, "utf8").trim(); if (!t) throw new Error("empty token file"); return t;
 }
 function args(argv) { const o = {}; for (let i = 0; i < argv.length; i++) { const a = argv[i]; if (!a.startsWith("--")) continue; const k = a.slice(2); const v = argv[i + 1]; if (v === undefined || v.startsWith("--")) o[k] = true; else { o[k] = v; i++; } } return o; }
