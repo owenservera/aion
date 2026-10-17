@@ -1,0 +1,85 @@
+{
+  "schema": "aion.entry-state.v1",
+  "updated_utc": "2026-10-17",
+  "update_basis": "GitHub docs and independently reviewed owner-supplied evidence; not a live host inventory",
+  "canonical_entry": "https://github.com/owenservera/aion",
+  "machine_authority": "OWNER_WINDOWS_MASTER",
+  "target_browser_host": "OWNER_WINDOWS_MASTER",
+  "live_execution_authorized": false,
+  "authorization_basis": "Host/browser stop order recorded in workspace/aion/pm/UAH-COMMS-SPINE-PLAN-v0.1.md; no scoped Windows restart authorization on record",
+  "m1_verified": false,
+  "current_goal": "AION-originated real authenticated ChatGPT web app prompt on Windows -> real reply -> independently consumed by AION with matching ID and negative-case verification",
+  "current_phase": "WINDOWS_PRELIVE_REUSE_ASSESSMENT",
+  "next_action": "Inventory real Windows Chrome/session and inspect exact ACPX source; obtain technical review and scoped host authorization before any live test",
+  "primary_reuse_candidate": "ACPX MV3 Chrome extension plus Bun loopback bridge",
+  "blocks": [
+    {
+      "id": "WINDOWS_INVENTORY",
+      "status": "UNVERIFIED",
+      "proof_required": "Observed inventory of Chrome session, installed Bun/bridge/ZCode/OpenCode on official Windows machine"
+    },
+    {
+      "id": "ACPX_SOURCE",
+      "status": "NOT_SHARED_IN_REPO",
+      "proof_required": "Reviewable exact acpx-kit.zip source with hash verification and security review"
+    },
+    {
+      "id": "TOOLSMITH06",
+      "status": "NO_INDEPENDENT_ACK",
+      "proof_required": "Genuine 06 role ACK and adapter contract/reuse decision"
+    },
+    {
+      "id": "WINDOWS_HOST_APPROVAL",
+      "status": "STOP_ORDER_ACTIVE",
+      "proof_required": "Explicit bounded restart authority for real Windows browser operation"
+    },
+    {
+      "id": "LIVE_ROUNDTRIP",
+      "status": "NOT_VERIFIED",
+      "proof_required": "Correlated real ChatGPT send/reply/AION readback and independently checked negative"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "M1-001",
+      "kind": "MOCK_ONLY",
+      "status": "NODE_TESTS_VERIFIED",
+      "tests": "16/16",
+      "issue": "https://github.com/owenservera/aion/issues/24",
+      "source_zip_sha256": "a99998356829ca28291ea04563eb35d3c9863061edacf8e21247768ddddce50a"
+    },
+    {
+      "id": "M1-002",
+      "kind": "MOCK_ONLY",
+      "status": "BROWSER_EVIDENCE_REVIEWED_WITH_SCREENSHOT_CAVEAT",
+      "tests": "18/18",
+      "issue": "https://github.com/owenservera/aion/issues/26",
+      "evidence_zip_sha256": "b531ae8137521c331d25023396b10a9dbb6ec5ed7214d1bfdc1d74460a048db8",
+      "caveat": "consumer-consumed.png identical to consumer-replied.png; CONSUMED is supported by saved event/status data, not separate screenshot"
+    },
+    {
+      "id": "ACPX",
+      "kind": "EXISTING_SOURCE",
+      "status": "NOT_INTEGRATED_OR_CODE_REVIEWED",
+      "issue": "https://github.com/owenservera/aion/issues/25",
+      "zip_sha256": "273c882f63413daf4c6c9e5a7315e27d831aa97bd0357e0aacb565244dca3b75"
+    }
+  ],
+  "paths": {
+    "entry": "README.md",
+    "onboarding": "workspace/aion/ONBOARDING.md",
+    "state": "workspace/aion/STATE.json",
+    "governance": "workspace/aion/STATE-PROTOCOL.md",
+    "windows_architecture": "workspace/aion/canon/AION-M1-WINDOWS-MASTER-EXECUTION.md",
+    "experiments": "workspace/aion/canon/AION-M1-EXPERIMENTS-AND-METHODS.md",
+    "acceptance": "workspace/aion/canon/AION-MILESTONE-1-INTROSPECTION.md"
+  },
+  "rules": [
+    "This JSON is a GitHub-stored snapshot, not a continuously live agent process.",
+    "Proof before status: no test, host action, ACK, deployment or live milestone claim without evidence.",
+    "Owner Windows master has sole human authority; BFF Linux optional; Z.ai disposable mock-only.",
+    "GitHub issues/commits don't wake independent ChatGPT sessions.",
+    "No Playwright or Puppeteer.",
+    "No secrets, cookies, credentials, private raw transcripts in GitHub."
+  ]
+}
