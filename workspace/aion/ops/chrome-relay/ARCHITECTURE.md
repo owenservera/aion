@@ -25,7 +25,7 @@ An optional *explicitly configured* authenticated localhost wss/ws service is fa
 - ACP negotiation: initialize/version/capabilities; supported session/new, resume, prompt, update, cancel; feature-probe actual installed version, do not assume ACP v2 semantics in a v1 runtime.
 
 ## Role model
-Chief/Planning/CoS/Efficiency/Dashboard/TOOLSMITH/INTAKE/Z-FORGE are *named human-facing role contexts*, NOT five independent continuously executing ChatGPT web-app processes. Mapping: role_id -> approved chat URL + canonical GitHub capsule + assigned runtime identity (if any) + last evidence time.
+Chief/Planning/CoS/Efficiency/Dashboard/TOOLSMITH/INTAKE/Z-FORGE are *named human-facing role contexts*, NOT eight independent continuously executing ChatGPT web-app processes. Mapping: role_id -> approved chat URL + canonical GitHub capsule + assigned runtime identity (if any) + last evidence time.
 Future autonomous workers use ACP sessions with explicit authorization, and may send role-directed events that the extension shows. ChatGPT tab presence remains UI metadata; backend workers' liveness is verified separately.
 
 ## Authority model
