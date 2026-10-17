@@ -1,4 +1,7 @@
 # AION Chrome Relay Station — Architecture v0.1
+
+> **2026-10-17 IMPLEMENTATION DIRECTION:** This is a **proposed general-purpose design**, not evidence of installed Chrome relay. Current AION M1 execution target is the official **Windows master** (not BFF Linux). Inspect/reuse the already-uploaded ACPX MV3+Bun kit before authorizing an independent extension build; ACPX code is not currently in the GitHub repository. For shortest-path live M1, do not require side panel, role launcher, generalized native host, SQLite or multi-provider bus first. See [current Windows M1 architecture](../../canon/AION-M1-WINDOWS-MASTER-EXECUTION.md) and [experiment/evidence index](../../canon/AION-M1-EXPERIMENTS-AND-METHODS.md). No Playwright/Puppeteer. The host/browser stop order remains active absent specific restart authorization.
+
 Date: 2026-10-16
 Status: PROPOSED DESIGN / NOT INSTALLED OR RUNNING
 Executive owner: Role 05 (Chief of Chiefs); execution coordinator: Role 03 (Chief of Staff); technical tooling owner: Role 06 (TOOLSMITH, pending live session)
