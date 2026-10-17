@@ -20,32 +20,76 @@ work is blocked. **The blocker is authorization, not code.**
 | ChatGPT → Windows (capture) | `extensions/chatgpt` exporter core — `GET /backend-api/conversations/<id>` with the page access token; saves a ZIP via `chrome.downloads` | **CODE EXISTS ON DISK, NOT INSTALLED.** |
 | **Windows → AION (consume)** | **nothing** | **MISSING.** |
 
-## CORRECTION — the gap is larger than first recorded (verified 2026-10-17)
+## The AION extension design ALREADY EXISTS — do not design a new one
 
-An earlier version of this file described `extensions/chatgpt` as the primary reuse candidate. Checking
-the **actual Chrome profile state** rather than only the filesystem shows that was misleading:
+An earlier revision of this file said "there is no AION Chrome extension" and implied the extension had
+to be invented. That was wrong about the design. **The design is complete and tracked.** Only the
+*code* is absent.
 
-- `C:\0-BlackBoxProject-0\extensions\chatgpt` **is not loaded in any Chrome profile** (Default,
-  Profile 2, Profile 3 or Profile 4). It is dormant source code, not a working component.
-- The MAGIC API Graph extension — the one with `nativeMessaging` and a working Bun↔TCP↔Go bridge — is
-  likewise **not installed**. It exists as a *reference implementation to copy from*, not as running transport.
-
-**Consequence.** There is **no AION-owned Chrome extension at all**. `ops/chrome-relay/` contains
-design documents only and `com.aion.relay` is not registered. So the smallest missing unit is
-**not** a single bridge file — it is an **extension plus a bridge**, and the adapter alone gets AION no
-further than the point where it already stands.
-
-Reassessed smallest missing component:
-
-| # | Missing piece | Notes |
+| Artefact | Path | Status |
 |---|---|---|
-| 1 | An installed AION extension with `nativeMessaging`, able to read the ChatGPT reply and post it to Windows | Must be installed into a profile that has the authenticated ChatGPT session (Profile 3 is the ChatGPT-heavy candidate — see [`ENVIRONMENT.md`](ENVIRONMENT.md)). |
-| 2 | A Bun loopback bridge on `127.0.0.1` that receives the reply and links it to the outbound correlation ID | Can be written and unit-tested against fixtures now, with no browser. |
-| 3 | Negative-case verification per the acceptance contract | A mismatched correlation or non-ChatGPT reply must be **rejected**, not reported as a turn. |
+| Architecture v0.1 | `ops/chrome-relay/ARCHITECTURE.md` | **DESIGNED** — MV3 edge node, `com.aion.relay` native host, UAH/ACP transport, IANG SQLite, GitHub receipts |
+| Envelope contract v0.1 | `ops/chrome-relay/ENVELOPE-CONTRACT.md` | **DESIGNED** — 19 required envelope fields, event families, dual state machines, dedupe by `message_id` + `idempotency_key` |
+| Fallback / acceptance | `ops/chrome-relay/FALLBACK-AND-ACCEPTANCE.md` | **DESIGNED** — five modes A–E, trigger/recovery matrix, T0–T2 test plan |
+| Build order CR-001 | `ops/chrome-relay/OPENCODE-BUILD-ORDER.md` | **DESIGNED** — 6 numbered MVP deliverables, code-only, fixture-first |
+| Role launcher RL-001 | `ops/chrome-relay/role-launcher/` | **DESIGNED** — `ROLES.json` with 8 roles (01–08), keyword `aion`, exact-match only |
+| Tracked work | issue **#18** (CR-001, OPEN), **#22** (RL-001, OPEN), **#25** (ACPX-001, OPEN) | **not started** |
+| Implementation code | `ops/chrome-relay/extension/` | **ABSENT — and never existed in git history** |
 
-Building on the dormant `extensions/chatgpt` code is reasonable — it already does the hard part of
-driving the real composer — but treat it as **code to be installed and reviewed**, not as a working
-component. Its Chrome 155 compatibility is unverified.
+So the correct statement is: **the extension is fully specified, never built, and deliberately not yet
+started.**
+
+## The design itself says "do not build it yet"
+
+This is the part that changes what happens next. Both `ARCHITECTURE.md` and `OPENCODE-BUILD-ORDER.md`
+carry a **2026-10-17 priority override** — dated today — which reads in substance:
+
+> This fixture-first extension build order is **deferred** as a prerequisite to the current Windows M1
+> live test. Inspect ACPX source and current Windows browser/adapter availability first; write **only
+> demonstrated missing code**. Do not build a second extension without source-backed reuse/replace
+> justification.
+
+The design therefore **pre-authorises itself to be paused** pending ACPX review. And ACPX (issue #25,
+"Eight-role leverage review: local ACP browser bus vs AION M1 relay") is exactly what is unobtainable —
+`owenservera/ACPX` 404s and `acpx-kit.zip` is not on this machine.
+
+**The decision this creates is yours, not an agent's:** the design says "reuse ACPX if it exists, and
+otherwise write only demonstrated missing code", but ACPX cannot be inspected. Either supply ACPX, or
+declare it unavailable and let the deferred CR-001 proceed.
+
+## If the CR-001 MVP does proceed, it is already correctly scoped
+
+The spec is deliberately conservative and needs **no** browser, no signed-in session, and no
+authorization:
+
+1. Minimal MV3 unpacked extension + side panel + service worker, selected role tabs only
+2. Role tiles with honest pending-launch states; **distinguish "no data" from "idle"**
+3. Envelope encoder/decoder + validation (allowlisted kinds, sequence, expiry, idempotency key) + fixture store; **no credentials in the extension**
+4. Transport abstraction with all adapters **disabled** or fixture-only — no real host, no silent sends
+5. Deterministic tests: restart/outbox retention, duplicate ACK, dropped connection, stale presence, proof-vs-transport
+6. README with unpacked-load steps, exact test commands, permission rationale, limitations
+
+Acceptance requires an unpacked extension showing role cards and changing simulated modes, with
+restart and duplicate cases losing no work — and critically, **role tab open must NOT show an agent as
+RUNNING**.
+
+**It already names OpenCode as implementer** ("implementation: OpenCode/ZCode only"), which matches
+your decision D1. This is code-only and touches no authenticated account.
+
+### One spec inconsistency to resolve before building
+
+Role count drifts across the design: `ARCHITECTURE.md` and `OPENCODE-BUILD-ORDER.md` item 2 say **eight**
+role tiles, while `FALLBACK-AND-ACCEPTANCE.md` T0 and the CR-001 acceptance line both say **five** role
+cards. `ROLES.json` defines **eight** (`role_count: 8`). Settle on eight before implementing, or the
+acceptance criteria are untestable as written.
+
+### Trust rules the design holds itself to, worth keeping
+
+- A role tab being open is **UI metadata, never** evidence of model activity; liveness is verified separately.
+- An ACK proves delivery, **not** executor acceptance; completion never implies independent verification.
+- The webpage is untrusted and content scripts cannot grant privileges; the native host re-authorizes everything.
+- No transport ever weakens a host stop order.
+- No silent prompt submission — drafting into ChatGPT requires an explicit user gesture.
 
 ## The smallest missing component
 
