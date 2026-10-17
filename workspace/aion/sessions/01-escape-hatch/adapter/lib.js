@@ -146,11 +146,17 @@ function parseArgs(argv) {
  * Load the exact AION-owned message from the outbound file.
  * Never fabricates: throws unless the file contains the expected
  * correlation AND the verbatim message block.
+ *
+ * Line endings are normalised before comparison because a Windows checkout
+ * yields CRLF while OUTBOUND_MESSAGE is assembled with LF joins. Without this
+ * the verbatim check fails on Windows for a file that does contain the block.
+ * Normalising does not weaken the guarantee: the text still has to be present
+ * byte-for-byte apart from line terminators, so nothing is ever fabricated.
  */
 function loadOutbound(mdPath) {
   let text;
   try {
-    text = fs.readFileSync(mdPath, 'utf8');
+    text = fs.readFileSync(mdPath, 'utf8').replace(/\r\n/g, '\n');
   } catch (err) {
     throw new AdapterError('E_OUTBOUND_MISSING', `Outbound file unreadable: ${mdPath} (${err.message})`);
   }

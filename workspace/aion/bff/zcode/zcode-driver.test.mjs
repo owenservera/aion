@@ -30,8 +30,22 @@ test("permissions denied by default, allowed only with flag", async () => {
     assert.equal(hub.log.find(l => l.permissionAnswer).permissionAnswer.outcome.optionId, "allow");
   } finally { await hub.close(); }
 });
-test("token file must be 0600 and outside tracked tree", () => {
-  assert.throws(() => readToken(tokFile("x", 0o644)), /0600/);
+test("token file permissions enforced per platform", () => {
+  if (process.platform === "win32") {
+    // NTFS has no POSIX mode bits, so 0644-vs-0600 is unrepresentable here.
+    // Assert the check does not false-positive on a real temp token file.
+    assert.doesNotThrow(() => readToken(tokFile("x")));
+  } else {
+    assert.throws(() => readToken(tokFile("x", 0o644)), /0600/);
+  }
+});
+test("token file must live outside the tracked tree", () => {
+  const tracked = path.join(os.tmpdir(), "workspace", "aion", "tok");
+  fs.mkdirSync(path.dirname(tracked), { recursive: true });
+  fs.writeFileSync(tracked, "x"); fs.chmodSync(tracked, 0o600);
+  if (process.platform === "win32") fs.chmodSync(tracked, 0o666);
+  try { assert.throws(() => readToken(tracked), /outside the tracked/); }
+  finally { fs.rmSync(tracked, { force: true }); }
 });
 test("unreachable hub fails at health stage", async () => {
   await assert.rejects(main(["--hub", "http://127.0.0.1:1", "--workspace", "x", "--prompt", "hi", "--token-file", tokFile("x")], sink()), /health/);

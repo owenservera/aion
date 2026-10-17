@@ -1,0 +1,9 @@
+# Engine-internal runtime state must never enter a sync commit.
+# The engine commits with `git add --all`, so its own lock / log / audit /
+# escalation / temp files are excluded here at the source. Keep this list in
+# sync with the directory names created by Initialize-Workspace in aion-sync.ps1.
+logs/
+lock/
+state/
+escalations/
+tmp/
