@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AION Relay Station</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#role-grid">Skip to role grid</a>
+
+    <header class="masthead">
+      <div class="masthead__identity">
+        <h1 class="masthead__title">AION Relay Station</h1>
+        <p class="masthead__subtitle">Operator console. Reports observed state only.</p>
+      </div>
+      <div class="masthead__tools">
+        <span class="chip chip--neutral" id="mode-chip" data-state="unknown">MODE UNKNOWN</span>
+        <button type="button" class="btn" id="refresh-btn">Refresh</button>
+      </div>
+    </header>
+
+    <!-- Distinction 1: absence of knowledge is its own state. The banner
+         below is a live element, not decoration, and always says whether the
+         panel currently knows anything. -->
+    <section class="knowledge" id="knowledge-bar" data-state="unknown" aria-live="polite">
+      <span class="knowledge__mark" aria-hidden="true">UNKNOWN</span>
+      <span class="knowledge__text" id="knowledge-text">
+        Nothing has been observed yet. Fields below are unknown, not idle.
+      </span>
+    </section>
+
+    <main class="layout">
+      <section class="panel" aria-labelledby="relay-heading">
+        <h2 class="panel__heading" id="relay-heading">Relay and transport</h2>
+        <p class="panel__note">
+          Transport reachability. Says nothing about task execution or proof.
+        </p>
+        <dl class="readout">
+          <div class="readout__row">
+            <dt>Transport</dt>
+            <dd data-state="unknown" id="relay-transport">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Adapter</dt>
+            <dd data-state="unknown" id="relay-adapter">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Detail</dt>
+            <dd data-state="unknown" id="relay-detail">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Worker boots</dt>
+            <dd data-state="unknown" id="relay-boots">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Worker started</dt>
+            <dd data-state="unknown" id="relay-started">UNKNOWN</dd>
+          </div>
+        </dl>
+        <p class="footnote" id="fallback-reason">Fallback reason: UNKNOWN</p>
+      </section>
+
+      <section class="panel" aria-labelledby="evidence-heading">
+        <h2 class="panel__heading" id="evidence-heading">Proof and evidence</h2>
+        <p class="panel__note">
+          Separate claim from transport. A delivery ACK never populates this.
+        </p>
+        <dl class="readout">
+          <div class="readout__row">
+            <dt>Proof status</dt>
+            <dd data-state="unknown" id="proof-status">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Last evidence</dt>
+            <dd data-state="unknown" id="proof-timestamp">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Staleness</dt>
+            <dd data-state="unknown" id="proof-staleness">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Verifier</dt>
+            <dd data-state="unknown" id="proof-verifier">UNKNOWN</dd>
+          </div>
+        </dl>
+        <p class="footnote" id="proof-note">No proof event observed.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="queue-heading">
+        <h2 class="panel__heading" id="queue-heading">Outbox</h2>
+        <p class="panel__note">Queued, not sent, unless the row says otherwise.</p>
+        <dl class="readout">
+          <div class="readout__row">
+            <dt>Queued</dt>
+            <dd data-state="unknown" id="queue-count">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Oldest queued</dt>
+            <dd data-state="unknown" id="queue-oldest">UNKNOWN</dd>
+          </div>
+          <div class="readout__row">
+            <dt>Cursor</dt>
+            <dd data-state="unknown" id="queue-cursor">UNKNOWN</dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- Distinction 4: the approval gate is a first-class block, not a
+           footnote. A held task must never look like a progressing one. -->
+      <section class="panel panel--gate" aria-labelledby="gate-heading" id="gate-panel" data-gate="unknown">
+        <h2 class="panel__heading" id="gate-heading">Permission and approval gate</h2>
+        <p class="panel__note">
+          Tasks here are held. A held task is not moving and has not been sent.
+        </p>
+        <p class="gate__count" data-state="unknown" id="gate-count">UNKNOWN</p>
+        <ul class="gate__list" id="gate-list"></ul>
+        <p class="footnote" id="gate-note">Approval state not observed.</p>
+      </section>
+    </main>
+
+    <section class="roles" aria-labelledby="roles-heading">
+      <div class="roles__head">
+        <h2 class="panel__heading" id="roles-heading">Role contexts</h2>
+        <p class="panel__note">
+          Eight named contexts. Tab presence below is browser UI metadata. Executor
+          liveness is tracked separately and is never inferred from an open tab.
+        </p>
+      </div>
+      <ul class="role-grid" id="role-grid"></ul>
+    </section>
+
+    <footer class="colophon">
+      <p>
+        Read-only MVP. No content scripts, no host permissions, no page access, no
+        credentials in this extension.
+      </p>
+      <p>
+        Sources: ARCHITECTURE.md, FALLBACK-AND-ACCEPTANCE.md modes A to E,
+        ENVELOPE-CONTRACT.md, role-launcher/ROLES.json.
+      </p>
+    </footer>
+
+    <script type="module" src="panel.js"></script>
+  </body>
+</html>
