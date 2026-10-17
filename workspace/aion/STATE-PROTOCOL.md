@@ -10,11 +10,11 @@ This is the update contract for the **single permanent root entry point** `READM
 
 ## State transition rules
 1. Any actor starts from the current root README and pulls `STATE.json` at a fresh Git commit. Find newer issue receipts.
-2. Before a status change, collect the **actual receiver-side proof** (command output, commit, source hash, observed browser session, real ACK, independent review), UTC time, machine/environment, author and exact scope. Claim `UNKNOWN` if inaccessible.
-3. Record evidence in the canonical issue or versioned evidence file; immutable tests/receipts are never overwritten to imply newer results.
+2. For ordinary development status, a commit and relevant test/output receipt suffice. For real M1 or security-sensitive acceptance, capture sender/receiver evidence, UTC time, identity/environment and an independent review. Claim `UNKNOWN` if inaccessible.
+3. Record one useful evidence link with the task or commit; avoid duplicative issue comments, reports and ZIPs. Preserve acceptance receipts and never overwrite evidence to imply newer results.
 4. Update `STATE.json` using the current blob SHA (optimistic concurrency), revise only affected keys, update `updated_utc` (and ideally include last evidence links). On 409 conflict, re-read, reconcile, retry; never blind overwrite.
-5. If milestone/architecture/experiment semantics changed, update corresponding canon file with backward cross-links. Update `README.md` only if the navigation or top-level summary changes.
-6. Independently fetch updated file(s), verify links, JSON validity and commit SHA. Report VERIFIED vs PENDING correctly.
+5. Update canonical docs only when a decision or meaningful behavior changes; do not create a new design document for each iteration. Update README only if navigation changes.
+6. Verify the actual Git operation and relevant tests; independent reread/reviewer only for material release/acceptance claims or suspected inconsistency. Do not demand a separate verifier for routine Markdown edits.
 7. Onboarding reads latest state and facts; not a prompt to execute work. GitHub messages don't automatically wake ChatGPT conversations or start agents.
 
 ## Acceptance state machine (M1)
@@ -24,12 +24,12 @@ Transport ACK != actual model reply != AION consumption. Never skip a state on s
 
 ## Safety and consistency
 - Owner's Windows system is the master; local Windows agents execute; ChatGPT and Claude collaborate and review; BFF Linux optional; Z.ai mock only (see `canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md`).
-- Builder, runner and verifier of a milestone claim must be different identities. Only `main` is pushed; local worktrees stay local.
-- Current recorded host/browser **stop order remains**, so publishing this infrastructure does not authorize a live test, installs or account access.
-- No Playwright/Puppeteer anywhere in AION work.
+- For routine changes, the same local agent may build, test, commit and verify. For real M1 acceptance or high-risk security changes, require an independent check of the evidence. `main` is the integration target; worktrees and a centralized pusher are optional, not gates.
+- Windows-driven coding, tests, local diagnostics and reversible development actions do not need a separate AION grant document. The earlier host/browser **stop order remains for real signed-in ChatGPT interaction and privileged account/host changes** until the owner explicitly authorizes that scope; ordinary clear owner instructions can provide that authority without a special template.
+- No Playwright/Puppeteer in AION work (owner's standing tooling rule).
 - No secrets, browser cookies, access tokens or sensitive transcripts in snapshot, GitHub issues or logs.
 - Store source SHA and evidence location separately; never claim a ZIP is attached to GitHub when only its digest is known.
-- No automatic sync schedule or background updates are installed by these Markdown/JSON files; a future authorized Windows runner can implement durable auto-refresh subject to tests and permissions.
+- No automatic sync or daemon is installed by these Markdown/JSON files. Add a runner only if it meaningfully reduces work; a daemon, ACL redesign, separate git integrator or additional verifier process is not a prerequisite.
 
 ## Health test for a new hire
 Can they start at `https://github.com/owenservera/aion`, locate Windows master, M1 contract, experiment hashes, current blockers and next action, and give an honest `AION_HANDOFF_V1` with no extra chat context? If yes, onboarding works. If they expect the page to autonomously execute or relay messages, it does not.
