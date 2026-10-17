@@ -24,7 +24,7 @@ Confirm actual current runtime versions and capability surfaces before coding. C
 After fixture MVP passes, Chief of Staff must secure explicit approval to install a least-privilege native host on the relevant machine, run ACP initialize/capability negotiation and connect an approved read-only endpoint. Only then may task dispatch and recovery tests begin. Any privileged command or auto-task execution requires its own authorization.
 
 ## Acceptance of MVP
-AION independently fetches exact commit and reruns tests; an unpacked extension shows five role cards and changing simulated modes. Restart and duplicate cases must not lose/execute work. Role tab open must NOT show agent as RUNNING. All source code authored by OpenCode/ZCode and verified, not declared done on file publication. No new platform, Slack, or branch.
+AION independently fetches exact commit and reruns tests; an unpacked extension shows eight role cards and changing simulated modes. Restart and duplicate cases must not lose/execute work. Role tab open must NOT show agent as RUNNING. All source code authored by OpenCode/ZCode and verified, not declared done on file publication. No new platform, Slack, or branch.
 
 ## Related RL-001 launcher slice
 AION added [keyword role launcher #22](https://github.com/owenservera/aion/issues/22), registry [role-launcher/ROLES.json](./role-launcher/ROLES.json), and [scoped OpenCode work order](./role-launcher/OPENCODE-WORK-ORDER.md). Reuse the existing MV3 extension; keep RL-001 as a bounded subfeature with independent acceptance. Do not bundle untested native conversation rename/UI injection into the fixture MVP.

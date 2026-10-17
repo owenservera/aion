@@ -25,7 +25,7 @@ Heartbeat reflects TRANSPORT_CONNECTED only. Presence represents a browser tab, 
 A transport should be available when Chrome is running, subject to documented MV3 suspension; true unattended execution runs in approved native OS services or OpenCode/ZCode workers, not inside a Chrome extension.
 
 ## Milestone test plan
-T0 extension unpacked loads with minimum host permissions; side panel shows five named roles with UNKNOWN states; no uncontrolled site access.
+T0 extension unpacked loads with minimum host permissions; side panel shows eight named roles with UNKNOWN states; no uncontrolled site access.
 T1 native bridge capability handshake on approved Windows test environment; version negotiation and origin denial test.
 T2 Chrome service-worker suspended/restarted and recovers exactly once, with outbox retained.
 T3 kill native host during queued delivery; reconnect with cursor and no duplicate execution.
