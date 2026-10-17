@@ -6,6 +6,9 @@
 3. Chief of Staff / 03 coordinates real dispatch and acknowledgment; 04 owns OpenCode telemetry; 05 independently verifies; 06 tooling contracts. An issue is not an employee-chat ACK.
 4. AION GitHub ledger is durable tasks + evidence. Browser transport/ChatGPT live M1 remains separate and authorization gated. No Slack, new GitHub repo/branch, Playwright, Puppeteer or automatic host installation.
 
+## ACP architecture distinction (verified official V2 docs)
+V2 `opencode acp` starts a **private OpenCode server** for an ACP v1, newline-delimited JSON-RPC child process; it **does not connect to the shared V2 background service**. This is distinct from the V2 `@opencode/client` HTTP adapter. See [ACP-AND-SERVICE-PROTOCOL.md](./ACP-AND-SERVICE-PROTOCOL.md) for the exact capabilities, session semantics and tests. Do not assume ACP sessions are visible in the shared service's session inventory.
+
 ## Proposed adapter, not built
 Implement one small `OpenCodeV2Adapter` behind the currently authorized dispatcher rather than a second controller. Use versioned DTOs, explicit `run_id`, `task_id`, `session_id`, `attempt_id`, `worktree_path` and `model_id`, with immutable evidence and owner identity. For Windows evaluate `@opencode/client` to talk to a local V2 service. ZCode is *not assumed to be installed/operational as an execution agent on Windows*; where it handles transport, preserve the explicit handoff.
 
