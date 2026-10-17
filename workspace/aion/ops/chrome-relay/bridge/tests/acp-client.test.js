@@ -573,7 +573,7 @@ test('ACP: an agent->client request is answered method_not_found instead of hang
   await withClient({
     label: 'server-request',
     onUnsupportedRequest: (info) => unsupported.push(info),
-  }, async ({ client, agentSaid }) => {
+  }, async ({ client, requestsSent }) => {
     await client.initialize();
     const { sessionId } = await client.newSession({ cwd: TEST_CWD });
 
@@ -587,7 +587,7 @@ test('ACP: an agent->client request is answered method_not_found instead of hang
     // and must be observed on requestsSent(), not agentSaid(). agentSaid() is the
     // agent's own stdout; watching that channel here would report 0 errors and
     // look like a hang, when the client in fact answered correctly.
-    const errors = h.requestsSent().filter((m) => m.error);
+    const errors = requestsSent().filter((m) => m.error);
     assert.equal(errors.length, 1);
     assert.equal(errors[0].error.code, -32601);
     assert.match(errors[0].error.message, /does not implement/);
