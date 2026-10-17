@@ -19,7 +19,8 @@ OpenCode is AION's current **Windows local code execution agent**, by owner deci
 1. [RESEARCH-2026-10-17.md](./RESEARCH-2026-10-17.md) — released feature inventory, architecture, compatibility and provenance.
 2. [MIGRATION-AND-VALIDATION.md](./MIGRATION-AND-VALIDATION.md) — read-only discovery, staged migration, test matrix and rollback.
 3. [AION-INTEGRATION.md](./AION-INTEGRATION.md) — existing system boundaries, proposed high-leverage integration points, acceptance receipts.
-4. [RISKS-AND-SOURCES.md](./RISKS-AND-SOURCES.md) — regressions, disputed/unknown claims, upstream primary documentation and issue trackers.
+4. [ACP-AND-SERVICE-PROTOCOL.md](./ACP-AND-SERVICE-PROTOCOL.md) — native ACP v1 private-server mode versus shared V2 HTTP service.
+5. [RISKS-AND-SOURCES.md](./RISKS-AND-SOURCES.md) — regressions, disputed/unknown claims, upstream primary documentation and issue trackers.
 
 ## Operating decision
 **Recommended: controlled V2 pilot, not an in-place bulk upgrade.** Verify versions and disk headroom; inventory API consumers/plugins; preserve V1 configuration and a recoverable state backup; exercise a standalone, mock-repository V2 evaluation where possible; only then change the production Windows/Linus runtime with an approved rollback. The V2 server API and plugin API are genuinely incompatible with V1.
