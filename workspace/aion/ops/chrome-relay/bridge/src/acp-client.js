@@ -22,7 +22,7 @@ import {
   createNdjsonDecoder,
   encodeJsonRpcLine,
 } from './framing.js';
-import { assertCwdAllowed, normalizePathForCompare } from './config.js';
+import { assertCwdAllowed, cwdKey, normalizePathForCompare } from './config.js';
 
 /** Client status values. `dead` is recoverable; `failed` means it never started. */
 export const CLIENT_STATUS = Object.freeze({
@@ -202,11 +202,15 @@ export function createAcpClient(options) {
 
     child.on('exit', (code, signal) => {
       const sessionsAtExit = sessions.size;
+      // An exit we asked for is not an incident: reporting it as one would make
+      // every clean shutdown look like a crashed agent.
+      const intentional = status === CLIENT_STATUS.CLOSED;
       link = null;
       decoder.error();
       sessions.clear(); // ACP-09: no orphaned sessions after the child dies
-      status = status === CLIENT_STATUS.CLOSED ? CLIENT_STATUS.CLOSED : CLIENT_STATUS.DEAD;
-      lastExit = { reason: 'exit', code, signal, sessionsAtExit };
+      status = intentional ? CLIENT_STATUS.CLOSED : CLIENT_STATUS.DEAD;
+      lastExit = { reason: intentional ? 'closed' : 'exit', code, signal, sessionsAtExit };
+      if (intentional) return;
       failAllPending(ACP_ERROR.AGENT_GONE, `the ACP agent exited (code ${code}, signal ${signal}); every in-flight request was abandoned`);
       logger.warn(`acp agent exited (code ${code}, signal ${signal}); ${sessionsAtExit} session(s) discarded`);
       try {
@@ -258,7 +262,15 @@ export function createAcpClient(options) {
 
   /* -------------------------------------------------------------- requests */
 
-  function request(method, params, opts = {}) {
+  /**
+   * Send one ACP request and await its response.
+   *
+   * `async` on purpose: a caller should be able to `await` every failure the
+   * same way. An API that sometimes throws synchronously and sometimes rejects
+   * is a footgun, and the not-started check fires exactly when a caller's
+   * error handling is most likely to be missing.
+   */
+  async function request(method, params, opts = {}) {
     requireStarted();
     const id = nextRequestId++;
     const timeoutMs = Number.isFinite(opts.timeoutMs)
@@ -437,8 +449,8 @@ export function createAcpClient(options) {
         `unknown ACP session "${String(sessionId)}": this host created no such session (agent restart invalidates every id)`,
       );
     }
-    const wanted = normalizePathForCompare(cwd ?? session.cwd);
-    if (wanted !== session.cwd) {
+    const wanted = cwdKey(cwd ?? session.cwd);
+    if (wanted !== cwdKey(session.cwd)) {
       throw new AcpClientError(
         ACP_ERROR.CWD_MISMATCH,
         `cwd "${String(cwd)}" does not match session "${sessionId}"'s cwd "${session.cwd}"`,

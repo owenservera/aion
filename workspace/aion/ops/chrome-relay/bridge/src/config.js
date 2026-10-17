@@ -244,7 +244,7 @@ export function assertCwdAllowed(config, requested) {
     };
   }
   const allowed = allowedCwdSet(config);
-  if (allowed.has(normalised)) return { allowed: true, cwd: normalised };
+  if (allowed.has(cwdKey(normalised))) return { allowed: true, cwd: normalised };
 
   return {
     allowed: false,

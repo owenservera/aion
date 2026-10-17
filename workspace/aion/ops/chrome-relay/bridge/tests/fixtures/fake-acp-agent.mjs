@@ -40,6 +40,11 @@ function log(line) {
 
 let nextSession = 1;
 
+// Session ids are PROCESS-scoped in ACP (the dossier: the ACP process closes
+// when its parent stdin closes), so the pid is part of the id. That makes a
+// restarted agent's ids genuinely different rather than accidentally equal.
+const sessionPrefix = `fake-session-${process.pid}`;
+
 const sessions = new Map(); // sessionId -> { cwd }
 const prompts = new Map(); // requestId -> { sessionId, cancelled }
 
@@ -92,7 +97,7 @@ function handle(message) {
         respondError(id, -32602, 'cwd is required');
         return;
       }
-      const sessionId = `fake-session-${nextSession++}`;
+      const sessionId = `${sessionPrefix}-${nextSession++}`;
       sessions.set(sessionId, { cwd });
       log(`session/new -> ${sessionId} @ ${cwd}`);
       respond(id, { sessionId });
@@ -111,7 +116,7 @@ function handle(message) {
         return;
       }
       log(`${method} -> ${params.sessionId}`);
-      const newId = method === 'session/fork' ? `fake-session-${nextSession++}` : params.sessionId;
+      const newId = method === 'session/fork' ? `${sessionPrefix}-${nextSession++}` : params.sessionId;
       if (method === 'session/fork') sessions.set(newId, { cwd: known.cwd });
       respond(id, { sessionId: newId });
       return;
