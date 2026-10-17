@@ -1,18 +1,38 @@
 {
   "schema": "aion.entry-state.v1",
   "updated_utc": "2026-10-17",
-  "update_basis": "GitHub docs and independently reviewed owner-supplied evidence; not a live host inventory",
+  "update_basis": "GitHub docs, independently reviewed owner-supplied evidence, and owner direction of 2026-10-17 (Windows-driven dev); not a live host inventory",
   "canonical_entry": "https://github.com/owenservera/aion",
   "machine_authority": "OWNER_WINDOWS_MASTER",
   "target_browser_host": "OWNER_WINDOWS_MASTER",
+  "dev_model": "WINDOWS_DRIVEN_LOCAL_AGENTS",
+  "decision_ref": "workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md",
+  "architecture_proposal_ref": "workspace/aion/canon/ARCHITECTURE-WINDOWS-DEV-v0.2-PROPOSAL.md",
   "live_execution_authorized": false,
-  "authorization_basis": "Host/browser stop order recorded in workspace/aion/pm/UAH-COMMS-SPINE-PLAN-v0.1.md; no scoped Windows restart authorization on record",
+  "authorization_basis": "Host/browser stop order recorded in workspace/aion/pm/UAH-COMMS-SPINE-PLAN-v0.1.md; owner chose Windows-driven dev on 2026-10-17 but no scoped Windows authorization (AION_AUTHORIZATION_V1) is on record",
   "m1_verified": false,
   "current_goal": "AION-originated real authenticated ChatGPT web app prompt on Windows -> real reply -> independently consumed by AION with matching ID and negative-case verification",
-  "current_phase": "WINDOWS_PRELIVE_REUSE_ASSESSMENT",
-  "next_action": "Inventory real Windows Chrome/session and inspect exact ACPX source; obtain technical review and scoped host authorization before any live test",
+  "current_phase": "WINDOWS_DEV_PLANE_BOOTSTRAP",
+  "next_action": "Owner confirms roles and the proposed M1a/M1b split; build the S0 dev-plane skeleton (daemon, ledger, envelope validation, fake agent) with no account access; inspect ACPX source; owner issues a scoped authorization before any live test",
+  "proposals_pending_owner": [
+    {
+      "id": "M1_SPLIT",
+      "summary": "Split M1 into M1a (local runtime originates and consumes) and M1b (ChatGPT-side AION reads receipts via invocation)",
+      "ref": "workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md section 4"
+    },
+    {
+      "id": "ROLE_SPLIT",
+      "summary": "Initial roles for Owen, local Windows agents, ChatGPT AION, Claude, BFF Linux, Z.ai",
+      "ref": "workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md section 2"
+    }
+  ],
   "primary_reuse_candidate": "ACPX MV3 Chrome extension plus Bun loopback bridge",
   "blocks": [
+    {
+      "id": "WINDOWS_DEV_PLANE",
+      "status": "NOT_STARTED",
+      "proof_required": "S0 skeleton running on the Windows machine and passing a conformance suite with a fake agent, verified by an identity other than its builder"
+    },
     {
       "id": "WINDOWS_INVENTORY",
       "status": "UNVERIFIED",
@@ -67,6 +87,7 @@
   ],
   "paths": {
     "entry": "README.md",
+    "agents": "AGENTS.md",
     "onboarding": "workspace/aion/ONBOARDING.md",
     "state": "workspace/aion/STATE.json",
     "governance": "workspace/aion/STATE-PROTOCOL.md",
@@ -77,7 +98,8 @@
   "rules": [
     "This JSON is a GitHub-stored snapshot, not a continuously live agent process.",
     "Proof before status: no test, host action, ACK, deployment or live milestone claim without evidence.",
-    "Owner Windows master has sole human authority; BFF Linux optional; Z.ai disposable mock-only.",
+    "Owner Windows master has sole human authority; local Windows agents execute; ChatGPT and Claude collaborate and review; BFF Linux optional; Z.ai disposable mock-only.",
+    "Only main is pushed; agents use local-only worktrees. Builder, runner and verifier must be different identities.",
     "GitHub issues/commits don't wake independent ChatGPT sessions.",
     "No Playwright or Puppeteer.",
     "No secrets, cookies, credentials, private raw transcripts in GitHub."

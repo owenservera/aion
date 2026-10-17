@@ -1,5 +1,7 @@
 # AION — Full self-reflection, operational truth, and working contract with AION BFF
 
+> **PARTLY SUPERSEDED (2026-10-17):** execution moved from BFF Linux to a Windows-driven model with local agents. Sections that assume Linux/BFF as the executor (parts of 2, 4, 6 and 7) are historical. The lessons in section 5 and the evidence grades in section 3 still apply. Current model: [decision record](../workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md).
+
 **Written:** 2026-10-16, Europe/Madrid  
 **Author:** AION, the ChatGPT-side executive operator in Owen's 001.PROJECTS.PM conversation  
 **Nature:** First-person operational self-assessment, not a literal export of every ChatGPT message, inaccessible private reasoning, or a claim that I possess autonomous machine/background access.  

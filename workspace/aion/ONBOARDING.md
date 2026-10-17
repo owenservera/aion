@@ -2,6 +2,9 @@
 **ALWAYS ENTER AT [the repository root](https://github.com/owenservera/aion), then read [STATE.json](./STATE.json).**
 This page is the human/agent startup procedure, not a claim of self-executing onboarding.
 
+## Operating model (2026-10-17)
+**Windows-driven development:** the owner's Windows machine is master, local agents run the code there, and ChatGPT (AION role) and Claude collaborate through this repo. Start with [AGENTS.md](../../AGENTS.md) and the [decision record](./canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md).
+
 ## Zero-assumption startup (3–5 minutes)
 1. Read [STATE.json](./STATE.json) first: canonical host, goal, status, blockers, evidence hashes, and next action. Check its `updated_utc` against the actual GitHub revision date; if stale, independently refresh before deciding.
 2. Read [Windows-master architecture](./canon/AION-M1-WINDOWS-MASTER-EXECUTION.md) and [real M1 acceptance](./canon/AION-MILESTONE-1-INTROSPECTION.md). The **Windows master** is the browser target; older BFF Linux M0.5 instructions are historical, not an assignment.
@@ -19,7 +22,7 @@ Owner's explicit current instruction and machine authority > recorded actual run
 ## How to continue
 - **Agent with GitHub access:** fetch current STATE.json and latest relevant issue comments; perform only authorized actions; append immutable receipts, then atomically update current snapshot with supporting links.
 - **Agent without GitHub access:** ask for a current exported snapshot; label its freshness and source. Never invent an up-to-date status.
-- **New engineer:** verify ACPX original bytes before implementation; no Playwright/Puppeteer. Only OpenCode/ZCode should author code where that delegation applies.
+- **New engineer:** verify ACPX original bytes before implementation; no Playwright/Puppeteer for new work. Code is authored and run by local Windows agents; the "Grok Bot never writes code" rule applies to Grok only.
 - **Operator:** do not access authenticated ChatGPT or install browser components unless scoped host stop order is lifted by owner.
 
 ## 30-second handoff template
