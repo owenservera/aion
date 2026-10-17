@@ -76,6 +76,16 @@ function notify(method, params) {
   send({ jsonrpc: '2.0', method, params });
 }
 
+// Agent-initiated REQUEST (carries an id, so the client must answer it).
+// In real ACP - and as AION's own working zcode acp-core.mjs guards with
+// `m.id != null` - session/request_permission is a request, not a notification.
+// Sending it as a notification here would silently skip the client's
+// agent->client request path and make the test assert nothing.
+let nextAgentRequestId = 900;
+function agentRequest(method, params) {
+  send({ jsonrpc: '2.0', id: nextAgentRequestId++, method, params });
+}
+
 log(`fake acp agent starting (scenario=${scenario})`);
 log(`a token that must never appear in a relay envelope: sk-live-FAKEFAKEFAKEFAKEFAKE`);
 
@@ -162,7 +172,7 @@ function handle(message) {
         process.exit(7);
       }
       if (text.includes('ASK_PERMISSION')) {
-        notify('session/request_permission', { sessionId, toolCall: { toolCallId: 't1' } });
+        agentRequest('session/request_permission', { sessionId, toolCall: { toolCallId: 't1' } });
       }
       if (text.includes('LEAK_SECRET')) {
         notify('session/update', {
