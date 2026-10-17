@@ -1,4 +1,7 @@
 # AION Chrome ACP Relay — OpenCode Build Order CR-001
+
+> **2026-10-17 PRIORITY OVERRIDE:** This fixture-first extension build order is **deferred** as a prerequisite to the current Windows M1 live test. Inspect ACPX source and current Windows browser/adapter availability first; write only demonstrated missing code. Do not build a second extension without source-backed reuse/replace justification. See [Windows execution path](../../canon/AION-M1-WINDOWS-MASTER-EXECUTION.md) and [experiments/evidence](../../canon/AION-M1-EXPERIMENTS-AND-METHODS.md). No Playwright/Puppeteer; no host/browser operation before scoped authorization.
+
 Status: READY FOR AUTHORIZED EXECUTOR HANDOFF, NOT DISPATCHED TO A VERIFIED EXECUTOR
 Implementation coordinator: Chief of Staff (Role 03); technical reviewer: TOOLSMITH (Role 06, once launched); implementation: OpenCode/ZCode only.
 Repo: owenservera/aion, main branch. Seed: UAH / ACP / IANG. No new repo.
