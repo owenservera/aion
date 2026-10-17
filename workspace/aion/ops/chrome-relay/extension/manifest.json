@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "AION Chrome Relay Station",
+  "version": "0.1.0",
+  "description": "Read-only operator console for the AION relay. Truthful status only: transport, proof, approval and evidence are reported separately. MVP reads no web page content.",
+  "minimum_chrome_version": "155",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "alarms"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "src/panel/sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open AION Relay Station"
+  }
+}

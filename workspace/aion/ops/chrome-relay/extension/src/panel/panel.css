@@ -1,0 +1,589 @@
+/* AION Relay Station — operator console.
+   Dark-first, honours prefers-color-scheme. No remote fonts: the extension CSP
+   forbids them, so the stacks name locally-installed faces and degrade sanely.
+   Display face: Bahnschrift / DIN Alternate / Segoe UI Variable (condensed
+   technical grotesque). Data face: Cascadia Mono / Iosevka / ui-monospace. */
+
+:root {
+  color-scheme: dark light;
+
+  --ink-0: #07090b;
+  --ink-1: #0d1114;
+  --ink-2: #12181c;
+  --ink-3: #192126;
+  --rule: #26313a;
+  --rule-strong: #3a4a55;
+
+  --text-hi: #e8eef2;
+  --text-mid: #a4b3bd;
+  --text-low: #6d7f8a;
+
+  --signal: #4fd1c5;      /* observed, healthy transport */
+  --warn: #e0a458;        /* stale / degraded */
+  --stop: #e2604f;        /* failed / rejected */
+  --hold: #c8a2d8;        /* approval held — deliberately not green */
+  --proof: #7fb4e8;       /* proof events, kept off the transport colour */
+
+  --unknown-a: #2a333b;
+  --unknown-b: #10161a;
+
+  --focus: #ffd479;
+
+  --font-display: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display",
+    "Franklin Gothic Medium", "Segoe UI", system-ui, sans-serif;
+  --font-data: "Cascadia Mono", "JetBrains Mono", "Iosevka", ui-monospace,
+    "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --gap: 10px;
+  --pad: 12px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ink-0: #eef1f3;
+    --ink-1: #ffffff;
+    --ink-2: #f6f8f9;
+    --ink-3: #eceff1;
+    --rule: #cfd8de;
+    --rule-strong: #a9b6be;
+
+    --text-hi: #10161a;
+    --text-mid: #3c4a54;
+    --text-low: #64757f;
+
+    --signal: #10695f;
+    --warn: #8a5a12;
+    --stop: #a52b1c;
+    --hold: #6b3f96;
+    --proof: #1c5c96;
+
+    --unknown-a: #cfd8de;
+    --unknown-b: #eef2f4;
+
+    --focus: #8a5a12;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-width: 300px;
+  background:
+    linear-gradient(180deg, var(--ink-0) 0%, var(--ink-1) 42%, var(--ink-0) 100%);
+  color: var(--text-hi);
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 20;
+  background: var(--focus);
+  color: #000;
+  padding: 6px 10px;
+  font-family: var(--font-data);
+  font-size: 12px;
+}
+
+.skip-link:focus {
+  left: 6px;
+  top: 6px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------------- masthead ---------------- */
+
+.masthead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 14px var(--pad) 12px;
+  border-bottom: 1px solid var(--rule-strong);
+  background: linear-gradient(180deg, var(--ink-2), var(--ink-1));
+}
+
+.masthead__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.masthead__subtitle {
+  margin: 3px 0 0;
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-low);
+}
+
+.masthead__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-hi);
+  background: var(--ink-3);
+  border: 1px solid var(--rule-strong);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 120ms linear, border-color 120ms linear;
+}
+
+.btn:hover {
+  background: var(--ink-2);
+  border-color: var(--signal);
+}
+
+.btn[aria-busy="true"] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.chip {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  border: 1px solid var(--rule-strong);
+  color: var(--text-mid);
+  white-space: nowrap;
+}
+
+.chip[data-state="live"] {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+
+.chip[data-state="degraded"] {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.chip[data-state="stopped"] {
+  color: var(--stop);
+  border-color: var(--stop);
+}
+
+/* ---------------- knowledge bar (distinction 1) ---------------- */
+
+.knowledge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: var(--pad) var(--pad) 0;
+  padding: 8px 10px;
+  border: 1px dashed var(--unknown-a);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      var(--unknown-b) 0 8px,
+      transparent 8px 16px
+    ),
+    var(--ink-1);
+}
+
+.knowledge[data-state="observed"] {
+  border-style: solid;
+  border-color: var(--rule-strong);
+  background: var(--ink-2);
+}
+
+.knowledge[data-state="error"] {
+  border-style: solid;
+  border-color: var(--stop);
+  background: var(--ink-2);
+}
+
+.knowledge__mark {
+  font-family: var(--font-data);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--text-low);
+  border: 1px solid var(--unknown-a);
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+.knowledge[data-state="error"] .knowledge__mark {
+  color: var(--stop);
+  border-color: var(--stop);
+}
+
+.knowledge__text {
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  color: var(--text-mid);
+}
+
+/* ---------------- layout ---------------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--gap);
+  padding: var(--gap) var(--pad) 0;
+}
+
+.panel {
+  position: relative;
+  background: var(--ink-1);
+  border: 1px solid var(--rule);
+  padding: 10px 11px 11px;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--rule-strong);
+}
+
+.panel--gate::before {
+  background: var(--hold);
+}
+
+.panel__heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.panel__note {
+  margin: 3px 0 9px;
+  font-family: var(--font-data);
+  font-size: 10.5px;
+  color: var(--text-low);
+  line-height: 1.35;
+}
+
+/* ---------------- readouts ---------------- */
+
+.readout {
+  margin: 0;
+  display: grid;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.readout__row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 8px;
+  background: var(--ink-2);
+  padding: 5px 7px;
+}
+
+.readout dt {
+  font-family: var(--font-data);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--text-low);
+}
+
+.readout dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+  overflow-wrap: anywhere;
+}
+
+/* Unknown is rendered as absence of knowledge: dashed, hatched, muted, and
+   literally spelled UNKNOWN. It never borrows the live or idle treatment. */
+.readout dd[data-state="unknown"] {
+  color: var(--text-low);
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 5px,
+    var(--unknown-b) 5px 10px
+  );
+}
+
+.readout dd[data-state="live"] {
+  color: var(--signal);
+}
+
+.readout dd[data-state="degraded"] {
+  color: var(--warn);
+}
+
+.readout dd[data-state="stopped"] {
+  color: var(--stop);
+}
+
+.readout dd[data-state="proof"] {
+  color: var(--proof);
+}
+
+.readout dd[data-state="held"] {
+  color: var(--hold);
+}
+
+.footnote {
+  margin: 8px 0 0;
+  font-family: var(--font-data);
+  font-size: 10.5px;
+  color: var(--text-low);
+  line-height: 1.4;
+}
+
+/* ---------------- approval gate (distinction 4) ---------------- */
+
+.panel--gate[data-gate="blocked"] {
+  border-color: var(--hold);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 6px,
+      rgba(200, 162, 216, 0.05) 6px 12px
+    ),
+    var(--ink-1);
+}
+
+.gate__count {
+  margin: 0 0 8px;
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--hold);
+}
+
+.gate__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.gate__list li {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-mid);
+  border-left: 2px solid var(--hold);
+  padding: 3px 0 3px 7px;
+}
+
+/* ---------------- roles ---------------- */
+
+.roles {
+  padding: 14px var(--pad) 0;
+}
+
+.roles__head {
+  margin-bottom: 9px;
+}
+
+.roles__head .panel__note {
+  max-width: 62ch;
+  margin-bottom: 0;
+}
+
+.role-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: var(--gap);
+}
+
+.role {
+  position: relative;
+  background: var(--ink-1);
+  border: 1px solid var(--rule);
+  padding: 9px 10px 10px 12px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.role::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--unknown-a);
+}
+
+/* A role is only ever green when an executor event, not a tab, proves it. */
+.role[data-executor="running"]::before {
+  background: var(--signal);
+}
+
+.role[data-executor="blocked"]::before {
+  background: var(--stop);
+}
+
+.role[data-executor="held"]::before {
+  background: var(--hold);
+}
+
+.role[data-known="yes"] {
+  border-color: var(--rule-strong);
+}
+
+.role__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.role__id {
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-low);
+}
+
+.role__title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.role__purpose {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 10.5px;
+  color: var(--text-low);
+  line-height: 1.35;
+}
+
+/* The tab row is boxed and labelled TAB so it can never be misread as
+   executor state, which sits outside the box below it. */
+.tabrow {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 7px;
+  align-items: center;
+  border: 1px solid var(--rule);
+  background: var(--ink-2);
+  padding: 4px 6px;
+}
+
+.tabrow__label {
+  font-family: var(--font-data);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--text-low);
+  border-right: 1px solid var(--rule);
+  padding-right: 6px;
+}
+
+.tabrow__value {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-mid);
+}
+
+.tabrow[data-state="unknown"] {
+  border-style: dashed;
+  border-color: var(--unknown-a);
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 5px,
+    var(--unknown-b) 5px 10px
+  );
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 7px;
+  font-family: var(--font-data);
+  font-size: 10.5px;
+  padding: 1px 0;
+}
+
+.fact__k {
+  color: var(--text-low);
+  letter-spacing: 0.08em;
+}
+
+.fact__v {
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.fact__v[data-state="unknown"] {
+  color: var(--text-low);
+}
+
+.fact__v[data-state="running"] {
+  color: var(--signal);
+}
+
+.fact__v[data-state="blocked"] {
+  color: var(--stop);
+}
+
+.fact__v[data-state="held"] {
+  color: var(--hold);
+}
+
+.role__note {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: var(--text-low);
+  border-top: 1px dotted var(--rule);
+  padding-top: 5px;
+}
+
+/* ---------------- colophon ---------------- */
+
+.colophon {
+  margin: 16px var(--pad) 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.colophon p {
+  margin: 0 0 4px;
+  font-family: var(--font-data);
+  font-size: 10px;
+  color: var(--text-low);
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0ms !important;
+  }
+}
