@@ -63,7 +63,17 @@ export class FramingError extends Error {
  */
 export function encodeNativeFrame(value, opts = {}) {
   const maxFrameBytes = positiveInt(opts.maxFrameBytes, DEFAULT_MAX_FRAME_BYTES);
-  const json = JSON.stringify(value);
+  let json;
+  try {
+    json = JSON.stringify(value);
+  } catch (err) {
+    // One error type out of this module: a caller that handles FramingError
+    // must not also need to guess whether JSON.stringify threw underneath.
+    throw new FramingError(
+      FRAME_ERROR.NOT_SERIALISABLE,
+      `value is not JSON-serialisable (${err && err.message})`,
+    );
+  }
   if (json === undefined) {
     throw new FramingError(FRAME_ERROR.NOT_SERIALISABLE, 'value is not JSON-serialisable');
   }
