@@ -1,0 +1,12 @@
+{
+  "_template": "TEMPLATE ONLY. This file is NOT registered and must not be registered without owner approval (BRIDGE-DESIGN.md section 5: writing HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.aion.relay is a persistent system change).",
+  "_registration": "Owner-gated. The bridge ships no install script and no registry write; this manifest exists so the gated step has one reviewable source of truth. Registration steps, when approved: (1) replace every REPLACE_* placeholder, (2) point `path` at a real executable launcher for this bridge (a Node SEA single-executable build or a compiled shim - CreateProcess cannot launch a .js file directly), (3) create the HKCU value naming the ABSOLUTE path of this manifest file.",
+  "_security": "`allowed_origins` is the first gate (NM-01: Chrome refuses a host whose allowed_origins does not match the extension id) and `expectedExtensionId` in src/config.js is the second (NM-02). They must agree. Do not add chrome-extension:// origins for unpacked previews beyond the one reviewed id.",
+  "name": "com.aion.relay",
+  "description": "AION Relay Bridge - Chrome native messaging host bridging to a local ACP agent (template, unregistered)",
+  "path": "REPLACE_WITH_ABSOLUTE_PATH_TO_HOST_LAUNCHER_EXE",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://REPLACE_WITH_OWNER_APPROVED_32_CHAR_EXTENSION_ID/"
+  ]
+}

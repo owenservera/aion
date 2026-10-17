@@ -198,15 +198,28 @@ export function allowedCwdSet(config) {
   const set = new Set();
   if (config && typeof config.sessionCwd === 'string') {
     const normalised = normalizePathForCompare(config.sessionCwd);
-    if (normalised) set.add(normalised);
+    if (normalised) set.add(cwdKey(normalised));
   }
   if (config && Array.isArray(config.allowedCwds)) {
     for (const candidate of config.allowedCwds) {
       const normalised = normalizePathForCompare(candidate);
-      if (normalised) set.add(normalised);
+      if (normalised) set.add(cwdKey(normalised));
     }
   }
   return set;
+}
+
+/**
+ * Comparison key for a path.
+ *
+ * Windows paths are case-insensitive, so `C:/AION` and `c:/AION` name the same
+ * directory and MUST compare equal. The key is for comparison only: the value
+ * handed to the agent is always the configured spelling, never this lowercased
+ * form.
+ */
+export function cwdKey(input) {
+  const normalised = normalizePathForCompare(input);
+  return normalised === null ? null : normalised.toLowerCase();
 }
 
 /**
