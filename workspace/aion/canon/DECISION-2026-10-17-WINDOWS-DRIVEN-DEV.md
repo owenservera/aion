@@ -67,8 +67,8 @@ Local code work (editing, running unit tests, building, mock fixtures on loopbac
 
 ## 6. Immediate next steps
 
-1. Owner confirms or edits sections 2 and 4.
-2. Build the Windows dev plane skeleton from `ARCHITECTURE-WINDOWS-DEV-v0.2-PROPOSAL.md` (daemon, ledger, envelope validation, one fake agent) — no account access needed.
+1. Roles and M1a/M1b are optional refinements; neither is a prerequisite to useful Windows development or the existing M1 acceptance test.
+2. Inventory actual Windows tools and review ACPX/adapter code before introducing any optional daemon or ledger. No need to build new infrastructure before the live vertical slice.
 3. Check free disk space on the Windows machine before any heavy work (last reported 6.3 GB free; current value unknown).
 4. Obtain the ACPX source into the repo or a shared location so it can be reviewed (STATE block `ACPX_SOURCE`).
 5. Owner explicitly authorizes the first signed-in browser test in ordinary language; record the instruction and observed execution proof.
