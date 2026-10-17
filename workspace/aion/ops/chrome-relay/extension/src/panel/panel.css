@@ -135,6 +135,10 @@ body {
   color: var(--text-low);
 }
 
+.masthead__identity {
+  min-width: 0;
+}
+
 .masthead__tools {
   display: flex;
   align-items: center;
@@ -518,6 +522,13 @@ body {
     transparent 0 5px,
     var(--unknown-b) 5px 10px
   );
+}
+
+.role__facts {
+  display: grid;
+  gap: 2px;
+  border-top: 1px solid var(--rule);
+  padding-top: 6px;
 }
 
 .fact {

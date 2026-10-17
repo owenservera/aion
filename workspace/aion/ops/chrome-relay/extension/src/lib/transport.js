@@ -105,24 +105,31 @@ function fixtureTransport(name, opts) {
   };
 
   /**
-   * Hand each fixture to every listener.
+   * Hand one envelope to one listener.
    *
    * Async by design: replaying synchronously from inside onMessage() would run
    * a caller's handler before it has finished registering, which is how
    * re-entrancy bugs start.
    */
-  const deliver = () => {
+  const deliverTo = (listener, fixture) => {
+    const check = validateEnvelope(fixture);
+    // A malformed fixture is dropped, not thrown: the UI must keep running and
+    // report the gap rather than white-screen on bad test data.
+    if (!check.valid) return;
+    queueMicrotask(() => {
+      // Re-check membership, not just the flag: a delivery queued a tick ago
+      // must not fire at a listener that has since unsubscribed, and close()
+      // clears the set so an in-flight delivery dies with the connection
+      // rather than arriving after it.
+      if (!closed && listeners.has(listener)) listener(structuredClone(fixture));
+    });
+  };
+
+  /** Deliver the whole fixture corpus to every current listener. */
+  const deliverAll = () => {
     const fixtures = readFixtures();
     for (const listener of listeners) {
-      for (const fixture of fixtures) {
-        const check = validateEnvelope(fixture);
-        // A malformed fixture is dropped, not thrown: the UI must keep running
-        // and report the gap rather than white-screen on bad test data.
-        if (!check.valid) continue;
-        queueMicrotask(() => {
-          if (!closed) listener(structuredClone(fixture));
-        });
-      }
+      for (const fixture of fixtures) deliverTo(listener, fixture);
     }
     return fixtures.length;
   };
@@ -153,12 +160,15 @@ function fixtureTransport(name, opts) {
     onMessage(cb) {
       if (typeof cb !== 'function') throw new TypeError('onMessage requires a callback');
       listeners.add(cb);
-      deliver(); // a late subscriber still sees the fixture corpus
+      // Only the NEW listener gets the corpus on registration: re-delivering
+      // to the existing ones would duplicate every message the moment a panel
+      // re-mounts. Use replay() for an intentional re-delivery.
+      for (const fixture of readFixtures()) deliverTo(cb, fixture);
       return () => listeners.delete(cb);
     },
     /** Re-deliver all fixtures to the current listeners. */
     replay() {
-      return deliver();
+      return deliverAll();
     },
     /** Drop the connection. Subsequent sends refuse; queued deliveries are cancelled. */
     close() {

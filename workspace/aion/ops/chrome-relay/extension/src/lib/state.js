@@ -88,7 +88,9 @@ const TASK_TRANSITIONS = Object.freeze({
  * - No edge out of DEAD_LETTER. A dead letter is inspected by a human.
  */
 const DELIVERY_TRANSITIONS = Object.freeze({
-  OUTBOX: ['SENT', 'RETRY', 'DEAD_LETTER'],
+  // OUTBOX has no edge back to RETRY: it has not been tried yet, so "retry" is
+  // a lie. It can be sent, or dead-lettered when it is undeliverable.
+  OUTBOX: ['SENT', 'DEAD_LETTER'],
   SENT: ['ACKED', 'RETRY'],
   RETRY: ['SENT', 'DEAD_LETTER'],
   ACKED: ['ACKED'],
