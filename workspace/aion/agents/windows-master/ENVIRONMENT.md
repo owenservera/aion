@@ -26,6 +26,47 @@ Observed directly on `OWNER_WINDOWS_MASTER` on 2026-10-17 by version query and f
 | ZCode | yes (`C:\0-BlackBoxProject-0\ZCode`, upstream `zai-org/ZCode`) | transport / secondary executor |
 | Grok Bot | Linux-side, optional | coordination only — **never authors code** |
 
+### CORRECTION (2026-10-17, later observation) — OpenCode is now V2
+
+An earlier reading of this file recorded **OpenCode 1.18.35 at `C:\ProgramData\chocolatey\bin\opencode.exe`**.
+That is **no longer true**, and anyone planning against it will plan against a runtime that is gone.
+
+| | Then (bootstrap) | Now (verified) |
+|---|---|---|
+| Version | 1.18.35 | **2.0.32** |
+| Install | Chocolatey, `C:\ProgramData\chocolatey\bin\opencode.exe` | **npm global `@opencode/cli`**, `C:\Users\VIVIM.inc\AppData\Roaming\npm\node_modules\@opencode\cli\bin\opencode.exe` |
+| On PATH | choco `.exe` | `C:\Users\VIVIM.inc\AppData\Roaming\npm\opencode` / `.cmd` only |
+
+The Chocolatey copy is **gone** (`where.exe opencode` returns only the npm shims).
+
+**Two implications, neither recorded anywhere else:**
+
+1. **OpenCode was upgraded to V2 in place.** The `ops/opencode-2` dossier recommends a *controlled V2
+   pilot, not an in-place bulk upgrade*, because the V2 server and plugin APIs are genuinely incompatible
+   with V1. That upgrade has now happened on the production Windows runtime without a recorded pilot, so
+   the dossier's evidence ladder (`RESEARCHED` -> `HOST_INVENTORIED` -> ...) is now out of step with
+   reality and should be reconciled.
+2. **PATH order is load-bearing here.** `opencode` resolves to a **PowerShell `.ps1` shim**, so
+   `Get-Command opencode` returns `opencode.ps1`, not an `.exe`. Anything spawning `opencode` as a child
+   process must use the absolute path to `...\@opencode\cli\bin\opencode.exe`; `spawn('opencode')` fails
+   with `ENOENT`.
+
+### ACP verified working on this host (2026-10-17)
+
+`opencode acp` **exists and responds** on 2.0.32. A read-only handshake probe (`initialize`, stdin
+closed immediately after) returned:
+
+- `protocolVersion: 1`
+- `agentCapabilities.loadSession: true`
+- `mcpCapabilities: { http: true, sse: false }`
+- `promptCapabilities: { embeddedContext: true, image: true }`
+- `sessionCapabilities: { additionalDirectories, close, delete, fork, list, resume }` — all advertised
+- `authMethods: [{ id: 'opencode-login' }]`
+- `agentInfo: { name: 'OpenCode', version: '2.0.32' }`
+
+This matches `ops/opencode-2/ACP-AND-SERVICE-PROTOCOL.md` exactly, so that dossier is **confirmed
+against the live host** rather than documentation-only. Acceptance test **ACP-01 passes**.
+
 ## Browser
 
 | Item | Value |
