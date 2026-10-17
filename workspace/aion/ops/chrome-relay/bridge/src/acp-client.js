@@ -17,7 +17,6 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import {
-  FramingError,
   JSONRPC_ERROR,
   JSONRPC_VERSION,
   createNdjsonDecoder,
