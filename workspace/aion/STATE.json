@@ -1,7 +1,7 @@
 {
   "schema": "aion.entry-state.v1",
   "updated_utc": "2026-10-17",
-  "update_basis": "GitHub docs, independently reviewed owner-supplied evidence, and owner direction of 2026-10-17 (Windows-driven dev); not a live host inventory",
+  "update_basis": "GitHub docs, independently reviewed owner-supplied evidence, and owner direction of 2026-10-17 (Windows-driven dev); not a live host inventory; streamlined routine dev controls and removed unnecessary approval/daemon gates",
   "canonical_entry": "https://github.com/owenservera/aion",
   "machine_authority": "OWNER_WINDOWS_MASTER",
   "target_browser_host": "OWNER_WINDOWS_MASTER",
@@ -12,12 +12,12 @@
   "authorization_basis": "Host/browser stop order recorded in workspace/aion/pm/UAH-COMMS-SPINE-PLAN-v0.1.md; owner chose Windows-driven dev on 2026-10-17 but no scoped Windows authorization (AION_AUTHORIZATION_V1) is on record",
   "m1_verified": false,
   "current_goal": "AION-originated real authenticated ChatGPT web app prompt on Windows -> real reply -> independently consumed by AION with matching ID and negative-case verification",
-  "current_phase": "WINDOWS_DEV_PLANE_BOOTSTRAP",
-  "next_action": "Owner confirms roles and the proposed M1a/M1b split; build the S0 dev-plane skeleton (daemon, ledger, envelope validation, fake agent) with no account access; inspect ACPX source; owner issues a scoped authorization before any live test",
+  "current_phase": "WINDOWS_DIRECT_DEV_AND_ACPX_REUSE",
+  "next_action": "Use existing local Windows tools to inventory Chrome/ACPX/adapter; directly run existing unit tests and implement only missing components. One clear owner instruction can restart the narrowly scoped signed-in browser test; no daemon, triple-signoff, grant-file ritual or mandatory worktree.",
   "proposals_pending_owner": [
     {
       "id": "M1_SPLIT",
-      "summary": "Split M1 into M1a (local runtime originates and consumes) and M1b (ChatGPT-side AION reads receipts via invocation)",
+      "summary": "Optional terminology only: original M1 acceptance unchanged; M1a/M1b is not a prerequisite to Windows execution",
       "ref": "workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md section 4"
     },
     {
@@ -29,11 +29,6 @@
   "primary_reuse_candidate": "ACPX MV3 Chrome extension plus Bun loopback bridge",
   "blocks": [
     {
-      "id": "WINDOWS_DEV_PLANE",
-      "status": "NOT_STARTED",
-      "proof_required": "S0 skeleton running on the Windows machine and passing a conformance suite with a fake agent, verified by an identity other than its builder"
-    },
-    {
       "id": "WINDOWS_INVENTORY",
       "status": "UNVERIFIED",
       "proof_required": "Observed inventory of Chrome session, installed Bun/bridge/ZCode/OpenCode on official Windows machine"
@@ -44,11 +39,6 @@
       "proof_required": "Reviewable exact acpx-kit.zip source with hash verification and security review"
     },
     {
-      "id": "TOOLSMITH06",
-      "status": "NO_INDEPENDENT_ACK",
-      "proof_required": "Genuine 06 role ACK and adapter contract/reuse decision"
-    },
-    {
       "id": "WINDOWS_HOST_APPROVAL",
       "status": "STOP_ORDER_ACTIVE",
       "proof_required": "Explicit bounded restart authority for real Windows browser operation"
@@ -57,6 +47,11 @@
       "id": "LIVE_ROUNDTRIP",
       "status": "NOT_VERIFIED",
       "proof_required": "Correlated real ChatGPT send/reply/AION readback and independently checked negative"
+    },
+    {
+      "id": "M1_INDEPENDENT_PROOF",
+      "status": "NOT_VERIFIED",
+      "proof_required": "Independent review of real authenticated ChatGPT reply/readback and one negative case; ordinary code changes need only relevant tests"
     }
   ],
   "experiments": [
@@ -99,9 +94,10 @@
     "This JSON is a GitHub-stored snapshot, not a continuously live agent process.",
     "Proof before status: no test, host action, ACK, deployment or live milestone claim without evidence.",
     "Owner Windows master has sole human authority; local Windows agents execute; ChatGPT and Claude collaborate and review; BFF Linux optional; Z.ai disposable mock-only.",
-    "Only main is pushed; agents use local-only worktrees. Builder, runner and verifier must be different identities.",
+    "Use normal guarded Git integration to main; worktrees/integrator are optional. Independent review only for real M1 or high-risk changes.",
     "GitHub issues/commits don't wake independent ChatGPT sessions.",
     "No Playwright or Puppeteer.",
     "No secrets, cookies, credentials, private raw transcripts in GitHub."
-  ]
+  ],
+  "operating_policy": "Routine Windows coding/testing/reversible diagnostics may proceed directly with normal tool permissions; real authenticated browser/account operations remain subject to the recorded stop order until expressly authorized by owner."
 }
