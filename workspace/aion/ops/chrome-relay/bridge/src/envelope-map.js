@@ -65,24 +65,25 @@ export const ENVELOPE_TO_ACP = Object.freeze({
 export const DISPATCHABLE_EVENT_TYPES = Object.freeze(Object.keys(ENVELOPE_TO_ACP));
 
 /**
- * ACP request methods this bridge will issue.
+ * ACP request methods this bridge will issue, and the mapper for each result.
  *
- * The list is the authority: `messageToEnvelopes` looks a method up HERE and
+ * This table IS the authority: `messageToEnvelopes` looks a method up HERE and
  * throws for anything absent, which is what makes "no guessed envelope" a
  * property of the code rather than a promise in a comment.
  */
-export const ACP_RESULT_MAPPERS = Object.freeze({
-  initialize: 'mapInitializeResult',
-  'session/new': 'mapSessionNewResult',
-  'session/load': 'mapSessionRestoreResult',
-  'session/resume': 'mapSessionRestoreResult',
-  'session/fork': 'mapSessionRestoreResult',
-  'session/list': 'mapSessionListResult',
-  'session/prompt': 'mapPromptResult',
-  'session/cancel': 'mapCancelResult',
+const RESULT_MAPPERS = Object.freeze({
+  initialize: mapInitializeResult,
+  'session/new': mapSessionNewResult,
+  'session/load': mapSessionRestoreResult,
+  'session/resume': mapSessionRestoreResult,
+  'session/fork': mapSessionRestoreResult,
+  'session/list': mapSessionListResult,
+  'session/prompt': mapPromptResult,
+  'session/cancel': mapCancelResult,
 });
 
-export const ACP_KNOWN_METHODS = Object.freeze(Object.keys(ACP_RESULT_MAPPERS));
+/** Every ACP method with a relay-envelope translation. */
+export const ACP_KNOWN_METHODS = Object.freeze(Object.keys(RESULT_MAPPERS));
 
 /**
  * ACP `session/update` kinds recognised in Milestone 1.
@@ -276,8 +277,8 @@ export function messageToEnvelopes(message, ctx = {}) {
       { known: ACP_KNOWN_METHODS },
     );
   }
-  const mapperName = ACP_RESULT_MAPPERS[method];
-  if (!mapperName) {
+  const mapper = RESULT_MAPPERS[method];
+  if (!mapper) {
     throw new EnvelopeMapError(
       MAP_ERROR.UNMAPPED_ACP_METHOD,
       `ACP method "${method}" has no relay-envelope translation in Milestone 1; ` +
@@ -289,7 +290,7 @@ export function messageToEnvelopes(message, ctx = {}) {
   if (message.error !== undefined && message.error !== null) {
     return [errorEnvelope(message, ctx, method)];
   }
-  return [RESULT_MAPPERS[mapperName](message.result ?? {}, ctx, method)];
+  return [mapper(message.result ?? {}, ctx, method)];
 }
 
 /* ----------------------------------------------------------------- mappers */
@@ -478,7 +479,7 @@ function errorEnvelope(message, ctx, method) {
       acp_error_code: Number.isInteger(error.code) ? error.code : null,
       // The message is agent text and is bounded + secret-stripped like any
       // other agent output: an error string can echo a request header.
-      acp_error_message: boundText(dropSecretFields(error.message)),
+      acp_error_message: boundText(dropSecretFields(error.message)).text,
       blocked_from: stringOrNull(ctx.blockedFrom ?? ctx.taskState),
     },
     delivery_state: 'SENT',
