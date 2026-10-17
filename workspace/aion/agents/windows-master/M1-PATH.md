@@ -15,10 +15,37 @@ work is blocked. **The blocker is authorization, not code.**
 | Leg | Component | State |
 |---|---|---|
 | AION originates a correlated prompt | `sessions/01-escape-hatch/adapter/lib.js` `loadOutbound()` — refuses to fabricate the message | **EXISTS.** Reads the verbatim block from `AION-OUTBOUND-M05-001.md`. 35/35 unit tests pass. |
-| AION → Chrome (submit) | `extensions/chatgpt/content.js` `composerFill` / `doSendPrompt` — types into the real `#prompt-textarea` and dispatches Enter | **EXISTS.** Not AION-owned; needs wiring. |
+| AION → Chrome (submit) | `extensions/chatgpt/content.js` `composerFill` / `doSendPrompt` — types into the real `#prompt-textarea` and dispatches Enter | **CODE EXISTS ON DISK, NOT INSTALLED.** See the correction below. |
 | Chrome → ChatGPT (auth) | the signed-in ChatGPT web session on Chrome 155 | **EXISTS.** Gated by the stop order. |
-| ChatGPT → Windows (capture) | `extensions/chatgpt` exporter core — `GET /backend-api/conversations/<id>` with the page access token; saves a ZIP via `chrome.downloads` | **EXISTS.** Writes to a Downloads folder. |
-| **Windows → AION (consume)** | **nothing** | **MISSING — this is the gap.** |
+| ChatGPT → Windows (capture) | `extensions/chatgpt` exporter core — `GET /backend-api/conversations/<id>` with the page access token; saves a ZIP via `chrome.downloads` | **CODE EXISTS ON DISK, NOT INSTALLED.** |
+| **Windows → AION (consume)** | **nothing** | **MISSING.** |
+
+## CORRECTION — the gap is larger than first recorded (verified 2026-10-17)
+
+An earlier version of this file described `extensions/chatgpt` as the primary reuse candidate. Checking
+the **actual Chrome profile state** rather than only the filesystem shows that was misleading:
+
+- `C:\0-BlackBoxProject-0\extensions\chatgpt` **is not loaded in any Chrome profile** (Default,
+  Profile 2, Profile 3 or Profile 4). It is dormant source code, not a working component.
+- The MAGIC API Graph extension — the one with `nativeMessaging` and a working Bun↔TCP↔Go bridge — is
+  likewise **not installed**. It exists as a *reference implementation to copy from*, not as running transport.
+
+**Consequence.** There is **no AION-owned Chrome extension at all**. `ops/chrome-relay/` contains
+design documents only and `com.aion.relay` is not registered. So the smallest missing unit is
+**not** a single bridge file — it is an **extension plus a bridge**, and the adapter alone gets AION no
+further than the point where it already stands.
+
+Reassessed smallest missing component:
+
+| # | Missing piece | Notes |
+|---|---|---|
+| 1 | An installed AION extension with `nativeMessaging`, able to read the ChatGPT reply and post it to Windows | Must be installed into a profile that has the authenticated ChatGPT session (Profile 3 is the ChatGPT-heavy candidate — see [`ENVIRONMENT.md`](ENVIRONMENT.md)). |
+| 2 | A Bun loopback bridge on `127.0.0.1` that receives the reply and links it to the outbound correlation ID | Can be written and unit-tested against fixtures now, with no browser. |
+| 3 | Negative-case verification per the acceptance contract | A mismatched correlation or non-ChatGPT reply must be **rejected**, not reported as a turn. |
+
+Building on the dormant `extensions/chatgpt` code is reasonable — it already does the hard part of
+driving the real composer — but treat it as **code to be installed and reviewed**, not as a working
+component. Its Chrome 155 compatibility is unverified.
 
 ## The smallest missing component
 
