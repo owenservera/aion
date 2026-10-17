@@ -9,7 +9,7 @@
 // It is also the trust boundary, so the checks that matter live here:
 //
 //   NM-02  the `origin` Chrome hands us must be the expected extension id
-//   ACP-02 cwd is fixed by this host; an extension-supplied cwd is only honoured
+//   ACP-02 cwd is fixed by this host; an extension-supplied cwd is honoured only
 //          when it matches the configured allowlist
 //   ACP-09 child death is detected, surfaced as operator.alert, and leaves no
 //          orphaned session behind
@@ -20,7 +20,12 @@
 // (BRIDGE-DESIGN.md section 5) and only a manifest TEMPLATE ships here.
 
 import { PassThrough } from 'node:stream';
-import { createEventStore, deliveryTransition } from '../../extension/src/lib/index.js';
+import {
+  createEnvelope,
+  createEventStore,
+  deliveryTransition,
+  validateEnvelope,
+} from '../../extension/src/lib/index.js';
 import { FramingError, createNativeFrameDecoder, encodeNativeFrame } from './framing.js';
 import { ACP_ERROR, AcpClientError, createAcpClient } from './acp-client.js';
 import {
@@ -50,7 +55,7 @@ export const HOST_ERROR = Object.freeze({
   INTERNAL: 'internal_error',
 });
 
-/* ============================================================== logging (ACP-10, ACP-11) */
+/* ========================================================= logging (ACP-10, ACP-11) */
 
 const LEVELS = Object.freeze({ debug: 10, info: 20, warn: 30, error: 40 });
 
@@ -62,7 +67,7 @@ const LEVELS = Object.freeze({ debug: 10, info: 20, warn: 30, error: 40 });
  *  - The default sink is STDERR. The ACP child's stdout is a protocol channel;
  *    a log line there desynchronises JSON-RPC for the rest of the session
  *    (ACP-10). Nothing in this bridge calls console.log.
- *  - Every value is scrubbed before it is formatted: credential-shaped keys are
+ *  - Every value is scrubbed before formatting: credential-shaped keys are
  *    dropped, credential-shaped substrings are replaced, and values registered
  *    via registerSecret() are replaced even when their key looks innocent
  *    (ACP-11).
@@ -133,8 +138,8 @@ export function createRedactingLogger(options = {}) {
 }
 
 function scrubText(text) {
-  // Reuse the envelope mapper's value-shaped patterns so one rule set governs
-  // both leak surfaces (log lines and envelope payloads).
+  // Reuse the envelope mapper's value-shaped rules so one policy governs both
+  // leak surfaces: log lines and envelope payloads.
   return dropSecretFields(text);
 }
 
@@ -144,12 +149,12 @@ function scrubText(text) {
  * Create the native host.
  *
  * @param {object} options
- * @param {object} options.config     validated config (createConfig)
- * @param {NodeJS.ReadableStream} [options.input]   Chrome -> host (defaults to a PassThrough)
- * @param {NodeJS.WritableStream} [options.output]  host -> Chrome (defaults to a PassThrough)
- * @param {Function} [options.spawn]                injected for tests; never the real agent in the suite
+ * @param {object} options.config     validated config (see config.js)
+ * @param {NodeJS.ReadableStream} [options.input]   Chrome -> host (default: PassThrough)
+ * @param {NodeJS.WritableStream} [options.output]  host -> Chrome (default: PassThrough)
+ * @param {Function} [options.spawn]                injected; the suite never spawns the real agent
  * @param {object} [options.logger]                 defaults to a redacting stderr logger
- * @param {object} [options.client]                 injected ACP client (tests); otherwise built from config
+ * @param {object} [options.client]                 injected ACP client (tests)
  */
 export function createHost(options) {
   if (!options || !options.config) throw new TypeError('createHost requires a validated config');
@@ -164,12 +169,13 @@ export function createHost(options) {
     started: false,
     sequence: 0,
     sessionId: null,
-    sessionPromise: null,
+    sessionCwd: config.sessionCwd,
+    agentPromise: null,
     dispatched: 0,
     refusedMessages: 0,
     emittedEvents: 0,
     failedDeliveries: 0,
-    deadAgentAlerts: 0,
+    agentLossAlerts: 0,
   };
 
   /** Incoming relay events, deduped by message_id + idempotency_key (contract). */
@@ -183,26 +189,26 @@ export function createHost(options) {
     spawn: options.spawn,
     logger,
     onExit: (info) => {
-      state.deadAgentAlerts += 1;
+      state.agentLossAlerts += 1;
       state.sessionId = null;
-      state.sessionPromise = null;
+      state.agentPromise = null;
       inFlight.clear(); // ACP-09: no orphaned turns after the child dies
-      logger.warn(`acp agent gone (${info.reason}); in-flight turns abandoned`);
-      emitEnvelope(operatorAlert({
+      logger.warn(`acp agent gone (${info.reason ?? 'unknown'}); in-flight turns abandoned`);
+      emitEnvelope(buildAlert({
         alert: 'acp_agent_unavailable',
         reason: info.reason ?? 'unknown',
         exit_code: info.code ?? null,
         abandoned_sessions: info.sessions ?? 0,
-        // Durable truth lives in the ledger; an in-process session id is not
-        // evidence that anything survived.
+        // Durable truth lives in the ledger. An in-process session id surviving
+        // a dead child would be a lie, so it is discarded rather than kept.
         recoverable: true,
       }));
     },
     onUnsupportedRequest: (info) => {
-      emitEnvelope(operatorAlert({
+      emitEnvelope(buildAlert({
         alert: 'acp_message_not_implemented',
         method: info.method,
-        detail: 'answered with jsonrpc method_not_found; the agent was not granted anything',
+        detail: 'answered with jsonrpc method_not_found; the agent was granted nothing',
       }));
     },
   });
@@ -212,9 +218,9 @@ export function createHost(options) {
     onMessage: handleFrame,
     onError: (err) => {
       logger.error(`native framing error: ${err.message}`);
-      send({ type: 'relay.error', code: HOST_ERROR.INVALID_FRAME, message: err.message });
-      // A desynchronised Chrome stream is fatal to this connection: further
-      // frames cannot be attributed to a trustworthy boundary.
+      sendError(null, HOST_ERROR.INVALID_FRAME, err.message);
+      // A desynchronised Chrome stream is fatal to this connection: later
+      // frames can no longer be attributed to a trustworthy boundary.
       state.refused = true;
     },
   });
@@ -244,6 +250,7 @@ export function createHost(options) {
 
   function emitEnvelope(env) {
     if (!env) return false;
+    state.emittedEvents += 1;
     return send({ type: 'relay.event', envelope: env });
   }
 
@@ -261,24 +268,22 @@ export function createHost(options) {
     return {
       nodeId: config.nodeId,
       nextSequence,
-      sessionCwd: state.sessionCwd ?? config.sessionCwd,
+      sessionCwd: state.sessionCwd,
       sessionId: state.sessionId,
       ...extra,
     };
   }
 
-  /** A host-level alert envelope (not a task event, hence the taxonomy marker). */
-  function operatorAlert(payload) {
-    const check = messageToEnvelopes.call(null, { method: 'operator/alert' }, { acpMethod: '__none__' });
-    /* istanbul ignore next -- unreachable, kept as a tripwire */
-    void check;
-    return buildAlert(payload);
-  }
-
+  /**
+   * A host-level alert envelope.
+   *
+   * Built with the relay library's own constructor rather than through
+   * messageToEnvelopes, because an operator alert has NO ACP message behind it:
+   * this is the host speaking about itself, and pretending it came from a
+   * translated JSON-RPC reply would be exactly the conflation this milestone
+   * forbids.
+   */
   function buildAlert(payload) {
-    // Built here rather than through messageToEnvelopes because an operator
-    // alert has no ACP message behind it: this is the host speaking for itself.
-    const { createEnvelope, validateEnvelope } = hostLib;
     const env = createEnvelope({
       event_type: 'operator.alert',
       task_state: 'PROPOSED',
@@ -289,9 +294,9 @@ export function createHost(options) {
       delivery_state: 'SENT',
       task_state: 'PROPOSED',
     });
-    const result = validateEnvelope(env);
-    if (!result.valid) {
-      logger.error(`operator alert failed validation: ${result.errors.join('; ')}`);
+    const check = validateEnvelope(env);
+    if (!check.valid) {
+      logger.error(`operator alert failed validation: ${check.errors.join('; ')}`);
       return null;
     }
     env.sequence = nextSequence();
@@ -302,8 +307,8 @@ export function createHost(options) {
 
   function handleFrame(value) {
     // Chrome sends the calling extension's id as the FIRST framed message, then
-    // the extension's own messages. That first frame is the only trustworthy
-    // origin signal in this protocol (NM-02).
+    // the extension's own messages. That first frame is the only origin signal
+    // in this protocol, which is why NM-02 checks it before anything else.
     if (state.origin === null) {
       if (typeof value !== 'string') {
         state.origin = '';
@@ -328,6 +333,9 @@ export function createHost(options) {
       sendError(null, HOST_ERROR.ORIGIN_NOT_ALLOWED, 'connection refused at the origin check; no command was executed');
       return;
     }
+    // NOT serialised against other commands on purpose: a second event for a
+    // session whose turn is still running must be REJECTED (ACP-05), not queued
+    // behind the first and silently accepted after it finishes.
     handleCommand(value).catch((err) => {
       logger.error(`unhandled command failure: ${err && err.stack}`);
       sendError(null, HOST_ERROR.INTERNAL, err && err.message);
@@ -348,10 +356,11 @@ export function createHost(options) {
           ok: true,
           host: { name: config.hostName, node_id: config.nodeId, protocol_version: config.protocolVersion },
           agent: {
-            // Reported, never asserted: the path is the configured one, and
-            // whether a process exists is answered by status.
+            // The path is reported as CONFIGURED, not as verified: only a
+            // successful spawn proves a binary exists there.
             path: config.agentPath,
-            running: client.status() !== 'idle',
+            status: client.status(),
+            running: client.status() === 'ready',
           },
           session_cwd: config.sessionCwd,
           allowed_cwds: config.allowedCwds.slice(),
@@ -359,7 +368,7 @@ export function createHost(options) {
         return;
 
       case 'relay.hello':
-        await handleHello(id, message);
+        await handleHello(id);
         return;
 
       case 'relay.send':
@@ -387,16 +396,9 @@ export function createHost(options) {
     send({ type: 'relay.reply', id, ok: true, protocol_version: config.protocolVersion, agent: info ?? null });
   }
 
-  /**
-   * `relay.send` — the one path that reaches the ACP agent.
-   *
-   * NOT serialised against other commands on purpose: a second event for a
-   * session whose turn is still running must be REJECTED (ACP-05), not queued
-   * behind the first one and silently accepted afterwards.
-   */
+  /** `relay.send` — the one path that reaches the ACP agent. */
   async function handleSend(id, message) {
     const env = message.envelope;
-    const { validateEnvelope } = hostLib;
     const check = validateEnvelope(env);
     if (!check.valid) {
       sendError(id, HOST_ERROR.INVALID_ENVELOPE, `invalid envelope: ${check.errors.join('; ')}`, {
@@ -430,7 +432,7 @@ export function createHost(options) {
     if (typeof env.sequence === 'number') state.sequence = Math.max(state.sequence, env.sequence);
 
     // ACP-02: the host fixes cwd. An extension-supplied cwd is honoured ONLY
-    // when it is in the allowlist; anything else is refused outright rather
+    // when it is in the allowlist. Anything else is refused outright rather
     // than silently rewritten, because "silently ignored" reads to the caller
     // like "it was used".
     const requestedCwd = extractRequestedCwd(env);
@@ -442,14 +444,12 @@ export function createHost(options) {
       }
     }
 
-    let info;
     try {
-      info = await ensureAgent();
+      await ensureAgent();
     } catch (err) {
       sendError(id, errorCode(err), err && err.message, { correlation_id: env.correlation_id });
       return;
     }
-    void info;
 
     let request;
     try {
@@ -500,7 +500,6 @@ export function createHost(options) {
             { method: 'session/update', params: { sessionId: info.sessionId, update } },
             envelopeCtx({ acpMethod: 'session/update', correlationId, causationId: env.message_id }),
           );
-          state.emittedEvents += 1;
           emitEnvelope(progress);
         },
       });
@@ -509,8 +508,8 @@ export function createHost(options) {
       return;
     }
 
-    const record = { sessionId, promise: promptPromise };
-    inFlight.set(correlationId ?? env.message_id, record);
+    const key = correlationId ?? env.message_id;
+    inFlight.set(key, { sessionId, promise: promptPromise });
 
     let outcome;
     try {
@@ -519,7 +518,7 @@ export function createHost(options) {
       sendError(id, errorCode(err), err && err.message, { correlation_id: correlationId });
       return;
     } finally {
-      inFlight.delete(correlationId ?? env.message_id);
+      inFlight.delete(key);
     }
 
     let envelopes;
@@ -557,8 +556,8 @@ export function createHost(options) {
     }
     try {
       const accepted = client.cancel(sessionId);
-      // A cancel REQUEST is not a cancellation. The cancelled stop reason
-      // arriving as task.cancelled is the proof (ACP-06).
+      // A cancel REQUEST is not a cancellation. The cancelled stop reason,
+      // arriving later as task.cancelled, is the proof (ACP-06).
       const [envelope] = messageToEnvelopes({ result: {} }, envelopeCtx({
         acpMethod: 'session/cancel',
         correlationId,
@@ -587,7 +586,7 @@ export function createHost(options) {
     try {
       return await state.agentPromise;
     } catch (err) {
-      state.agentPromise = null; // retryable: a crashed agent may be restarted
+      state.agentPromise = null; // retryable: a crashed agent can be restarted
       throw err;
     }
   }
@@ -596,7 +595,6 @@ export function createHost(options) {
   async function restart() {
     inFlight.clear();
     state.sessionId = null;
-    state.sessionPromise = null;
     state.agentPromise = null;
     await client.restart();
     return ensureAgent();
@@ -606,11 +604,13 @@ export function createHost(options) {
     state.started = false;
     try {
       await store.ready();
-    } catch { /* a bad log must not block shutdown */ }
+    } catch {
+      /* a bad log must not block shutdown */
+    }
     client.close();
   }
 
-  return {
+  const api = {
     state,
     client,
     store,
@@ -627,29 +627,18 @@ export function createHost(options) {
     },
   };
 
-  /* eslint-disable-next-line no-unreachable */
-  const api = {
-    start: () => { state.started = true; },
-    stop,
-    restart,
-    ensureAgent,
-    receive(value) {
-      input.write(encodeNativeFrame(value, { maxFrameBytes: config.maxFrameBytes }));
-    },
-  };
+  return api;
 }
 
-/* ------------------------------------------------------------- envelope lib */
-
-// Imported once at module scope for the host's own envelopes; the map module
-// uses the same objects, so construction and validation cannot drift apart.
-import * as hostLib from '../../extension/src/lib/index.js';
+/* ---------------------------------------------------------------- internals */
 
 function errorCode(err) {
   if (err instanceof FramingError) return HOST_ERROR.INVALID_FRAME;
-  if (err instanceof EnvelopeMapError) return err.code === MAP_ERROR.UNMAPPED_ACP_METHOD
-    ? HOST_ERROR.UNMAPPED_ACP_METHOD
-    : HOST_ERROR.UNMAPPED_ENVELOPE_EVENT;
+  if (err instanceof EnvelopeMapError) {
+    return err.code === MAP_ERROR.UNMAPPED_ACP_METHOD
+      ? HOST_ERROR.UNMAPPED_ACP_METHOD
+      : HOST_ERROR.UNMAPPED_ENVELOPE_EVENT;
+  }
   if (err instanceof AcpClientError) {
     if (err.code === ACP_ERROR.CWD_NOT_ALLOWED || err.code === ACP_ERROR.CWD_MISMATCH) return HOST_ERROR.CWD_NOT_ALLOWED;
     if (err.code === ACP_ERROR.SPAWN_FAILED) return HOST_ERROR.SPAWN_FAILED;
@@ -665,8 +654,8 @@ function errorCode(err) {
  *
  * Host-emitted envelopes are not persisted in Milestone 1: the durable outbox
  * for host->extension events is a later milestone, and pretending otherwise
- * would be a claim the code cannot back. What is real today is that a failed
- * write downgrades a delivery instead of pretending it landed.
+ * would be a claim the code cannot back. What IS real today is that a failed
+ * write downgrades the delivery instead of pretending it landed.
  */
 export function noteDeliveryFailure(current, target = 'RETRY') {
   return deliveryTransition(current, target);
