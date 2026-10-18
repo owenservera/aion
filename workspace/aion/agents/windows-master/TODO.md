@@ -5,19 +5,43 @@ Status vocabulary is fixed: **DONE** (verified by a receipt), **PARTIAL**, **TOD
 
 Last updated: 2026-10-18 · Resume baseline: `21fa583`
 
+## Owner's top-level goals — 2026-10-18
+
+1. **Pure ChatGPT introspection:** named agents on `chatgpt.com` interact with agents on `chatgpt.com`, using the AION repo as HQ. A local-runtime-originated browser probe is supporting transport evidence, not proof of this full goal.
+2. **ChatGPT → Windows execution → ChatGPT:** a ChatGPT-hosted agent sends a scoped prompt to OpenCode or ZCode on the owner's Windows PC and reads its actual response without owner copy/paste. OpenCode remains the first execution target; ZCode is deferred, not silently enabled.
+3. **Execute through the AGENTS mental model:** owner direction recorded; **the definition is owed by Chief 05 and is still pending** — see the request appended to `workspace/aion/sessions/roles/05-chief-of-chiefs/SITREP.md` (2026-10-18, authored by the local OpenCode coordinator, **not** Chief-authored or ACKed). Until Chief 05 answers, the reading below is a coordinator **proposal only**, not the model.
+
+**Coordinator's proposed interpretation, pending that definition:** stable named agent roles, explicit task ownership and correlated handoffs, bounded authority, evidence-backed completion, and repository-based continuity.
+
+Proposed gates — **coordinator PROPOSALS for Chief 05's model, not Chief-approved; planning only, none asserted passed:**
+- **G1:** two named ChatGPT sessions exchange one fresh correlated task/reply; initiating agent reports a checkable answer detail; a mismatched reply is rejected. No owner relay.
+- **G2:** one bounded multi-turn ChatGPT↔ChatGPT task produces a checked result and stops at its turn/budget limit; repository references preserve continuity across a fresh invocation.
+- **G3:** ChatGPT requests a benign Windows diagnostic from OpenCode and consumes the correlated response; unavailable executor is reported honestly.
+- **G4:** ChatGPT delegates a bounded sandbox code/test task, consumes exit status and artifact/commit evidence, and reports the result; duplicate dispatch and out-of-scope requests are refused.
+- **G5:** AGENTS-role ownership, handoff, restart/uncertain-outcome behavior and stop boundaries demonstrated on one real task, once the mental model is confirmed.
+- **Acceptance owner:** independent reviewer for actual M1; OpenCode coordinates execution evidence. GitHub persistence does not wake agents; browser DOM access is not access to hidden model internals. These goals do not widen the existing single-probe authorization.
+
 ## Active owners — resumed 2026-10-18
 
 - **Execution and final validation:** OpenCode coordinator.
 - **Worker/native integration and ChatGPT port driver (items 3–4):** fixer, session `ses_eb180b3d8ffeLm7dKbsiur6KwB`.
 - **Transport/host safety corrections:** fixer, session `ses_eb5474ccfffed9NlaG7EdDh2RF`. Scope excludes worker and port driver.
-- **Safety review:** oracle, session `ses_eb142ccacffeBC4cQfP3Y8UIrF`; found unbounded port/disconnect retry, stale-port callbacks and validation gaps. Corrections required before live use.
+- **Safety review:** oracle, session `ses_eb142ccacffeBC4cQfP3Y8UIrF`; reviewed the delivered transport/host corrections and returned PASS. Final content preflight remains separately gated before sending.
 - **Independent M1 acceptance:** a separate reviewer, after a real receipt exists; not yet assigned.
 - **Local infrastructure and disk:** PC HQ. AION does not clean storage or change that ownership.
 - `AION-Sync` was observed **Disabled** on resume. Left unchanged; coordinator uses explicit commits.
 - **Panel controls:** designer delivered timeout/replay safeguards and durable regression tests; coordinator independently ran `bun run test -- tests/panel-controls.test.js`, **27/27 PASS** on 2026-10-18. Integration validation still pending.
 - **Progress receipt:** posted and independently read back at https://github.com/owenservera/aion/issues/27#issuecomment-6249455037 (2026-10-18T11:37:52Z). This is progress evidence, not a live-turn acceptance receipt.
+- **Safety corrections:** coordinator independently ran transport suites **58/58** and full bridge suite **119/119** after oracle review. The initial real framed `relay.hello` failed because it eagerly called `session/new`, then lost the request ID on error. Corrected: hello initializes capabilities only; sessions are created lazily for dispatch; errors preserve the request ID.
+- **Real host/ACP probe, 2026-10-18T11:47:29.920Z:** framed host ping and hello returned `ok:true`, `agentInfo:{name:OpenCode,version:2.0.32}`, protocol 1 and `session.created:false`. This used process pipes, **not Chrome**, so the Chrome boundary remains unverified. No prompt was sent.
 
 Latest historical green baseline: extension **142/142**, bridge **96/96**, adapter **35/35** (273 total). These counts are not proof that the pending integration works.
+
+**Integration reconciliation, 2026-10-18:** coordinator ran the full extension suite after all three initial writers finished: **248/248 PASS**, normal exit (~4.9s). Worker/port integration is implemented. Two concrete seams are being corrected before reload/send: panel must forward the existing authorization reference; content must expose/enforce exactly one visible composer and preserve existing drafts. Fixer `ses_eb11f0811ffeBDYzeJ5FzlVbcu` owns mechanical panel wiring/tests; fixer `ses_eb180b3d8ffeLm7dKbsiur6KwB` owns content/driver preflight/tests; OpenCode owns validation and live execution. No new ChatGPT send has happened.
+
+**Existing Chrome warning observed during read-only diagnostics:** the AION error page contains a prior dynamic-import fetch failure for `src/chatgpt/content.js`. This is not yet classified as a current-source defect: reload the finished extension and refresh the target ChatGPT page, then reproduce/read-only ping before changing the loader or manifest. No account contents were extracted.
+
+**Correction to the extension suite count — 2026-10-18.** An independent full extension run reported **269 tests: 267 passed, 2 cancelled, process exit code 1.** The specialist's earlier **267/267** summary is **not accepted as full-suite evidence**; it omitted the 2 cancelled tests and the non-zero exit. Cause under investigation: test timeouts. **Worker/port fixer `ses_eb180b3d8ffeLm7dKbsiur6KwB` owns resolving them.** The 248/248 reconciliation line above predates this run and is not the current status. Until a run finishes with exit 0 and nothing cancelled, the extension suite is **PARTIAL**, not green, and neither 267/267 nor 248/248 may be cited as current proof.
 
 ---
 
@@ -47,7 +71,7 @@ Origin-sourcing defect fixed. `handleFrame` had expected the **first framed stdi
 extension origin; Chrome passes it as **argv[1]**, so the host would have refused every real
 connection with `origin_missing`.
 
-- `src/host.js` — `applyOrigin()` runs the NM-02 check once, from argv or the retained first-frame path
+- `src/host.js` — `applyOrigin()` runs the NM-02 check once from argv; the self-asserted first-frame fallback was removed by the safety correction
 - `bin/aion-relay-host.mjs` — entry point; `extractExtensionId()` normalises to the bare id; exits 2 with no origin
 - `native-host/aion-relay-host.cmd` — launcher (CreateProcess cannot run `.js`/`.mjs`)
 - Outbound frames clamped to Chrome's **1 MB** host→extension limit
@@ -96,15 +120,11 @@ SEA single-executable build or a compiled shim. This surfaces in item 3.
 
 **Extension load observed, 2026-10-18T11:32:23Z:** owner loaded unpacked extension. Coordinator independently read `Profile 3/Secure Preferences`: pinned ID `kgjfielmhcdlggjppmliabpiljnonhki`, location 4 (unpacked), exact repository extension path. Native Windows UI Automation also found the `AION Chrome Relay Station` card in the existing Chrome Extensions window. No Orca used. This proves installation/registration, not worker health or the ACP handshake. Reload after pending source fixes before live use.
 
-The native adapter exists at `21fa583`; the worker still constructs `disabled-native` at resume.
-Fixer is wiring the real adapter and storage lifecycle. Separate safety fixes address unbounded
-retry on Chrome's port-then-disconnect path, stale-port callbacks, mandatory envelope validation and
-truthful connection state. No live Chrome handshake has been proven.
+The worker now wires the real native adapter and storage lifecycle, covered by the integrated extension suite. Reviewed safety fixes bound port/disconnect retry, guard stale callbacks, require envelope validation and report connection state only after a correlated host reply. No live Chrome handshake has been proven.
 
-### 4. Port driver for the content script — **IN PROGRESS (fixer)**
+### 4. Port driver for the content script — **PARTIAL (implemented; live verification pending)**
 `content.js` listens on port `aion-chatgpt` (`ping`, `state`, `run-turn`, `read-final`, `stop`).
-Nothing connects to it. Needs worker/panel code using
-`chrome.tabs.query({url:'https://chatgpt.com/*'})` → `chrome.tabs.connect`. Prove `ping` first (read-only).
+Worker/panel now use `chrome.tabs.query({url:'https://chatgpt.com/*'})` → `chrome.tabs.connect`, with durable per-correlation dispatch reservations and no automatic send retry. Final composer preflight correction is pending. Prove `ping` first (read-only).
 
 ### 5. Check node D offline — **PARTIAL — fixture validation still required**
 
