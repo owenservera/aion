@@ -13,7 +13,7 @@
 import { validateEnvelope } from './envelope.js';
 
 /** Transport names. The first two are permanently disabled in the MVP. */
-export const TRANSPORT_NAMES = Object.freeze(['disabled-native', 'disabled-loopback', 'fixture']);
+export const TRANSPORT_NAMES = Object.freeze(['disabled-native', 'disabled-loopback', 'fixture', 'native']);
 
 /** Lifecycle status strings a UI can render without interpreting the name. */
 export const TRANSPORT_STATUS = Object.freeze({
@@ -45,7 +45,239 @@ export function createTransport(name, opts = {}) {
   if (name === 'disabled-native' || name === 'disabled-loopback') {
     return disabledTransport(name);
   }
+  if (name === 'native') {
+    return nativeTransport(opts);
+  }
   return fixtureTransport(name, opts);
+}
+
+/* ---------------------------------------------------------------- native */
+
+/** Wire message types the bridge host speaks (see bridge/src/host.js handleCommand). */
+const NATIVE_HOST_NAME = 'com.aion.relay';
+const NATIVE_ERROR = 'relay.error';
+const NATIVE_EVENT = 'relay.event';
+
+const NATIVE_STATUS = Object.freeze({
+  UNAVAILABLE: 'UNAVAILABLE',
+  CONNECTED: 'CONNECTED',
+  CLOSED: 'CLOSED',
+});
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+const DEFAULT_BACKOFF = Object.freeze({ baseMs: 250, maxMs: 8_000, maxAttempts: 4 });
+
+/**
+ * The one transport that opens a real native-messaging host port.
+ *
+ * Wire model - easy to get wrong: from the EXTENSION side there is **no framing
+ * to write**. Chrome's `connectNative` returns a Port immediately and does the
+ * 4-byte length prefixing itself; both sides exchange plain JSON objects. The
+ * length-prefixed framing exists only on the host process's stdin.
+ *
+ * Connection model - there is **no handshake to await**. A Port is returned
+ * synchronously whether or not the host exists; a missing or unregistered host
+ * surfaces later as a disconnect, not a throw. So this reports CONNECTED once it
+ * holds a port and downgrades only on disconnect. Awaiting a server greeting the
+ * host never sends would hang forever, which is exactly what a previous attempt
+ * at this adapter did.
+ *
+ * Liveness is proved by `relay.ping`, which the host answers without spawning
+ * anything. `relay.hello` is what actually starts the ACP agent.
+ */
+function nativeTransport(opts = {}) {
+  const hostName = opts.hostName ?? NATIVE_HOST_NAME;
+  const requestTimeoutMs = Number.isInteger(opts.requestTimeoutMs) && opts.requestTimeoutMs > 0
+    ? opts.requestTimeoutMs
+    : DEFAULT_REQUEST_TIMEOUT_MS;
+  const backoff = { ...DEFAULT_BACKOFF, ...(opts.backoff ?? {}) };
+  const clock = opts.clock ?? {
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (h) => clearTimeout(h),
+  };
+  const random = typeof opts.random === 'function' ? opts.random : Math.random;
+
+  const chromeApi = opts.chrome ?? (typeof chrome !== 'undefined' ? chrome : null);
+  const subscribers = new Set();
+
+  let port = null;
+  let closed = false;
+  let attempts = 0;
+  let reconnectTimer = null;
+  let nextRequestId = 1;
+  let lastError = null;
+  const pending = new Map();
+
+  function reportUnavailable(reason) {
+    lastError = reason;
+    for (const fn of subscribers) {
+      try { fn({ type: 'transport.unavailable', reason }); } catch { /* subscriber threw */ }
+    }
+  }
+
+  function failPending(code, message) {
+    if (pending.size === 0) return;
+    const snapshot = [...pending.entries()];
+    pending.clear();
+    for (const [, entry] of snapshot) {
+      if (entry.timer) clock.clearTimeout(entry.timer);
+      entry.reject(new Error(`${code}: ${message}`));
+    }
+  }
+
+  function scheduleReconnect() {
+    if (closed || reconnectTimer) return;
+    attempts += 1;
+    if (attempts > backoff.maxAttempts) {
+      // Bounded: stop retrying and degrade, rather than spinning forever.
+      reportUnavailable('reconnect attempts exhausted; manual resume required');
+      return;
+    }
+    const window = Math.min(backoff.baseMs * (2 ** (attempts - 1)), backoff.maxMs);
+    const delay = Math.floor(window * (0.5 + random() * 0.5)); // jitter
+    reconnectTimer = clock.setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, delay);
+  }
+
+  function onDisconnect() {
+    port = null;
+    failPending('disconnected', 'the native host port closed before replying');
+    scheduleReconnect();
+  }
+
+  function connect() {
+    if (closed || port) return port;
+    const runtime = chromeApi && chromeApi.runtime;
+    if (!runtime || typeof runtime.connectNative !== 'function') {
+      reportUnavailable('chrome.runtime.connectNative is unavailable in this context');
+      return null;
+    }
+    try {
+      port = runtime.connectNative(hostName);
+    } catch (err) {
+      // An unregistered host can throw here rather than disconnect later.
+      port = null;
+      reportUnavailable(`could not open host ${hostName}: ${err && err.message}`);
+      scheduleReconnect();
+      return null;
+    }
+    port.onMessage.addListener((message) => onMessage(message));
+    if (typeof port.onDisconnect.addListener === 'function') {
+      port.onDisconnect.addListener(() => onDisconnect());
+    }
+    // Holding a live port is the strongest liveness signal Chrome offers here;
+    // ping() then proves the host process itself is answering.
+    attempts = 0;
+    lastError = null;
+    return port;
+  }
+
+  function onMessage(message) {
+    if (!message || typeof message !== 'object') {
+      reportUnavailable('the host sent a non-object message');
+      return;
+    }
+    if (message.type === NATIVE_EVENT) {
+      for (const fn of subscribers) {
+        try { fn(message.envelope); } catch { /* subscriber threw */ }
+      }
+      return;
+    }
+    const entry = message.id != null ? pending.get(message.id) : undefined;
+    if (!entry) return;
+    pending.delete(message.id);
+    if (entry.timer) clock.clearTimeout(entry.timer);
+    if (message.type === NATIVE_ERROR) {
+      entry.reject(new Error(`${message.code}: ${message.message}`));
+      return;
+    }
+    entry.resolve(message);
+  }
+
+  /** Send one command and await its reply. Rejects rather than hanging. */
+  function request(type, payload = {}) {
+    return new Promise((resolve, reject) => {
+      const live = port || connect();
+      if (!live) {
+        reject(new Error(`native host unavailable: ${lastError ?? 'not connected'}`));
+        return;
+      }
+      const id = `n${nextRequestId++}`;
+      const timer = clock.setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`native request ${type} timed out after ${requestTimeoutMs}ms`));
+      }, requestTimeoutMs);
+      pending.set(id, { resolve, reject, timer });
+      try {
+        live.postMessage({ ...payload, type, id });
+      } catch (err) {
+        pending.delete(id);
+        clock.clearTimeout(timer);
+        reject(new Error(`failed to post ${type}: ${err && err.message}`));
+      }
+    });
+  }
+
+  return {
+    name: 'native',
+    enabled: true,
+
+    status() {
+      if (closed) return NATIVE_STATUS.CLOSED;
+      if (port) return NATIVE_STATUS.CONNECTED;
+      return NATIVE_STATUS.UNAVAILABLE;
+    },
+
+    lastError() {
+      return lastError;
+    },
+
+    connect,
+
+    ping() {
+      return request('relay.ping');
+    },
+
+    hello() {
+      return request('relay.hello');
+    },
+
+    send(envelope) {
+      return request('relay.send', { envelope });
+    },
+
+    cancel(correlationId) {
+      return request('relay.cancel', { correlation_id: correlationId });
+    },
+
+    /** Validates before putting anything on the wire. */
+    async sendEnvelope(envelope, validate) {
+      const check = typeof validate === 'function' ? validate(envelope) : { valid: true, errors: [] };
+      if (!check.valid) throw new Error(`invalid envelope: ${(check.errors || []).join('; ')}`);
+      return request('relay.send', { envelope });
+    },
+
+    onMessage(fn) {
+      if (typeof fn !== 'function') return undefined;
+      subscribers.add(fn);
+      return () => subscribers.delete(fn);
+    },
+
+    close() {
+      closed = true;
+      if (reconnectTimer) {
+        clock.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      failPending('closed', 'transport closed');
+      if (port) {
+        try { port.disconnect(); } catch { /* already gone */ }
+        port = null;
+      }
+    },
+  };
 }
 
 /* ------------------------------------------------------------- disabled */
