@@ -184,6 +184,14 @@ export function createHost(options) {
   /** correlation_id -> { sessionId, promise }, so a cancel can find its turn. */
   const inFlight = new Map();
 
+  // Chrome does NOT send the caller's origin as a message. It passes it to the
+  // native host as the first command-line argument ("chrome-extension://<id>/",
+  // plus "--parent-window=<n>" on Windows) and then speaks framed JSON on stdin.
+  // An entry point therefore seeds the origin from argv before any frame is
+  // read; the first-frame path below is retained only for the in-process tests
+  // that drive this module directly.
+  if (options.initialOrigin !== undefined) applyOrigin(options.initialOrigin, 'command line');
+
   const client = options.client ?? createAcpClient({
     config,
     spawn: options.spawn,
@@ -305,26 +313,34 @@ export function createHost(options) {
 
   /* --------------------------------------------------------------- inbound */
 
+  /**
+   * Run the NM-02 origin check exactly once. Refusal is terminal: once refused,
+   * every later frame is answered with a refusal and nothing is executed.
+   */
+  function applyOrigin(value, source) {
+    if (state.origin !== null) return;
+    if (typeof value !== 'string' || value === '') {
+      state.origin = '';
+      state.refused = true;
+      logger.error(`origin missing (${source}); refusing the connection`);
+      sendError(null, HOST_ERROR.ORIGIN_MISSING, `no extension origin was supplied by Chrome (${source})`);
+      return;
+    }
+    state.origin = value;
+    if (config.expectedExtensionId === '' || value !== config.expectedExtensionId) {
+      state.refused = true;
+      logger.error(`origin "${value}" is not the configured extension id; refusing every message`);
+      sendError(null, HOST_ERROR.ORIGIN_NOT_ALLOWED, `origin "${value}" is not allowed by this host`);
+      return;
+    }
+    logger.info(`origin accepted from ${source}: ${value}`);
+  }
+
   function handleFrame(value) {
-    // Chrome sends the calling extension's id as the FIRST framed message, then
-    // the extension's own messages. That first frame is the only origin signal
-    // in this protocol, which is why NM-02 checks it before anything else.
+    // Only reached when no origin was seeded from the command line (direct
+    // in-process use). The first frame is then treated as the origin.
     if (state.origin === null) {
-      if (typeof value !== 'string') {
-        state.origin = '';
-        state.refused = true;
-        logger.error('first native message was not an origin string; refusing the connection');
-        sendError(null, HOST_ERROR.ORIGIN_MISSING, 'expected Chrome to send the extension origin as the first message');
-        return;
-      }
-      state.origin = value;
-      if (config.expectedExtensionId === '' || value !== config.expectedExtensionId) {
-        state.refused = true;
-        logger.error(`origin "${value}" is not the configured extension id; refusing every message`);
-        sendError(null, HOST_ERROR.ORIGIN_NOT_ALLOWED, `origin "${value}" is not allowed by this host`);
-        return;
-      }
-      logger.info(`origin accepted: ${value}`);
+      applyOrigin(value, 'first message');
       return;
     }
 
