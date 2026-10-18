@@ -24,7 +24,7 @@ node --version
 npm test
 ```
 
-Expected: six passing test cases against a temporary sandbox fixture. The tests do not touch real `STATE.json`, real transcripts, ChatGPT, Chrome or the tunnel. On this authoring pass Node 22.16.0 in an isolated Linux container produced **6 pass, 0 fail**; Windows execution is not yet verified.
+Expected: five passing test cases against a temporary sandbox fixture. The tests do not touch real `STATE.json`, real transcripts, ChatGPT, Chrome or the tunnel. On this authoring pass Node 22.16.0 in an isolated Linux container produced **5 pass, 0 fail**; Windows execution is not yet verified.
 
 To run the read-only MCP server locally **after reviewing its code**:
 
@@ -62,3 +62,7 @@ See `TUNNEL-SETUP.md` for the actual operator steps and plan eligibility limitat
 6. If/when writes become authorized, implement **separate** ACP gateway tools with explicit approvals, correlation, idempotency, negative cases, audit receipts. They are out of scope for this read-only pilot.
 
 Source docs: https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt ; https://developers.openai.com/api/docs/guides/secure-mcp-tunnels ; https://developers.openai.com/plugins/build/plugins
+
+## Complete local release checks
+
+From the AION checkout, run `pwsh -NoProfile -File .\workspace\aion\ops\aion-mcp\windows\Complete-AionBus.ps1`. The complete pack and separate browser/plugin finish-line evidence are documented in [`FINISH-LINE.md`](./FINISH-LINE.md). The new `npm run verify` checks an actual local subprocess with the real checkout; this is read-only and never launches Chrome or an agent. `windows/Connect-AionTunnel.ps1` takes a real owner-provisioned tunnel ID and asks for a local secret without logging it.
