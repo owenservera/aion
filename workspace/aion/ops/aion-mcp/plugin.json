@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "aion-status",
+  "version": "0.1.0",
+  "description": "Review AION state, minimized receipts, and evidence without assuming a live agent connection.",
+  "repository": "https://github.com/owenservera/aion",
+  "keywords": ["aion", "state", "receipts", "verification"]
+}
