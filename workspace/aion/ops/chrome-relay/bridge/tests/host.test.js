@@ -113,14 +113,30 @@ test('ORIGIN MISSING: no origin at all refuses the connection', async () => {
   h.host.stop();
 });
 
-test('ORIGIN MISSING: an undefined origin falls back to the first-message path', async () => {
-  const h = harness(); // no initialOrigin
-  assert.equal(h.state.refused, false);
-  assert.equal(h.state.origin, null);
+test('ORIGIN MISSING: an undefined origin refuses, with no first-frame fallback', async () => {
+  // The fallback that used to live here treated the first framed stdin message as
+  // the origin. That verifies nothing: whoever writes those bytes chooses the
+  // origin. Chrome supplies it in argv, so a host with no argv origin refuses.
+  const h = harness(); // no initialOrigin at all
+  assert.equal(h.state.origin, '', 'the origin is never left open');
+  assert.equal(h.state.refused, true);
+  assert.match(h.logs.join('\n'), /origin missing/);
+  assert.ok(errorsIn(h.out).some((e) => e.code === HOST_ERROR.ORIGIN_MISSING));
+  h.host.stop();
+});
+
+test('ORIGIN MISSING: a first frame claiming an origin cannot unlock a refusing host', async () => {
+  const h = harness(); // no argv origin
   h.host.receive((ORIGIN));
+  h.host.receive({ type: 'relay.command', id: 'c1', command: 'agent.initialize' });
   await settle();
-  assert.equal(h.state.origin, ORIGIN);
-  assert.equal(h.state.refused, true, 'a full chrome-extension:// origin is not the bare id');
+  await settle();
+
+  assert.equal(h.state.dispatched, 0, 'nothing executes');
+  assert.equal(h.state.origin, '', 'the self-asserted value was not adopted');
+  for (const e of errorsIn(h.out)) {
+    assert.ok([HOST_ERROR.ORIGIN_NOT_ALLOWED, HOST_ERROR.ORIGIN_MISSING].includes(e.code), e.code);
+  }
   h.host.stop();
 });
 

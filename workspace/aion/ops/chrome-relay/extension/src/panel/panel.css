@@ -593,6 +593,187 @@ body {
   line-height: 1.45;
 }
 
+/* ---------------- operator controls ---------------- */
+
+.ops {
+  padding: 16px var(--pad) 0;
+  display: grid;
+  gap: var(--gap);
+}
+
+.ops .roles__head {
+  margin-bottom: 0;
+}
+
+.panel__subheading {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+}
+
+.btnrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+/* The armed action is visually distinct from the read-only ones: it is the only
+   control that can reach a tab. It stays disabled until every precondition is
+   met, and disabling is never its only signal. */
+.btn--armed {
+  color: var(--hold);
+  border-color: var(--hold);
+}
+
+.btn--armed:enabled:hover {
+  background: color-mix(in srgb, var(--hold) 18%, transparent);
+}
+
+.btn:disabled {
+  color: var(--text-low);
+  border-color: var(--unknown-a);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.field {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.field label {
+  font-family: var(--font-data);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--text-low);
+}
+
+.field input[type="text"],
+.field textarea,
+.field select {
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  color: var(--text-hi);
+  background: var(--ink-2);
+  border: 1px solid var(--rule-strong);
+  padding: 5px 7px;
+  width: 100%;
+  resize: vertical;
+}
+
+.field input[type="text"]:disabled,
+.field select:disabled {
+  color: var(--text-low);
+  border-style: dashed;
+  border-color: var(--unknown-a);
+  cursor: not-allowed;
+}
+
+/* An invalid field is marked without clearing what the operator typed. */
+.field input[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
+  border-color: var(--stop);
+}
+
+.field--check {
+  grid-template-columns: 16px 1fr;
+  align-items: start;
+  gap: 7px;
+}
+
+.field--check label {
+  color: var(--text-mid);
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.footnote--warn {
+  color: var(--warn);
+  border-left: 2px solid var(--warn);
+  padding-left: 7px;
+}
+
+.result {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-mid);
+  background: var(--ink-2);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.result[data-state="unknown"] {
+  color: var(--text-low);
+  border-style: dashed;
+  border-left-style: dashed;
+  border-left-color: var(--unknown-a);
+}
+
+.result[data-state="ok"] {
+  border-left-color: var(--signal);
+  color: var(--text-hi);
+}
+
+.result[data-state="warn"] {
+  border-left-color: var(--warn);
+}
+
+.result[data-state="error"] {
+  border-left-color: var(--stop);
+  color: var(--text-hi);
+}
+
+.result[data-state="captured"] {
+  /* A capture is deliberately not styled as a success. */
+  border-left-color: var(--proof);
+}
+
+.gate__list--inline {
+  margin: 0 0 8px;
+}
+
+.hold {
+  margin: 0 0 8px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  line-height: 1.45;
+  border-left: 3px solid var(--rule-strong);
+  padding: 4px 0 4px 8px;
+  color: var(--text-mid);
+}
+
+/* A dispatched-but-unsettled probe is not idle and not failed. It reads as an
+   unknown that is being held, never as a healthy quiet state. */
+.hold[data-hold="unknown"] {
+  border-left-color: var(--warn);
+  border-left-style: dashed;
+  color: var(--text-hi);
+}
+
+.hold[data-hold="settled"] {
+  border-left-color: var(--proof);
+}
+
+.gate__list--inline li {
+  border-left-color: var(--warn);
+  color: var(--text-low);
+}
+
+.gate__list--inline:empty {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0ms !important;

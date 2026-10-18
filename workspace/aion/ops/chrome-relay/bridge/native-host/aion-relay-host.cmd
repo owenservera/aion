@@ -10,7 +10,13 @@ rem argv[2..] may include --parent-window. They are forwarded untouched.
 
 setlocal
 set "BRIDGE_DIR=%~dp0.."
-set "NODE_EXE=node"
+rem Chrome's inherited PATH need not match the interactive terminal's PATH.
+set "NODE_EXE=%ProgramFiles%\nodejs\node.exe"
+if defined AION_NODE_EXE set "NODE_EXE=%AION_NODE_EXE%"
+if not exist "%NODE_EXE%" (
+  >&2 echo aion-relay-host: Node executable not found; configure AION_NODE_EXE.
+  exit /b 3
+)
 
 "%NODE_EXE%" "%BRIDGE_DIR%\bin\aion-relay-host.mjs" %*
 exit /b %ERRORLEVEL%

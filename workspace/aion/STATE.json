@@ -1,7 +1,7 @@
 {
   "schema": "aion.entry-state.v1",
-  "updated_utc": "2026-10-18T11:22:17Z",
-  "update_basis": "Resumed Windows execution at 21fa583; owner authorized full bounded ChatGPT introspection in chat and issue #27. Authorization is recorded separately from execution; no new live round trip has yet been observed.",
+  "updated_utc": "2026-10-18T12:16:55Z",
+  "update_basis": "Coordinator independently verified extension 273/273 and bridge 119/119 with zero failed/cancelled tests and reloaded the installed extension through its exact Chrome Extensions control. Actual Chrome-to-host handshake and ChatGPT round trip remain unverified. Owner goals and Chief 05 model request published at 306ff81; no Chief acknowledgment observed.",
   "canonical_entry": "https://github.com/owenservera/aion",
   "machine_authority": "OWNER_WINDOWS_MASTER",
   "target_browser_host": "OWNER_WINDOWS_MASTER",
@@ -12,11 +12,11 @@
   "authorization_basis": "Owner override for full introspection and issue https://github.com/owenservera/aion/issues/27 authorize FLOW steps 1-4 including one benign real ChatGPT send on Windows. No credential export, bulk history, login automation, Playwright, Puppeteer or Orca. See workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md. Consent is not execution proof.",
   "m1_verified": false,
   "chrome_relay_mvp": {
-    "status": "INSTALLED_INTEGRATION_PENDING",
-    "observed_utc": "2026-10-18T11:32:23Z",
+    "status": "INSTALLED_RELOADED_PRELIVE",
+    "observed_utc": "2026-10-18T12:16:55Z",
     "path": "workspace/aion/ops/chrome-relay/extension/",
     "issue": "https://github.com/owenservera/aion/issues/18",
-    "tests": "81/81 PASS (node --test, Node 24.11.1, zero dependencies)",
+    "tests": "273/273 PASS; failed 0, cancelled 0, skipped 0; bun run test -- --test-timeout=60000; coordinator independent run 2026-10-18. Bridge independently 119/119.",
     "role_count": 8,
     "permissions": ["sidePanel", "storage", "alarms", "nativeMessaging"],
     "host_permissions": "https://chatgpt.com/*",
@@ -29,7 +29,7 @@
     "installation_evidence": "Owner loaded unpacked; coordinator read Profile 3 Secure Preferences and observed extension card via native Windows UI Automation at 2026-10-18T11:32:23Z. No Orca. Installation is not handshake proof.",
     "touched_signed_in_session": false,
     "acpx_decision": "Owner declared ACPX unavailable 2026-10-17; issue #25 remains open as an unanswered comparison",
-    "live_test_status": "AUTHORIZED - integration and transport safety corrections pending; no send yet",
+    "live_test_status": "AUTHORIZED - integrated build tested and extension reloaded; actual side-panel Chrome handshake pending; no ChatGPT send yet. Opening the console in an ordinary extension tab was correctly refused as sender_is_a_tab; do not weaken sender validation.",
     "notes": "Built to the existing design in ops/chrome-relay/; spec role-count drift (5 vs 8) resolved to 8 per ROLES.json and corrected in ARCHITECTURE.md, FALLBACK-AND-ACCEPTANCE.md and OPENCODE-BUILD-ORDER.md."
   },
   "local_execution_agent": "opencode",
@@ -52,7 +52,7 @@
   },
   "current_goal": "AION-originated real authenticated ChatGPT web app prompt on Windows -> real reply -> independently consumed by AION with matching ID and negative-case verification",
   "current_phase": "LIVE_TEST_AUTHORIZED",
-  "next_action": "Finish worker/native and ChatGPT-port integration, correct reviewed transport safety defects, prove the actual Chrome handshake, then run the single authorized correlated send and retain minimized evidence. Keep m1_verified false until independent acceptance. Execution: OpenCode; infrastructure: PC HQ; no Orca.",
+  "next_action": "Open the actual AION side panel in the existing Chrome window, prove host/ACP and read-only ChatGPT ping, then run the single already-authorized correlated send and retain minimized evidence. Chief 05 separately owns defining the agent model on the existing roster. Keep m1_verified false until independent acceptance. Execution: OpenCode; infrastructure: PC HQ; no Orca.",
   "proposals_pending_owner": [
     {
       "id": "M1_SPLIT",

@@ -1,0 +1,823 @@
+// AION Chrome Relay Station — side panel operator controls.
+//
+// Regression cover for the panel's truthfulness and single-send guarantees.
+// Node built-ins only: a DOM stub and a chrome.* stub, no browser, no Playwright,
+// no Puppeteer, no live relay. The module is re-imported with a cache-busting
+// query per test so module-level probe state cannot leak between cases.
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const panelPath = resolve(root, 'src', 'panel', 'panel.js');
+const panelUrl = pathToFileURL(panelPath).href;
+const panelHtml = readFileSync(resolve(root, 'src', 'panel', 'sidepanel.html'), 'utf8');
+const panelCss = readFileSync(resolve(root, 'src', 'panel', 'panel.css'), 'utf8');
+const panelSource = readFileSync(panelPath, 'utf8');
+
+const OPERATOR_TYPES = [
+  'aion/native-ping',
+  'aion/native-hello',
+  'aion/chatgpt-tabs',
+  'aion/chatgpt-ping',
+  'aion/chatgpt-run'
+];
+
+const CONTROL_IDS = [
+  'role-grid', 'refresh-btn', 'knowledge-bar', 'knowledge-text', 'mode-chip', 'fallback-reason',
+  'relay-transport', 'relay-adapter', 'relay-detail', 'relay-boots', 'relay-started',
+  'proof-status', 'proof-timestamp', 'proof-staleness', 'proof-verifier', 'proof-note',
+  'queue-count', 'queue-oldest', 'queue-cursor', 'gate-panel', 'gate-count', 'gate-list',
+  'gate-note', 'result-native', 'result-chatgpt', 'result-run', 'probe-hold', 'probe-blockers',
+  'tab-select', 'probe-text', 'probe-correlation', 'probe-token', 'probe-confirm',
+  'btn-native-ping', 'btn-native-hello', 'btn-chatgpt-tabs', 'btn-chatgpt-ping',
+  'btn-chatgpt-run', 'btn-probe-reconcile'
+];
+
+/* ------------------------------------------------------------------ *
+ * Harness
+ * ------------------------------------------------------------------ */
+
+function makeElement(id) {
+  const listeners = {};
+  const el = {
+    id,
+    listeners,
+    children: [],
+    dataset: {},
+    attributes: {},
+    className: '',
+    value: '',
+    checked: false,
+    disabled: false,
+    rows: 2,
+    append(...kids) { el.children.push(...kids); },
+    setAttribute(key, value) { el.attributes[key] = String(value); },
+    removeAttribute(key) { delete el.attributes[key]; },
+    addEventListener(type, fn) { listeners[type] = fn; }
+  };
+  // Real DOM: assigning textContent drops child nodes.
+  let text = '';
+  Object.defineProperty(el, 'textContent', {
+    get() { return text; },
+    set(value) { text = String(value); if (text === '') el.children.length = 0; }
+  });
+  return el;
+}
+
+let importCounter = 0;
+
+// The real timer, captured before any test installs a fake clock.
+const realSetTimeout = globalThis.setTimeout;
+
+/**
+ * A minimal deterministic clock.
+ *
+ * Injected over globalThis.setTimeout so the panel's own deadline code runs
+ * unmodified. Node's built-in mock timers differ between releases, so the
+ * suite does not depend on them.
+ */
+function installFakeClock() {
+  const real = globalThis.setTimeout;
+  let now = 0;
+  let seq = 0;
+  const pending = new Map();
+
+  globalThis.setTimeout = (fn, delay) => {
+    seq += 1;
+    pending.set(seq, { fn, at: now + (Number(delay) || 0) });
+    return seq;
+  };
+
+  return {
+    restore() { globalThis.setTimeout = real; },
+    async advance(ms) {
+      const target = now + ms;
+      for (;;) {
+        let chosenId = null;
+        let chosenAt = Infinity;
+        for (const [id, timer] of pending) {
+          if (timer.at <= target && timer.at < chosenAt) {
+            chosenAt = timer.at;
+            chosenId = id;
+          }
+        }
+        if (chosenId === null) break;
+        const timer = pending.get(chosenId);
+        pending.delete(chosenId);
+        now = timer.at;
+        timer.fn();
+        // Drain the promise continuations the callback set up.
+        for (let i = 0; i < 25; i += 1) await Promise.resolve();
+      }
+      now = target;
+    }
+  };
+}
+
+/**
+ * Build a fresh DOM + chrome.* world and load the panel into it.
+ *
+ * @param {{ reply?: (msg: object) => object, withRuntime?: boolean }} options
+ */
+async function loadPanel(options = {}) {
+  const { reply, withRuntime = true } = options;
+
+  const ids = new Map();
+  for (const id of CONTROL_IDS) ids.set(id, makeElement(id));
+  const sent = [];
+
+  const chromeStub = withRuntime
+    ? {
+        runtime: {
+          id: 'stub-extension-id',
+          lastError: undefined,
+          sendMessage(message, callback) {
+            sent.push(message);
+            const value = reply ? reply(message) : { ok: true };
+            if (value === undefined) return; // deliberately never answers
+            // A reply may be a promise, standing in for a call still in flight.
+            if (value && typeof value.then === 'function') {
+              value.then(
+                (resolved) => { setTimeout(() => callback(resolved), 0); },
+                (error) => { setTimeout(() => callback({ ok: false, error: String(error) }), 0); }
+              );
+              return;
+            }
+            setTimeout(() => callback(value), 0);
+          }
+        }
+      }
+    : undefined;
+
+  globalThis.document = {
+    readyState: 'complete',
+    visibilityState: 'visible',
+    getElementById: (id) => ids.get(id) || null,
+    createElement: (tag) => makeElement('<' + tag + '>'),
+    addEventListener() {}
+  };
+  globalThis.chrome = chromeStub;
+
+  importCounter += 1;
+  const mod = await import(panelUrl + '?case=' + importCounter);
+
+  const env = {
+    mod,
+    sent,
+    get: (id) => ids.get(id),
+    click(id) { ids.get(id).listeners.click(); },
+    input(id) { ids.get(id).listeners.input({}); },
+    change(id) { ids.get(id).listeners.change({}); },
+    blockers: () => ids.get('probe-blockers').children.map((li) => li.textContent),
+    settle: () => new Promise((resolve) => realSetTimeout(resolve, 5)),
+    runs: () => sent.filter((m) => m.type === 'aion/chatgpt-run')
+  };
+  await env.settle();
+  return env;
+}
+
+/** Fill the form and tick the confirmation so the run button arms. */
+async function armProbe(env, tabId = '7') {
+  env.get('tab-select').value = tabId;
+  env.change('tab-select');
+  env.get('probe-text').value = 'hello';
+  env.get('probe-correlation').value = 'corr-1';
+  env.get('probe-token').value = 'tok-1';
+  env.input('probe-text');
+  env.input('probe-correlation');
+  env.input('probe-token');
+  env.get('probe-confirm').checked = true;
+  env.change('probe-confirm');
+}
+
+async function selectOneTab(env, tab = { id: 7, url: 'https://chatgpt.com/c/abc' }) {
+  env.click('btn-chatgpt-tabs');
+  await env.settle();
+  env.get('tab-select').value = String(tab.id);
+  env.change('tab-select');
+}
+
+/* ------------------------------------------------------------------ *
+ * Boot
+ * ------------------------------------------------------------------ */
+
+test('boots without sending an operator action and with a disarmed probe form', async () => {
+  const env = await loadPanel();
+
+  const operator = env.sent.filter((m) => OPERATOR_TYPES.includes(m.type));
+  assert.deepEqual(operator.map((m) => m.type), [], 'no operator action may fire on load');
+
+  assert.equal(env.get('probe-text').value, '');
+  assert.equal(env.get('probe-correlation').value, '');
+  assert.equal(env.get('probe-token').value, '');
+  assert.equal(env.get('probe-confirm').checked, false);
+  assert.equal(env.get('btn-chatgpt-run').disabled, true);
+  assert.equal(env.get('btn-chatgpt-ping').disabled, true);
+  assert.equal(env.get('btn-probe-reconcile').disabled, true);
+  assert.equal(env.get('tab-select').disabled, true);
+  assert.ok(env.blockers().length > 0, 'the operator must be told what is missing');
+});
+
+test('typing alone never arms the probe', async () => {
+  const env = await loadPanel();
+  env.get('probe-text').value = 'hello';
+  env.get('probe-correlation').value = 'corr-1';
+  env.get('probe-token').value = 'tok-1';
+  env.get('probe-confirm').checked = true;
+  env.input('probe-text');
+  env.input('probe-correlation');
+  env.input('probe-token');
+  env.change('probe-confirm');
+
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'a tab must be selected first');
+});
+
+/* ------------------------------------------------------------------ *
+ * Tab validation
+ * ------------------------------------------------------------------ */
+
+test('sanitizeTab rejects a missing, coerced or non-ChatGPT tab', async (t) => {
+  const { sanitizeTab, sanitizeChatgptUrl } = (await loadPanel()).mod;
+
+  for (const raw of [
+    null,
+    'nope',
+    { url: 'https://chatgpt.com/c/a' },          // id missing entirely
+    { id: null, url: 'https://chatgpt.com/c/a' },  // Number(null) === 0
+    { id: '', url: 'https://chatgpt.com/c/a' },     // Number('') === 0
+    { id: undefined, url: 'https://chatgpt.com/c/a' },
+    { id: '7', url: 'https://chatgpt.com/c/a' },   // not a number
+    { id: NaN, url: 'https://chatgpt.com/c/a' },
+    { id: 1.5, url: 'https://chatgpt.com/c/a' },
+    { id: -3, url: 'https://chatgpt.com/c/a' },
+    { id: 7 },                                      // url missing
+    { id: 7, url: '' },
+    { id: 7, url: null },
+    { id: 7, url: 42 },
+    { id: 7, url: 'http://chatgpt.com/c/a' },       // not https
+    { id: 7, url: 'https://www.chatgpt.com/c/a' },  // not the exact host
+    { id: 7, url: 'https://chatgpt.com.evil.test/c/a' },
+    { id: 7, url: 'https://evil.test/?x=https://chatgpt.com' },
+    { id: 7, url: 'https://chatgpt.com:8443/c/a' },  // port
+    { id: 7, url: 'https://user:pw@chatgpt.com/c/a' },
+    { id: 7, url: 'https://chatgpt.com/c/a?token=abc' }, // query
+    { id: 7, url: 'https://chatgpt.com/c/a#frag' },      // fragment
+    { id: 7, url: 'not a url at all' }
+  ]) {
+    assert.equal(sanitizeTab(raw), null, 'must reject ' + JSON.stringify(raw));
+  }
+
+  const good = sanitizeTab({ id: 7, url: 'https://chatgpt.com/c/abc' });
+  assert.deepEqual(good, { id: 7, url: 'https://chatgpt.com/c/abc' });
+
+  // The ChatGPT home page is a real, legitimate tab and is kept.
+  assert.deepEqual(sanitizeTab({ id: 4, url: 'https://chatgpt.com' }), {
+    id: 4,
+    url: 'https://chatgpt.com/'
+  });
+
+  // 0 is a legitimate tab id when it is genuinely a number.
+  assert.deepEqual(sanitizeTab({ id: 0, url: 'https://chatgpt.com/c/abc' }), {
+    id: 0,
+    url: 'https://chatgpt.com/c/abc'
+  });
+
+  assert.equal(sanitizeChatgptUrl('https://chatgpt.com/c/a b'), 'https://chatgpt.com/c/ab');
+  void t;
+});
+
+test('a tab list with unsafe entries offers only the safe one, and counts the rejects', async () => {
+  const env = await loadPanel({
+    reply: () => ({
+      ok: true,
+      tabs: [
+        { id: 7, url: 'https://chatgpt.com/c/abc' },
+        { id: null, url: 'https://chatgpt.com/c/bad-id' },
+        { id: '', url: 'https://chatgpt.com/c/bad-id2' },
+        { id: 8, url: 'https://evil.test/c/x' },
+        { id: 9 },
+        null,
+        'string'
+      ]
+    })
+  });
+
+  env.click('btn-chatgpt-tabs');
+  await env.settle();
+
+  const options = env.get('tab-select').children;
+  assert.equal(options.length, 2, 'placeholder plus one safe tab');
+  assert.equal(options[1].value, '7');
+  assert.equal(options[1].textContent, 'tab 7 — https://chatgpt.com/c/abc');
+  assert.equal(env.get('tab-select').disabled, false);
+  assert.match(env.get('result-chatgpt').textContent, /6 entr\(y\/ies\) rejected/);
+});
+
+test('no selectable tab is offered when every entry is unsafe', async () => {
+  const env = await loadPanel({
+    reply: () => ({ ok: true, tabs: [{ id: null, url: 'https://chatgpt.com/c/a' }, { id: 2 }] })
+  });
+
+  env.click('btn-chatgpt-tabs');
+  await env.settle();
+
+  assert.equal(env.get('tab-select').children.length, 1, 'only the placeholder');
+  assert.equal(env.get('tab-select').disabled, true, 'selector must stay unusable');
+  assert.equal(env.get('btn-chatgpt-ping').disabled, true);
+});
+
+/* ------------------------------------------------------------------ *
+ * Reply shapes
+ * ------------------------------------------------------------------ */
+
+test('reads flattened and nested reply shapes without inventing values', async () => {
+  const shapes = [
+    { reply: { ok: true, host: 'flat-host' } },
+    { reply: { result: { ok: true, host: 'flat-host' } } },
+    { reply: { reply: { ok: true, host: 'flat-host' } } },
+    { reply: { verdict: { ok: true, host: 'flat-host' } } }
+  ];
+
+  for (const { reply } of shapes) {
+    const env = await loadPanel({ reply: () => reply });
+    env.click('btn-native-ping');
+    await env.settle();
+    assert.match(env.get('result-native').textContent, /flat-host/);
+    assert.match(env.get('result-native').textContent, /Status: UNKNOWN/,
+      'an unobserved field stays UNKNOWN across every shape');
+  }
+});
+
+test('a nested tab list is accepted', async () => {
+  const env = await loadPanel({
+    reply: () => ({ result: { ok: true, tabs: [{ id: 3, url: 'https://chatgpt.com/g/x' }] } })
+  });
+  env.click('btn-chatgpt-tabs');
+  await env.settle();
+  assert.equal(env.get('tab-select').children.length, 2);
+});
+
+/* ------------------------------------------------------------------ *
+ * The live probe
+ * ------------------------------------------------------------------ */
+
+test('sends exactly one message with exactly the agreed command shape', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true, captured: 'partial text' }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  assert.equal(env.get('btn-chatgpt-run').disabled, false);
+
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.equal(env.runs().length, 1);
+  const message = env.runs()[0];
+  assert.deepEqual(message, {
+    type: 'aion/chatgpt-run',
+    tabId: 7,
+    command: {
+      text: 'hello',
+      correlation_id: 'corr-1',
+      expected_reply_token: 'tok-1',
+      approved_scope_ref: 'workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md',
+      user_gesture: true
+    }
+  });
+});
+
+test('every commanded run names the approval it acts under', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true }) });
+  await selectOneTab(env);
+  await armProbe(env);
+
+  env.click('btn-chatgpt-run');
+  await env.settle();
+  env.click('btn-probe-reconcile');
+  await env.settle();
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.equal(env.runs().length, 2);
+  for (const run of env.runs()) {
+    // The worker refuses a run with no approval reference: a gesture is not
+    // authorisation, and the panel must not be able to invent or widen one.
+    assert.equal(
+      run.command.approved_scope_ref,
+      'workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md',
+      'the run must carry the fixed owner authorization reference'
+    );
+  }
+});
+
+test('a capture is never presented as verified', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true, captured: 'partial text' }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.match(env.get('result-run').textContent, /CAPTURED — not independently verified/);
+  assert.equal(env.get('result-run').dataset.state, 'captured');
+  assert.match(env.get('probe-hold').textContent, /not independently verified/);
+});
+
+test('inputs are cleared the moment the request is dispatched', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const env = await loadPanel({
+    reply: async () => {
+      await gate;
+      return { ok: true };
+    }
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+
+  // Dispatch has happened but the worker has not answered yet.
+  assert.equal(env.runs().length, 1);
+  assert.equal(env.get('probe-text').value, '');
+  assert.equal(env.get('probe-correlation').value, '');
+  assert.equal(env.get('probe-token').value, '');
+  assert.equal(env.get('probe-confirm').checked, false);
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'locked while in flight');
+  assert.equal(env.get('btn-probe-reconcile').disabled, true,
+    'an in-flight probe cannot be reconciled away yet');
+  assert.match(env.get('probe-hold').textContent, /Outcome unknown/);
+
+  release();
+  await env.settle();
+});
+
+test('reconcile is refused while a probe is still in flight', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const env = await loadPanel({
+    reply: async () => {
+      await gate;
+      return { ok: true };
+    }
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+
+  assert.equal(env.get('btn-probe-reconcile').disabled, true);
+
+  // Even if the click lands, nothing may be re-armed while the run may still be
+  // executing: the request is out and its outcome is not yet known.
+  env.click('btn-probe-reconcile');
+  await env.settle();
+
+  assert.match(env.get('result-run').textContent, /NOT RECONCILED — a probe is still in flight/);
+  assert.match(env.get('probe-hold').textContent, /still in flight/);
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'still locked, nothing was re-armed');
+  assert.equal(env.get('btn-probe-reconcile').disabled, true);
+
+  release();
+  await env.settle();
+
+  assert.match(env.get('result-run').textContent, /CAPTURED/,
+    'the real outcome still lands after the refused reconcile');
+  assert.equal(env.get('btn-probe-reconcile').disabled, false,
+    'reconcile re-opens once the outcome is known');
+});
+
+test('a failed response does not re-arm and is not read as not-sent', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: false, error: 'executor refused' }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.equal(env.get('btn-chatgpt-run').disabled, true);
+  assert.equal(env.get('btn-probe-reconcile').disabled, false);
+  // A bare failure is not proof that nothing was dispatched, so the panel must
+  // not report it as a clean NOT SENT.
+  assert.match(env.get('result-run').textContent, /UNCERTAIN — executor refused/);
+  assert.match(env.get('result-run').textContent, /not known here/);
+  assert.doesNotMatch(
+    env.get('result-run').textContent,
+    /NOT SENT/,
+    'a dispatched request must never be reported as not sent'
+  );
+});
+
+test('a definite post-dispatch failure is reported as failed and still locked', async () => {
+  const env = await loadPanel({
+    reply: () => ({ ok: false, uncertain: false, error: 'executor rejected the task' })
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.match(env.get('result-run').textContent, /FAILED — executor rejected the task/);
+  assert.match(env.get('result-run').textContent, /not known here/);
+  assert.doesNotMatch(env.get('result-run').textContent, /NOT SENT/);
+  assert.equal(env.get('btn-chatgpt-run').disabled, true);
+});
+
+test('an uncertain outcome is held, not retried, and never claimed as not sent', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: false, uncertain: true, error: 'no reply in time' }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.match(env.get('result-run').textContent, /UNCERTAIN — no reply in time/);
+  assert.doesNotMatch(env.get('result-run').textContent, /NOT SENT/);
+  assert.equal(env.get('btn-chatgpt-run').disabled, true);
+
+  // The operator must not be able to rearm by retyping: the lock is the phase,
+  // not the form contents.
+  env.get('probe-text').value = 'second attempt';
+  env.get('probe-correlation').value = 'corr-2';
+  env.get('probe-token').value = 'tok-2';
+  env.get('probe-confirm').checked = true;
+  env.input('probe-text');
+  env.input('probe-correlation');
+  env.input('probe-token');
+  env.change('probe-confirm');
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'typing must not rearm a held probe');
+});
+
+test('a worker pre-dispatch rejection is the only evidence-backed NOT SENT', async () => {
+  const env = await loadPanel({
+    reply: () => ({ ok: false, dispatched: false, error: 'no approved executor' })
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.match(env.get('result-run').textContent, /NOT SENT — the worker rejected this before dispatch/);
+  assert.match(env.get('probe-hold').textContent, /Locked until reconciled/);
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'still locked even when nothing was sent');
+});
+
+test('repeated clicks produce exactly one authorized send', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true }) });
+  await selectOneTab(env);
+  await armProbe(env);
+
+  for (let i = 0; i < 5; i += 1) env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.equal(env.runs().length, 1, 'one authorization, one send');
+});
+
+test('reconcile re-arms without resending anything', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: false, error: 'unreachable' }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.equal(env.runs().length, 1);
+  assert.equal(env.get('btn-probe-reconcile').disabled, false);
+
+  env.click('btn-probe-reconcile');
+  await env.settle();
+
+  assert.equal(env.runs().length, 1, 'reconcile must not send');
+  assert.equal(env.get('btn-probe-reconcile').disabled, true);
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'blank form must not arm');
+  assert.equal(env.get('probe-text').value, '');
+  assert.match(env.get('probe-hold').textContent, /Nothing was resent/);
+
+  // And a fresh authorization does send.
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+  assert.equal(env.runs().length, 2);
+});
+
+/* ------------------------------------------------------------------ *
+ * Deadlines
+ * ------------------------------------------------------------------ */
+
+test('diagnostics fail fast and the live run waits far longer', async () => {
+  const env = await loadPanel({ reply: () => undefined }); // never answers
+  const clock = installFakeClock();
+  try {
+    env.click('btn-native-ping');
+    await clock.advance(5000);
+    assert.match(env.get('result-native').textContent, /UNCERTAIN/,
+      'a diagnostic must give up in five seconds');
+    assert.match(env.get('result-native').textContent, /No reply within 5s/,
+      'the host check keeps the five second budget');
+
+    env.click('btn-chatgpt-tabs');
+    await clock.advance(5000);
+    assert.match(env.get('result-chatgpt').textContent, /UNCERTAIN/);
+  } finally {
+    clock.restore();
+  }
+});
+
+test('the ACP handshake carries its own bounded twenty second deadline', async () => {
+  const env = await loadPanel({ reply: () => undefined }); // never answers
+  const clock = installFakeClock();
+  try {
+    env.click('btn-native-hello');
+    await clock.advance(5000);
+    assert.doesNotMatch(env.get('result-native').textContent, /UNCERTAIN/,
+      'a real initialize observed at 4.7s must not be timed out at five seconds');
+
+    await clock.advance(15000);
+    assert.match(env.get('result-native').textContent, /UNCERTAIN/,
+      'the hello deadline is still bounded, at twenty seconds');
+    assert.match(env.get('result-native').textContent, /No reply within 20s/);
+  } finally {
+    clock.restore();
+  }
+});
+
+test('the live probe is still waiting well past the diagnostic deadline', async () => {
+  const env = await loadPanel({ reply: () => undefined });
+  const clock = installFakeClock();
+  try {
+    // The tab list never answers, so the tab is selected from the stub directly.
+    env.get('tab-select').value = '7';
+    env.get('tab-select').disabled = false;
+    env.change('tab-select');
+    env.get('probe-text').value = 'hello';
+    env.get('probe-correlation').value = 'corr-1';
+    env.get('probe-token').value = 'tok-1';
+    env.get('probe-confirm').checked = true;
+    env.input('probe-text');
+    env.input('probe-correlation');
+    env.input('probe-token');
+    env.change('probe-confirm');
+
+    env.click('btn-chatgpt-run');
+    await clock.advance(15000);
+    assert.equal(env.runs().length, 1);
+    assert.doesNotMatch(env.get('result-run').textContent, /UNCERTAIN/,
+      'fifteen seconds must not end a live run');
+
+    await clock.advance(165001);
+    assert.match(env.get('result-run').textContent, /UNCERTAIN/,
+      'the live deadline is three minutes, not fifteen seconds');
+    assert.equal(env.get('btn-chatgpt-run').disabled, true, 'a timed-out run is still locked');
+    assert.equal(env.get('btn-probe-reconcile').disabled, false);
+  } finally {
+    clock.restore();
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * Read-only actions stay available
+ * ------------------------------------------------------------------ */
+
+test('diagnostics remain available while a probe is held', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: false, error: 'unreachable' }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  assert.equal(env.get('btn-chatgpt-run').disabled, true);
+
+  const count = (type) => env.sent.filter((m) => m.type === type).length;
+  const before = { ping: count('aion/native-ping'), hello: count('aion/native-hello'), tabs: count('aion/chatgpt-tabs') };
+
+  env.click('btn-native-ping');
+  env.click('btn-native-hello');
+  env.click('btn-chatgpt-tabs');
+  await env.settle();
+
+  assert.equal(count('aion/native-ping'), before.ping + 1, 'host check stays available');
+  assert.equal(count('aion/native-hello'), before.hello + 1, 'ACP init stays available');
+  assert.equal(count('aion/chatgpt-tabs'), before.tabs + 1, 'tab search stays available');
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'a held probe stays held while diagnostics run');
+});
+
+/* ------------------------------------------------------------------ *
+ * Standalone degradation
+ * ------------------------------------------------------------------ */
+
+test('without a runtime every action degrades and nothing is sent', async () => {
+  const env = await loadPanel({ withRuntime: false });
+
+  env.click('btn-native-ping');
+  env.click('btn-native-hello');
+  env.click('btn-chatgpt-tabs');
+  await env.settle();
+
+  assert.match(env.get('result-native').textContent, /unavailable in standalone review/);
+  assert.match(env.get('result-chatgpt').textContent, /unavailable in standalone review/);
+  assert.equal(env.sent.length, 0);
+  assert.equal(env.get('btn-chatgpt-run').disabled, true);
+  assert.equal(env.get('tab-select').disabled, true);
+});
+
+/* ------------------------------------------------------------------ *
+ * Validator
+ * ------------------------------------------------------------------ */
+
+test('validateProbeInput rejects each missing or malformed field', async () => {
+  const { validateProbeInput } = (await loadPanel()).mod;
+  const base = { text: 'a', correlationId: 'c', token: 't', tabId: 1, confirmed: true };
+
+  assert.deepEqual(validateProbeInput(base), []);
+  assert.equal(validateProbeInput({ ...base, text: '   ' }).length, 1);
+  assert.equal(validateProbeInput({ ...base, text: 'x'.repeat(2001) }).length, 1);
+  assert.equal(validateProbeInput({ ...base, correlationId: '' }).length, 1);
+  assert.equal(validateProbeInput({ ...base, correlationId: 'c c' }).length, 1);
+  assert.equal(validateProbeInput({ ...base, correlationId: 'c/1' }).length, 1);
+  assert.equal(validateProbeInput({ ...base, correlationId: 'x'.repeat(129) }).length, 1);
+  assert.equal(validateProbeInput({ ...base, token: 'https://x' }).length, 1);
+  assert.equal(validateProbeInput({ ...base, tabId: null }).length, 1);
+  assert.equal(validateProbeInput({ ...base, confirmed: false }).length, 1);
+  assert.equal(validateProbeInput({ ...base, confirmed: 'true' }).length, 1,
+    'only a real boolean true is a confirmation');
+});
+
+/* ------------------------------------------------------------------ *
+ * Structural invariants
+ * ------------------------------------------------------------------ */
+
+test('each operator action has exactly one call site', () => {
+  for (const type of OPERATOR_TYPES) {
+    const uses = panelSource.match(new RegExp("'" + type + "'", 'g')) || [];
+    assert.equal(uses.length, 1, type + ' must have exactly one call site');
+  }
+});
+
+test('no operator action is reachable from the boot path', () => {
+  const boot = panelSource.slice(panelSource.indexOf('function boot()'));
+  const body = boot.slice(0, boot.indexOf('\n}'));
+  for (const type of OPERATOR_TYPES) {
+    assert.equal(body.includes(type), false, type + ' must not be sent on load');
+  }
+  assert.match(body, /wireOperatorControls\(\)/);
+});
+
+test('results are written with textContent, never with an HTML sink', () => {
+  for (const sink of ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write']) {
+    assert.equal(panelSource.includes(sink), false, sink + ' must not appear');
+  }
+  assert.match(panelSource, /node\.textContent = text/);
+});
+
+test('markup is labelled and described by existing ids', () => {
+  const clean = panelHtml.replace(/<!--[\s\S]*?-->/g, '');
+  const ids = [...clean.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(new Set(ids).size, ids.length, 'ids must be unique');
+
+  for (const m of clean.matchAll(/<label[^>]*\sfor="([^"]+)"/g)) {
+    assert.ok(ids.includes(m[1]), 'label target ' + m[1] + ' must exist');
+  }
+  for (const attr of ['aria-labelledby', 'aria-describedby']) {
+    for (const m of clean.matchAll(new RegExp('\\s' + attr + '="([^"]+)"', 'g'))) {
+      for (const ref of m[1].split(/\s+/).filter(Boolean)) {
+        assert.ok(ids.includes(ref), attr + ' target ' + ref + ' must exist');
+      }
+    }
+  }
+  const controls = [...clean.matchAll(/<(input|select|textarea)\b[^>]*>/g)].map((m) => m[0]);
+  const labelled = new Set([...clean.matchAll(/<label[^>]*\sfor="([^"]+)"/g)].map((m) => m[1]));
+  for (const control of controls) {
+    const id = (control.match(/\sid="([^"]+)"/) || [])[1];
+    assert.ok(id && labelled.has(id), 'control needs a label: ' + control.slice(0, 60));
+  }
+});
+
+test('every id the panel hooks exists in the markup, and every class is styled', () => {
+  const clean = panelHtml.replace(/<!--[\s\S]*?-->/g, '');
+  const ids = [...clean.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+  for (const hook of [...new Set([...panelSource.matchAll(/el\('([^']+)'\)/g)].map((m) => m[1]))]) {
+    assert.ok(ids.includes(hook), 'el(\'' + hook + '\') has no element');
+  }
+  const classes = new Set(
+    [...clean.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/))
+  );
+  for (const cls of classes) {
+    assert.ok(panelCss.includes('.' + cls), 'unstyled class ' + cls);
+  }
+});
+
+test('no external assets, credentials or automation tooling', () => {
+  const sources = panelSource + panelHtml + panelCss;
+  for (const pattern of [/playwright/i, /puppeteer/i, /orca/i, /(src|href)=["']https?:/i]) {
+    assert.equal(pattern.test(sources), false, 'must not contain ' + pattern);
+  }
+  // Credential-shaped literals only. `parsed.password` is the URL API field
+  // used to reject a URL carrying userinfo, not a stored secret.
+  for (const pattern of [
+    /api[_-]?key/i,
+    /bearer /i,
+    /\bpassword\s*[:=]\s*['"][^'"]+['"]/i,
+    /\bsecret\s*[:=]\s*['"][^'"]+['"]/i,
+    /\btoken\s*[:=]\s*['"][^'"]+['"]/i
+  ]) {
+    assert.equal(pattern.test(sources), false, 'must not contain ' + pattern);
+  }
+});

@@ -63,6 +63,28 @@ const MAX_STORED_REPLY_CHARS = 8000;
 /** One turn at a time. A second command while one is in flight is refused. */
 let activeTurn = false;
 
+/**
+ * Machine-readable "nothing was sent" reasons.
+ *
+ * These are refusals of the COMPOSING step, not correlation verdicts, so they
+ * are deliberately separate from REASON in correlate.js: a caller that sees one
+ * of these knows no text was typed, no control was clicked and no request was
+ * made, which REASON.BAD_INPUT does not imply.
+ */
+export const NO_SEND = Object.freeze({
+  COMPOSER_MISSING: 'composer_missing',
+  COMPOSER_AMBIGUOUS: 'composer_ambiguous',
+  COMPOSER_DRAFT_PRESENT: 'composer_draft_present',
+  GENERATION_ACTIVE: 'generation_active',
+  // The composer exists and counts as visible, but its contents could not be
+  // read. Refusing is the only safe reading: "I cannot see your draft" is not
+  // "you have no draft".
+  COMPOSER_STATE_UNKNOWN: 'composer_state_unknown'
+});
+
+/** Exactly one visible composer, or nothing is typed. */
+const REQUIRED_COMPOSER_COUNT = 1;
+
 /* ------------------------------------------------------------------ primitives */
 
 /** React ignores plain `.click()` on some controls — the proven synthetic sequence. */
@@ -95,7 +117,63 @@ function fireClick(element) {
   }
 }
 
-/** Composer state: generating indicator plus the submit control's reachability. */
+/**
+ * Is this element actually visible?
+ *
+ * Deliberately not "does it match the selector". chatgpt.com keeps hidden
+ * composers around (collapsed threads, background tabs, pre-rendered shells),
+ * and typing into one of those is how a probe lands in the wrong conversation.
+ * Layout evidence is consulted where it exists and simply skipped where it does
+ * not, so this works in the DOM stub as well as in the page.
+ */
+function isVisible(node) {
+  if (!node) return false;
+  try {
+    if (node.hidden === true) return false;
+    if (node.getAttribute && node.getAttribute('aria-hidden') === 'true') return false;
+
+    const view = node.ownerDocument && node.ownerDocument.defaultView;
+    const computed = view && typeof view.getComputedStyle === 'function' ? view.getComputedStyle(node) : null;
+    const inline = node.style || {};
+    const display = (computed && computed.display) || inline.display;
+    if (display === 'none') return false;
+    const visibility = (computed && computed.visibility) || inline.visibility;
+    if (visibility === 'hidden' || visibility === 'collapse') return false;
+    if (typeof node.getClientRects === 'function') {
+      const rects = node.getClientRects();
+      // Present but empty means no layout box at all. A stub that does not
+      // implement it returns undefined, which is not evidence of hidden.
+      if (rects && typeof rects.length === 'number' && rects.length === 0) return false;
+    }
+    if (typeof node.getBoundingClientRect === 'function') {
+      const rect = node.getBoundingClientRect();
+      // width/height of exactly zero is the standard "laid out but invisible".
+      // Undefined means the stub has no box model, so it is not evidence.
+      if (rect && typeof rect.width === 'number' && typeof rect.height === 'number'
+        && rect.width === 0 && rect.height === 0) return false;
+    }
+    return true;
+  } catch (err) {
+    // FAIL CLOSED. An unreadable layout is not evidence that the composer is
+    // usable, and treating it as visible is how text lands in a node nobody can
+    // see. The cost is a refusal on a page whose layout API throws, which is the
+    // right direction for exactly this question.
+    return false;
+  }
+}
+
+/** Every visible composer in the document, in document order. */
+function visibleComposers() {
+  let nodes = [];
+  try {
+    nodes = Array.prototype.slice.call(document.querySelectorAll(COMPOSER_SELECTOR));
+  } catch (err) {
+    return [];
+  }
+  return nodes.filter(isVisible);
+}
+
+/** Composer state: generating indicator, submit reachability, composer count. */
 function sendState() {
   const stop = document.querySelector(STOP_BUTTON_SELECTOR);
   const send = document.querySelector(SEND_BUTTON_SELECTOR);
@@ -103,7 +181,91 @@ function sendState() {
     generating: !!stop,
     sendPresent: !!send,
     sendDisabled: send ? !!send.disabled : true,
+    // A COUNT, not a boolean: the difference between "one composer" and "two
+    // composers" is the difference between typing and guessing.
+    composer_visible_count: visibleComposers().length,
   };
+}
+
+/**
+ * Whatever the composer already holds, or `null` when it cannot be read.
+ *
+ * The `null` matters: returning '' on a read failure reports "empty", and an
+ * empty composer is exactly the state that authorises overwriting whatever is
+ * really in the box. A draft we cannot read is a draft we must not overwrite.
+ */
+function composerDraft(editor) {
+  if (!editor) return '';
+  try {
+    if (typeof editor.value === 'string') return editor.value;
+    if (typeof editor.innerText === 'string' && editor.innerText !== '') return editor.innerText;
+    if (typeof editor.textContent === 'string') return editor.textContent;
+  } catch (err) {
+    return null;
+  }
+  return '';
+}
+
+/**
+ * The gate every composing path passes BEFORE any text is touched.
+ *
+ * Four refusals, each of which leaves the page exactly as it was:
+ *   - no visible composer            (nothing to type into)
+ *   - more than one visible composer (which one is the operator's? unknown)
+ *   - a generation already running   (typing now would land mid-turn)
+ *   - a non-empty draft              (an operator's own unsent text; the old
+ *                                     fill emptied the box and took it with it)
+ *
+ * The last one is a deliberate behaviour change: this adapter used to clear the
+ * composer unconditionally so a reused tab could not leak a half-written
+ * prompt into the probe. Overwriting is a worse failure than refusing.
+ */
+function preflightComposer() {
+  const visible = visibleComposers();
+  const state = sendState();
+  if (visible.length === 0) {
+    return {
+      ok: false,
+      code: NO_SEND.COMPOSER_MISSING,
+      error: 'no visible #prompt-textarea was found; nothing was typed or sent',
+      composer_visible_count: 0
+    };
+  }
+  if (visible.length !== REQUIRED_COMPOSER_COUNT) {
+    return {
+      ok: false,
+      code: NO_SEND.COMPOSER_AMBIGUOUS,
+      error: `${visible.length} visible composers were found; refusing to guess which one is the operator's`,
+      composer_visible_count: visible.length
+    };
+  }
+  if (state.generating) {
+    return {
+      ok: false,
+      code: NO_SEND.GENERATION_ACTIVE,
+      error: 'a generation is already running; nothing was typed or sent',
+      composer_visible_count: visible.length
+    };
+  }
+  const draft = composerDraft(visible[0]);
+  if (draft === null) {
+    return {
+      ok: false,
+      code: NO_SEND.COMPOSER_STATE_UNKNOWN,
+      error: 'the composer contents could not be read; refusing to assume it is empty',
+      composer_visible_count: visible.length
+    };
+  }
+  if (draft.trim() !== '') {
+    return {
+      ok: false,
+      code: NO_SEND.COMPOSER_DRAFT_PRESENT,
+      error: 'the composer holds unsent text; refusing to erase it. Nothing was typed or sent',
+      composer_visible_count: visible.length,
+      draft_chars: draft.length
+    };
+  }
+  return { ok: true, editor: visible[0], composer_visible_count: visible.length };
 }
 
 /** The generating probe handed to the DOM-free wait. */
@@ -112,17 +274,27 @@ function isGenerating() {
 }
 
 /**
- * Fill the composer. Ported from the proven `composerFill`, with one DEVIATION:
- * the composer is emptied first.
+ * Fill the composer, but only through the preflight.
  *
- * REASON: the proven version appends to whatever is already in the box. On a
- * reused tab that silently submits the operator's half-written text together with
- * the probe, which would both leak content and produce an answer that cannot be
- * correlated.
+ * DEVIATION from the proven `composerFill` (which appended to whatever was in the
+ * box): this refuses unless exactly one VISIBLE composer exists, nothing is
+ * generating, and the composer is empty. The gate lives INSIDE the fill rather
+ * than in its caller, so a call site added later inherits the refusal instead of
+ * re-deriving — or forgetting — it. Nothing is erased and nothing is typed until
+ * all three hold.
  */
 function composerFill(text) {
-  const editor = document.querySelector(COMPOSER_SELECTOR);
-  if (!editor) return { ok: false, error: 'composer #prompt-textarea not found' };
+  const pre = preflightComposer();
+  if (!pre.ok) {
+    return {
+      ok: false,
+      code: pre.code,
+      error: pre.error,
+      composer_visible_count: pre.composer_visible_count
+    };
+  }
+  const editor = pre.editor;
+
   try {
     editor.focus();
   } catch (err) {
@@ -335,12 +507,37 @@ async function runTurn(command, respond) {
   const correlationId = typeof command.correlation_id === 'string' ? command.correlation_id.trim() : '';
   const expectedToken = typeof command.expected_reply_token === 'string' ? command.expected_reply_token.trim() : '';
 
+  // Preflight BEFORE the turn lock: a refusal must not occupy the single turn
+  // slot, and it must not have touched the page at all.
+  const pre = preflightComposer();
+  if (!pre.ok) {
+    respond({
+      ok: false,
+      code: pre.code,
+      reason: REASON.BAD_INPUT,
+      error: pre.error,
+      no_send: true,
+      submitted: false,
+      composer_visible_count: pre.composer_visible_count,
+      state: sendState()
+    });
+    return;
+  }
+
   activeTurn = true;
   const startedAt = new Date().toISOString();
   try {
     const fill = composerFill(text);
     if (!fill.ok) {
-      respond({ ok: false, reason: REASON.BAD_INPUT, error: fill.error });
+      respond({
+        ok: false,
+        code: fill.code || null,
+        reason: REASON.BAD_INPUT,
+        error: fill.error,
+        no_send: true,
+        submitted: false,
+        state: sendState()
+      });
       return;
     }
 
@@ -486,4 +683,15 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onConnect)
 // Exported for the DOM-stub test only; the extension path above never calls it
 // directly. Kept behind the same guard as the port listener so importing this
 // file under Node is a no-op.
-export const __testing = { readOrderedTurns, readFinalReplyAfterLastUserTurn, normalizeText };
+export const __testing = {
+  readOrderedTurns,
+  readFinalReplyAfterLastUserTurn,
+  normalizeText,
+  // The composing seam, exposed so the preflight can be regression-tested
+  // without a browser: sendState, the gate itself, and the fill that uses it.
+  sendState,
+  preflightComposer,
+  composerFill,
+  visibleComposers,
+  isVisible
+};
