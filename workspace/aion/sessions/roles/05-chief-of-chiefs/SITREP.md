@@ -82,5 +82,38 @@ Owner clarified **immediate-only mobile-app** research: how to isolate ChatGPT c
 ## M1C-05 delivered / M1 Council fan-out to Z-FORGE — 2026-10-16
 Owner requested review of all eight employee SITREPs and component assignment based on current work. Reviewed roles 01–08; 01/02/04 have substantive work/readback records, while 06/07/08 show no verified live role activation; 03 has defined coordinating responsibility but new M1 handoff not acknowledged. [Council integration issue #24](https://github.com/owenservera/aion/issues/24), [eight-part contract](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/zai-sandbox-lab/m1-council-prep/README.md) and [manifest](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/zai-sandbox-lab/m1-council-prep/PACKAGE-MANIFEST.json). Assignments to 01 observability, 02 critical path, 03 clone/handoff, 04 turn economics, 06 browser/ACP, 07 source/provenance, 08 actual consolidation were published in each role's SITREP. Role 05 personally authored and committed [M1C-05 acceptance gates](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/zai-sandbox-lab/m1-council-prep/components/ACCEPTANCE-GATES.md). Source clone/assembly plan published in [CLONE-AND-ASSEMBLY](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/zai-sandbox-lab/m1-council-prep/CLONE-AND-ASSEMBLY.md). No live role work/return except Role 05's locally authored spec is claimed. Z-FORGE must gather actual returns or use explicitly labeled documented fallbacks, then freeze input commit/capsule and produce copy-ready sandbox run prompts; actual authenticated ChatGPT test remains excluded.
 
+## Request to Chief 05: define the AION agent model — 2026-10-18
+
+**Author of this entry:** the local OpenCode coordinator, on owner direction. **It is NOT authored, reviewed or ACKed by the Chief of Chiefs**, and publishing it here does not reach, wake or acknowledge the separate Chief session. In the canonical registry every role — 05 included — carries `session_url: null` with `session_url_status: UNKNOWN_UNTIL_ACTUAL_SESSION`. That is **absent registry data, not proof that no Chief session exists**; do not read it as a closure or a refusal.
+
+```text
+AION_HANDOFF_V1
+as_of_utc: 2026-10-18 (observed locally, not delivered)
+state_commit: 37e4282
+goal: Chief 05 defines the AION agent model — owner: "AION has several 'aagents', chatgpt.com chief of chiefs needs to define the model"
+status: PREPARED_IN_REPO / CHATGPT_DELIVERY_AND_ACK_NOT_OBSERVED
+m1_verified: false (unchanged)
+current_blocker: owner requests an explicit updated agent model from Chief 05; that definition and its acknowledgment are pending. Existing role instructions remain in force; gates G1–G5 in windows-master/TODO.md are coordinator PROPOSALS, not Chief-approved
+next_action: Chief 05 answers in this SITREP; Windows execution holds its model-dependent steps until then
+authorized_to_execute: no — this document authorizes no browser send, no new ChatGPT session, no account action
+owner_authority: ultimate and unchanged
+proof_links: workspace/aion/agents/windows-master/TODO.md ; https://github.com/owenservera/aion/issues/27
+END_AION_HANDOFF_V1
+```
+
+**Requested definition. Build it on the existing eight roles and the canonical [8-role registry](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/role-launcher/ROLES.json). Do not create a competing hierarchy, roster, numbering scheme or second registry.** Answer in this SITREP; no new design document is needed.
+
+1. **Identity, context, workspaces** — what makes an AION agent stably identifiable across a fresh invocation: the bound of one role's identity, the context it loads (bootstrap + SITREP + linked skills), its workspace path, and how repo files carry continuity when chat memory does not.
+2. **Authority and delegation** — who may task whom; delegation to **03** (operations/dispatch) and **06** (tooling/integration) and to Windows executors (OpenCode first, ZCode deferred); what each role may commit to; explicit statement that **the owner retains ultimate authority** and that no agent may widen its own authorization.
+3. **Task, response and evidence contract** — the required shape of an outgoing task, the required shape of a reply, and the evidence a completion claim must carry (correlation id, UTC times, receipt reference, exit status). A claim without a checkable receipt is not a completion.
+4. **Bounded iteration, time, budget, stop and recovery** — per-task turn/iteration ceiling, wall-clock and budget limits, the condition that forces a stop and an honest partial report, and the recovery path for uncertain outcome, interrupted dispatch, stale session or executor unavailability. No infinite loops; no autonomous work claimed between turns.
+5. **Gated real tests** — acceptance for (a) a real **ChatGPT↔ChatGPT** exchange between two named agents and (b) a real **ChatGPT→Windows executor→ChatGPT** round trip, each with **negative cases** (mismatched correlation, echoed text, unavailable executor, duplicate dispatch, out-of-scope request). Offline/mock rejection tests do not satisfy either gate.
+
+**Constraints the definition must respect, by existing decision — not restated here:** M1 acceptance
+[contract](https://github.com/owenservera/aion/blob/main/workspace/aion/canon/AION-MILESTONE-1-INTROSPECTION.md) ·
+[Windows-driven development decision](https://github.com/owenservera/aion/blob/main/workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md) ·
+[owner instruction 2026-10-18: **no Orca**](https://github.com/owenservera/aion/blob/main/workspace/aion/agents/windows-master/TODO.md) ·
+**no Playwright or Puppeteer** · GitHub commits do not wake agents, and publishing this request is not delivery.
+
 ## ACPX-001 review assignment — 2026-10-17
 **State: ASSIGNED_IN_GITHUB / LIVE ROLE ACK PENDING.** Read [ACPX review issue #25](https://github.com/owenservera/aion/issues/25), the user's ACPX v0.1.0 ZIP/SPEC when actually accessible, and current AION M1 canonical documents. **Your slice:** executive decision gates, security and terms risks, protect M1 live-test boundary. Report back to issue #25 in `ACPX_REVIEW_V1` format, with precise source access level and file/line evidence; Z-FORGE 08 will integrate actual replies with issue #24. The uploaded ZIP is not yet accessible from GitHub; request an approved source capsule, do not pretend to have code access. Important: ZIP contains prohibited Playwright in `examples/e2e.mjs`; do not run/copy it or use Puppeteer. No host install, no private session transfer, no live ChatGPT experiment. Publishing this instruction does not activate your separate conversation.
