@@ -100,3 +100,37 @@ The eight role tiles mirror `../role-launcher/ROLES.json` (roles 01–08). Role 
 liveness. Per `../ARCHITECTURE.md`, ChatGPT role contexts are human-facing and never assumed to be
 thinking while idle; a verifier is a **distinct identity** from a builder, and this console labels
 verification `UNKNOWN — no independent verifier has reported` until one does.
+## Two views of the same state
+
+The side panel has two pages, switched from the bar under the title. Both read the
+same worker state through `src/panel/view-model.js`, so they cannot describe it
+differently.
+
+**For people** (`sidepanel.html`, `guide.js`). A three-step connection test with a
+"next step" line that is derived only from results already on the page. It moves
+keyboard focus when asked and never clicks, confirms, selects or sends. "Fill in ids
+and a starter message" fills only empty fields, and only on a click. The starter
+message asks for the correlation id and the token on separate lines because
+`chatgpt/correlate.js` accepts a reply only if it carries both, and refuses a reply
+that is a verbatim span of the message as an echo.
+
+**For agents** (`agent.html`, `agent.js`). Read-only. It posts one message type,
+`{ type: 'aion/status' }`, and shows:
+
+- a single state line (`HOST_LINK=… MODE=… APPROVALS=… PROOF=… OUTBOX=…`) that reads
+  from a screenshot;
+- a fields table whose rows carry `data-field` dotted paths;
+- the same snapshot as JSON in `<script type="application/json" id="aion-snapshot">`
+  (schema `aion.relay-view.v1`);
+- a changes log between reads, newest first;
+- a catalog of every worker message with `data-action-type`, `data-kind` and
+  `data-machine-callable`. Only `aion/status` is callable from this view; a test pins
+  the catalog to the worker's real endpoint tables.
+
+Every leaf is a concrete value or the string `UNKNOWN`. `UNKNOWN` means nobody
+observed it: it is never 0, idle or healthy. Re-reading on a timer is off until a
+person ticks the box.
+
+Open the agent view in the side panel. In an ordinary tab the worker refuses the
+sender (`sender_is_a_tab`) and the page shows `UNKNOWN` with that reason. That
+refusal is deliberate and must not be weakened.

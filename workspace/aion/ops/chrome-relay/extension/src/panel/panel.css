@@ -914,3 +914,131 @@ main {
     transition-duration: 0ms !important;
   }
 }
+
+/* ---------------- view switch ---------------- */
+
+.viewswitch {
+  display: flex;
+  gap: 4px;
+  margin: 0 var(--pad) var(--gap);
+  padding: 3px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.viewswitch__link {
+  flex: 1;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-mid);
+  text-decoration: none;
+  border-radius: 5px;
+}
+
+.viewswitch__link:hover {
+  background: var(--surface-2);
+}
+
+.viewswitch__link[aria-current="page"] {
+  background: var(--text-hi);
+  color: var(--chassis);
+}
+
+/* ---------------- next step ---------------- */
+
+/* Guidance, not status. Its colour says what kind of step comes next, and never
+   says anything is working. Held plum means "needs your decision". */
+.next {
+  display: grid;
+  gap: 8px;
+  margin: var(--gap) var(--pad) 0;
+  padding: 10px 12px;
+  border-left: 4px solid var(--text-mid);
+  background: var(--surface);
+}
+
+.next[data-tone="hold"] {
+  border-left-color: var(--hold);
+}
+
+.next[data-tone="stop"] {
+  border-left-color: var(--stop);
+}
+
+.next__text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.next__go {
+  justify-self: start;
+}
+
+/* ---------------- stepper emphasis ---------------- */
+
+/* The step a person is on gets a ring. Later steps stay fully usable: this is
+   presentation only, and it never disables a control. */
+.step[data-reach="current"] .step__node {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-mid) 28%, transparent);
+}
+
+.step[data-reach="later"] .step__title {
+  color: var(--text-mid);
+  font-weight: 600;
+}
+
+/* ---------------- small helpers ---------------- */
+
+.btn--quiet {
+  min-height: 28px;
+  margin-top: 6px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  border-color: var(--rule);
+  color: var(--text-mid);
+}
+
+.count {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.count[data-over="yes"] {
+  color: var(--stop);
+  font-weight: 700;
+}
+
+/* ---------------- check before you send ---------------- */
+
+.review {
+  margin: 14px 0 0;
+  border-top: 1px solid var(--rule);
+}
+
+.review__row {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.review dt {
+  font-size: 12px;
+  color: var(--text-low);
+}
+
+.review dd {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

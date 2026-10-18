@@ -20,6 +20,12 @@
       </div>
     </header>
 
+    <!-- Two views of the same state. The machine view is read-only and cannot send. -->
+    <nav class="viewswitch" aria-label="Choose a view">
+      <a class="viewswitch__link" id="view-human" href="sidepanel.html" aria-current="page">For people</a>
+      <a class="viewswitch__link" id="view-machine" href="agent.html">For agents</a>
+    </nav>
+
     <!-- Absence of knowledge is its own state. This banner is a live element,
          not decoration: it always says whether the panel currently knows anything. -->
     <section class="knowledge" id="knowledge-bar" data-state="unknown" aria-live="polite">
@@ -45,6 +51,13 @@
         </div>
       </dl>
       <p class="footnote" id="fallback-reason">Fallback reason: UNKNOWN</p>
+    </section>
+
+    <!-- Guidance only. It names the next action a person could take, derived from
+         results already shown on this page. It never clicks, selects or sends. -->
+    <section class="next" id="next-step" data-tone="go" aria-labelledby="next-step-text">
+      <p class="next__text" id="next-step-text">The next step appears here once the panel has loaded.</p>
+      <button type="button" class="btn next__go" id="next-step-go" hidden>Take me there</button>
     </section>
 
     <!-- The approval gate is a first-class block, not a footnote. A held task must
@@ -80,6 +93,7 @@
                 <button type="button" class="btn" id="btn-native-hello">Initialize ACP</button>
               </div>
               <p class="result" id="result-native" role="status" aria-live="polite">Not run.</p>
+              <button type="button" class="btn btn--quiet" data-copy-target="result-native">Copy result</button>
             </div>
           </li>
 
@@ -104,6 +118,7 @@
                 <button type="button" class="btn" id="btn-chatgpt-ping" disabled>Check selected tab</button>
               </div>
               <p class="result" id="result-chatgpt" role="status" aria-live="polite">Not run.</p>
+              <button type="button" class="btn btn--quiet" data-copy-target="result-chatgpt">Copy result</button>
             </div>
           </li>
 
@@ -116,18 +131,30 @@
                 and you fill them in.
               </p>
 
+              <div class="btnrow">
+                <button type="button" class="btn" id="btn-generate-ids" aria-describedby="generate-note">
+                  Fill in ids and a starter message
+                </button>
+              </div>
+              <p class="footnote" id="generate-note">
+                Optional. Fills the empty fields with a random id, a random token and a message that
+                asks for both. It sends nothing, and it never overwrites what you typed.
+              </p>
+
               <div class="field">
                 <label for="probe-text">Message</label>
                 <textarea id="probe-text" rows="3" spellcheck="false" aria-describedby="probe-text-note"></textarea>
               </div>
-              <p class="footnote" id="probe-text-note">Required. Typed by you.</p>
+              <p class="footnote" id="probe-text-note">
+                Required. Typed by you. <span id="probe-text-count" class="count">0 / 2000</span>
+              </p>
 
               <div class="field">
                 <label for="probe-correlation">Correlation id</label>
                 <input type="text" id="probe-correlation" autocomplete="off" spellcheck="false" aria-describedby="probe-correlation-note" />
               </div>
               <p class="footnote" id="probe-correlation-note">
-                Required. Letters, digits, dot, underscore, colon, dash. Up to 128.
+                Required. The reply must contain it. Letters, digits, dot, underscore, colon, dash. Up to 128.
               </p>
 
               <div class="field">
@@ -135,9 +162,24 @@
                 <input type="text" id="probe-token" autocomplete="off" spellcheck="false" aria-describedby="probe-token-note" />
               </div>
               <p class="footnote" id="probe-token-note">
-                Required. The reply must contain it. Same characters, up to 128.
+                Required. The reply must have it on a line of its own. Same characters, up to 128.
                 Never a password or key.
               </p>
+
+              <dl class="review" id="review" aria-label="Check before you send">
+                <div class="review__row">
+                  <dt>Goes to</dt>
+                  <dd id="review-tab">UNKNOWN</dd>
+                </div>
+                <div class="review__row">
+                  <dt>Message</dt>
+                  <dd id="review-length">0 characters</dd>
+                </div>
+                <div class="review__row">
+                  <dt>Reply check</dt>
+                  <dd id="review-token">Not ready: add a token and a message that asks for it.</dd>
+                </div>
+              </dl>
 
               <div class="field field--check">
                 <input type="checkbox" id="probe-confirm" aria-describedby="probe-confirm-note" />
@@ -166,6 +208,8 @@
               </p>
               <p class="gate__list gate__list--inline" id="probe-blockers"></p>
               <p class="result" id="result-run" role="status" aria-live="polite">Not run.</p>
+              <button type="button" class="btn btn--quiet" data-copy-target="result-run">Copy result</button>
+              <p class="footnote" id="copy-status" role="status" aria-live="polite"></p>
               <p class="footnote">
                 Anything captured from a tab is a capture, not a verified result. It is
                 not a proof receipt and does not change any task on this page.
@@ -279,5 +323,6 @@
     </main>
 
     <script type="module" src="panel.js"></script>
+    <script type="module" src="guide.js"></script>
   </body>
 </html>
