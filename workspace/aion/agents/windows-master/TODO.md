@@ -3,7 +3,49 @@
 Source of truth for this run: **issue #27** (owner instruction, 2026-10-18). Updated as work lands.
 Status vocabulary is fixed: **DONE** (verified by a receipt), **PARTIAL**, **TODO**, **BLOCKED**.
 
-Last updated: 2026-10-18 · Resume baseline: `21fa583`
+Last updated: 2026-10-18T18:33Z · Resume baseline: `076ddc2`
+
+## Resume 2026-10-18T18:33Z — post-merge state and active todo list
+
+**Sync:** tree clean, fast-forwarded `82ce564 → 076ddc2` (12 commits), `HEAD...origin/main` = `0 0`,
+nothing to push. `AION-Sync` scheduled task and `aion-sync.ps1` were **not** invoked; this sync was
+manual. New remote branch observed (unmerged): `origin/review/narrow-web-accessible-resources`.
+
+**New lane landed in that range (not yet tracked below):** the read-only private MCP ingress pilot
+(`workspace/aion/ops/aion-mcp/`) plus its completion pack (`FINISH-LINE.md`) and hosted Windows/Linux
+CI (`.github/workflows/aion-bus-ci.yml`). Ownership: issue **#27** = Chrome/ACP website lane,
+issue **#28** = ChatGPT custom MCP plugin lane. These are two entry points into the same bus, not
+competing ACP buses.
+
+**Fresh receipts from this resume (2026-10-18T18:33Z, local Windows):**
+- `workspace/aion/ops/aion-mcp` — `node --test tests/*.test.mjs`: **7 tests / 7 pass / 0 fail /
+  0 cancelled**, exit 0. This closes the FINISH-LINE "MCP stdio tests — Windows pending" cell.
+- `node bin/verify-local.mjs`: **PASS**, 6/6 checks (initialize, tools, state, challenge, receipts,
+  refusal), `chatgpt_connected: false`, `source: local-process`, exit 0. Offline read-only probe
+  only — it proves the server, **not** a ChatGPT connection.
+
+### Active todo list
+
+| # | Item | Lane | Status | Blocked by |
+|---|---|---|---|---|
+| T1 | Reload the pinned extension in Chrome Profile 3 so the `use_dynamic_url:false` loader fix is live | #27 | TODO | owner one-click reload |
+| T2 | Open a fresh empty `chatgpt.com` tab (never touch the preserved 12-char draft) | #27 | TODO | owner |
+| T3 | Side panel: tab listing + read-only PING must pass | #27 | TODO | T1, T2 |
+| T4 | One owner-authorized benign correlated `run-turn` on the empty composer | #27 | TODO — **irreversible** | T3 |
+| T5 | Capture send/reply/consume + wrong-correlation rejection; minimized receipt into issue #27 | #27 | TODO | T4 |
+| T6 | Update `STATE.json` / `m1_verified` only after an **independent** reviewer checks positive *and* negative proof | #27 | TODO | T5 |
+| T7 | Confirm ChatGPT workspace entitlement for custom MCP (`+ Add custom MCP server → Tunnel`); Plus is **not** an established entitlement | #28 | TODO | owner, real web workspace |
+| T8 | Create/reuse a tunnel in platform.openai.com + restricted runtime key; no credentials in Git | #28 | TODO | T7 |
+| T9 | `windows/Connect-AionTunnel.ps1 -TunnelId <id>` → `doctor` + foreground tunnel to `node src/server.mjs` | #28 | TODO | T8 |
+| T10 | Add the private connection in Plugins, call `aion_state` from a fresh web chat, keep the read-back receipt | #28 | TODO | T9, entitlement |
+| T11 | Update `TODO.md` + `STATE.json` for the #28 lane; no false promotion if entitlement is absent | #28 | TODO | T7–T10 |
+| T12 | Run `windows/Complete-AionBus.ps1` as the single one-command offline readiness bootstrap (re-verifies HKCU `com.aion.relay`, runs all four suites, writes the sanitized receipt) | both | TODO — not yet run on this resume | — |
+| T13 | Item 5 fixture validation: run `readFinalReplyAfterLastUserTurn` against the parsed fixture DOM; selector counts are not a behavioural test | #27 | TODO | needs a DOM parser route |
+| T14 | Review or merge `origin/review/narrow-web-accessible-resources` | — | TODO | — |
+
+**Not to be claimed:** any ChatGPT website turn, any custom-plugin tool call, `m1_verified`, or
+end-to-end ChatGPT→ChatGPT execution. T4 is the only irreversible action; after a send, treat
+disconnection as `OUTCOME_UNKNOWN` and **never** auto-retry.
 
 ## Owner's top-level goals — 2026-10-18
 
