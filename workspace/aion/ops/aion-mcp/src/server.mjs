@@ -15,6 +15,7 @@ const MAX_FILE_BYTES = 64 * 1024;
 const MAX_LINE_CHARS = 256 * 1024;
 const MAX_LIST = 20;
 const SAFE_RECEIPT = /^receipt-[a-zA-Z0-9_.-]{1,180}\.json$/;
+const PUBLIC_ERROR_CODES = new Set(['invalid_receipt_id','receipt_outside_allowlist','file_not_allowed','state_invalid','receipt_invalid','invalid_public_nonce','arguments_must_be_object','unexpected_argument','unknown_tool','invalid_tool_request']);
 const SAFE_FIELDS = [
   'correlation', 'correlation_id', 'mode', 'matched', 'status', 'outcome',
   'reason', 'created_utc', 'recorded_utc', 'started_at', 'completed_at',
@@ -143,8 +144,8 @@ async function handle(packet) {
       try { const out = await callTool(params.name, params.arguments ?? {});
         result = { content:[{type:'text',text:JSON.stringify(out)}], structuredContent:out, isError:false };
       } catch(error) {
-        const code = error.code === 'ENOENT' ? 'not_found' : error.message;
-        result = { content:[{type:'text',text:JSON.stringify(plainError(String(code).slice(0,80)))}], isError:true };
+        const code = error.code === 'ENOENT' ? 'not_found' : PUBLIC_ERROR_CODES.has(error.message) ? error.message : 'tool_failed';
+        result = { content:[{type:'text',text:JSON.stringify(plainError(code))}], isError:true };
       }
     } else { emit({jsonrpc:'2.0',id,error:{code:-32601,message:'Method not found'}}); return; }
     emit({jsonrpc:'2.0',id,result});
