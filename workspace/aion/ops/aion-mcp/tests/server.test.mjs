@@ -31,7 +31,7 @@ async function withServer(callback) {
     pending.set(id,msg=>{clearTimeout(timeout);resolve(msg)});
     child.stdin.write(JSON.stringify({jsonrpc:'2.0',id,method,...(params===undefined?{}:{params})})+'\n');
   });
-  try { await callback(call,child); }
+  try { await callback(call,child,root); }
   finally { child.kill(); rmSync(root,{recursive:true,force:true}); }
 }
 
@@ -79,4 +79,14 @@ test('unknown tool and MCP method fail closed',async()=>withServer(async call=>{
   assert.equal(denied.result.isError,true);
   const method=await call('agent/run');
   assert.equal(method.error.code,-32601);
+}));
+
+
+test('malformed JSON cannot leak parser snippets or private text', async()=>withServer(async(call,child,root)=>{
+  const badPath=join(root,'workspace','aion','sessions','01-escape-hatch','adapter','receipt-malformed.json');
+  writeFileSync(badPath,'{\"secret\":\"PRIVATE_DATA_DO_NOT_LEAK\", invalid}');
+  const r=await call('tools/call',{name:'aion_receipts',arguments:{receipt_id:'receipt-malformed.json'}});
+  assert.equal(r.result.isError,true);
+  assert.equal(r.result.content[0].text,'{\"ok\":false,\"error\":\"tool_failed\"}');
+  assert.doesNotMatch(JSON.stringify(r),/PRIVATE_DATA_DO_NOT_LEAK|secret/);
 }));
