@@ -52,7 +52,7 @@ If custom MCP is unavailable on the active workspace, stop here and retain GitHu
 | Gate | Evidence | Current |
 |---|---|---|
 | Repo source | Seven-file read-only pilot plus this completion pack | Code committed / inspect GitHub |
-| MCP stdio tests | `npm test` and local subprocess probe | Sandbox tests pass; Windows pending |
+| MCP stdio tests | `node --test tests/*.test.mjs` and `node bin/verify-local.mjs` | Windows verified 2026-10-18T18:33Z: **7/7 tests pass**, **6/6 verify-local checks**; offline local probe only, not a ChatGPT connection |
 | Native Chrome ↔ ACP | Windows native host reply | Prior partial proof recorded in STATE.json |
 | Chrome ↔ real ChatGPT | One correlated send/reply/consume and rejected wrong reply | NOT VERIFIED |
 | Private ChatGPT plugin | Real tunnel readiness + tool call from a web chat | NOT VERIFIED; plan permission unknown |
