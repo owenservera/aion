@@ -24,7 +24,7 @@ node --version
 npm test
 ```
 
-Expected: five passing test cases against a temporary sandbox fixture. The tests do not touch real `STATE.json`, real transcripts, ChatGPT, Chrome or the tunnel. On this authoring pass Node 22.16.0 in an isolated Linux container produced **5 pass, 0 fail**; Windows execution is not yet verified.
+Expected: six passing test cases against a temporary sandbox fixture. The tests do not touch real `STATE.json`, real transcripts, ChatGPT, Chrome or the tunnel. On this authoring pass Node 22.16.0 in an isolated Linux container produced **6 pass, 0 fail**; Windows execution is not yet verified.
 
 To run the read-only MCP server locally **after reviewing its code**:
 
