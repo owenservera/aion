@@ -669,12 +669,22 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onConnect)
         answered = true;
         port.postMessage(Object.assign({ action }, result));
       };
-      try {
-        Promise.resolve(handler(message, respond)).catch((err) =>
-          respond({ ok: false, reason: 'adapter_error', error: String(err && err.message ? err.message : err) }),
-        );
-      } catch (err) {
+      const fail = (err) =>
         respond({ ok: false, reason: 'adapter_error', error: String(err && err.message ? err.message : err) });
+      try {
+        // A handler either answers itself through `respond` (the callback
+        // actions: run-turn, read-final) or RETURNS its result (the read-only
+        // probes: ping, state, stop). Forward a returned value through the same
+        // `respond` guard so a probe is no longer silently dropped, while a
+        // callback that answered and also returned something still answers once.
+        const result = handler(message, respond);
+        if (result && typeof result.then === 'function') {
+          result.then((value) => { if (value !== undefined) respond(value); }, fail);
+        } else if (result !== undefined) {
+          respond(result);
+        }
+      } catch (err) {
+        fail(err);
       }
     });
   });

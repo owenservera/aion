@@ -326,6 +326,111 @@ test('the real run-turn action refuses an ambiguous composer set', async () => {
   });
 });
 
+/* --------------------------------------- read-only probes over the real port */
+
+/**
+ * Drain pending microtasks so a reply delivered through a promise chain lands.
+ *
+ * A synchronous handler answers during `ask`; a handler that returns a promise
+ * answers on a later microtask. Draining both is what lets these tests hold
+ * whatever shape the port listener forwards a returned value in — and what makes
+ * "no reply at all" (the pre-fix defect) show up as an empty reply list rather
+ * than as a race.
+ */
+async function drainMicrotasks() {
+  for (let i = 0; i < 8; i += 1) await Promise.resolve();
+}
+
+test('the real ping action answers with page state instead of being dropped', async () => {
+  const onConnect = await loadContentWithChrome();
+  await withDom({ composers: [composer()] }, async () => {
+    const port = connectPort(onConnect);
+    port.ask({ action: 'ping' });
+    await drainMicrotasks();
+
+    assert.equal(port.replies.length, 1, 'ping must answer exactly once');
+    const reply = port.replies[0];
+    assert.equal(reply.action, 'ping');
+    assert.equal(reply.ok, true);
+    assert.equal(reply.href, 'https://chatgpt.com/c/stub');
+    assert.equal(reply.title, 'stub');
+    assert.equal(reply.state.composer_visible_count, 1);
+    assert.equal(reply.state.generating, false);
+    assert.match(reply.note, /nothing composed or sent/);
+  });
+});
+
+test('the real state action answers with sendState instead of being dropped', async () => {
+  const onConnect = await loadContentWithChrome();
+  await withDom({ composers: [composer()] }, async () => {
+    const port = connectPort(onConnect);
+    port.ask({ action: 'state' });
+    await drainMicrotasks();
+
+    assert.equal(port.replies.length, 1, 'state must answer exactly once');
+    const reply = port.replies[0];
+    assert.equal(reply.action, 'state');
+    assert.equal(reply.ok, true);
+    assert.deepEqual(reply.state, {
+      generating: false,
+      sendPresent: false,
+      sendDisabled: true,
+      composer_visible_count: 1
+    });
+  });
+});
+
+test('the real stop action answers instead of being dropped', async () => {
+  const onConnect = await loadContentWithChrome();
+  // No stop button in the DOM: the honest answer is "not generating".
+  await withDom({ composers: [composer()] }, async () => {
+    const port = connectPort(onConnect);
+    port.ask({ action: 'stop' });
+    await drainMicrotasks();
+
+    assert.equal(port.replies.length, 1, 'stop must answer exactly once');
+    const reply = port.replies[0];
+    assert.equal(reply.action, 'stop');
+    assert.equal(reply.ok, true);
+    assert.equal(reply.what, 'not generating');
+  });
+});
+
+test('a callback action still answers exactly once after a probe-style return', async () => {
+  // The regression guard: the probe fix forwards a handler's RETURN value, so a
+  // callback action that answers through `respond` and also returns must not be
+  // answered a second time.
+  const onConnect = await loadContentWithChrome();
+  const editor = composer({ text: 'operator draft' });
+  await withDom({ composers: [editor] }, async () => {
+    const port = connectPort(onConnect);
+    const reply = port.ask({
+      action: 'run-turn',
+      user_gesture: true,
+      text: 'probe text',
+      correlation_id: 'task-1'
+    });
+    await drainMicrotasks();
+
+    assert.ok(reply, 'the callback action must answer');
+    assert.equal(reply.action, 'run-turn');
+    assert.equal(port.replies.length, 1, 'a callback handler must not be answered twice');
+  });
+});
+
+test('read-final answers exactly once through its own respond path', async () => {
+  const onConnect = await loadContentWithChrome();
+  await withDom({ composers: [composer()] }, async () => {
+    const port = connectPort(onConnect);
+    const reply = port.ask({ action: 'read-final', correlation_id: 'task-1', expected_reply_token: 'ACK-1' });
+    await drainMicrotasks();
+
+    assert.ok(reply, 'read-final must answer');
+    assert.equal(reply.action, 'read-final');
+    assert.equal(port.replies.length, 1, 'read-final must not be answered twice');
+  });
+});
+
 /* --------------------------------------------------- fail-closed exceptions */
 
 test('a composer whose layout throws is NOT treated as visible', async () => {
