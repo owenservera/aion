@@ -3,7 +3,7 @@
 Source of truth for this run: **issue #27** (owner instruction, 2026-10-18). Updated as work lands.
 Status vocabulary is fixed: **DONE** (verified by a receipt), **PARTIAL**, **TODO**, **BLOCKED**.
 
-Last updated: 2026-10-18T18:33Z · Resume baseline: `076ddc2`
+Last updated: 2026-10-18T19:14Z · Resume baseline: `f32b8bf`
 
 ## Resume 2026-10-18T18:33Z — post-merge state and active todo list
 
@@ -41,11 +41,35 @@ competing ACP buses.
 | T11 | Update `TODO.md` + `STATE.json` for the #28 lane; no false promotion if entitlement is absent | #28 | TODO | T7–T10 |
 | T12 | Run `windows/Complete-AionBus.ps1` as the single one-command offline readiness bootstrap (re-verifies HKCU `com.aion.relay`, runs all four suites, writes the sanitized receipt) | both | TODO — not yet run on this resume | — |
 | T13 | Item 5 fixture validation: run `readFinalReplyAfterLastUserTurn` against the parsed fixture DOM; selector counts are not a behavioural test | #27 | TODO | needs a DOM parser route |
-| T14 | Review or merge `origin/review/narrow-web-accessible-resources` | — | TODO | — |
+| T14 | Review or merge `origin/review/narrow-web-accessible-resources` | — | DONE — merged `f32b8bf` | — |
 
 **Not to be claimed:** any ChatGPT website turn, any custom-plugin tool call, `m1_verified`, or
 end-to-end ChatGPT→ChatGPT execution. T4 is the only irreversible action; after a send, treat
 disconnection as `OUTCOME_UNKNOWN` and **never** auto-retry.
+
+## Merge 2026-10-18T19:14Z — `review/narrow-web-accessible-resources`
+
+**Merged:** `origin/review/narrow-web-accessible-resources` (`ff54d6e`) into `main` with
+`git merge --no-ff --no-edit`, producing merge commit **`f32b8bf`** (parents `3ea1b1e` local,
+`ff54d6e` review). Clean `ort` auto-merge; no stash, reset or force. Three commits absorbed:
+
+- `0a8cf75` — `web_accessible_resources` narrowed to the exact content.js import closure
+  (`lib/envelope.js`), with a manifest closure test; live Chrome re-verification still pending.
+- `673795b` — side-panel redesign (task-ordered layout, 3-step connection test, folded detail).
+- `ff54d6e` — guided human view + read-only machine view.
+
+**Pre-merge local commits (owner-approved):** `4e2caa0` — answer `ping`/`state`/`stop` over the
+port (synchronous-return forwarding through the exactly-once `respond` guard, +5 listener tests);
+`3ea1b1e` — tracker refresh. Both in-flight fixes survived the merge: the listener return
+forwarding and the `lib/envelope.js` import narrowing.
+
+**Deliberately excluded:** `WIP-native-transport-first-attempt` (`57baf51`) — explicitly superseded
+and **not** merged; its only unique content is an obsolete add/add test importing exports that do
+not exist.
+
+**Evidence scope — offline only.** The merge and all suites are local/offline. No extension reload,
+no `chatgpt.com` tab, no correlated turn, no custom-plugin tool call. T1–T5 and T7–T11 stay open;
+`m1_verified` is unchanged.
 
 ## Owner's top-level goals — 2026-10-18
 
