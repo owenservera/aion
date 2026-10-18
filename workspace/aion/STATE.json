@@ -20,7 +20,7 @@
     "role_count": 8,
     "permissions": ["sidePanel", "storage", "alarms", "nativeMessaging"],
     "host_permissions": "https://chatgpt.com/*",
-    "native_messaging": "host registered; Chrome-to-ACP handshake not yet verified",
+    "native_messaging": "actual Chrome side-panel host ping verified 2026-10-18T12:25:04Z; relay.hello acknowledged ACP initialization 12:25:26Z. Protocol/version display normalization pending; no execution session claimed",
     "content_scripts": "passive chatgpt.com loader; only explicit commands may run a turn",
     "reads_web_pages": "authorized for one correlated turn; no live readback receipt yet",
     "installed_in_chrome": true,
@@ -29,7 +29,7 @@
     "installation_evidence": "Owner loaded unpacked; coordinator read Profile 3 Secure Preferences and observed extension card via native Windows UI Automation at 2026-10-18T11:32:23Z. No Orca. Installation is not handshake proof.",
     "touched_signed_in_session": false,
     "acpx_decision": "Owner declared ACPX unavailable 2026-10-17; issue #25 remains open as an unanswered comparison",
-    "live_test_status": "AUTHORIZED - integrated build tested and extension reloaded; actual side-panel Chrome handshake pending; no ChatGPT send yet. Opening the console in an ordinary extension tab was correctly refused as sender_is_a_tab; do not weaken sender validation.",
+    "live_test_status": "AUTHORIZED - live side-panel ping verified, ACP initialize reported (OpenCode 2.0.32, protocol 1) and tab id/field normalization defects fixed and re-verified. Content script fails to load in chatgpt.com because manifest use_dynamic_url breaks the fixed-path dynamic import; manifest fix assigned. Existing ChatGPT draft preserved; no ChatGPT send yet. Ordinary extension tabs correctly refused as sender_is_a_tab.",
     "notes": "Built to the existing design in ops/chrome-relay/; spec role-count drift (5 vs 8) resolved to 8 per ROLES.json and corrected in ARCHITECTURE.md, FALLBACK-AND-ACCEPTANCE.md and OPENCODE-BUILD-ORDER.md."
   },
   "local_execution_agent": "opencode",

@@ -77,3 +77,32 @@ test('every file content.js imports (transitively) is web-accessible', () => {
     assert.ok(patterns.some((re) => re.test(file)), `${file} is imported by content.js but not web-accessible`);
   }
 });
+
+// REGRESSION (real Chrome, authorized run): with `use_dynamic_url: true` Chrome serves
+// web-accessible resources under a per-session rotating `chrome-extension://<uuid>/...` URL and REJECTS
+// the stable one. loader.js dynamic-imports a fixed `chrome.runtime.getURL('src/chatgpt/content.js')`,
+// so that fetch 404s, content.js never runs, and the tab reports `FAILED / port_closed` even while the
+// composer is visible and the user is signed in (site access was granted, so host_permissions were never
+// the problem). Dynamic URLs are for RANDOMIZING which resource URL a web page can see; they are mutually
+// exclusive with a script that resolves its own module by a fixed extension URL. Keep this absent or false.
+test('web-accessible resources are NOT served under dynamic rotating URLs', () => {
+  for (const entry of manifest.web_accessible_resources ?? []) {
+    assert.notEqual(
+      entry.use_dynamic_url,
+      true,
+      'use_dynamic_url:true rotates resource URLs per session, so the fixed chrome.runtime.getURL() path '
+        + 'that loader.js dynamic-imports no longer resolves and the content module never loads',
+    );
+  }
+});
+
+// Guards the other half of the contract: while the fixed-URL fetch semantics above are required,
+// loader.js must keep resolving content.js through chrome.runtime.getURL() and not through a dynamic URL.
+test('loader.js resolves content.js through the fixed chrome.runtime.getURL path', () => {
+  const loader = readFileSync(resolve(root, 'src/chatgpt/loader.js'), 'utf8');
+  assert.match(
+    loader,
+    /import\(\s*chrome\.runtime\.getURL\(\s*['"]src\/chatgpt\/content\.js['"]\s*\)\s*\)/,
+    'loader.js must dynamic-import content.js by its fixed chrome.runtime.getURL path',
+  );
+});

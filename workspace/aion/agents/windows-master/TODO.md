@@ -21,6 +21,14 @@ Proposed gates — **coordinator PROPOSALS for Chief 05's model, not Chief-appro
 - **G5:** AGENTS-role ownership, handoff, restart/uncertain-outcome behavior and stop boundaries demonstrated on one real task, once the mental model is confirmed.
 - **Acceptance owner:** independent reviewer for actual M1; OpenCode coordinates execution evidence. GitHub persistence does not wake agents; browser DOM access is not access to hidden model internals. These goals do not widen the existing single-probe authorization.
 
+## Situational awareness planning — owner scope confirmed 2026-10-18
+
+- **Scope confirmed:** account-wide most recent **50 conversations in the currently selected ChatGPT workspace**, plus **all observed older pinned conversations**. Deduplicate the union; older pins do not consume the recent-50 allowance. Open tabs are a separate inventory, including chats outside that union.
+- **Requested metadata/capabilities:** projects, conversation titles and observed IDs/links, existing AION-agent bindings, ChatGPT conversation pins, open/selected tabs, switch conversation, open a new tab/new conversation, and bounded orchestration. Chrome tab pinning is a different field from ChatGPT conversation pinning.
+- **Planning only:** this confirmation scopes the plan; it does not itself start bulk account collection, read message bodies, send prompts, modify pins/projects, or launch a continuous monitor. Raw titles/IDs stay local by default; GitHub receives minimized receipts and approved role bindings.
+- **Truth contract:** open tab != generating agent != task running; named AION agent != necessarily custom GPT; missing/unobserved fields remain UNKNOWN. UI order or Chrome last-access time must not be mislabeled as verified conversation-update time. A partial sidebar cannot prove the latest 50 account-wide.
+- **Ownership:** Chief 05 owns agent semantics and acceptance; 06 TOOLSMITH capability contracts; 03 operations coordinates; local OpenCode drafts implementation plan/tests on existing extension and role registry. Repo recon: `ses_eb10359e7ffe4UOcblvHhBMjQJ`; public-source research: `ses_eb1032b1affexb7yCItN6WIoDx`; parent validates both. Existing single-probe work stays separate.
+
 ## Active owners — resumed 2026-10-18
 
 - **Execution and final validation:** OpenCode coordinator.
@@ -52,6 +60,14 @@ Latest historical green baseline: extension **142/142**, bridge **96/96**, adapt
 **Reload receipt, 2026-10-18T12:16:55.7623412Z:** native Windows UI Automation invoked the Reload control belonging specifically to the AION extension card, in existing Chrome window 1835904. No Orca/Playwright/Puppeteer used. The console rendered in an ordinary extension tab but correctly rejected requests with `sender_not_trusted: sender_is_a_tab`; preserve that boundary. Actual side panel must be opened before host testing. Toolbar activation through available UIA patterns has not produced an observed side panel; request one manual AION-toolbar click rather than weaken sender checks or claim a handshake.
 
 The table below is the **historical initial Windows baseline**, not current suite counts.
+
+**Real Chrome boundary receipt, 2026-10-18:** owner opened the actual side panel; coordinator independently observed `Close side panel` and nested AION document through UIA. At **12:25:04.371Z** invoked its CHECK HOST control. Observed reply: `Transport: CONNECTED`, `Status: VERIFIED`, detail `Host answered relay.ping. Transport liveness only: not executor acceptance, not proof.` At **12:25:26.792Z** invoked INITIALIZE ACP and observed `ACP_INITIALIZED` plus acknowledged `relay.hello`; panel protocol/version/capabilities remained UNKNOWN due a response-normalization defect, not a reported initialization failure. No ChatGPT send.
+
+**Live contract defects under correction:** driver emits `{tab_id,url}` while panel accepts only `{id,url}` (0 tabs listed / 1 rejected); worker normalizer drops numeric protocol and real nested agentInfo/agentCapabilities. Same fixer owns bounded corrections and cross-component regressions; preserve strict sender checks. Actual ChatGPT home tab selected at **12:26:44Z**; read-only UIA detected nonempty composer value (12 chars; contents not logged). Preserve it—do not refresh, clear or submit that draft. Use a separate bounded probe tab if needed.
+
+**Live contract defects RESOLVED and re-verified in Chrome, 2026-10-18T12:45:16Z:** after owner reloaded the extension and opened a fresh second chatgpt.com tab, the side panel showed `Protocol: 1`, `Version: 2.0.32` (OpenCode), detail `Host acknowledged relay.hello (ACP initialize). No ACP session is claimed by this step.` Tab list correctly reported **1 tab listed** with driver-shaped ids. ACP capabilities report 0 names by deliberate allowlist. No send occurred.
+
+**CONTENT SCRIPT ROOT CAUSE (open, assigned 2026-10-18T12:46:58Z):** `aion/chatgpt-ping` reports `FAILED - port_closed` against a signed-in tab with a visible composer. Chrome's extension error console shows `[aion-relay] content module failed to load: TypeError: Failed to fetch dynamically imported module: chrome-extension://<uuid>/src/chatgpt/content.js` raised from `src/chatgpt/loader.js:13`. Manifest `web_accessible_resources` sets **`use_dynamic_url: true`**, so Chrome serves those files under a rotating per-session dynamic URL; `loader.js` dynamic-imports the fixed `chrome.runtime.getURL('src/chatgpt/content.js')` path and therefore 404s. Site access itself is granted. Fixer (session `ses_eb0f2d300ffeTXEahsXpMOuCCA`) owns the minimal manifest + regression-test correction; OpenCode reloads and re-verifies before any send. This is a code defect, not an account, network or ChatGPT-side failure.
 
 | Suite | Expected (Linux, per issue) | Windows actual | Status |
 |---|---|---|---|

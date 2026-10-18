@@ -290,6 +290,70 @@ test('sanitizeTab rejects a missing, coerced or non-ChatGPT tab', async (t) => {
   void t;
 });
 
+test('the real driver tab shape is accepted by the real panel sanitizer', async () => {
+  // The regression: the worker emits `tab_id` (mirroring chrome.tabs.query) and
+  // the panel read only `id`, so every real entry was rejected — 0 listed, 1
+  // rejected. This feeds the ACTUAL driver output into the ACTUAL panel
+  // sanitizer; no invented intermediate shape.
+  const { sanitizeTab: panelSanitizeTab } = (await loadPanel()).mod;
+  const { sanitizeTab: driverSanitizeTab } = await import('../src/background/chatgpt-port.js');
+
+  const fromDriver = driverSanitizeTab({
+    id: 7,
+    windowId: 1,
+    active: true,
+    status: 'complete',
+    url: 'https://chatgpt.com/c/abc123?share=secret#frag'
+  });
+  assert.deepEqual(fromDriver, {
+    tab_id: 7,
+    url: 'https://chatgpt.com/c/abc123',
+    window_id: 1,
+    active: true,
+    status: 'complete'
+  });
+
+  // The panel must now accept it, and keep the rest of the record out.
+  assert.deepEqual(panelSanitizeTab(fromDriver), { id: 7, url: 'https://chatgpt.com/c/abc123' });
+});
+
+test('a conflicting or malformed tab id is refused, and nothing is coerced', async () => {
+  const { sanitizeTab: panelSanitizeTab } = (await loadPanel()).mod;
+
+  // Both spellings present and agreeing is fine; disagreeing is refused rather
+  // than resolved, because picking one guesses which tab is about to be typed in.
+  assert.deepEqual(
+    panelSanitizeTab({ tab_id: 7, id: 7, url: 'https://chatgpt.com/c/a' }),
+    { id: 7, url: 'https://chatgpt.com/c/a' },
+    'agreeing dual ids must be accepted'
+  );
+  assert.equal(panelSanitizeTab({ tab_id: 7, id: 8, url: 'https://chatgpt.com/c/a' }), null);
+  assert.equal(panelSanitizeTab({ tab_id: 7, id: '7', url: 'https://chatgpt.com/c/a' }), null,
+    'a string id beside a numeric one is a disagreement, not a match');
+
+  // Provided-but-malformed never falls through to the other spelling.
+  for (const raw of [
+    { tab_id: '7', url: 'https://chatgpt.com/c/a' },
+    { tab_id: null, url: 'https://chatgpt.com/c/a' },
+    { tab_id: '', url: 'https://chatgpt.com/c/a' },
+    { tab_id: NaN, url: 'https://chatgpt.com/c/a' },
+    { tab_id: 1.5, url: 'https://chatgpt.com/c/a' },
+    { tab_id: -1, url: 'https://chatgpt.com/c/a' },
+    { tab_id: 7, id: null, url: 'https://chatgpt.com/c/a' },
+    { url: 'https://chatgpt.com/c/a' }
+  ]) {
+    assert.equal(panelSanitizeTab(raw), null, 'must refuse ' + JSON.stringify(raw));
+  }
+
+  // A numeric id beside a malformed one is still refused: no coercion, and no
+  // silent preference for whichever field happens to be well-formed.
+  assert.equal(panelSanitizeTab({ tab_id: null, id: 7, url: 'https://chatgpt.com/c/a' }), null);
+
+  // The url rules are unchanged by the id change.
+  assert.equal(panelSanitizeTab({ tab_id: 7, url: 'https://example.com/' }), null);
+  assert.equal(panelSanitizeTab({ tab_id: 7, url: 'https://chatgpt.com/c/a?token=abc' }), null);
+});
+
 test('a tab list with unsafe entries offers only the safe one, and counts the rejects', async () => {
   const env = await loadPanel({
     reply: () => ({
