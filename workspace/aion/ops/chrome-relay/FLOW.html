@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AION — ChatGPT introspection chain: flow, state, next steps</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --paper:    #f2f0ea;
+    --panel:    #fbfaf7;
+    --ink:      #16202b;
+    --ink-2:    #45525f;
+    --ink-3:    #6d7a87;
+    --line:     #a6b1bb;
+    --line-soft:#d9dee2;
+    --band:     #e9e7e0;
+    --door:     #b0301a;   /* RESERVED: used only for the irreversible step 3 */
+    --door-ink: #ffffff;
+    --mono: "Cascadia Mono", "Cascadia Code", ui-monospace, Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+    --sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:    #0e1318;
+      --panel:    #151b21;
+      --ink:      #e7ecf0;
+      --ink-2:    #aab6c1;
+      --ink-3:    #7f8d9a;
+      --line:     #47535f;
+      --line-soft:#2b343d;
+      --band:     #171e25;
+      --door:     #e2593a;
+      --door-ink: #140b07;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    background-image:
+      linear-gradient(to right, var(--line-soft) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px);
+    background-size: 28px 28px, 28px 28px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 34px 22px 90px; }
+
+  /* ---------- masthead ---------- */
+  .eyebrow {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 3.4vw, 40px);
+    line-height: 1.12; margin: 0 0 10px; letter-spacing: -.01em;
+  }
+  h1 em { font-style: italic; color: var(--ink-2); }
+  .lede { max-width: 78ch; color: var(--ink-2); margin: 0 0 18px; }
+  code, .mono { font-family: var(--mono); font-size: .92em; }
+
+  .figures {
+    display: flex; flex-wrap: wrap; gap: 0;
+    border: 1px solid var(--line); background: var(--panel);
+  }
+  .figures div { padding: 9px 16px; border-right: 1px solid var(--line-soft); }
+  .figures div:last-child { border-right: 0; }
+  .figures span.k {
+    display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .figures span.v { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+
+  h2 {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 400;
+    border-bottom: 1px solid var(--line); padding-bottom: 7px; margin: 46px 0 18px;
+  }
+
+  /* ---------- the graph ---------- */
+  .scroller {
+    overflow-x: auto; overflow-y: hidden;
+    border: 1px solid var(--line); background: var(--panel);
+    padding: 6px 6px 10px;
+  }
+  .scroller svg { display: block; }
+  .scrollnote {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    color: var(--ink-3); margin: 7px 2px 0; text-transform: uppercase;
+  }
+
+  /* svg type + shapes */
+  .band { fill: var(--band); stroke: var(--line-soft); stroke-width: 1; }
+  .band.dash { stroke: var(--line); stroke-dasharray: 7 6; }
+  .bandlbl {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .18em;
+    fill: var(--ink-2); text-transform: uppercase;
+  }
+  .bandsub { font-family: var(--sans); font-size: 11.5px; fill: var(--ink-3); }
+
+  .box { fill: var(--panel); stroke: var(--line); stroke-width: 1.4; }
+  .boxext { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-dasharray: 11 6; }
+  .extbar { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+  .extbar-t { font-family: var(--mono); font-size: 8.5px; letter-spacing: .17em; fill: var(--ink-2); }
+  .hatch { fill: url(#hatch); stroke: none; }
+
+  .nt { font-family: var(--mono); font-size: 12.5px; font-weight: 700; fill: var(--ink); }
+  .nb { font-family: var(--sans); font-size: 11.5px; fill: var(--ink-2); }
+  .np { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-3); }
+  .ni { font-family: var(--mono); font-size: 10.5px; fill: var(--ink); }
+
+  .chipbg { fill: none; stroke: var(--line); stroke-width: 1.2; }
+  .chip-t { font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; fill: var(--ink-2); }
+  .mk-v { fill: var(--ink-2); }
+  .mk-b { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+  .ev { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); }
+
+  .edge { fill: none; stroke: var(--ink-2); stroke-width: 1.6; }
+  .edge.dim { stroke: var(--line); stroke-dasharray: 5 5; }
+  .elbl { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-2); }
+  .elbl-dim { font-family: var(--sans); font-size: 11px; fill: var(--ink-3); }
+  .lblbg { fill: var(--panel); }
+
+  .gate { fill: var(--paper); stroke: var(--ink); stroke-width: 1.6; }
+  .gate-t { font-family: var(--mono); font-size: 10.5px; fill: var(--ink); }
+
+  .step-bg { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+  .step-n { font-family: var(--mono); font-size: 14px; font-weight: 700; fill: var(--ink); }
+
+  /* reserved colour: irreversible step only */
+  .door-edge { fill: none; stroke: var(--door); stroke-width: 2.6; }
+  .door-lbl { font-family: var(--mono); font-size: 10.5px; font-weight: 700; fill: var(--door); letter-spacing: .1em; }
+  .door-card { fill: var(--door); }
+  .door-h { font-family: var(--mono); font-size: 15px; font-weight: 700; letter-spacing: .14em; fill: var(--door-ink); }
+  .door-b { font-family: var(--sans); font-size: 13px; fill: var(--door-ink); }
+  .door-b strong { font-weight: 700; }
+  .door-lead { fill: none; stroke: var(--door); stroke-width: 1.4; stroke-dasharray: 4 4; }
+  .door-badge { fill: var(--door); }
+  .door-badge-t { font-family: var(--mono); font-size: 20px; font-weight: 700; fill: var(--door-ink); }
+  .door-step { fill: none; stroke: var(--door); stroke-width: 1.5; }
+  .door-step-t { font-family: var(--mono); font-size: 10px; font-weight: 700; fill: var(--door); letter-spacing: .1em; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .node { animation: rise .45s cubic-bezier(.22,.7,.3,1) both; animation-delay: var(--d, 0ms); }
+    .edge, .door-edge { animation: draw .7s ease-out both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+    @keyframes draw { from { opacity: 0; } to { opacity: 1; } }
+  }
+  @media (prefers-reduced-motion: reduce) { .node, .edge, .door-edge { animation: none; } }
+
+  /* ---------- legend ---------- */
+  .legend { display: grid; gap: 26px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .legend h3 {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 400; margin: 0 0 10px;
+  }
+  .legend ul { list-style: none; margin: 0; padding: 0; }
+  .legend li { display: flex; gap: 11px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--line-soft); }
+  .legend li:first-child { border-top: 0; }
+  .legend p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+  .legend p strong { color: var(--ink); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; }
+  .lgchip { flex: 0 0 auto; }
+  .lgchip text { font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; fill: var(--ink-2); }
+
+  .steps-list { counter-reset: s; list-style: none; margin: 0; padding: 0; }
+  .steps-list li {
+    display: grid; grid-template-columns: 34px 1fr; gap: 14px;
+    padding: 12px 0; border-top: 1px solid var(--line-soft); align-items: start;
+  }
+  .steps-list .n {
+    width: 26px; height: 26px; border: 1.5px solid var(--ink); border-radius: 50%;
+    display: grid; place-items: center; font-family: var(--mono); font-size: 12px; font-weight: 700;
+  }
+  .steps-list .n.door { background: var(--door); border-color: var(--door); color: var(--door-ink); }
+  .steps-list p { margin: 2px 0 0; color: var(--ink-2); font-size: 13.5px; }
+  .steps-list .rev { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--ink-3); }
+  .steps-list .rev.door { color: var(--door); font-weight: 700; }
+
+  .prose p { max-width: 84ch; color: var(--ink-2); }
+  .prose strong { color: var(--ink); }
+
+  details { border: 1px solid var(--line); background: var(--panel); padding: 10px 16px; margin-top: 12px; }
+  summary { cursor: pointer; font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+  details ol { margin: 14px 0 4px; padding-left: 22px; color: var(--ink-2); }
+  details li { margin-bottom: 5px; }
+  details li strong { color: var(--ink); }
+
+  :focus-visible { outline: 2.5px solid var(--ink); outline-offset: 3px; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  footer {
+    margin-top: 54px; padding-top: 12px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+    display: flex; flex-wrap: wrap; gap: 6px 22px;
+  }
+  @media (max-width: 700px) { .wrap { padding: 22px 14px 64px; } .figures div { border-bottom: 1px solid var(--line-soft); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">AION &nbsp;/&nbsp; ops / chrome-relay &nbsp;/&nbsp; flow</p>
+    <h1>The introspection chain, <em>as it actually stands</em></h1>
+    <p class="lede">
+      One directed graph: the ChatGPT introspection path, the branch that must reject, and the
+      parallel local ACP path that joins the chain only at the relay envelope. State chips sit on
+      the nodes. Four numbered steps sit on the nodes they unblock.
+    </p>
+
+    <div class="figures">
+      <div><span class="k">adapter suite</span><span class="v">35/35</span></div>
+      <div><span class="k">extension suite</span><span class="v">115/115</span></div>
+      <div><span class="k">bridge suite</span><span class="v">84/84</span></div>
+      <div><span class="k">local acp runtime</span><span class="v">opencode acp v2.0.32</span></div>
+      <div><span class="k">m1</span><span class="v">m1_verified = false</span></div>
+    </div>
+  </header>
+
+  <h2 id="graph-h">Directed flow — read left to right</h2>
+
+  <div class="scroller" tabindex="0" role="region" aria-labelledby="graph-h">
+    <svg width="2345" height="1140" viewBox="0 0 2345 1140"
+         role="img" aria-labelledby="svg-t svg-d">
+      <title id="svg-t">AION ChatGPT introspection chain and the parallel local ACP path</title>
+      <desc id="svg-d">A left-to-right directed graph. AION feeds node A, the outbound adapter, then
+      B, the Chrome extension, then C, the external service chatgpt.com, then D, reply capture,
+        then E, correlate and validate. E branches at a gate: ACCEPT continues to F, the relay
+        envelope, then G, Windows to AION, then the M1 acceptance box. REJECT drops to H, the
+        negative case, which must never be reported as a turn. A separate lane below runs from B
+        to I, the native host bridge, then J, the opencode acp child process; its envelope meets
+        the main chain only at F and it never touches chatgpt.com.</desc>
+
+      <defs>
+        <pattern id="hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="9" stroke="var(--line-soft)" stroke-width="2.4"/>
+        </pattern>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-2)"/>
+        </marker>
+        <marker id="ah-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/>
+        </marker>
+        <marker id="ah-door" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--door)"/>
+        </marker>
+      </defs>
+
+      <!-- ===================== LANES ===================== -->
+      <rect class="band" x="20" y="20" width="2295" height="780" rx="3"/>
+      <text class="bandlbl" x="40" y="48">Primary — ChatGPT introspection chain</text>
+      <text class="bandsub" x="40" y="70">Windows machine to chatgpt.com and back. Everything above lane two is this path.</text>
+
+      <rect class="band dash" x="20" y="820" width="2295" height="280" rx="3"/>
+      <text class="bandlbl" x="40" y="848">Parallel — local ACP path</text>
+      <text class="bandsub" x="40" y="870">Orthogonal to the chain above: no chatgpt.com on this path. It meets the chain only at [F], the relay envelope.</text>
+
+      <!-- ===================== EDGES: main chain ===================== -->
+      <g class="edges">
+        <path class="edge" d="M190,238 H264" marker-end="url(#ah)"/>
+        <path class="edge" d="M485,238 H559" marker-end="url(#ah)"/>
+        <path class="door-edge" d="M780,238 H874" marker-end="url(#ah-door)"/>
+        <path class="door-edge" d="M1075,238 H1149" marker-end="url(#ah-door)"/>
+        <path class="edge" d="M1370,238 H1444" marker-end="url(#ah)"/>
+        <path class="edge" d="M1776,238 H1789" marker-end="url(#ah)"/>
+        <path class="edge" d="M2010,238 H2084" marker-end="url(#ah)"/>
+        <path class="edge" d="M2197,336 V394" marker-end="url(#ah)"/>
+      </g>
+      <g class="edge-labels">
+        <text class="elbl" x="227" y="228" text-anchor="middle">verbatim</text>
+        <text class="elbl" x="522" y="228" text-anchor="middle">prompt</text>
+        <text class="door-lbl" x="827" y="228" text-anchor="middle">SEND</text>
+        <text class="door-lbl" x="1112" y="228" text-anchor="middle">REPLY</text>
+        <text class="elbl" x="1407" y="228" text-anchor="middle">final block</text>
+        <text class="elbl" x="2047" y="228" text-anchor="middle">envelope</text>
+        <text class="elbl" x="2209" y="372">acceptance</text>
+      </g>
+
+      <!-- ===================== EDGES: gate branch ===================== -->
+      <path class="edge" d="M1726,298 V394" marker-end="url(#ah)"/>
+      <text class="elbl" x="1738" y="356">REJECT</text>
+      <text class="elbl" x="1734" y="166" text-anchor="middle">ACCEPT</text>
+
+      <!-- ===================== EDGES: ACP lane ===================== -->
+      <path class="edge" d="M672,336 V770 H387 V884" marker-end="url(#ah)"/>
+      <path class="edge" d="M505,988 H609" marker-end="url(#ah)"/>
+      <path class="edge dim" d="M850,988 H1900 V342" marker-end="url(#ah-dim)"/>
+      <g>
+        <text class="elbl" x="692" y="596">chrome.runtime.connectNative</text>
+        <text class="elbl" x="692" y="612">('com.aion.relay')</text>
+        <text class="elbl" x="557" y="978" text-anchor="middle">translate</text>
+        <rect class="lblbg" x="996" y="948" width="428" height="24" rx="2"/>
+        <text class="elbl-dim" x="1006" y="964">envelope — the only junction with the ChatGPT chain</text>
+      </g>
+
+      <!-- ===================== NODE: ORIGIN ===================== -->
+      <g class="node" style="--d:60ms">
+        <rect class="box" x="20" y="140" width="170" height="196" rx="3"/>
+        <text class="nt" x="36" y="196" style="font-size:17px">AION</text>
+        <text class="nb" x="36" y="222">originates the</text>
+        <text class="nb" x="36" y="239">correlated message</text>
+        <text class="np" x="36" y="272">start of the chain</text>
+      </g>
+
+      <!-- ===================== NODE A ===================== -->
+      <g class="node" style="--d:120ms">
+        <rect class="box" x="270" y="140" width="215" height="196" rx="3"/>
+        <text class="nt" x="286" y="172">A · outbound adapter</text>
+        <text class="np" x="286" y="196">sessions/01-escape-hatch/</text>
+        <text class="np" x="286" y="210">adapter/lib.js</text>
+        <text class="nb" x="286" y="234">loadOutbound() reads the</text>
+        <text class="nb" x="286" y="251">verbatim block</text>
+        <text class="ni" x="286" y="272">AION-M05-20261016-COC-001</text>
+        <text class="ni" x="286" y="288">expects ACK-M05-COC-001</text>
+        <g transform="translate(286,301)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-v" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">VERIFIED</text>
+        </g>
+        <text class="ev" x="390" y="315" text-anchor="end">35/35 tests</text>
+      </g>
+
+      <!-- ===================== NODE B ===================== -->
+      <g class="node" style="--d:180ms">
+        <rect class="box" x="565" y="140" width="215" height="196" rx="3"/>
+        <text class="nt" x="581" y="172">B · Chrome extension</text>
+        <text class="np" x="581" y="196">ops/chrome-relay/</text>
+        <text class="np" x="581" y="210">extension</text>
+        <text class="nb" x="581" y="234">content script on</text>
+        <text class="nb" x="581" y="251">chatgpt.com</text>
+        <text class="nb" x="581" y="272">fills #prompt-textarea,</text>
+        <text class="nb" x="581" y="288">submits via send-button</text>
+        <g transform="translate(581,301)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-v" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">VERIFIED</text>
+        </g>
+        <text class="ev" x="685" y="315" text-anchor="end">115/115 tests</text>
+      </g>
+
+      <!-- ===================== NODE C (external) ===================== -->
+      <g class="node" style="--d:240ms">
+        <rect class="box" x="800" y="140" width="275" height="196" rx="3"/>
+        <rect class="hatch" x="801" y="141" width="273" height="194" rx="3"/>
+        <rect class="boxext" x="806" y="146" width="263" height="184" rx="3"/>
+        <rect class="extbar" x="806" y="146" width="263" height="19"/>
+        <text class="extbar-t" x="816" y="160">EXTERNAL SERVICE · NOT OURS</text>
+        <text class="nt" x="816" y="192" style="font-size:14px">C · REAL chatgpt.com</text>
+        <text class="nb" x="816" y="218">the actual ChatGPT service</text>
+        <text class="nb" x="816" y="236">authenticated session</text>
+        <text class="nb" x="816" y="262">no local component here;</text>
+        <text class="nb" x="816" y="278">we have no control of it</text>
+        <g transform="translate(816,301)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-b" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">BLOCKED</text>
+        </g>
+        <text class="ev" x="920" y="315" text-anchor="end">needs live run</text>
+      </g>
+
+      <!-- ===================== NODE D ===================== -->
+      <g class="node" style="--d:300ms">
+        <rect class="box" x="1155" y="140" width="215" height="196" rx="3"/>
+        <rect class="hatch" x="1156" y="141" width="213" height="194" rx="3"/>
+        <text class="nt" x="1171" y="172">D · reply capture</text>
+        <text class="nb" x="1171" y="204">extension reads the</text>
+        <text class="nb" x="1171" y="221">last final assistant block</text>
+        <text class="nb" x="1171" y="248">reads the real page DOM;</text>
+        <text class="nb" x="1171" y="264">untested against live HTML</text>
+        <g transform="translate(1171,301)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-b" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">BLOCKED</text>
+        </g>
+        <text class="ev" x="1275" y="315" text-anchor="end">needs live run</text>
+      </g>
+
+      <!-- ===================== NODE E ===================== -->
+      <g class="node" style="--d:360ms">
+        <rect class="box" x="1450" y="140" width="215" height="196" rx="3"/>
+        <text class="nt" x="1466" y="172">E · correlate + validate</text>
+        <text class="np" x="1466" y="194">correlateReply()</text>
+        <text class="nb" x="1466" y="218">accepts only if the reply</text>
+        <text class="nb" x="1466" y="235">carries the correlation id</text>
+        <text class="nb" x="1466" y="252">AND is not an echo of ours</text>
+        <text class="nb" x="1466" y="269">mismatch branches to H</text>
+        <text class="np" x="1466" y="288">incl. negative cases</text>
+        <g transform="translate(1466,301)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-v" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">VERIFIED</text>
+        </g>
+        <text class="ev" x="1570" y="315" text-anchor="end">115/115 tests</text>
+      </g>
+
+      <!-- ===================== GATE ===================== -->
+      <g class="node" style="--d:420ms">
+        <path class="gate" d="M1726,178 L1776,238 L1726,298 L1676,238 Z"/>
+        <text class="gate-t" x="1726" y="233" text-anchor="middle">id present</text>
+        <text class="gate-t" x="1726" y="249" text-anchor="middle">not an echo</text>
+      </g>
+
+      <!-- ===================== NODE F ===================== -->
+      <g class="node" style="--d:480ms">
+        <rect class="box" x="1795" y="140" width="215" height="196" rx="3"/>
+        <text class="nt" x="1811" y="172">F · relay envelope</text>
+        <text class="np" x="1811" y="196">19-field envelope</text>
+        <text class="nb" x="1811" y="220">shared by extension</text>
+        <text class="nb" x="1811" y="237">and bridge</text>
+        <text class="ni" x="1811" y="262">correlation_id +</text>
+        <text class="ni" x="1811" y="278">idempotency_key</text>
+        <g transform="translate(1811,301)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-v" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">VERIFIED</text>
+        </g>
+        <text class="ev" x="1915" y="315" text-anchor="end">115/115</text>
+      </g>
+
+      <!-- ===================== NODE G ===================== -->
+      <g class="node" style="--d:540ms">
+        <rect class="box" x="2090" y="140" width="215" height="196" rx="3"/>
+        <rect class="hatch" x="2091" y="141" width="213" height="194" rx="3"/>
+        <text class="nt" x="2106" y="172">G · Windows → AION</text>
+        <text class="nb" x="2106" y="204">AION consumes, checks</text>
+        <text class="nb" x="2106" y="221">a detail, records</text>
+        <text class="nb" x="2106" y="238">evidence</text>
+        <text class="np" x="2106" y="264">no live run recorded</text>
+        <g transform="translate(2106,301)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-b" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">BLOCKED</text>
+        </g>
+        <text class="ev" x="2210" y="315" text-anchor="end">needs live run</text>
+      </g>
+
+      <!-- ===================== M1 ACCEPTANCE ===================== -->
+      <g class="node" style="--d:600ms">
+        <rect class="box" x="2090" y="400" width="215" height="175" rx="3"/>
+        <text class="nt" x="2106" y="432">M1 acceptance</text>
+        <text class="nb" x="2106" y="458">one real correlated</text>
+        <text class="nb" x="2106" y="475">round trip A→C→G</text>
+        <text class="nb" x="2106" y="492">plus a passing</text>
+        <text class="nb" x="2106" y="509">negative case (H)</text>
+        <text class="ni" x="2106" y="540">m1_verified = false</text>
+        <text class="np" x="2106" y="558">not reached — correctly so</text>
+      </g>
+
+      <!-- ===================== NODE H (negative case) ===================== -->
+      <g class="node" style="--d:660ms">
+        <rect class="box" x="1595" y="400" width="250" height="196" rx="3"/>
+        <rect class="hatch" x="1596" y="401" width="248" height="194" rx="3"/>
+        <text class="nt" x="1611" y="432">H · negative case</text>
+        <text class="nb" x="1611" y="458">a mismatched correlation</text>
+        <text class="nb" x="1611" y="475">must be REJECTED, never</text>
+        <text class="nb" x="1611" y="492">reported as a turn</text>
+        <text class="np" x="1611" y="518">terminal: stops here by design</text>
+        <g transform="translate(1611,561)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-b" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">BLOCKED</text>
+        </g>
+        <text class="ev" x="1835" y="575" text-anchor="end">needs live run</text>
+        <circle class="step-bg" cx="1825" cy="386" r="15"/>
+        <text class="step-n" x="1825" y="391" text-anchor="middle">4</text>
+      </g>
+
+      <!-- ===================== NODE I ===================== -->
+      <g class="node" style="--d:720ms">
+        <rect class="box" x="270" y="890" width="235" height="196" rx="3"/>
+        <rect class="hatch" x="271" y="891" width="233" height="194" rx="3"/>
+        <text class="nt" x="286" y="922">I · native host bridge</text>
+        <text class="np" x="286" y="946">ops/chrome-relay/bridge</text>
+        <text class="nb" x="286" y="970">translates Chrome framing</text>
+        <text class="nb" x="286" y="987">↔ newline JSON-RPC ↔ envelope</text>
+        <text class="nb" x="286" y="1004">host not registered in HKCU</text>
+        <text class="np" x="286" y="1026">bridge code is green</text>
+        <g transform="translate(286,1051)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-b" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">BLOCKED</text>
+        </g>
+        <text class="ev" x="418" y="1065" text-anchor="end">84/84</text>
+        <circle class="step-bg" cx="485" cy="876" r="15"/>
+        <text class="step-n" x="485" y="881" text-anchor="middle">1</text>
+      </g>
+
+      <!-- ===================== NODE J ===================== -->
+      <g class="node" style="--d:780ms">
+        <rect class="box" x="615" y="890" width="235" height="196" rx="3"/>
+        <text class="nt" x="631" y="922">J · opencode acp</text>
+        <text class="nb" x="631" y="946">child process, private server</text>
+        <text class="nb" x="631" y="970">stdin / stdout</text>
+        <text class="nb" x="631" y="987">NO network port</text>
+        <text class="np" x="631" y="1010">ACP-01 passes</text>
+        <text class="np" x="631" y="1026">protocolVersion 1</text>
+        <g transform="translate(631,1051)">
+          <rect class="chipbg" width="92" height="20" rx="2"/>
+          <rect class="mk-v" x="9" y="6" width="8" height="8"/>
+          <text class="chip-t" x="26" y="14">VERIFIED</text>
+        </g>
+        <text class="ev" x="763" y="1065" text-anchor="end">v2.0.32</text>
+      </g>
+
+      <!-- ===================== STEP MARKERS 2 ===================== -->
+      <g class="node" style="--d:240ms">
+        <circle class="step-bg" cx="1055" cy="126" r="15"/>
+        <text class="step-n" x="1055" y="131" text-anchor="middle">2</text>
+      </g>
+
+      <!-- ===================== STEP 3 — the one-way door ===================== -->
+      <g class="node" style="--d:840ms">
+        <path class="door-lead" d="M1112,610 V207"/>
+        <circle class="door-badge" cx="1112" cy="182" r="25"/>
+        <text class="door-badge-t" x="1112" y="190" text-anchor="middle">3</text>
+
+        <rect class="door-card" x="800" y="610" width="560" height="168" rx="3"/>
+        <text class="door-h" x="824" y="648">STEP 3 — IRREVERSIBLE</text>
+        <text class="door-b" x="824" y="678">Send one correlated message. Capture the reply. Verify the correlation.</text>
+        <text class="door-b" x="824" y="702"><tspan font-weight="700">The message lands in real ChatGPT conversation history and cannot</tspan></text>
+        <text class="door-b" x="824" y="722"><tspan font-weight="700">be recalled.</tspan> No undo exists. There is no supported reversal.</text>
+        <text class="door-b" x="824" y="750" style="font-size:11.5px" opacity=".85">Everything else on this page is undone by deleting a registry key or unloading an extension. This is not.</text>
+      </g>
+
+    </svg>
+  </div>
+  <p class="scrollnote" aria-hidden="true">graph is 2345 px wide — scroll horizontally at narrow widths; nodes are never squeezed</p>
+
+  <h2 id="legend-h">Legend — state vocabulary and the four steps</h2>
+  <div class="legend">
+    <div>
+      <h3>State, four words only</h3>
+      <ul>
+        <li>
+          <svg class="lgchip" width="104" height="22" aria-hidden="true"><rect x="0.5" y="0.5" width="92" height="20" rx="2" fill="none" stroke="var(--line)"/><rect x="9.5" y="6.5" width="8" height="8" fill="var(--ink-2)"/><text x="26" y="14">VERIFIED</text></svg>
+          <p><strong>VERIFIED</strong> — observed and proven by a run or a passing suite. Evidence is printed on the node.</p>
+        </li>
+        <li>
+          <svg class="lgchip" width="104" height="22" aria-hidden="true"><rect x="0.5" y="0.5" width="92" height="20" rx="2" fill="none" stroke="var(--line)"/><rect x="9.5" y="6.5" width="8" height="8" fill="none" stroke="var(--ink)" stroke-width="1.4"/><text x="26" y="14">BLOCKED</text></svg>
+          <p><strong>BLOCKED</strong> — not run yet. Drawn with an open-square mark and a hatched fill as well, so it never depends on colour.</p>
+        </li>
+        <li>
+          <svg class="lgchip" width="104" height="22" aria-hidden="true"><rect x="0.5" y="0.5" width="92" height="20" rx="2" fill="none" stroke="var(--line)"/><rect x="9.5" y="6.5" width="8" height="8" fill="none" stroke="var(--ink)" stroke-width="1.4"/><rect x="9.5" y="10.5" width="8" height="4" fill="var(--ink-2)"/><text x="26" y="14">PARTIAL</text></svg>
+          <p><strong>PARTIAL</strong> — reserved. No node in this graph holds this state today; nothing here is half-proven.</p>
+        </li>
+        <li>
+          <svg class="lgchip" width="104" height="22" aria-hidden="true"><rect x="0.5" y="0.5" width="92" height="20" rx="2" fill="none" stroke="var(--line)"/><circle cx="13.5" cy="10.5" r="4" fill="none" stroke="var(--ink)" stroke-width="1.4"/><text x="26" y="14">INSTALLED</text></svg>
+          <p><strong>INSTALLED</strong> — reserved. Nothing is loaded in Chrome today, so no node carries this state.</p>
+        </li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>Next steps, in order</h3>
+      <ol class="steps-list">
+        <li>
+          <span class="n">1</span>
+          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [I]</strong> — register the native host <code>com.aion.relay</code> in HKCU and add the <code>nativeMessaging</code> permission.<br><span class="rev">REVERSIBLE — delete the key, drop the permission</span></p>
+        </li>
+        <li>
+          <span class="n">2</span>
+          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [C]</strong> — load the unpacked extension in Chrome <strong>Profile 3</strong> and prove <code>initialize</code> end to end.<br><span class="rev">REVERSIBLE — unload the extension from Profile 3</span></p>
+        </li>
+        <li>
+          <span class="n door">3</span>
+          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [C]/[D]</strong> — send one correlated message, capture the reply, verify correlation against <code>AION-M05-20261016-COC-001</code> and <code>ACK-M05-COC-001</code>.<br><span class="rev door">IRREVERSIBLE — it lands in real ChatGPT history and cannot be recalled</span></p>
+        </li>
+        <li>
+          <span class="n">4</span>
+          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [H]</strong> — run the negative case and prove a mismatched correlation is rejected.<br><span class="rev">REVERSIBLE — nothing external to undo</span></p>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <h2 id="next-h">Where we're going</h2>
+  <div class="prose">
+    <p>
+      <strong>M1 verified</strong> means one real correlated round trip through <strong>A → C → G</strong>
+      <em>plus</em> a passing negative case at <strong>H</strong>. Both, not either. Only when both hold does
+      <code>m1_verified</code> become true. Right now it is <code>m1_verified = false</code>, and that is
+      correct: nothing has been sent to ChatGPT, no session was touched, and the evidence for it does not exist yet.
+    </p>
+    <p>
+      After M1, the relay can dispatch work to approved local ACP runtimes — the lower lane of the graph,
+      through <strong>I</strong> and <strong>J</strong>, still with no network port and no contact with chatgpt.com.
+      Durable evidence stays in the GitHub ledger, never in a live session. A transport acknowledgement is not a
+      model reply; a model reply is not AION consumption. Each is recorded separately, in that order.
+    </p>
+    <p>
+      The three reversible steps are available now and none of them requires a decision. Step 3 is the only
+      point of no return in the whole graph, which is why it is the only thing on this page drawn in red.
+    </p>
+  </div>
+
+  <details>
+    <summary>Read the flow as text</summary>
+    <ol>
+      <li><strong>AION</strong> originates a correlated message.</li>
+      <li><strong>[A] outbound adapter</strong> — <code>sessions/01-escape-hatch/adapter/lib.js</code>; <code>loadOutbound()</code> reads the verbatim block; correlation <code>AION-M05-20261016-COC-001</code>; expected reply <code>ACK-M05-COC-001</code>. VERIFIED, 35/35 tests.</li>
+      <li><strong>[B] Chrome extension</strong> — <code>ops/chrome-relay/extension</code>; content script on chatgpt.com; fills <code>#prompt-textarea</code>, submits via send-button. VERIFIED, 115/115 tests.</li>
+      <li><strong>[C] REAL chatgpt.com</strong> — external service, authenticated session. BLOCKED, needs live run.</li>
+      <li><strong>[D] reply capture</strong> — extension reads the last final assistant block. BLOCKED, needs live run.</li>
+      <li><strong>[E] correlate + validate</strong> — <code>correlateReply()</code>; accepts only if the reply carries the correlation id and is not an echo. VERIFIED, 115/115 including negative cases.</li>
+      <li>Gate at [E]: <strong>ACCEPT</strong> continues; <strong>REJECT</strong> drops to [H].</li>
+      <li><strong>[F] relay envelope</strong> — 19 fields; <code>correlation_id</code> + <code>idempotency_key</code>; shared library. VERIFIED, 115/115.</li>
+      <li><strong>[G] Windows → AION</strong> — AION consumes, checks a detail, records evidence. BLOCKED, needs live run.</li>
+      <li><strong>[H] negative case</strong> — a mismatched correlation must be REJECTED, never reported as a turn. BLOCKED, needs live run.</li>
+      <li><strong>[I] native host bridge</strong> — <code>ops/chrome-relay/bridge</code>; translates Chrome framing ↔ newline JSON-RPC ↔ envelope; host <code>com.aion.relay</code> not registered in HKCU; bridge code 84/84. BLOCKED. Step 1 lives here.</li>
+      <li><strong>[J] opencode acp</strong> — v2.0.32; child process, private server, stdin/stdout, no network port; ACP-01 passes, protocolVersion 1. VERIFIED.</li>
+    </ol>
+  </details>
+
+  <footer>
+    <span>AION · ops/chrome-relay · FLOW</span>
+    <span>adapter 35/35</span>
+    <span>extension 115/115</span>
+    <span>bridge 84/84</span>
+    <span>opencode acp v2.0.32</span>
+    <span>m1_verified = false</span>
+  </footer>
+</div>
+</body>
+</html>
