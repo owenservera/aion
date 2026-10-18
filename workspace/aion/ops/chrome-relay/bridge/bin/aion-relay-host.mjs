@@ -61,8 +61,13 @@ export function extractExtensionId(argv) {
 
 /**
  * Build the host config: optional on-disk overrides, then the pinned extension
- * id and the Chrome message cap. An on-disk file may set expectedExtensionId
- * explicitly, but never silently - it must parse and validate.
+ * id and the Chrome message cap.
+ *
+ * THE PIN IS APPLIED AFTER EVERY SPREAD, and an attempt to change it is REJECTED
+ * rather than silently ignored. `expectedExtensionId` is the one value that
+ * decides whether ANY command executes (NM-02), so a `host.config.json` that
+ * could repoint it would turn a local config file into a capability grant. The
+ * owner changes the pin in this file, in a diff.
  */
 export function loadHostConfig(baseDir = BRIDGE_ROOT, fileOverrides = {}) {
   let fromDisk = {};
@@ -70,10 +75,21 @@ export function loadHostConfig(baseDir = BRIDGE_ROOT, fileOverrides = {}) {
   if (fs.existsSync(configPath)) {
     fromDisk = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   }
+
+  for (const [source, bag] of [['host.config.json', fromDisk], ['fileOverrides', fileOverrides]]) {
+    const drift = bag && bag.expectedExtensionId;
+    if (drift !== undefined && drift !== '' && drift !== PINNED_EXTENSION_ID) {
+      throw new Error(
+        `${source} may not change expectedExtensionId: ` +
+          `the pin is ${PINNED_EXTENSION_ID} and lives in this entry point, not in configuration`,
+      );
+    }
+  }
+
   return createConfig({
-    expectedExtensionId: PINNED_EXTENSION_ID,
     ...fromDisk,
     ...fileOverrides,
+    expectedExtensionId: PINNED_EXTENSION_ID,
     maxFrameBytes: Math.min(
       fileOverrides.maxFrameBytes ?? fromDisk.maxFrameBytes ?? CHROME_MAX_HOST_MESSAGE_BYTES,
       CHROME_MAX_HOST_MESSAGE_BYTES,
@@ -81,7 +97,36 @@ export function loadHostConfig(baseDir = BRIDGE_ROOT, fileOverrides = {}) {
   });
 }
 
-function main() {
+/**
+ * Write one line to stderr and wait for it to be flushed, with a bound.
+ *
+ * Exiting straight after a write can truncate the message that explains WHY the
+ * process exited non-zero, which is the only output the operator gets. The bound
+ * keeps a blocked pipe from turning a clean refusal into a hang.
+ */
+function writeAndFlush(stream, text, timeoutMs = 1000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const timer = setTimeout(done, timeoutMs);
+    if (typeof timer.unref === 'function') timer.unref();
+    try {
+      stream.write(text, () => {
+        clearTimeout(timer);
+        done();
+      });
+    } catch {
+      clearTimeout(timer);
+      done();
+    }
+  });
+}
+
+async function main() {
   const logger = createRedactingLogger({ level: process.env.AION_HOST_LOG_LEVEL ?? 'info' });
 
   let config;
@@ -90,7 +135,7 @@ function main() {
     assertValidConfig(config);
   } catch (err) {
     logger.error(`invalid host configuration: ${err && err.message}`);
-    process.stderr.write(`aion-relay-host: invalid configuration (${err && err.message})\n`);
+    await writeAndFlush(process.stderr, `aion-relay-host: invalid configuration (${err && err.message})\n`);
     process.exit(3);
   }
 
@@ -99,7 +144,7 @@ function main() {
     // Refuse loudly and exit non-zero: a host that cannot identify its caller
     // must never appear to have started successfully.
     logger.error('no chrome-extension:// origin on the command line; refusing to serve');
-    process.stderr.write('aion-relay-host: expected Chrome to pass the extension origin as argv[1]\n');
+    await writeAndFlush(process.stderr, 'aion-relay-host: expected Chrome to pass the extension origin as argv[1]\n');
     process.exit(2);
   }
 
@@ -111,14 +156,16 @@ function main() {
     initialOrigin: extensionId,
   });
 
-  // The host may have refused the origin already (NM-02). Reporting "ready" for
-  // an origin we just rejected would put a lie in the log, so state what happened.
+  // A refused origin EXITS NON-ZERO. It used to log an error and then carry on
+  // as a running process that would answer nothing, which reads to any supervisor
+  // as "started". The flush is bounded so the reason is not lost on exit.
   if (host.state.refused) {
     logger.error(`refused extension ${extensionId}; this host will execute nothing`);
-    process.stderr.write(`aion-relay-host: origin ${extensionId} is not allowed; refusing to serve\n`);
-  } else {
-    logger.info(`aion-relay-host ready for extension ${extensionId}`);
+    await writeAndFlush(process.stderr, `aion-relay-host: origin ${extensionId} is not allowed; refusing to serve\n`);
+    process.exit(4);
   }
+
+  logger.info(`aion-relay-host ready for extension ${extensionId}`);
 
   const shutdown = (signal) => {
     logger.info(`received ${signal}; shutting down`);
@@ -128,6 +175,11 @@ function main() {
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+  // EOF on stdin is Chrome closing the connection. Cleanup rather than sitting on
+  // an ACP child and an event log for a connection that no longer exists.
+  process.stdin.on('end', () => shutdown('stdin end'));
+  process.stdin.on('close', () => shutdown('stdin close'));
 }
 
 // Only serve when executed directly. Importing this module (the host tests do,
@@ -135,4 +187,11 @@ function main() {
 // the process - main() calls process.exit() when no origin is present.
 const invokedDirectly = process.argv[1]
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (invokedDirectly) main();
+if (invokedDirectly) {
+  // main() exits the process itself on every refusal path; the catch is here so a
+  // thrown failure is also a non-zero exit and a message, never a silent 0.
+  main().catch((err) => {
+    process.stderr.write(`aion-relay-host: fatal: ${err && err.message}\n`);
+    process.exit(5);
+  });
+}

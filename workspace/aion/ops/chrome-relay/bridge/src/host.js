@@ -170,7 +170,12 @@ export function createHost(options) {
     sequence: 0,
     sessionId: null,
     sessionCwd: config.sessionCwd,
-    agentPromise: null,
+    /** Memoised ACP `initialize` (capabilities only). Never implies a session. */
+    initializedPromise: null,
+    /** What `initialize` returned, for truthful status reporting. */
+    capabilities: null,
+    /** Memoised `session/new`, created lazily on dispatch only. */
+    sessionPromise: null,
     dispatched: 0,
     refusedMessages: 0,
     emittedEvents: 0,
@@ -187,10 +192,13 @@ export function createHost(options) {
   // Chrome does NOT send the caller's origin as a message. It passes it to the
   // native host as the first command-line argument ("chrome-extension://<id>/",
   // plus "--parent-window=<n>" on Windows) and then speaks framed JSON on stdin.
-  // An entry point therefore seeds the origin from argv before any frame is
-  // read; the first-frame path below is retained only for the in-process tests
-  // that drive this module directly.
-  if (options.initialOrigin !== undefined) applyOrigin(options.initialOrigin, 'command line');
+  //
+  // That argv value is therefore REQUIRED. There used to be a fallback where the
+  // first framed stdin message was treated as the origin, which is worthless as a
+  // check: whoever writes those bytes decides the origin, so the "verification"
+  // only verified that the writer was the writer. A missing origin is now a
+  // refusal (ORIGIN_MISSING) rather than an open door.
+  applyOrigin(options.initialOrigin, 'command line');
 
   const client = options.client ?? createAcpClient({
     config,
@@ -199,7 +207,9 @@ export function createHost(options) {
     onExit: (info) => {
       state.agentLossAlerts += 1;
       state.sessionId = null;
-      state.agentPromise = null;
+      state.sessionPromise = null;
+      state.initializedPromise = null;
+      state.capabilities = null;
       inFlight.clear(); // ACP-09: no orphaned turns after the child dies
       logger.warn(`acp agent gone (${info.reason ?? 'unknown'}); in-flight turns abandoned`);
       emitEnvelope(buildAlert({
@@ -316,6 +326,16 @@ export function createHost(options) {
   /**
    * Run the NM-02 origin check exactly once. Refusal is terminal: once refused,
    * every later frame is answered with a refusal and nothing is executed.
+   *
+   * WHAT THIS ACTUALLY PROVES, stated plainly so nobody over-trusts it: the value
+   * arrives in the process's own argv, and anything able to launch this process
+   * locally can put any string there. Chrome's `allowed_origins` check in the
+   * native-messaging manifest is a BROWSER-side check that narrows who may start
+   * the host at all — it is not strong local authentication, and it does not
+   * travel with the argv value. What NM-02 adds is that this host compares the
+   * argv origin against the pinned extension id and executes nothing when they
+   * differ, so a copy-pasted command line from another extension is refused
+   * rather than obeyed. Unset is a refusal, never a wildcard.
    */
   function applyOrigin(value, source) {
     if (state.origin !== null) return;
@@ -337,13 +357,6 @@ export function createHost(options) {
   }
 
   function handleFrame(value) {
-    // Only reached when no origin was seeded from the command line (direct
-    // in-process use). The first frame is then treated as the origin.
-    if (state.origin === null) {
-      applyOrigin(value, 'first message');
-      return;
-    }
-
     if (state.refused) {
       state.refusedMessages += 1;
       sendError(null, HOST_ERROR.ORIGIN_NOT_ALLOWED, 'connection refused at the origin check; no command was executed');
@@ -353,8 +366,15 @@ export function createHost(options) {
     // session whose turn is still running must be REJECTED (ACP-05), not queued
     // behind the first and silently accepted after it finishes.
     handleCommand(value).catch((err) => {
-      logger.error(`unhandled command failure: ${err && err.stack}`);
-      sendError(null, HOST_ERROR.INTERNAL, err && err.message);
+      // EVERY failure answers the id that asked, including one that escaped every
+      // inner catch. A `relay.error` with id:null is unmatchable by construction:
+      // the caller has one request outstanding and can only wait for its own
+      // timeout. That is exactly how a real `session/new` failure turned into a
+      // 40-second caller timeout with no diagnosis attached to it.
+      const id = requestIdOf(value);
+      const text = safeErrorText(err);
+      logger.error(`command failed: ${errorCode(err)}: ${text}`);
+      sendError(id, errorCode(err), text, { correlation_id: envelopeCorrelationId(value) });
     });
   }
 
@@ -378,6 +398,10 @@ export function createHost(options) {
             status: client.status(),
             running: client.status() === 'ready',
           },
+          // Truthful, separate facts: an initialized agent and a created session
+          // are different milestones, and neither implies the other.
+          capabilities_observed: state.capabilities !== null,
+          session: sessionReport(),
           session_cwd: config.sessionCwd,
           allowed_cwds: config.allowedCwds.slice(),
         });
@@ -405,11 +429,47 @@ export function createHost(options) {
     }
   }
 
+  /**
+   * `relay.hello` answers ONE question: can this bridge initialize the agent, and
+   * what does the agent support?
+   *
+   * It deliberately does NOT create an ACP session. Session creation is a
+   * dispatch-time concern (`ensureSession`), for two reasons: `session/new` is a
+   * heavier operation that can fail for reasons that have nothing to do with
+   * "is the relay talking to a real agent", and a hello that created a session
+   * would have to report session readiness from a side effect. On a real run,
+   * `session/new` failing inside hello turned a capability probe into an
+   * uncorrelated error the caller could only time out on.
+   */
   async function handleHello(id) {
-    const info = await ensureAgent();
+    const info = await ensureInitialized();
     const [envelope] = messageToEnvelopes({ result: info ?? {} }, envelopeCtx({ acpMethod: 'initialize' }));
     emitEnvelope(envelope);
-    send({ type: 'relay.reply', id, ok: true, protocol_version: config.protocolVersion, agent: info ?? null });
+    send({
+      type: 'relay.reply',
+      id,
+      ok: true,
+      protocol_version: config.protocolVersion,
+      agent: info ?? null,
+      session: sessionReport(),
+    });
+  }
+
+  /**
+   * What can honestly be said about the session RIGHT NOW.
+   *
+   * `created:false` is the point: `relay.ping` and `relay.hello` answer before
+   * any session exists, and a status that implied otherwise would report session
+   * readiness this host never observed.
+   */
+  function sessionReport() {
+    return state.sessionId
+      ? { created: true, session_id: state.sessionId }
+      : {
+        created: false,
+        session_id: null,
+        note: 'no ACP session exists yet; one is created on dispatch, and only then is session readiness claimed',
+      };
   }
 
   /** `relay.send` — the one path that reaches the ACP agent. */
@@ -421,6 +481,26 @@ export function createHost(options) {
         correlation_id: (env && env.correlation_id) || null,
       });
       return;
+    }
+
+    // ACP-02: the host fixes cwd. An extension-supplied cwd is honoured ONLY
+    // when it is in the allowlist. Anything else is refused outright rather
+    // than silently rewritten, because "silently ignored" reads to the caller
+    // like "it was used".
+    //
+    // THIS CHECK RUNS BEFORE THE ENVELOPE IS STORED, deliberately. It used to run
+    // after `store.append`, which meant a refused envelope had already consumed
+    // its idempotency key: the caller correcting the cwd and retrying the SAME
+    // message_id/idempotency_key was answered `replayed: true` and never
+    // executed. A rejection that poisons the retry is worse than the rejection.
+    const requestedCwd = extractRequestedCwd(env);
+    if (requestedCwd !== null) {
+      const verdict = assertCwdAllowed(config, requestedCwd);
+      if (!verdict.allowed) {
+        logger.info(`refusing cwd before storing: ${verdict.reason}`);
+        sendError(id, HOST_ERROR.CWD_NOT_ALLOWED, verdict.reason, { correlation_id: env.correlation_id });
+        return;
+      }
     }
 
     // Dedupe at the receiving host (contract): a replayed idempotency key is
@@ -445,25 +525,19 @@ export function createHost(options) {
       });
       return;
     }
-    if (typeof env.sequence === 'number') state.sequence = Math.max(state.sequence, env.sequence);
 
-    // ACP-02: the host fixes cwd. An extension-supplied cwd is honoured ONLY
-    // when it is in the allowlist. Anything else is refused outright rather
-    // than silently rewritten, because "silently ignored" reads to the caller
-    // like "it was used".
-    const requestedCwd = extractRequestedCwd(env);
-    if (requestedCwd !== null) {
-      const verdict = assertCwdAllowed(config, requestedCwd);
-      if (!verdict.allowed) {
-        sendError(id, HOST_ERROR.CWD_NOT_ALLOWED, verdict.reason, { correlation_id: env.correlation_id });
-        return;
-      }
-    }
+    // NOTE (deliberately absent): the host's own emitted-envelope counter is not
+    // advanced from an inbound `env.sequence`. That counter numbers what THIS
+    // host emits; adopting a caller's number would make two hosts' sequence
+    // spaces overlap and would let an extension inflate or rewind host output.
+    // Callers own their own sequence.
 
     try {
-      await ensureAgent();
+      // Lazily, and only here: `envelopeToRequest` needs a real session id, and a
+      // dispatch is the first moment a session is actually needed.
+      await ensureSession();
     } catch (err) {
-      sendError(id, errorCode(err), err && err.message, { correlation_id: env.correlation_id });
+      sendError(id, errorCode(err), safeErrorText(err), { correlation_id: env.correlation_id });
       return;
     }
 
@@ -588,32 +662,62 @@ export function createHost(options) {
 
   /* ---------------------------------------------------------------- agent */
 
-  /** Idempotent agent startup: one child, one initialize, shared by all callers. */
-  async function ensureAgent() {
-    if (state.agentPromise) return state.agentPromise;
-    state.agentPromise = (async () => {
+  /**
+   * ACP `initialize`, memoised and IDEMPOTENT.
+   *
+   * Concurrent callers share one in-flight promise, so a burst of pings and a
+   * hello cannot negotiate the protocol twice. A rejection clears the memo so a
+   * LATER explicit call may try again — nothing here retries on its own, because
+   * a background retry against a failing agent is work the caller never asked for.
+   *
+   * Returns the agent's capability report. Never creates a session.
+   */
+  async function ensureInitialized() {
+    if (state.initializedPromise) return state.initializedPromise;
+    state.initializedPromise = (async () => {
       const info = await client.initialize();
-      const session = await client.newSession({ cwd: config.sessionCwd });
-      state.sessionId = session.sessionId;
-      state.sessionCwd = normalizePathForCompare(config.sessionCwd) ?? config.sessionCwd;
-      logger.info(`acp agent ready: session ${session.sessionId} pinned to ${state.sessionCwd}`);
+      state.capabilities = info ?? null;
+      logger.info('acp agent initialized; capabilities observed, no session created');
       return info;
     })();
     try {
-      return await state.agentPromise;
+      return await state.initializedPromise;
     } catch (err) {
-      state.agentPromise = null; // retryable: a crashed agent can be restarted
+      state.initializedPromise = null; // retryable BY A LATER CALL, never automatically
       throw err;
     }
   }
 
-  /** ACP-09 recovery: a new child, a new session, no stale ids. */
-  async function restart() {
-    inFlight.clear();
-    state.sessionId = null;
-    state.agentPromise = null;
-    await client.restart();
-    return ensureAgent();
+  /**
+   * ACP `session/new`, LAZY: called only when a command actually needs a session.
+   *
+   * Idempotent for the same reason as ensureInitialized, and it refuses to report
+   * a session it does not have — a response without a session id leaves
+   * `state.sessionId` null, so nothing downstream can claim session readiness.
+   */
+  async function ensureSession() {
+    if (state.sessionId) return state.sessionId;
+    if (state.sessionPromise) return state.sessionPromise;
+    state.sessionPromise = (async () => {
+      await ensureInitialized();
+      const session = await client.newSession({ cwd: config.sessionCwd });
+      if (!session || typeof session.sessionId !== 'string' || session.sessionId === '') {
+        throw new AcpClientError(
+          ACP_ERROR.REQUEST_FAILED,
+          'session/new returned no sessionId; this host creates no session and claims no session readiness',
+        );
+      }
+      state.sessionId = session.sessionId;
+      state.sessionCwd = normalizePathForCompare(config.sessionCwd) ?? config.sessionCwd;
+      logger.info(`acp session ${session.sessionId} created, pinned to ${state.sessionCwd}`);
+      return state.sessionId;
+    })();
+    try {
+      return await state.sessionPromise;
+    } catch (err) {
+      state.sessionPromise = null; // a later dispatch may try again; this one does not
+      throw err;
+    }
   }
 
   async function stop() {
@@ -626,6 +730,17 @@ export function createHost(options) {
     client.close();
   }
 
+  /** ACP-09 recovery: a new child, no stale ids, session created lazily again. */
+  async function restart() {
+    inFlight.clear();
+    state.sessionId = null;
+    state.sessionPromise = null;
+    state.initializedPromise = null;
+    state.capabilities = null;
+    await client.restart();
+    return ensureInitialized();
+  }
+
   const api = {
     state,
     client,
@@ -636,7 +751,10 @@ export function createHost(options) {
     },
     stop,
     restart,
-    ensureAgent,
+    ensureInitialized,
+    ensureSession,
+    /** Backward-compatible alias: the old name meant "agent AND session". */
+    ensureAgent: ensureSession,
     /** Test aid: write a value into the host exactly as Chrome would. */
     receive(value) {
       input.write(encodeNativeFrame(value, { maxFrameBytes: config.maxFrameBytes }));
@@ -647,6 +765,43 @@ export function createHost(options) {
 }
 
 /* ---------------------------------------------------------------- internals */
+
+/**
+ * The request id of an inbound frame, or null when there is none.
+ *
+ * Used so that EVERY failure — including one that escapes each inner catch — is
+ * answerable by the caller that asked. `relay.error` with `id: null` is
+ * unmatchable by design: a caller with one request outstanding can only sit out
+ * its own timeout, which is what turned a real agent failure into a 40-second
+ * silent wait.
+ */
+function requestIdOf(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value.id === undefined ? null : value.id;
+}
+
+/** The relay correlation_id carried by an inbound frame, for the error's evidence. */
+function envelopeCorrelationId(value) {
+  if (!value || typeof value !== 'object') return null;
+  const env = value.envelope;
+  if (!env || typeof env !== 'object') return null;
+  return typeof env.correlation_id === 'string' ? env.correlation_id : null;
+}
+
+/**
+ * One line of operator-facing text for a failure: scrubbed, single line, bounded.
+ *
+ * A stack trace is not operator text — it is source layout, it can carry paths
+ * and payload fragments, and it is useless to whoever reads the operator log. The
+ * scrubbed message keeps the diagnosable part (including an upstream JSON-RPC
+ * code, which is the thing that identifies the failure).
+ */
+function safeErrorText(err) {
+  if (err === null || err === undefined) return 'unknown error';
+  const raw = typeof err === 'string' ? err : (err.message || String(err));
+  const firstLine = scrubText(String(raw)).split('\n')[0].trim();
+  return (firstLine === '' ? 'unknown error' : firstLine).slice(0, 500);
+}
 
 function errorCode(err) {
   if (err instanceof FramingError) return HOST_ERROR.INVALID_FRAME;
@@ -659,9 +814,14 @@ function errorCode(err) {
     if (err.code === ACP_ERROR.CWD_NOT_ALLOWED || err.code === ACP_ERROR.CWD_MISMATCH) return HOST_ERROR.CWD_NOT_ALLOWED;
     if (err.code === ACP_ERROR.SPAWN_FAILED) return HOST_ERROR.SPAWN_FAILED;
     if (err.code === ACP_ERROR.AGENT_GONE) return HOST_ERROR.AGENT_UNAVAILABLE;
-    return err.code;
+    // The agent's own failure text (including a JSON-RPC code like -32603)
+    // travels in the MESSAGE; the code stays one of this host's names.
+    return HOST_ERROR.AGENT_UNAVAILABLE;
   }
-  if (err && err.code) return err.code;
+  // Only a STRING code is a code. A raw JSON-RPC error carries a numeric one
+  // (`-32603`), and forwarding that into `relay.error.code` would give the
+  // operator a number where every other code in this protocol is a name.
+  if (err && typeof err.code === 'string' && err.code !== '') return err.code;
   return HOST_ERROR.INTERNAL;
 }
 

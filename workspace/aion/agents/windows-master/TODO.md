@@ -47,6 +47,12 @@ Latest historical green baseline: extension **142/142**, bridge **96/96**, adapt
 
 ## Suite counts — Windows
 
+**Current verified build, 2026-10-18T12:16Z:** coordinator independently ran `bun run test -- --test-timeout=60000` in extension: **273 tests / 273 passed / 0 failed / 0 cancelled / 0 skipped, exit 0**. Full bridge `bun run test`: **119/119**, failed/cancelled/skipped 0, exit 0. These supersede the cancelled run above. Final independent oracle send-boundary review returned PASS (artifact review, not live proof).
+
+**Reload receipt, 2026-10-18T12:16:55.7623412Z:** native Windows UI Automation invoked the Reload control belonging specifically to the AION extension card, in existing Chrome window 1835904. No Orca/Playwright/Puppeteer used. The console rendered in an ordinary extension tab but correctly rejected requests with `sender_not_trusted: sender_is_a_tab`; preserve that boundary. Actual side panel must be opened before host testing. Toolbar activation through available UIA patterns has not produced an observed side panel; request one manual AION-toolbar click rather than weaken sender checks or claim a handshake.
+
+The table below is the **historical initial Windows baseline**, not current suite counts.
+
 | Suite | Expected (Linux, per issue) | Windows actual | Status |
 |---|---|---|---|
 | Extension | 120 | **120/120** | DONE |

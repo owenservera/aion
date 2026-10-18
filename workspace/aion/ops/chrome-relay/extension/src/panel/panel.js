@@ -502,6 +502,665 @@ async function refresh() {
 }
 
 /* ------------------------------------------------------------------ *
+ * Operator controls
+ *
+ * Five explicit actions. Each one sends exactly one message to the service
+ * worker and waits for exactly one reply. Nothing in this section runs on
+ * load, on focus, on a timer, or on a previous reply. There is no queue and
+ * no retry: if an action does not answer, the operator clicks again.
+ *
+ * The worker owns live/browser behaviour. This file only builds requests and
+ * renders replies, using textContent throughout. No reply content is ever
+ * interpreted as markup.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Per-action deadlines.
+ *
+ * Diagnostics are cheap and must fail fast so a broken host is obvious. A live
+ * run waits on the content side of the relay, which can legitimately take
+ * minutes, so it gets its own much longer deadline rather than sharing the
+ * diagnostic one. A shared short deadline made the panel declare failure while
+ * the run was still in flight, then let the operator retry — which is exactly
+ * the double-send this panel must not allow.
+ *
+ * The ACP handshake is the one exception: `aion/native-hello` drives a real
+ * `initialize`, observed taking 4.7s on the owner host. Sharing the 5s
+ * diagnostic deadline made it time out on a success that was still arriving,
+ * so hello alone carries a bounded 20s budget. It stays bounded — this is a
+ * widened deadline, not a removed one.
+ *
+ * LIVE_RUN_TIMEOUT_MS must stay at or above the content-side maximum. That
+ * value is owned elsewhere; if it is raised, raise this too.
+ */
+const DIAGNOSTIC_TIMEOUT_MS = 5000;
+const HELLO_TIMEOUT_MS = 20000;
+const LIVE_RUN_TIMEOUT_MS = 180000;
+
+/**
+ * The approval every commanded run acts under.
+ *
+ * The worker refuses a run whose command carries no `approved_scope_ref`: a
+ * user gesture says a human clicked, it is not authorisation, and the panel
+ * must not claim the authority to grant itself. This constant names the
+ * existing owner authorization record for this scope. It is a fixed reference,
+ * not an operator input — the panel offers no way to widen its own approval.
+ */
+const APPROVED_SCOPE_REF = 'workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md';
+
+// Correlation ids and reply tokens are operator-typed identifiers, not
+// secrets. The charset is deliberately narrow so a stray paste of a URL or a
+// credential is rejected by the field rather than sent to a tab.
+const IDENTIFIER_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
+const MAX_PROMPT_LENGTH = 2000;
+
+/**
+ * Send one message to the service worker and wait for one reply.
+ *
+ * `deadlineMs` is per call, not global: a caller that can legitimately take
+ * minutes passes a longer one. A deadline expiring is an UNKNOWN outcome, not
+ * a failure and not a negative result.
+ */
+function sendOperatorMessage(message, deadlineMs) {
+  const budget = typeof deadlineMs === 'number' && Number.isFinite(deadlineMs) && deadlineMs > 0
+    ? deadlineMs
+    : DIAGNOSTIC_TIMEOUT_MS;
+  if (!canTalkToWorker()) {
+    return Promise.resolve({
+      ok: false,
+      error: 'No extension runtime. Operator actions are unavailable in standalone review.'
+    });
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const timer = setTimeout(() => {
+      finish({
+        ok: false,
+        uncertain: true,
+        error: 'No reply within ' + Math.round(budget / 1000) + 's. Outcome unknown.'
+      });
+    }, budget);
+    try {
+      runtime.sendMessage(message, (reply) => {
+        clearTimeout(timer);
+        const lastError = runtime.lastError;
+        if (lastError) {
+          finish({
+            ok: false,
+            uncertain: true,
+            error: 'Worker message failed: ' + lastError.message
+          });
+          return;
+        }
+        finish(reply && typeof reply === 'object' ? reply : { ok: false, error: 'Worker returned nothing usable.' });
+      });
+    } catch (error) {
+      clearTimeout(timer);
+      finish({
+        ok: false,
+        uncertain: true,
+        error: 'Worker message threw: ' + String(error && error.message)
+      });
+    }
+  });
+}
+
+/* ---- reply shape tolerance ---- */
+
+// The worker's response shape is not pinned yet. A value may arrive flat or
+// nested under one of these wrappers. Nothing here invents a value: a key that
+// is present in none of them stays UNKNOWN.
+const REPLY_WRAPPERS = ['result', 'reply', 'verdict'];
+
+function pick(reply, key) {
+  if (!reply || typeof reply !== 'object') return undefined;
+  if (reply[key] !== undefined) return reply[key];
+  for (const wrapper of REPLY_WRAPPERS) {
+    const inner = reply[wrapper];
+    if (inner && typeof inner === 'object' && !Array.isArray(inner) && inner[key] !== undefined) {
+      return inner[key];
+    }
+  }
+  return undefined;
+}
+
+function replyOk(reply) {
+  return pick(reply, 'ok') === true;
+}
+
+/**
+ * Sanitize a ChatGPT tab URL.
+ *
+ * Accepts only an exact https://chatgpt.com origin with no port, no
+ * credentials, no query and no fragment. Returns a rebuilt origin+pathname
+ * string, or null. Nothing derived from a worker reply is ever echoed back
+ * into the DOM without passing through here.
+ */
+export function sanitizeChatgptUrl(raw) {
+  if (typeof raw !== 'string' || raw === '') return null;
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (error) {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  if (parsed.hostname !== 'chatgpt.com') return null;
+  if (parsed.port !== '') return null;
+  if (parsed.username !== '' || parsed.password !== '') return null;
+  if (parsed.search !== '' || parsed.hash !== '') return null;
+
+  // Decode before reducing the charset, otherwise a percent escape is stripped
+  // to its digits and the path shown to the operator is wrong.
+  let pathname = parsed.pathname;
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch (error) {
+    return null;
+  }
+  pathname = pathname.replace(/[^A-Za-z0-9/_-]/g, '');
+  if (pathname === '') return null;
+  return 'https://chatgpt.com/' + pathname.replace(/^\/+/, '');
+}
+
+/**
+ * Accept a tab only if it carries a usable numeric id and an exact ChatGPT
+ * origin URL.
+ *
+ * The id is checked by type, never coerced: Number(null) and Number('') are
+ * both 0, and 0 is a real tab id, so a missing id would otherwise silently
+ * address the wrong tab. A missing or unusable URL yields no option at all —
+ * the parent check flagged that rendering a tab with an UNKNOWN url and then
+ * letting it be selected is an unsafe selection.
+ */
+export function sanitizeTab(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = raw.id;
+  if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) return null;
+  const url = sanitizeChatgptUrl(raw.url);
+  if (url === null) return null;
+  return { id, url };
+}
+
+/**
+ * Validate the probe fields.
+ *
+ * Returns the per-field problem list. An empty list means the operator may
+ * arm the probe. Exported so the checking lane can assert the same rules
+ * without duplicating them.
+ */
+export function validateProbeInput({ text, correlationId, token, tabId, confirmed }) {
+  const problems = [];
+  if (!tabId) problems.push('Select a ChatGPT tab first.');
+  if (typeof text !== 'string' || text.trim() === '') problems.push('Prompt text is required.');
+  else if (text.length > MAX_PROMPT_LENGTH) problems.push('Prompt text exceeds ' + MAX_PROMPT_LENGTH + ' characters.');
+  if (typeof correlationId !== 'string' || !IDENTIFIER_PATTERN.test(correlationId.trim())) {
+    problems.push('Correlation id must be 1-128 characters of A-Z a-z 0-9 . _ : -');
+  }
+  if (typeof token !== 'string' || !IDENTIFIER_PATTERN.test(token.trim())) {
+    problems.push('Expected reply token must be 1-128 characters of A-Z a-z 0-9 . _ : -');
+  }
+  if (confirmed !== true) problems.push('Tick the confirmation to send.');
+  return problems;
+}
+
+function setResult(id, text, state) {
+  const node = el(id);
+  if (!node) return;
+  node.textContent = text;
+  node.dataset.state = state || 'known';
+}
+
+/**
+ * Render a worker reply as text.
+ *
+ * Only explicitly named fields are shown, every value is coerced to a string
+ * and assigned through textContent, and a field present in no recognized
+ * wrapper stays UNKNOWN. A reply can add structure to this console's output
+ * but never markup to it, and it can never turn an unobserved field into a
+ * plausible-looking value.
+ */
+function describeReply(reply, fields) {
+  if (!replyOk(reply)) {
+    const reason = pick(reply, 'error') || pick(reply, 'reason') || 'No reason reported by the worker.';
+    const uncertain = pick(reply, 'uncertain') === true;
+    return {
+      text: (uncertain ? 'UNCERTAIN — ' : 'FAILED — ') + String(reason),
+      state: uncertain ? 'warn' : 'error'
+    };
+  }
+  const lines = [];
+  for (const [label, key] of fields) {
+    const value = pick(reply, key);
+    if (value === undefined || value === null || value === '') {
+      lines.push(label + ': ' + UNKNOWN);
+    } else if (Array.isArray(value)) {
+      lines.push(label + ': ' + value.length + ' item(s)');
+    } else if (typeof value === 'object') {
+      lines.push(label + ': ' + Object.keys(value).sort().join(', '));
+    } else {
+      lines.push(label + ': ' + String(value));
+    }
+  }
+  return { text: lines.join('\n'), state: 'ok' };
+}
+
+/* ---- Step 1: host and ACP ---- */
+
+async function checkHost() {
+  setResult('result-native', 'Checking host...', 'known');
+  const reply = await sendOperatorMessage({ type: 'aion/native-ping' }, DIAGNOSTIC_TIMEOUT_MS);
+  const shown = describeReply(reply, [
+    ['Host', 'host'],
+    ['Transport', 'transport'],
+    ['Status', 'status'],
+    ['Detail', 'detail']
+  ]);
+  setResult('result-native', shown.text, shown.state);
+}
+
+async function initializeAcp() {
+  setResult('result-native', 'Initializing ACP...', 'known');
+  const reply = await sendOperatorMessage({ type: 'aion/native-hello' }, HELLO_TIMEOUT_MS);
+  const shown = describeReply(reply, [
+    ['Protocol', 'protocol'],
+    ['Version', 'version'],
+    ['Capabilities', 'capabilities'],
+    ['Detail', 'detail']
+  ]);
+  setResult('result-native', shown.text, shown.state);
+}
+
+/* ---- Step 2: ChatGPT tabs ---- */
+
+/**
+ * Fill the tab selector from the worker reply.
+ *
+ * Entries that fail sanitization are dropped and counted, not rendered with a
+ * placeholder. The selector is owned by this function on every path: an empty
+ * list must never leave a usable selector behind.
+ */
+function populateTabs(rawTabs) {
+  const select = el('tab-select');
+  if (!select) return { added: 0, rejected: 0 };
+  select.textContent = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'No tab selected';
+  select.append(placeholder);
+
+  let added = 0;
+  let rejected = 0;
+  for (const raw of Array.isArray(rawTabs) ? rawTabs : []) {
+    const tab = sanitizeTab(raw);
+    if (tab === null) {
+      rejected += 1;
+      continue;
+    }
+    const option = document.createElement('option');
+    option.value = String(tab.id);
+    option.textContent = 'tab ' + tab.id + ' — ' + tab.url;
+    select.append(option);
+    added += 1;
+  }
+
+  select.disabled = added === 0;
+  select.value = '';
+  return { added, rejected };
+}
+
+async function findChatgptTabs() {
+  setResult('result-chatgpt', 'Searching for ChatGPT tabs...', 'known');
+  const reply = await sendOperatorMessage({ type: 'aion/chatgpt-tabs' }, DIAGNOSTIC_TIMEOUT_MS);
+  if (!replyOk(reply)) {
+    const shown = describeReply(reply, [['Detail', 'detail']]);
+    populateTabs([]);
+    setResult('result-chatgpt', shown.text, shown.state);
+    updateOperatorGate();
+    return;
+  }
+  const rawTabs = pick(reply, 'tabs');
+  if (!Array.isArray(rawTabs)) {
+    populateTabs([]);
+    setResult('result-chatgpt', 'Worker reported no tab list. Tab selection is unavailable.', 'warn');
+    updateOperatorGate();
+    return;
+  }
+  const { added, rejected } = populateTabs(rawTabs);
+  const lines = [added + ' tab(s) listed.'];
+  if (rejected > 0) lines.push(rejected + ' entr(y/ies) rejected: not an exact https://chatgpt.com tab.');
+  lines.push('Select one to enable the next step.');
+  setResult('result-chatgpt', lines.join('\n'), added === 0 ? 'warn' : 'ok');
+  updateOperatorGate();
+}
+
+/* ---- Step 2b: selected tab ---- */
+
+async function pingSelectedTab() {
+  const tabId = selectedTabId();
+  if (tabId === null) {
+    setResult('result-chatgpt', 'FAILED — no tab selected.', 'error');
+    return;
+  }
+  setResult('result-chatgpt', 'Checking selected tab...', 'known');
+  const reply = await sendOperatorMessage({ type: 'aion/chatgpt-ping', tabId }, DIAGNOSTIC_TIMEOUT_MS);
+  const shown = describeReply(reply, [
+    ['Tab', 'tab_id'],
+    ['Status', 'status'],
+    ['Detail', 'detail']
+  ]);
+  setResult('result-chatgpt', shown.text, shown.state);
+}
+
+/* ---- Step 3: one authorized probe ---- */
+
+/**
+ * Probe lifecycle.
+ *
+ * idle      — nothing dispatched; the run button may be armed by the operator.
+ * dispatched— the request reached sendMessage. The outcome is unknown. Locked.
+ * settled   — a known outcome arrived, including a definite pre-dispatch
+ *             rejection and including a timeout. Locked.
+ *
+ * There is deliberately no path from dispatched or settled back to idle except
+ * an explicit reconcile click. A timeout or a dropped connection must not
+ * re-arm the operator, because the previous probe may still be running.
+ */
+let probePhase = 'idle';
+let probeInFlight = false;
+
+function setHold(text, holdState) {
+  const node = el('probe-hold');
+  if (!node) return;
+  node.textContent = text;
+  node.dataset.hold = holdState || 'clear';
+}
+
+/**
+ * Return the probe to idle without resending anything.
+ *
+ * This is the only path out of `dispatched` and `settled`, so it is refused
+ * while the request is still in flight. While in flight the outcome is not yet
+ * known, and clearing the lock early would re-arm the operator against a run
+ * that may still be executing — the double-send this panel exists to prevent.
+ * The control is disabled for the same reason; the guard is here so the
+ * invariant does not depend on the button's disabled state.
+ */
+function reconcileProbe() {
+  if (probePhase === 'idle') return;
+  if (probeInFlight) {
+    setHold('A probe is still in flight. Wait for the outcome before reconciling.', 'unknown');
+    setResult('result-run', 'NOT RECONCILED — a probe is still in flight. Nothing was reset.', 'warn');
+    updateOperatorGate();
+    return;
+  }
+  probePhase = 'idle';
+  probeInFlight = false;
+  blankProbeFields();
+  setHold('Probe state reconciled. Nothing was resent and nothing is armed.', 'clear');
+  setResult('result-run', 'Not run.', 'unknown');
+  updateOperatorGate();
+}
+
+async function runProbe() {
+  const tabId = selectedTabId();
+  const textNode = el('probe-text');
+  const correlationNode = el('probe-correlation');
+  const tokenNode = el('probe-token');
+  const confirmNode = el('probe-confirm');
+
+  const text = (textNode && textNode.value) || '';
+  const correlationId = (correlationNode && correlationNode.value) || '';
+  const token = (tokenNode && tokenNode.value) || '';
+  const confirmed = !!confirmNode && confirmNode.checked === true;
+
+  const problems = validateProbeInput({ text, correlationId, token, tabId, confirmed });
+  if (problems.length > 0 || probePhase !== 'idle' || probeInFlight) {
+    const reason = probePhase === 'idle' ? problems[0] : 'A probe is already dispatched or unsettled.';
+    setResult('result-run', 'NOT SENT — ' + (reason || 'action already in flight.'), 'warn');
+    updateOperatorGate();
+    return;
+  }
+
+  // Lock BEFORE the send. If this call throws or the worker dies mid-flight the
+  // panel is still locked, because the request may already have been delivered.
+  probePhase = 'dispatched';
+  probeInFlight = true;
+  blankProbeFields();
+  setHold('Request dispatched to tab ' + tabId + '. Outcome unknown until the worker reports.', 'unknown');
+  setResult('result-run', 'Dispatched. Waiting for the worker...', 'known');
+  updateOperatorGate();
+
+  const reply = await sendOperatorMessage(
+    {
+      type: 'aion/chatgpt-run',
+      tabId,
+      command: {
+        text: text.trim(),
+        correlation_id: correlationId.trim(),
+        expected_reply_token: token.trim(),
+        approved_scope_ref: APPROVED_SCOPE_REF,
+        user_gesture: true
+      }
+    },
+    LIVE_RUN_TIMEOUT_MS
+  );
+
+  probeInFlight = false;
+  probePhase = 'settled';
+
+  if (replyOk(reply)) {
+    const shown = describeReply(reply, [
+      ['Correlation id', 'correlation_id'],
+      ['Reply token seen', 'expected_reply_token'],
+      ['Captured', 'captured'],
+      ['Detail', 'detail']
+    ]);
+    setHold('Dispatched and reported. Still not independently verified.', 'settled');
+    setResult('result-run', 'CAPTURED — not independently verified.\n' + shown.text, 'captured');
+    // The outcome is now known, so the gate is recomputed here as well: the run
+    // is still locked, and reconcile re-opens now that nothing is in flight.
+    updateOperatorGate();
+    return;
+  }
+
+  // Past this point the request could have reached the worker, so the panel
+  // must not claim NOT SENT. Two worker statements are evidence-backed:
+  // `dispatched: false` (rejected before dispatch) and `uncertain: false` (the
+  // worker knows the outcome and reports it failed). Everything else, including
+  // silence, is treated as uncertain.
+  const dispatchedByWorker = pick(reply, 'dispatched');
+  const reason = String(pick(reply, 'error') || pick(reply, 'reason') || 'no reason reported');
+  const uncertain =
+    pick(reply, 'uncertain') !== false && dispatchedByWorker !== false;
+
+  if (dispatchedByWorker === false) {
+    setHold('Worker rejected the request before dispatch. Locked until reconciled.', 'settled');
+    setResult('result-run', 'NOT SENT — the worker rejected this before dispatch.\nReason: ' + reason, 'warn');
+  } else {
+    setHold(
+      uncertain
+        ? 'Dispatched, no definite outcome. May still be running. Locked until reconciled.'
+        : 'Dispatched and rejected. Locked until reconciled.',
+      'settled'
+    );
+    setResult(
+      'result-run',
+      (uncertain ? 'UNCERTAIN — ' : 'FAILED — ') +
+        reason +
+        '\nA request was dispatched. Whether a message was sent is not known here.',
+      uncertain ? 'warn' : 'error'
+    );
+  }
+
+  updateOperatorGate();
+}
+
+function blankProbeFields() {
+  const text = el('probe-text');
+  const correlation = el('probe-correlation');
+  const token = el('probe-token');
+  const confirmNode = el('probe-confirm');
+  if (text) {
+    text.value = '';
+    text.removeAttribute('aria-invalid');
+  }
+  if (correlation) {
+    correlation.value = '';
+    correlation.removeAttribute('aria-invalid');
+  }
+  if (token) {
+    token.value = '';
+    token.removeAttribute('aria-invalid');
+  }
+  if (confirmNode) confirmNode.checked = false;
+}
+
+function selectedTabId() {
+  const select = el('tab-select');
+  if (!select) return null;
+  const value = select.value;
+  if (value === undefined || value === null || value === '') return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id >= 0 ? id : null;
+}
+
+function renderBlockers(list) {
+  const node = el('probe-blockers');
+  if (!node) return;
+  node.textContent = '';
+  for (const item of list) {
+    const li = document.createElement('li');
+    li.textContent = item;
+    node.append(li);
+  }
+}
+
+/**
+ * Single source of truth for which buttons may be used.
+ *
+ * Diagnostics are always available once there is a runtime; they are read-only
+ * and cannot strand a probe. The run button additionally requires the probe to
+ * be in the idle phase, and the reconcile button requires it to be held and
+ * no longer in flight — an in-flight request cannot yet be declared over.
+ */
+function updateOperatorGate() {
+  const select = el('tab-select');
+  const pingButton = el('btn-chatgpt-ping');
+  const runButton = el('btn-chatgpt-run');
+  const reconcileButton = el('btn-probe-reconcile');
+  const confirmNode = el('probe-confirm');
+  const text = (el('probe-text') && el('probe-text').value) || '';
+  const correlationId = (el('probe-correlation') && el('probe-correlation').value) || '';
+  const token = (el('probe-token') && el('probe-token').value) || '';
+
+  const tabId = selectedTabId();
+
+  if (pingButton) {
+    pingButton.disabled = tabId === null;
+    pingButton.setAttribute('aria-disabled', String(tabId === null));
+  }
+
+  const problems = validateProbeInput({
+    text,
+    correlationId,
+    token,
+    tabId,
+    confirmed: !!confirmNode && confirmNode.checked === true
+  });
+
+  const textNode = el('probe-text');
+  const correlationNode = el('probe-correlation');
+  const tokenNode = el('probe-token');
+  if (textNode) markInvalid(textNode, text.trim() === '' || text.length > MAX_PROMPT_LENGTH);
+  if (correlationNode) markInvalid(correlationNode, !IDENTIFIER_PATTERN.test(correlationId.trim()));
+  if (tokenNode) markInvalid(tokenNode, !IDENTIFIER_PATTERN.test(token.trim()));
+
+  const locked = probePhase !== 'idle';
+  if (runButton) {
+    const armed = problems.length === 0 && !locked && !probeInFlight;
+    runButton.disabled = !armed;
+    runButton.setAttribute('aria-disabled', String(!armed));
+  }
+  if (reconcileButton) {
+    // Reconciling means "the previous probe is no longer running". While the
+    // request is still in flight that is not yet true, so reconcile stays
+    // closed and only a settled outcome re-opens it.
+    const reconcilable = locked && !probeInFlight;
+    reconcileButton.disabled = !reconcilable;
+    reconcileButton.setAttribute('aria-disabled', String(!reconcilable));
+  }
+
+  if (locked) {
+    renderBlockers([
+      probePhase === 'dispatched'
+        ? (probeInFlight
+            ? 'A probe is dispatched and its outcome is unknown. It cannot be repeated or cancelled here.'
+            : 'A probe is dispatched and its outcome is unknown. Reconcile explicitly before another one.')
+        : 'A dispatched probe is unsettled. Reconcile explicitly before another one.'
+    ]);
+    return;
+  }
+
+  renderBlockers(problems);
+  void select;
+}
+
+function markInvalid(node, invalid) {
+  if (!node) return;
+  if (invalid) node.setAttribute('aria-invalid', 'true');
+  else node.removeAttribute('aria-invalid');
+}
+
+function wireOperatorControls() {
+  const bind = (id, handler) => {
+    const node = el(id);
+    if (node) node.addEventListener('click', handler);
+  };
+
+  bind('btn-native-ping', () => {
+    checkHost();
+  });
+  bind('btn-native-hello', () => {
+    initializeAcp();
+  });
+  bind('btn-chatgpt-tabs', () => {
+    findChatgptTabs();
+  });
+  bind('btn-chatgpt-ping', () => {
+    pingSelectedTab();
+  });
+  bind('btn-chatgpt-run', () => {
+    runProbe();
+  });
+  bind('btn-probe-reconcile', () => {
+    reconcileProbe();
+  });
+
+  const select = el('tab-select');
+  if (select) select.addEventListener('change', updateOperatorGate);
+
+  for (const id of ['probe-text', 'probe-correlation', 'probe-token']) {
+    const node = el(id);
+    if (node) node.addEventListener('input', updateOperatorGate);
+  }
+
+  const confirmNode = el('probe-confirm');
+  if (confirmNode) confirmNode.addEventListener('change', updateOperatorGate);
+
+  // Fields ship blank and the gate is computed once here. No action is sent.
+  blankProbeFields();
+  // An empty selector must be unusable from the start, not only after a search.
+  if (select) select.disabled = select.children.length === 0;
+  updateOperatorGate();
+}
+
+/* ------------------------------------------------------------------ *
  * Boot
  * ------------------------------------------------------------------ */
 
@@ -514,6 +1173,7 @@ function boot() {
       refresh();
     });
   }
+  wireOperatorControls();
   refresh();
 
   // Re-read on visibility so a reopened panel is not showing a stale read.
