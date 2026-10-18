@@ -27,7 +27,9 @@ import { createRedactingLogger } from '../src/host.js';
 const FAKE_AGENT = toForwardSlash(fileURLToPath(new URL('./fixtures/fake-acp-agent.mjs', import.meta.url)));
 const NODE_EXE = toForwardSlash(process.execPath);
 const SCRATCH = join(tmpdir(), 'opencode', 'aion-bridge-tests');
-const TEST_CWD = 'C:/0-BlackBoxProject-0/AION';
+// A real, absolute, forward-slash directory that exists on every machine (the spawn cwd must exist).
+const TEST_CWD = toForwardSlash(join(tmpdir(), 'aion-bridge-test-cwd'));
+mkdirSync(TEST_CWD, { recursive: true });
 const FAKE_SECRET = 'sk-live-FAKEFAKEFAKEFAKEFAKE';
 let labelCounter = 0;
 

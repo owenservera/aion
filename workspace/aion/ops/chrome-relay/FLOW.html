@@ -11,11 +11,11 @@
     --panel:    #fbfaf7;
     --ink:      #16202b;
     --ink-2:    #45525f;
-    --ink-3:    #6d7a87;
+    --ink-3:    #5d6a77;
     --line:     #a6b1bb;
     --line-soft:#d9dee2;
     --band:     #e9e7e0;
-    --door:     #b0301a;   /* RESERVED: used only for the irreversible step 3 */
+    --door:     #b0301a;   /* RESERVED: used only for the one-way step 3 */
     --door-ink: #ffffff;
     --mono: "Cascadia Mono", "Cascadia Code", ui-monospace, Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace;
     --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
@@ -107,7 +107,7 @@
   .box { fill: var(--panel); stroke: var(--line); stroke-width: 1.4; }
   .boxext { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-dasharray: 11 6; }
   .extbar { fill: none; stroke: var(--ink); stroke-width: 1.2; }
-  .extbar-t { font-family: var(--mono); font-size: 8.5px; letter-spacing: .17em; fill: var(--ink-2); }
+  .extbar-t { font-family: var(--mono); font-size: 9.5px; letter-spacing: .17em; fill: var(--ink-2); }
   .hatch { fill: url(#hatch); stroke: none; }
 
   .nt { font-family: var(--mono); font-size: 12.5px; font-weight: 700; fill: var(--ink); }
@@ -116,10 +116,10 @@
   .ni { font-family: var(--mono); font-size: 10.5px; fill: var(--ink); }
 
   .chipbg { fill: none; stroke: var(--line); stroke-width: 1.2; }
-  .chip-t { font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; fill: var(--ink-2); }
+  .chip-t { font-family: var(--mono); font-size: 10px; letter-spacing: .09em; fill: var(--ink-2); }
   .mk-v { fill: var(--ink-2); }
   .mk-b { fill: none; stroke: var(--ink); stroke-width: 1.4; }
-  .ev { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); }
+  .ev { font-family: var(--mono); font-size: 10px; fill: var(--ink-3); }
 
   .edge { fill: none; stroke: var(--ink-2); stroke-width: 1.6; }
   .edge.dim { stroke: var(--line); stroke-dasharray: 5 5; }
@@ -261,7 +261,7 @@
 
       <rect class="band dash" x="20" y="820" width="2295" height="280" rx="3"/>
       <text class="bandlbl" x="40" y="848">Parallel — local ACP path</text>
-      <text class="bandsub" x="40" y="870">Orthogonal to the chain above: no chatgpt.com on this path. It meets the chain only at [F], the relay envelope.</text>
+      <text class="bandsub" x="40" y="870">No chatgpt.com here. Meets the chain only at [F].</text>
 
       <!-- ===================== EDGES: main chain ===================== -->
       <g class="edges">
@@ -273,6 +273,9 @@
         <path class="edge" d="M1776,238 H1789" marker-end="url(#ah)"/>
         <path class="edge" d="M2010,238 H2084" marker-end="url(#ah)"/>
         <path class="edge" d="M2197,336 V394" marker-end="url(#ah)"/>
+        <path class="edge dim" d="M1845,498 H2084" marker-end="url(#ah-dim)"/>
+        <rect class="lblbg" x="1906" y="478" width="104" height="18" rx="2"/>
+        <text class="elbl-dim" x="1914" y="491">rejection proven</text>
       </g>
       <g class="edge-labels">
         <text class="elbl" x="227" y="228" text-anchor="middle">verbatim</text>
@@ -294,8 +297,8 @@
       <path class="edge" d="M505,988 H609" marker-end="url(#ah)"/>
       <path class="edge dim" d="M850,988 H1900 V342" marker-end="url(#ah-dim)"/>
       <g>
-        <text class="elbl" x="692" y="596">chrome.runtime.connectNative</text>
-        <text class="elbl" x="692" y="612">('com.aion.relay')</text>
+        <text class="elbl" x="692" y="556">chrome.runtime.connectNative</text>
+        <text class="elbl" x="692" y="572">('com.aion.relay')</text>
         <text class="elbl" x="557" y="978" text-anchor="middle">translate</text>
         <rect class="lblbg" x="996" y="948" width="428" height="24" rx="2"/>
         <text class="elbl-dim" x="1006" y="964">envelope — the only junction with the ChatGPT chain</text>
@@ -305,8 +308,8 @@
       <g class="node" style="--d:60ms">
         <rect class="box" x="20" y="140" width="170" height="196" rx="3"/>
         <text class="nt" x="36" y="196" style="font-size:17px">AION</text>
-        <text class="nb" x="36" y="222">originates the</text>
-        <text class="nb" x="36" y="239">correlated message</text>
+        <text class="nb" x="36" y="222">local runtime originates</text>
+        <text class="nb" x="36" y="239">the correlated message</text>
         <text class="np" x="36" y="272">start of the chain</text>
       </g>
 
@@ -325,7 +328,7 @@
           <rect class="mk-v" x="9" y="6" width="8" height="8"/>
           <text class="chip-t" x="26" y="14">VERIFIED</text>
         </g>
-        <text class="ev" x="390" y="315" text-anchor="end">35/35 tests</text>
+        <text class="ev" x="471" y="315" text-anchor="end">35/35 tests</text>
       </g>
 
       <!-- ===================== NODE B ===================== -->
@@ -340,10 +343,10 @@
         <text class="nb" x="581" y="288">submits via send-button</text>
         <g transform="translate(581,301)">
           <rect class="chipbg" width="92" height="20" rx="2"/>
-          <rect class="mk-v" x="9" y="6" width="8" height="8"/>
-          <text class="chip-t" x="26" y="14">VERIFIED</text>
+          <rect class="mk-b" x="9" y="6" width="8" height="8"/><rect class="mk-v" x="9" y="10" width="8" height="4"/>
+          <text class="chip-t" x="26" y="14">PARTIAL</text>
         </g>
-        <text class="ev" x="685" y="315" text-anchor="end">115/115 tests</text>
+        <text class="ev" x="766" y="315" text-anchor="end">115/115 (Node)</text>
       </g>
 
       <!-- ===================== NODE C (external) ===================== -->
@@ -361,9 +364,9 @@
         <g transform="translate(816,301)">
           <rect class="chipbg" width="92" height="20" rx="2"/>
           <rect class="mk-b" x="9" y="6" width="8" height="8"/>
-          <text class="chip-t" x="26" y="14">BLOCKED</text>
+          <text class="chip-t" x="26" y="14">NOT RUN</text>
         </g>
-        <text class="ev" x="920" y="315" text-anchor="end">needs live run</text>
+        <text class="ev" x="1061" y="315" text-anchor="end">needs live run</text>
       </g>
 
       <!-- ===================== NODE D ===================== -->
@@ -373,14 +376,14 @@
         <text class="nt" x="1171" y="172">D · reply capture</text>
         <text class="nb" x="1171" y="204">extension reads the</text>
         <text class="nb" x="1171" y="221">last final assistant block</text>
-        <text class="nb" x="1171" y="248">reads the real page DOM;</text>
-        <text class="nb" x="1171" y="264">untested against live HTML</text>
+        <text class="nb" x="1171" y="248">live-captured fixture exists,</text>
+        <text class="nb" x="1171" y="264">not yet run through D</text>
         <g transform="translate(1171,301)">
           <rect class="chipbg" width="92" height="20" rx="2"/>
           <rect class="mk-b" x="9" y="6" width="8" height="8"/>
-          <text class="chip-t" x="26" y="14">BLOCKED</text>
+          <text class="chip-t" x="26" y="14">NOT RUN</text>
         </g>
-        <text class="ev" x="1275" y="315" text-anchor="end">needs live run</text>
+        <text class="ev" x="1356" y="315" text-anchor="end">needs live run</text>
       </g>
 
       <!-- ===================== NODE E ===================== -->
@@ -398,7 +401,7 @@
           <rect class="mk-v" x="9" y="6" width="8" height="8"/>
           <text class="chip-t" x="26" y="14">VERIFIED</text>
         </g>
-        <text class="ev" x="1570" y="315" text-anchor="end">115/115 tests</text>
+        <text class="ev" x="1651" y="315" text-anchor="end">same suite</text>
       </g>
 
       <!-- ===================== GATE ===================== -->
@@ -422,7 +425,7 @@
           <rect class="mk-v" x="9" y="6" width="8" height="8"/>
           <text class="chip-t" x="26" y="14">VERIFIED</text>
         </g>
-        <text class="ev" x="1915" y="315" text-anchor="end">115/115</text>
+        <text class="ev" x="1996" y="315" text-anchor="end">same suite</text>
       </g>
 
       <!-- ===================== NODE G ===================== -->
@@ -430,16 +433,16 @@
         <rect class="box" x="2090" y="140" width="215" height="196" rx="3"/>
         <rect class="hatch" x="2091" y="141" width="213" height="194" rx="3"/>
         <text class="nt" x="2106" y="172">G · Windows → AION</text>
-        <text class="nb" x="2106" y="204">AION consumes, checks</text>
-        <text class="nb" x="2106" y="221">a detail, records</text>
+        <text class="nb" x="2106" y="204">local runtime consumes,</text>
+        <text class="nb" x="2106" y="221">checks a detail, records</text>
         <text class="nb" x="2106" y="238">evidence</text>
         <text class="np" x="2106" y="264">no live run recorded</text>
         <g transform="translate(2106,301)">
           <rect class="chipbg" width="92" height="20" rx="2"/>
           <rect class="mk-b" x="9" y="6" width="8" height="8"/>
-          <text class="chip-t" x="26" y="14">BLOCKED</text>
+          <text class="chip-t" x="26" y="14">NOT RUN</text>
         </g>
-        <text class="ev" x="2210" y="315" text-anchor="end">needs live run</text>
+        <text class="ev" x="2291" y="315" text-anchor="end">needs live run</text>
       </g>
 
       <!-- ===================== M1 ACCEPTANCE ===================== -->
@@ -466,9 +469,9 @@
         <g transform="translate(1611,561)">
           <rect class="chipbg" width="92" height="20" rx="2"/>
           <rect class="mk-b" x="9" y="6" width="8" height="8"/>
-          <text class="chip-t" x="26" y="14">BLOCKED</text>
+          <text class="chip-t" x="26" y="14">NOT RUN</text>
         </g>
-        <text class="ev" x="1835" y="575" text-anchor="end">needs live run</text>
+        <text class="ev" x="1831" y="575" text-anchor="end">needs live run</text>
         <circle class="step-bg" cx="1825" cy="386" r="15"/>
         <text class="step-n" x="1825" y="391" text-anchor="middle">4</text>
       </g>
@@ -481,14 +484,14 @@
         <text class="np" x="286" y="946">ops/chrome-relay/bridge</text>
         <text class="nb" x="286" y="970">translates Chrome framing</text>
         <text class="nb" x="286" y="987">↔ newline JSON-RPC ↔ envelope</text>
-        <text class="nb" x="286" y="1004">host not registered in HKCU</text>
-        <text class="np" x="286" y="1026">bridge code is green</text>
+        <text class="nb" x="286" y="1004">host.js has no entry point</text>
+        <text class="np" x="286" y="1026">host.js untested; not registered</text>
         <g transform="translate(286,1051)">
           <rect class="chipbg" width="92" height="20" rx="2"/>
-          <rect class="mk-b" x="9" y="6" width="8" height="8"/>
-          <text class="chip-t" x="26" y="14">BLOCKED</text>
+          <rect class="mk-b" x="9" y="6" width="8" height="8"/><rect class="mk-v" x="9" y="10" width="8" height="4"/>
+          <text class="chip-t" x="26" y="14">PARTIAL</text>
         </g>
-        <text class="ev" x="418" y="1065" text-anchor="end">84/84</text>
+        <text class="ev" x="491" y="1065" text-anchor="end">84/84 tests</text>
         <circle class="step-bg" cx="485" cy="876" r="15"/>
         <text class="step-n" x="485" y="881" text-anchor="middle">1</text>
       </g>
@@ -507,27 +510,27 @@
           <rect class="mk-v" x="9" y="6" width="8" height="8"/>
           <text class="chip-t" x="26" y="14">VERIFIED</text>
         </g>
-        <text class="ev" x="763" y="1065" text-anchor="end">v2.0.32</text>
+        <text class="ev" x="836" y="1065" text-anchor="end">v2.0.32</text>
       </g>
 
       <!-- ===================== STEP MARKERS 2 ===================== -->
       <g class="node" style="--d:240ms">
-        <circle class="step-bg" cx="1055" cy="126" r="15"/>
-        <text class="step-n" x="1055" y="131" text-anchor="middle">2</text>
+        <circle class="step-bg" cx="765" cy="126" r="15"/>
+        <text class="step-n" x="765" y="131" text-anchor="middle">2</text>
       </g>
 
       <!-- ===================== STEP 3 — the one-way door ===================== -->
       <g class="node" style="--d:840ms">
-        <path class="door-lead" d="M1112,610 V207"/>
-        <circle class="door-badge" cx="1112" cy="182" r="25"/>
-        <text class="door-badge-t" x="1112" y="190" text-anchor="middle">3</text>
+        <path class="door-lead" d="M1112,610 V325"/>
+        <circle class="door-badge" cx="1112" cy="300" r="25"/>
+        <text class="door-badge-t" x="1112" y="308" text-anchor="middle">3</text>
 
         <rect class="door-card" x="800" y="610" width="560" height="168" rx="3"/>
-        <text class="door-h" x="824" y="648">STEP 3 — IRREVERSIBLE</text>
+        <text class="door-h" x="824" y="648">STEP 3 — ONE-WAY SEND</text>
         <text class="door-b" x="824" y="678">Send one correlated message. Capture the reply. Verify the correlation.</text>
-        <text class="door-b" x="824" y="702"><tspan font-weight="700">The message lands in real ChatGPT conversation history and cannot</tspan></text>
-        <text class="door-b" x="824" y="722"><tspan font-weight="700">be recalled.</tspan> No undo exists. There is no supported reversal.</text>
-        <text class="door-b" x="824" y="750" style="font-size:11.5px" opacity=".85">Everything else on this page is undone by deleting a registry key or unloading an extension. This is not.</text>
+        <text class="door-b" x="824" y="702"><tspan font-weight="700">The message cannot be unsent,</tspan> and the reply is recorded in that chat.</text>
+        <text class="door-b" x="824" y="722">The chat itself can be deleted from the ChatGPT UI afterwards.</text>
+        <text class="door-b" x="824" y="750" style="font-size:11.5px" opacity=".85">Steps 1, 2 and 4 are undone by deleting a registry key or unloading the extension.</text>
       </g>
 
     </svg>
@@ -544,12 +547,12 @@
           <p><strong>VERIFIED</strong> — observed and proven by a run or a passing suite. Evidence is printed on the node.</p>
         </li>
         <li>
-          <svg class="lgchip" width="104" height="22" aria-hidden="true"><rect x="0.5" y="0.5" width="92" height="20" rx="2" fill="none" stroke="var(--line)"/><rect x="9.5" y="6.5" width="8" height="8" fill="none" stroke="var(--ink)" stroke-width="1.4"/><text x="26" y="14">BLOCKED</text></svg>
-          <p><strong>BLOCKED</strong> — not run yet. Drawn with an open-square mark and a hatched fill as well, so it never depends on colour.</p>
+          <svg class="lgchip" width="104" height="22" aria-hidden="true"><rect x="0.5" y="0.5" width="92" height="20" rx="2" fill="none" stroke="var(--line)"/><rect x="9.5" y="6.5" width="8" height="8" fill="none" stroke="var(--ink)" stroke-width="1.4"/><text x="26" y="14">NOT RUN</text></svg>
+          <p><strong>NOT RUN</strong> — not exercised yet; nothing is blocking it. Drawn with an open-square mark and a hatched fill as well, so it never depends on colour.</p>
         </li>
         <li>
           <svg class="lgchip" width="104" height="22" aria-hidden="true"><rect x="0.5" y="0.5" width="92" height="20" rx="2" fill="none" stroke="var(--line)"/><rect x="9.5" y="6.5" width="8" height="8" fill="none" stroke="var(--ink)" stroke-width="1.4"/><rect x="9.5" y="10.5" width="8" height="4" fill="var(--ink-2)"/><text x="26" y="14">PARTIAL</text></svg>
-          <p><strong>PARTIAL</strong> — reserved. No node in this graph holds this state today; nothing here is half-proven.</p>
+          <p><strong>PARTIAL</strong> — the code and its tests pass in Node, but it has not yet been loaded or run in the real host.</p>
         </li>
         <li>
           <svg class="lgchip" width="104" height="22" aria-hidden="true"><rect x="0.5" y="0.5" width="92" height="20" rx="2" fill="none" stroke="var(--line)"/><circle cx="13.5" cy="10.5" r="4" fill="none" stroke="var(--ink)" stroke-width="1.4"/><text x="26" y="14">INSTALLED</text></svg>
@@ -563,19 +566,19 @@
       <ol class="steps-list">
         <li>
           <span class="n">1</span>
-          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [I]</strong> — register the native host <code>com.aion.relay</code> in HKCU and add the <code>nativeMessaging</code> permission.<br><span class="rev">REVERSIBLE — delete the key, drop the permission</span></p>
+          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [I]</strong> — register the native host <code>com.aion.relay</code> in HKCU, with <code>allowed_origins</code> set to the pinned extension ID <code>chrome-extension://kgjfielmhcdlggjppmliabpiljnonhki/</code> (fixed by the manifest <code>key</code>, so this and step 2 can go in either order). The host also needs an entry point and launcher first.<br><span class="rev">REVERSIBLE — delete the key</span></p>
         </li>
         <li>
           <span class="n">2</span>
-          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [C]</strong> — load the unpacked extension in Chrome <strong>Profile 3</strong> and prove <code>initialize</code> end to end.<br><span class="rev">REVERSIBLE — unload the extension from Profile 3</span></p>
+          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [B]</strong> — load the unpacked extension in Chrome <strong>Profile 3</strong> and prove <code>initialize</code> end to end. The manifest now has <code>nativeMessaging</code> and the chatgpt.com loader; enabling the service-worker native adapter is the open code task.<br><span class="rev">REVERSIBLE — unload the extension from Profile 3</span></p>
         </li>
         <li>
           <span class="n door">3</span>
-          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [C]/[D]</strong> — send one correlated message, capture the reply, verify correlation against <code>AION-M05-20261016-COC-001</code> and <code>ACK-M05-COC-001</code>.<br><span class="rev door">IRREVERSIBLE — it lands in real ChatGPT history and cannot be recalled</span></p>
+          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [C]/[D]</strong> — send one correlated message, capture the reply, verify correlation against <code>AION-M05-20261016-COC-001</code> and <code>ACK-M05-COC-001</code>.<br><span class="rev door">ONE-WAY — the message can't be unsent; the chat can be deleted afterwards</span></p>
         </li>
         <li>
           <span class="n">4</span>
-          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [H]</strong> — run the negative case and prove a mismatched correlation is rejected.<br><span class="rev">REVERSIBLE — nothing external to undo</span></p>
+          <p><strong style="font-family:var(--mono);font-size:12px;letter-spacing:.06em">AT [H]</strong> — run the negative case and prove a mismatched correlation is rejected. It needs no send: feed a mismatched or echoed reply, so it can run before step 3.<br><span class="rev">REVERSIBLE — nothing external to undo</span></p>
         </li>
       </ol>
     </div>
@@ -596,8 +599,7 @@
       model reply; a model reply is not AION consumption. Each is recorded separately, in that order.
     </p>
     <p>
-      The three reversible steps are available now and none of them requires a decision. Step 3 is the only
-      point of no return in the whole graph, which is why it is the only thing on this page drawn in red.
+      Steps 1, 2 and 4 are reversible. Step 3 is the only one-way step — the message can't be unsent, though the chat can be deleted — which is why it is the only thing on this page drawn in red. Owner instruction of 2026-10-18: the local agent sets up and tests the chain.
     </p>
   </div>
 
@@ -606,15 +608,15 @@
     <ol>
       <li><strong>AION</strong> originates a correlated message.</li>
       <li><strong>[A] outbound adapter</strong> — <code>sessions/01-escape-hatch/adapter/lib.js</code>; <code>loadOutbound()</code> reads the verbatim block; correlation <code>AION-M05-20261016-COC-001</code>; expected reply <code>ACK-M05-COC-001</code>. VERIFIED, 35/35 tests.</li>
-      <li><strong>[B] Chrome extension</strong> — <code>ops/chrome-relay/extension</code>; content script on chatgpt.com; fills <code>#prompt-textarea</code>, submits via send-button. VERIFIED, 115/115 tests.</li>
-      <li><strong>[C] REAL chatgpt.com</strong> — external service, authenticated session. BLOCKED, needs live run.</li>
-      <li><strong>[D] reply capture</strong> — extension reads the last final assistant block. BLOCKED, needs live run.</li>
+      <li><strong>[B] Chrome extension</strong> — <code>ops/chrome-relay/extension</code>; content script on chatgpt.com; fills <code>#prompt-textarea</code>, submits via send-button. PARTIAL — logic verified in Node (115/115 tests); the manifest now wires it to chatgpt.com through a loader, but it has not been loaded in Chrome.</li>
+      <li><strong>[C] REAL chatgpt.com</strong> — external service, authenticated session. NOT RUN, needs live run.</li>
+      <li><strong>[D] reply capture</strong> — extension reads the last final assistant block. NOT RUN, needs live run.</li>
       <li><strong>[E] correlate + validate</strong> — <code>correlateReply()</code>; accepts only if the reply carries the correlation id and is not an echo. VERIFIED, 115/115 including negative cases.</li>
       <li>Gate at [E]: <strong>ACCEPT</strong> continues; <strong>REJECT</strong> drops to [H].</li>
       <li><strong>[F] relay envelope</strong> — 19 fields; <code>correlation_id</code> + <code>idempotency_key</code>; shared library. VERIFIED, 115/115.</li>
-      <li><strong>[G] Windows → AION</strong> — AION consumes, checks a detail, records evidence. BLOCKED, needs live run.</li>
-      <li><strong>[H] negative case</strong> — a mismatched correlation must be REJECTED, never reported as a turn. BLOCKED, needs live run.</li>
-      <li><strong>[I] native host bridge</strong> — <code>ops/chrome-relay/bridge</code>; translates Chrome framing ↔ newline JSON-RPC ↔ envelope; host <code>com.aion.relay</code> not registered in HKCU; bridge code 84/84. BLOCKED. Step 1 lives here.</li>
+      <li><strong>[G] Windows → AION</strong> — AION consumes, checks a detail, records evidence. NOT RUN, needs live run.</li>
+      <li><strong>[H] negative case</strong> — a mismatched correlation must be REJECTED, never reported as a turn. NOT RUN, needs live run.</li>
+      <li><strong>[I] native host bridge</strong> — <code>ops/chrome-relay/bridge</code>; translates Chrome framing ↔ newline JSON-RPC ↔ envelope; host <code>com.aion.relay</code> not registered in HKCU; framing, config, envelope-map and ACP client tested (84/84); <code>host.js</code> has no entry point or tests yet. PARTIAL. Step 1 lives here.</li>
       <li><strong>[J] opencode acp</strong> — v2.0.32; child process, private server, stdin/stdout, no network port; ACP-01 passes, protocolVersion 1. VERIFIED.</li>
     </ol>
   </details>
