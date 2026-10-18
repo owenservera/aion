@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AION / Chrome Relay — Next Steps</title>
+<style>
+  /* ============================================================
+     AION CHROME RELAY — OPERATOR BRIEFING
+     Instrument-panel layout. Local font stacks only, zero network.
+     ============================================================ */
+
+  :root {
+    color-scheme: dark light;
+
+    /* --- surface ramp (dark is default) --- */
+    --bg:        #0c0d0f;
+    --panel:     #14161a;
+    --panel-2:   #1a1d22;
+    --line:      #2a2f37;
+    --line-hot:  #3d454f;
+
+    /* --- ink --- */
+    --ink:       #e8eaed;
+    --ink-2:     #a8b0ba;
+    --ink-3:     #6f7986;
+
+    /* --- signal --- */
+    --signal:    #e0a233;   /* amber: the primary accent */
+    --signal-dk: #8a6413;
+    --go:        #4ea87a;   /* verified */
+    --halt:      #d4573e;   /* irreversible / fault */
+
+    --focus:     #6fb2e0;
+
+    --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+    --cond: "Bahnschrift", "DIN Alternate", "Segoe UI Semibold", "Franklin Gothic Medium", system-ui, sans-serif;
+    --body: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg:        #eceae5;
+      --panel:     #f7f6f2;
+      --panel-2:   #fffefb;
+      --line:      #cdc8bd;
+      --line-hot:  #a8a294;
+
+      --ink:       #14161a;
+      --ink-2:     #454b54;
+      --ink-3:     #6f7681;
+
+      --signal:    #9a6a05;
+      --signal-dk: #6b4a03;
+      --go:        #1f6b45;
+      --halt:      #a52a12;
+      --focus:     #12507e;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+    /* faint engineering grid — atmosphere, not decoration-for-its-own-sake */
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px);
+    background-size: 64px 64px, 64px 64px;
+  }
+
+  /* grain-free vignette so the grid does not fight the text */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 80% at 50% 0%, transparent 40%, color-mix(in srgb, var(--bg) 82%, transparent) 100%);
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 34px 24px 96px;
+  }
+
+  /* ---------- focus ---------- */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* ============================ HEADER ============================ */
+
+  header.masthead {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px 28px;
+    align-items: end;
+    padding-bottom: 18px;
+    border-bottom: 2px solid var(--line-hot);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: clamp(30px, 5vw, 50px);
+    line-height: .96;
+    letter-spacing: -.01em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  h1 .thin { color: var(--ink-3); font-weight: 400; }
+
+  .subtitle {
+    margin: 12px 0 0;
+    max-width: 62ch;
+    color: var(--ink-2);
+    font-size: 14px;
+  }
+
+  .stamp {
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.9;
+    text-align: right;
+    color: var(--ink-2);
+    border-left: 2px solid var(--line-hot);
+    padding-left: 16px;
+    white-space: nowrap;
+  }
+  .stamp b { color: var(--ink); font-weight: 600; }
+
+  /* ============================ STATUS BOARD ============================ */
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin: 30px 0 0;
+  }
+
+  .cell {
+    background: var(--panel);
+    padding: 16px 18px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .cell .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .cell .v {
+    font-family: var(--cond);
+    font-size: 27px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cell .n {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+  }
+
+  /* status chips — the only four permitted words */
+  .chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    padding: 3px 8px 2px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+  .chip.go    { color: var(--go); }
+  .chip.warn  { color: var(--signal); }
+  .chip.halt  { color: var(--halt); }
+  .chip.idle  { color: var(--ink-3); }
+
+  /* ============================ SECTIONS ============================ */
+
+  section { margin-top: 44px; }
+
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+  }
+  .sec-head h2 {
+    font-family: var(--cond);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .sec-head .note {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-left: auto;
+  }
+
+  /* ============================ AUTHORIZATION ============================ */
+
+  .gates {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .gate {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 14px 16px;
+  }
+  .gate h3 {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .12em;
+    margin: 0 0 8px;
+    color: var(--signal);
+    text-transform: uppercase;
+  }
+  .gate p { margin: 0 0 10px; font-size: 13px; color: var(--ink-2); }
+  .gate .src {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    word-break: break-all;
+  }
+
+  .callout {
+    margin-top: 16px;
+    border-left: 3px solid var(--signal);
+    background: var(--panel);
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--ink);
+  }
+  .callout strong { color: var(--signal); }
+
+  /* ============================ STEP RAIL ============================ */
+
+  .steps { display: flex; flex-direction: column; gap: 14px; }
+
+  .step {
+    display: grid;
+    grid-template-columns: 92px 1fr auto;
+    gap: 0 22px;
+    align-items: start;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 18px 20px;
+  }
+
+  .step .num {
+    font-family: var(--cond);
+    font-size: 54px;
+    font-weight: 700;
+    line-height: .78;
+    color: var(--line-hot);
+    letter-spacing: -.03em;
+  }
+  .step .num sup {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 400;
+    letter-spacing: .16em;
+    color: var(--ink-3);
+    margin-top: 6px;
+  }
+
+  .step h3 {
+    font-size: 15.5px;
+    line-height: 1.35;
+    margin: 0 0 7px;
+    font-weight: 600;
+  }
+  .step h3 code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+    word-break: break-word;
+  }
+
+  .step .meta {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-2);
+    margin: 0;
+  }
+  .step .meta span { color: var(--ink-3); }
+
+  .step .rev {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    min-width: 148px;
+    padding-top: 2px;
+  }
+  .step .rev b { display: block; font-size: 12px; margin-top: 5px; letter-spacing: .12em; }
+  .rev b.rev-ok   { color: var(--go); }
+  .rev b.rev-bad  { color: var(--halt); }
+
+  /* ---------- STEP 3: the one-way door ---------- */
+
+  .step.door {
+    grid-template-columns: 92px 1fr;
+    position: relative;
+    border: 2px solid var(--halt);
+    background:
+      repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--halt) 9%, transparent) 0 14px,
+        transparent 14px 28px
+      ),
+      var(--panel);
+    padding: 26px 24px 24px;
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--halt) 10%, transparent),
+                0 22px 44px -24px color-mix(in srgb, var(--halt) 60%, transparent);
+  }
+  .step.door::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 8px;
+    background: repeating-linear-gradient(90deg, var(--halt) 0 18px, var(--panel) 18px 36px);
+  }
+  .step.door .num { color: var(--halt); }
+  .step.door .num sup { color: var(--halt); }
+
+  .door-flag {
+    display: inline-block;
+    background: var(--halt);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    padding: 5px 12px 4px;
+    margin-bottom: 14px;
+  }
+
+  .door h3 { font-size: 19px; }
+
+  .door-consequence {
+    margin: 16px 0 0;
+    padding: 16px 18px;
+    border: 1px solid color-mix(in srgb, var(--halt) 55%, var(--line));
+    background: color-mix(in srgb, var(--halt) 8%, var(--panel));
+  }
+  .door-consequence p { margin: 0 0 8px; font-size: 14px; }
+  .door-consequence p:last-child { margin-bottom: 0; }
+  .door-consequence strong { color: var(--halt); }
+
+  .door-exit {
+    grid-column: 2;
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-2);
+    border-top: 1px dashed var(--line-hot);
+    padding-top: 12px;
+  }
+  .door-exit b { color: var(--go); }
+
+  /* ============================ CORRELATION STRIP ============================ */
+
+  .corr {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: stretch;
+    gap: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .corr .end {
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    padding: 12px 14px;
+    min-width: 0;
+  }
+  .corr .end .lbl {
+    font-size: 9.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .corr .end .val { color: var(--ink); word-break: break-all; }
+  .corr .link {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    color: var(--halt);
+    font-size: 16px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ============================ INTEGRITY ============================ */
+
+  .defects { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .defect {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--signal);
+    background: var(--panel);
+    padding: 15px 17px;
+  }
+  .defect .hd {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 8px;
+  }
+  .defect p { margin: 0 0 9px; font-size: 13.5px; color: var(--ink-2); }
+  .defect p:last-child { margin-bottom: 0; }
+  .defect strong { color: var(--ink); }
+  .defect code {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--signal);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    padding: 0 4px;
+  }
+  .defect .cite {
+    display: block;
+    margin-top: 9px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+  }
+
+  /* ============================ ENV ============================ */
+
+  .env { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .env .item {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 15px 17px;
+  }
+  .env .item .hd {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 8px;
+  }
+  .env .item p { margin: 0; font-size: 13px; color: var(--ink-2); }
+  .env .item code {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  /* ============================ OPEN QUESTION ============================ */
+
+  .decision {
+    margin-top: 46px;
+    border: 2px solid var(--signal);
+    background: var(--panel);
+    padding: 24px 26px;
+  }
+  .decision .hd {
+    font-family: var(--cond);
+    font-size: 15px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 14px;
+  }
+  .decision p { margin: 0 0 14px; font-size: 14.5px; max-width: 78ch; }
+  .decision p:last-child { margin-bottom: 0; }
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .opt {
+    border: 1px solid var(--line-hot);
+    background: var(--panel-2);
+    padding: 16px 18px;
+  }
+  .opt .t {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .opt p { font-size: 13px; color: var(--ink-2); margin: 0; }
+  .opt.a { border-left: 3px solid var(--go); }
+  .opt.b { border-left: 3px solid var(--halt); }
+
+  /* ============================ FOOTER ============================ */
+
+  footer {
+    margin-top: 44px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 26px;
+  }
+
+  /* ============================ RESPONSIVE ============================ */
+
+  @media (max-width: 1000px) {
+    .board { grid-template-columns: repeat(2, 1fr); }
+    .env, .gates { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 768px) {
+    body { font-size: 14.5px; }
+    .wrap { padding: 24px 16px 72px; }
+    header.masthead { grid-template-columns: 1fr; align-items: start; }
+    .stamp { text-align: left; border-left: 0; border-top: 2px solid var(--line-hot); padding: 10px 0 0; }
+    .board, .env, .gates, .defects, .options { grid-template-columns: 1fr; }
+    .step, .step.door { grid-template-columns: 1fr; gap: 12px; padding: 18px 16px; }
+    .step .num { font-size: 40px; display: flex; align-items: baseline; gap: 10px; }
+    .step .num sup { margin-top: 0; }
+    .step .rev { text-align: left; min-width: 0; }
+    .step .rev b { display: inline; margin-left: 8px; }
+    .door-exit { grid-column: 1; }
+    .corr { grid-template-columns: 1fr; }
+    .corr .link { padding: 8px 0 8px 14px; justify-content: flex-start; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .step, .defect, .opt, .cell { transition: border-color .18s ease, transform .18s ease; }
+    .cell:hover, .opt:hover { transform: translateY(-1px); }
+    .step.door:hover { border-color: var(--halt); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ========================= MASTHEAD ========================= -->
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">AION &nbsp;/&nbsp; ops / chrome-relay &nbsp;/&nbsp; operator briefing</p>
+      <h1>Next Steps <span class="thin">&mdash; the one-way door</span></h1>
+      <p class="subtitle">
+        Everything below step&nbsp;3 has already been authorized. This page is not waiting on
+        approval &mdash; it is waiting on a decision about sequencing. Four steps remain between the
+        current test-green state and an <code>m1_verified</code> flip.
+      </p>
+    </div>
+    <div class="stamp">
+      REPO &nbsp;<b>owenservera/aion</b><br>
+      BRANCH <b>main</b> @ <b>aab05c8</b><br>
+      TREE &nbsp;<b>clean, in sync with origin/main</b><br>
+      AUTHZ &nbsp;<b>2026-10-17</b>
+    </div>
+  </header>
+
+  <!-- ========================= STATUS BOARD ========================= -->
+  <div class="board" role="group" aria-label="Current verified state">
+    <div class="cell">
+      <span class="k">Extension suite</span>
+      <span class="v">115<span style="font-size:15px;color:var(--ink-3)">/115</span></span>
+      <span class="n">81 pre-existing + 34 new correlation / negative-case</span>
+      <span class="chip go">VERIFIED</span>
+    </div>
+    <div class="cell">
+      <span class="k">ACP bridge suite</span>
+      <span class="v">84<span style="font-size:15px;color:var(--ink-3)">/84</span></span>
+      <span class="n">Combined total 199/199</span>
+      <span class="chip go">VERIFIED</span>
+    </div>
+    <div class="cell">
+      <span class="k">opencode acp on host</span>
+      <span class="v">v2.0.32</span>
+      <span class="n">ACP protocolVersion 1 &middot; all six sessionCapabilities advertised &middot; ACP-01 passes</span>
+      <span class="chip go">VERIFIED</span>
+    </div>
+    <div class="cell">
+      <span class="k">Chrome extension load</span>
+      <span class="v" style="color:var(--halt)">NONE</span>
+      <span class="n">Not installed. No signed-in session touched. m1_verified = false</span>
+      <span class="chip halt">BLOCKED</span>
+    </div>
+  </div>
+
+  <!-- ========================= AUTHORIZATION ========================= -->
+  <section aria-labelledby="h-authz">
+    <div class="sec-head">
+      <h2 id="h-authz">Authorization already on record</h2>
+      <span class="note">granted 2026-10-17</span>
+    </div>
+
+    <div class="gates">
+      <div class="gate">
+        <h3>G1 &mdash; native host</h3>
+        <p>Register the native messaging host <code>com.aion.relay</code>.</p>
+        <span class="chip go">VERIFIED</span>
+      </div>
+      <div class="gate">
+        <h3>G2 &mdash; permission</h3>
+        <p>Add the <code>nativeMessaging</code> permission.</p>
+        <span class="chip go">VERIFIED</span>
+      </div>
+      <div class="gate">
+        <h3>G3 &mdash; send + capture</h3>
+        <p>chatgpt.com send and capture, widened by explicit owner override from presence-only to full introspection.</p>
+        <span class="chip go">VERIFIED</span>
+      </div>
+    </div>
+
+    <div class="callout">
+      Source of record: <strong>workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md</strong>.
+      <strong>m1_verified</strong> is still <strong>false</strong>, and that is correct: nothing has been
+      sent to ChatGPT. On the gates above, <strong>VERIFIED</strong> refers to the grant itself
+      being verified on record &mdash; not to the gate being executed. All three are already authorized.
+    </div>
+  </section>
+
+  <!-- ========================= THE FOUR STEPS ========================= -->
+  <section aria-labelledby="h-steps">
+    <div class="sec-head">
+      <h2 id="h-steps">The four steps</h2>
+      <span class="note">3 reversible &middot; 1 not</span>
+    </div>
+
+    <div class="steps">
+
+      <!-- STEP 1 -->
+      <article class="step">
+        <div class="num">1<sup>STEP</sup></div>
+        <div>
+          <h3>
+            Register native messaging host <code>com.aion.relay</code> under
+            <code>HKCU\...\NativeMessagingHosts</code> and add the
+            <code>nativeMessaging</code> permission. (G1, G2)
+          </h3>
+          <p class="meta">
+            <span>GATE</span> already authorized &nbsp;&middot;&nbsp;
+            <span>UNDO</span> remove the registry key, drop the permission
+          </p>
+        </div>
+        <div class="rev">Reversible<b class="rev-ok">Fully reversible</b></div>
+      </article>
+
+      <!-- STEP 2 -->
+      <article class="step">
+        <div class="num">2<sup>STEP</sup></div>
+        <div>
+          <h3>
+            Load unpacked extension in Chrome <strong>Profile 3</strong> (the ChatGPT-capable
+            profile) and prove <code>initialize</code> end-to-end through the real extension
+            against real <code>opencode acp</code>.
+          </h3>
+          <p class="meta">
+            <span>GATE</span> already authorized &nbsp;&middot;&nbsp;
+            <span>UNDO</span> unload the extension from Profile 3
+          </p>
+        </div>
+        <div class="rev">Reversible<b class="rev-ok">Fully reversible</b></div>
+      </article>
+
+      <!-- STEP 3 — THE ONE-WAY DOOR -->
+      <article class="step door">
+        <div class="num">3<sup>STEP</sup></div>
+        <div>
+          <span class="door-flag">Irreversible &mdash; one-way door</span>
+          <h3>
+            One correlated message to chatgpt.com. Capture the reply. Verify correlation
+            against <code>AION-M05-20261016-COC-001</code> and the expected
+            <code>ACK-M05-COC-001</code>.
+          </h3>
+          <p class="meta">
+            <span>GATE</span> already authorized &nbsp;&middot;&nbsp;
+            <span>UNDO</span> none
+          </p>
+
+          <div class="corr">
+            <div class="end">
+              <span class="lbl">Sent to the owner's real conversation</span>
+              <span class="val">AION-M05-20261016-COC-001</span>
+            </div>
+            <div class="link" aria-label="must match">&rarr;</div>
+            <div class="end">
+              <span class="lbl">Must come back as</span>
+              <span class="val">ACK-M05-COC-001</span>
+            </div>
+          </div>
+
+          <div class="door-consequence">
+            <p>
+              <strong>This message lands in the owner's real ChatGPT conversation history.
+              It cannot be recalled, and it cannot be un-sent by any means available to us.</strong>
+            </p>
+            <p>
+              Everything else on this page is undone by unloading the extension and deleting the
+              registry key. This step is not. Once it runs, the artifact exists in a place we do
+              not control, with an audit trail we do not own, and there is no supported reversal.
+            </p>
+            <p>
+              It is worth doing exactly once, correlated, and worth confirming the correlation is
+              sound before sending it &mdash; which is what steps 1, 2 and 4 are for.
+            </p>
+          </div>
+        </div>
+        <p class="door-exit">
+          <b>Reversal path:</b> none. Compare with steps 1, 2 and 4, which are all reversible.
+        </p>
+      </article>
+
+      <!-- STEP 4 -->
+      <article class="step">
+        <div class="num">4<sup>STEP</sup></div>
+        <div>
+          <h3>
+            Negative case: prove a mismatched correlation is <strong>rejected</strong> and never
+            reported as a successful turn.
+          </h3>
+          <p class="meta">
+            <span>GATE</span> already authorized &nbsp;&middot;&nbsp;
+            <span>UNDO</span> no external side effect to undo
+          </p>
+        </div>
+        <div class="rev">Reversible<b class="rev-ok">Reversible</b></div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ========================= VERIFICATION INTEGRITY ========================= -->
+  <section aria-labelledby="h-int">
+    <div class="sec-head">
+      <h2 id="h-int">Verification integrity</h2>
+      <span class="note">the suites are not self-assuring</span>
+    </div>
+
+    <div class="defects">
+      <div class="defect">
+        <div class="hd">Defect 01 &mdash; untested request path</div>
+        <p>
+          A test fixture sent <code>session/request_permission</code> as a <em>notification</em>
+          with no <code>id</code>, so the client&rsquo;s agent&nbsp;&rarr;&nbsp;client request path
+          was never exercised. That test would have passed while the agent hung.
+        </p>
+        <p>
+          Cross-checked against AION&rsquo;s own working
+          <code>bff/zcode/acp-core.mjs</code>, which guards the same condition with
+          <code>m.id != null</code>.
+        </p>
+        <span class="cite">Consequence: a green suite did not mean the request path worked.</span>
+      </div>
+
+      <div class="defect">
+        <div class="hd">Defect 02 &mdash; lanes died before verifying</div>
+        <p>
+          Two build lanes failed on a DNS error before running any verification at all. Nothing was
+          proven in those lanes; they produced no signal at all.
+        </p>
+        <p>
+          The suites were run and fixed by hand instead.
+        </p>
+        <span class="cite">Consequence: some green results existed only because someone re-ran them.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= ENVIRONMENT ========================= -->
+  <section aria-labelledby="h-env">
+    <div class="sec-head">
+      <h2 id="h-env">If you touch this</h2>
+      <span class="note">environment gotchas</span>
+    </div>
+
+    <div class="env">
+      <div class="item">
+        <div class="hd">Which opencode</div>
+        <p>
+          OpenCode is <code>v2.0.32</code> via the npm global <code>@opencode/cli</code>. The
+          Chocolatey <code>1.18.35</code> copy is gone.
+          <code>ENVIRONMENT.md</code> records the correction.
+        </p>
+      </div>
+
+      <div class="item">
+        <div class="hd">Spawning opencode</div>
+        <p>
+          <code>opencode</code> on PATH is a PowerShell <code>.ps1</code> shim, so
+          <code>spawn('opencode')</code> fails with <code>ENOENT</code>. Child processes must use
+          the absolute <code>.exe</code> path.
+        </p>
+      </div>
+
+      <div class="item">
+        <div class="hd">Windows paths in JS</div>
+        <p>
+          A Windows backslash path in a JS string literal silently loses characters &mdash;
+          <code>\n</code>, <code>\t</code>, <code>\b</code> and <code>\v</code> are escapes. Use
+          forward slashes.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= THE OPEN QUESTION ========================= -->
+  <section class="decision" aria-labelledby="h-dec">
+    <div class="hd" id="h-dec">The only open question</div>
+    <p>
+      Nothing here is blocked on approval. All four gates are already authorized and recorded.
+      The remaining decision is sequencing &mdash; and it is worth deciding deliberately, because
+      step 3 cannot be taken back.
+    </p>
+    <div class="options">
+      <div class="opt a">
+        <div class="t">Option A &mdash; reversible first</div>
+        <p>
+          Run step 1, then step 2, then step 4. Prove the correlation logic rejects a mismatch
+          before anything lands in a real conversation, and only then take step 3 with the evidence
+          already in hand. Nothing is irreversible until the last moment.
+        </p>
+      </div>
+      <div class="opt b">
+        <div class="t">Option B &mdash; straight to step 3</div>
+        <p>
+          Skip ahead and send the correlated message now. Faster, and the correlation is already
+          covered by 34 tests &mdash; but it spends the one-way door before the negative case has
+          been demonstrated in the live path.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>AION &middot; chrome-relay &middot; NEXT-STEPS</span>
+    <span>commit aab05c8</span>
+    <span>opencode v2.0.32 &middot; ACP protocolVersion 1</span>
+    <span>199/199 tests</span>
+    <span>m1_verified: false</span>
+  </footer>
+
+</div>
+</body>
+</html>
