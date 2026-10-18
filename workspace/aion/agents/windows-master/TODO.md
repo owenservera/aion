@@ -89,14 +89,55 @@ prove `initialize` end to end**: panel → worker → host → `opencode acp` v2
 Nothing connects to it. Needs worker/panel code using
 `chrome.tabs.query({url:'https://chatgpt.com/*'})` → `chrome.tabs.connect`. Prove `ping` first (read-only).
 
-### 5. Check node D offline — **TODO**
-Run `__testing.readFinalReplyAfterLastUserTurn` against
-`sessions/01-escape-hatch/adapter/fixture-live-2026-10-16.html`. Confirm `#prompt-textarea` matches
-**exactly one** visible composer (a Linux run once hit two candidates with broader selectors).
+### 5. Check node D offline — **DONE — a finding that contradicts the issue's premise**
 
-### 6. Negative case, offline first (FLOW step 4) — **TODO**
-Feed a mismatched and an echoed reply through `correlateReply()`. Unit tests already cover this; re-run
-and capture output. **Needs no send.**
+Checked against `sessions/01-escape-hatch/adapter/fixture-live-2026-10-16.html`.
+
+**Finding: the fixture cannot validate the live DOM path, and cannot validate the composer at all.**
+
+| Selector the live code uses | Occurrences in the fixture |
+|---|---|
+| `#prompt-textarea` | **0** |
+| `[data-message-author-role]` | **0** |
+| `markdown` class | 2 |
+
+The fixture is a **sanitized mock** using class-based selectors (`group/user-message`, `text-size-chat`),
+while `content.js` queries `#prompt-textarea` and `data-message-author-role`/`markdown`. Therefore:
+
+- **`readFinalReplyAfterLastUserTurn` cannot be exercised against it faithfully** — the markup shapes do
+  not match what the function reads.
+- **The "exactly one visible composer" check cannot be done offline at all**, because the fixture has no
+  composer. The issue's warning that "the Linux adapter once hit two candidates with broader selectors"
+  is **not** testable from this fixture. It needs the real page (item 7) or a purpose-built fixture that
+  actually contains a composer.
+
+There is also **no HTML parser available**: the project is zero-dependency and its DOM stubs are
+hand-rolled and purpose-specific. Parsing arbitrary HTML offline would mean adding a dependency. Not
+done, and deliberately not faked with a stub that proves nothing.
+
+**Consequence:** node D stays `BLOCKED` until the live run. Its extraction logic is covered by unit tests
+against constructed DOM stubs — weaker evidence than the fixture was assumed to give.
+
+### 6. Negative case, offline first (FLOW step 4) — **DONE**
+
+No send required, exactly as the issue predicted. `tests/chatgpt-correlate.test.js` re-run on Windows.
+
+**12 negative cases, all passing:**
+
+- reply carrying a **different** correlation id → rejected
+- **near-miss** id that merely extends ours → rejected
+- reply carrying **our id AND a foreign id** → rejected as ambiguous
+- empty / missing reply → rejected
+- non-string candidate → rejected as bad input, not coerced
+- expectation with no correlation id → refused outright
+- reply that **never** carries the correlation id → rejected
+- reply carrying the **token but no correlation id** → rejected
+- **echoed outbound text** with no answer → rejected
+- echo repeating **only part** of the instructions → rejected
+- **the user turn read as the reply** → rejected on provenance
+- a short protocol marker is never flagged as an echo by text alone
+
+This is the M1 contract's "negative case" requirement satisfied offline.
 
 ### 7. Live round trip (FLOW step 3) — **TODO — IRREVERSIBLE**
 One correlated benign message, capture the reply, verify the correlation. The message **cannot be
