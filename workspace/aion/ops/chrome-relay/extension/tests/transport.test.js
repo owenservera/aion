@@ -23,8 +23,16 @@ function envelope(overrides = {}) {
   });
 }
 
-test('the three MVP transport names are exposed', () => {
-  assert.deepEqual([...TRANSPORT_NAMES], ['disabled-native', 'disabled-loopback', 'fixture']);
+test('the three MVP transport names are still exposed, plus the live native adapter', () => {
+  // The 'native' adapter was added for the native-host milestone. The MVP three are
+  // unchanged and still refuse to perform I/O; 'native' is the single opt-in
+  // live adapter.
+  // (MVP guarantee: none of the three perform I/O.)
+  assert.deepEqual(
+    [...TRANSPORT_NAMES].filter((n) => n !== 'native'),
+    ['disabled-native', 'disabled-loopback', 'fixture'],
+  );
+  assert.ok(TRANSPORT_NAMES.includes('native'));
 });
 
 test('an unknown transport name fails loudly at construction', () => {
