@@ -455,26 +455,102 @@ function portOpenUnproven(transport) {
   return adapterStatus(transport) === ADAPTER_STATUS_UNPROVEN;
 }
 
+/**
+ * One protocol/version scalar, kept honest.
+ *
+ * A protocol version is legitimately a NUMBER — the bridge sends
+ * `protocol_version: 1` — so a string-only reader silently discarded the real
+ * value and the panel rendered UNKNOWN. Numbers stay numbers and strings stay
+ * strings; nothing is coerced either way, because "1" and 1 are different claims
+ * and a coercion would hide which one the host actually made.
+ */
+function protocolScalar(value) {
+  if (typeof value === 'number' && Number.isInteger(value) && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value !== '') return value.slice(0, MAX_HOST_ID_CHARS);
+  return null;
+}
+
+/**
+ * The ONLY capability names this worker will report.
+ *
+ * An allowlist, not a pattern. ACP capability entries are maps whose keys name
+ * the capability and whose values can be settings, paths or arbitrary agent
+ * prose; a pattern test passes anything identifier-shaped, which is how a `cwd`
+ * key or a `note` key became a "capability" on a real run. These three are the
+ * capabilities this bridge itself declares (`bridge/src/acp-client.js`
+ * clientCapabilities: fs, terminal; plus mcp). Anything else is not reported,
+ * and absence is shown as absence.
+ */
+const AGENT_CAPABILITY_ALLOWLIST = Object.freeze(['fs', 'terminal', 'mcp']);
+
+/**
+ * Capability NAMES from the allowlist, never values.
+ *
+ * Accepts the ACP map form (`agentCapabilities: { fs: {...} }`) and the array
+ * form some agents send (`[{ fs: {...} }, ...]`). Returns null when the host
+ * reported no capability block at all (UNKNOWN), and an array — possibly empty —
+ * when it did.
+ */
+function capabilityNames(value) {
+  const entries = Array.isArray(value)
+    ? value
+    : (value && typeof value === 'object' ? Object.keys(value).map((key) => ({ [key]: value[key] })) : null);
+  if (entries === null) return null;
+  const names = [];
+  for (const entry of entries.slice(0, 100)) {
+    if (typeof entry === 'string') {
+      if (AGENT_CAPABILITY_ALLOWLIST.includes(entry)) names.push(entry);
+      continue;
+    }
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      for (const key of Object.keys(entry)) {
+        if (AGENT_CAPABILITY_ALLOWLIST.includes(key)) names.push(key);
+      }
+    }
+  }
+  return [...new Set(names)].slice(0, AGENT_CAPABILITY_ALLOWLIST.length);
+}
+
+/**
+ * Host and agent identity, from a real `relay.ping` / `relay.hello` reply.
+ *
+ * The agent block in a hello reply IS the ACP initialize result:
+ *   { protocolVersion, agentInfo: { name, version }, agentCapabilities: [...] }
+ * Reading only top-level strings out of it returned null for every field the
+ * panel displays, which is why Protocol/Version/Capabilities rendered UNKNOWN
+ * against a host that had reported all three.
+ */
 function sanitizeHostIdentity(reply) {
   const host = reply && reply.host && typeof reply.host === 'object' ? reply.host : {};
   const agent = reply && reply.agent && typeof reply.agent === 'object' ? reply.agent : null;
+  const agentInfo = agent && agent.agentInfo && typeof agent.agentInfo === 'object' ? agent.agentInfo : {};
   const trim = (value) => (typeof value === 'string' && value !== '' ? value.slice(0, MAX_HOST_ID_CHARS) : null);
-  const version = trim(reply && reply.protocol_version) ?? trim(host.protocol_version);
+
+  // The agent's own protocol version is the most specific answer available; the
+  // bridge's `protocol_version` is the fallback when the agent reported none.
+  const protocol = protocolScalar(agent && agent.protocolVersion)
+    ?? protocolScalar(reply && reply.protocol_version)
+    ?? protocolScalar(host.protocol_version);
+  // The AGENT's version. It is not the protocol version and is never filled in
+  // from it: the panel shows both, so conflating them would be a false claim.
+  const version = trim(agentInfo.version);
+  const capabilities = capabilityNames(agent && agent.agentCapabilities)
+    ?? capabilityNames(reply && reply.capabilities);
+
   return {
     host: {
       name: trim(host.name),
       node_id: trim(host.node_id),
-      protocol_version: version
+      protocol_version: protocol
     },
-    // Status and running only. A filesystem path is not needed to answer
-    // "is the agent up", and is not this worker's to redistribute.
-    agent: agent ? { status: trim(agent.status), running: agent.running === true } : null,
+    // Name/status/running only. A filesystem path is not needed to answer "is the
+    // agent up", and is not this worker's to redistribute.
+    agent: agent
+      ? { name: trim(agentInfo.name), status: trim(agent.status), running: agent.running === true }
+      : null,
+    protocol,
     version,
-    // Only what the host actually reported. The ACP bridge negotiates versions
-    // and capabilities; this worker does not guess them from a status string.
-    capabilities: Array.isArray(reply && reply.capabilities)
-      ? reply.capabilities.filter((c) => typeof c === 'string').slice(0, 50)
-      : null
+    capabilities
   };
 }
 

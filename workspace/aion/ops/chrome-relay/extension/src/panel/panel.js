@@ -677,11 +677,29 @@ export function sanitizeChatgptUrl(raw) {
  * address the wrong tab. A missing or unusable URL yields no option at all —
  * the parent check flagged that rendering a tab with an UNKNOWN url and then
  * letting it be selected is an unsafe selection.
+ *
+ * TWO ID SPELLINGS, one value. The worker's port driver emits `tab_id`, while a
+ * raw tab from chrome.tabs carries `id`. Reading only `id` rejected every real
+ * entry and left the selector empty with the rejects counter climbing. Both are
+ * accepted; a record carrying BOTH and disagreeing is refused rather than
+ * resolved, because a record with two ids is either a bug or a forgery and
+ * picking one would guess which tab an operator is about to type into.
  */
 export function sanitizeTab(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const id = raw.id;
-  if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) return null;
+
+  const idOk = (value) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+  const hasTabId = raw.tab_id !== undefined;
+  const hasId = raw.id !== undefined;
+
+  // A provided id must be a real number. Presence with a bad shape is a refusal,
+  // not a reason to fall through to the other spelling.
+  if (hasTabId && !idOk(raw.tab_id)) return null;
+  if (hasId && !idOk(raw.id)) return null;
+  if (!hasTabId && !hasId) return null;
+  if (hasTabId && hasId && raw.tab_id !== raw.id) return null;
+
+  const id = hasTabId ? raw.tab_id : raw.id;
   const url = sanitizeChatgptUrl(raw.url);
   if (url === null) return null;
   return { id, url };

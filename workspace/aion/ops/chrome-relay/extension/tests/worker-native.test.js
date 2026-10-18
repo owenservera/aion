@@ -435,6 +435,110 @@ test('a boundary failure degrades a verified relay instead of leaving it verifie
   });
 });
 
+/**
+ * The REAL `relay.hello` reply, as bridge/src/host.js `handleHello` sends it.
+ *
+ * Copied from the bridge's actual
+ * `send({ ok:true, protocol_version, agent: info, session })`, where `info` is
+ * the ACP `initialize` result — NOT an invented shape. The bug this guards
+ * against was reading only top-level strings, which returned null for every
+ * field the panel displays while the host had reported all three.
+ */
+function realHelloReply() {
+  return {
+    type: 'relay.reply',
+    ok: true,
+    protocol_version: 1,
+    agent: {
+      protocolVersion: 1,
+      agentInfo: { name: 'OpenCode', version: '2.0.32' },
+      agentCapabilities: {
+        fs: { readTextFile: true, writeTextFile: false },
+        terminal: false,
+        // Neither of these is a capability this bridge knows, and both would
+        // name a filesystem location or free prose if they were echoed.
+        cwd: 'C:\\Users\\someone\\secret-project',
+        note: 'a sentence, not an identifier'
+      },
+      // Never redistributed: a filesystem path from the host.
+      agentPath: 'C:\\Program Files\\agent\\agent.exe'
+    },
+    session: { created: false }
+  };
+}
+
+test('a real hello reply yields protocol, agent version and capability NAMES', async () => {
+  await withChrome({
+    replyFor: (type) => (type === 'relay.hello' ? realHelloReply() : null)
+  }, async () => {
+    const reply = await send({ type: 'aion/native-hello' });
+    assert.equal(reply.ok, true);
+    assert.equal(reply.acp_initialized, true);
+
+    // Protocol is a NUMBER on this wire and must survive as one.
+    assert.equal(reply.protocol, 1);
+    assert.equal(typeof reply.protocol, 'number', 'a numeric protocol must not be stringified');
+
+    // Version is the AGENT's, from agentInfo — never the protocol number.
+    assert.equal(reply.version, '2.0.32');
+    assert.notEqual(reply.version, reply.protocol);
+
+    // Capability NAMES from the allowlist only. `cwd` and `note` are
+    // identifier-shaped keys and would pass any pattern test; only an allowlist
+    // keeps them out.
+    assert.deepEqual(reply.capabilities, ['fs', 'terminal']);
+
+    // Nothing shaped like a path, a sentence or an executable may leak.
+    const blob = JSON.stringify(reply);
+    assert.equal(blob.includes('secret-project'), false, 'a cwd value leaked');
+    assert.equal(blob.includes('agent.exe'), false, 'the agent path leaked');
+    assert.equal(blob.includes('Program Files'), false);
+    assert.equal(blob.includes('a sentence'), false, 'a free-text capability value leaked');
+  });
+});
+
+test('the ping reply reports host identity without inventing agent facts', async () => {
+  await withChrome({}, async () => {
+    const reply = await send({ type: 'aion/native-ping' });
+    assert.equal(reply.ok, true);
+    assert.equal(reply.host.node_id, 'node-native-01');
+    // This host's agent block is `{status, running}` with no agentInfo, so no
+    // agent version may be claimed — absent or null, never back-filled from the
+    // protocol number.
+    assert.ok(reply.version === undefined || reply.version === null,
+      `ping must not fabricate a version, got ${JSON.stringify(reply.version)}`);
+    assert.equal(reply.agent.status, 'idle');
+    assert.equal(reply.agent.running, false);
+  });
+});
+
+test('a string protocol version stays a string and is never coerced', async () => {
+  await withChrome({
+    replyFor: (type) => (type === 'relay.hello'
+      ? { ...realHelloReply(), protocol_version: '0.9', agent: { ...realHelloReply().agent, protocolVersion: '0.9' } }
+      : null)
+  }, async () => {
+    const reply = await send({ type: 'aion/native-hello' });
+    assert.equal(reply.protocol, '0.9');
+    assert.equal(typeof reply.protocol, 'string', '"0.9" and 0.9 are different claims');
+  });
+});
+
+test('a non-integer agent protocol falls back to the bridge own, never rounded', async () => {
+  await withChrome({
+    replyFor: (type) => (type === 'relay.hello'
+      ? { ...realHelloReply(), agent: { ...realHelloReply().agent, protocolVersion: 1.5 } }
+      : null)
+  }, async () => {
+    const reply = await send({ type: 'aion/native-hello' });
+    // 1.5 is not a protocol version that can be reported, and rounding it to 2
+    // would invent one. The bridge's own `protocol_version: 1` is the next most
+    // specific honest answer.
+    assert.equal(reply.protocol, 1);
+    assert.notEqual(reply.protocol, 1.5);
+  });
+});
+
 test('the ChatGPT path does not depend on ACP, and hello claims no session', async () => {
   await withChrome({
     contentActions: { ping: (port, msg) => ({ action: msg.action, ok: true, href: 'https://chatgpt.com/c/abc', state: {} }) },
@@ -448,7 +552,11 @@ test('the ChatGPT path does not depend on ACP, and hello claims no session', asy
     assert.equal(hello.acp_initialized, true);
     assert.equal(hello.session_ready, false, 'initialize must not be reported as a usable session');
     assert.equal(hello.session, null);
-    assert.deepEqual(hello.capabilities, ['session/prompt']);
+    // `session/prompt` is not a capability this bridge reports: the allowlist is
+    // fs/terminal/mcp, the same set the bridge declares in clientCapabilities.
+    // An unrecognised name is dropped, so the panel shows "none reported"
+    // rather than a capability we cannot vouch for.
+    assert.deepEqual(hello.capabilities, []);
 
     // The tab path is independent of all of it.
     const tabs = await send({ type: 'aion/chatgpt-tabs' });
