@@ -111,15 +111,23 @@ function main() {
     initialOrigin: extensionId,
   });
 
+  // The host may have refused the origin already (NM-02). Reporting "ready" for
+  // an origin we just rejected would put a lie in the log, so state what happened.
+  if (host.state.refused) {
+    logger.error(`refused extension ${extensionId}; this host will execute nothing`);
+    process.stderr.write(`aion-relay-host: origin ${extensionId} is not allowed; refusing to serve\n`);
+  } else {
+    logger.info(`aion-relay-host ready for extension ${extensionId}`);
+  }
+
   const shutdown = (signal) => {
     logger.info(`received ${signal}; shutting down`);
-    try { host.close(); } catch { /* already closed */ }
+    // The host API is stop(), not close().
+    try { host.stop(); } catch { /* already stopped */ }
     process.exit(0);
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-  logger.info(`aion-relay-host ready for extension ${extensionId}`);
 }
 
 // Only serve when executed directly. Importing this module (the host tests do,

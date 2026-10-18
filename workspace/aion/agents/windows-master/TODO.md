@@ -43,11 +43,40 @@ connection with `origin_missing`.
 stdout** (ACP-10). No-origin invocation exits 2.
 **Not yet proven:** connection persistence under a real Chrome session — comes with item 2.
 
-### 2. Register the native host (FLOW step 1) — **TODO — NEXT**
-HKCU `Software\Google\Chrome\NativeMessagingHosts\com.aion.relay` → absolute path of a **copy** of
-`bridge/native-host/manifest.template.json` with its `path` field filled to the launcher `.cmd`.
-Authorized (G1). Reversible: delete the key.
-Verify by reading the key back, then confirm Chrome can resolve the host.
+### 2. Register the native host (FLOW step 1) — **DONE**
+
+**Installed, read back independently.** No UAC was required or shown — HKCU is the current user's hive.
+
+| Step | Result |
+|---|---|
+| Registry key | `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.aion.relay` |
+| Key value (default) | `C:\Users\VIVIM.inc\AppData\Local\AION\relay\manifest.json` |
+| Independent read | `reg.exe query` confirms the `REG_SZ` value (different code path than the PowerShell provider) |
+| Manifest `name` / `type` | `com.aion.relay` / `stdio` |
+| Manifest `path` | `…\bridge\native-host\aion-relay-host.cmd` — exists |
+| `allowed_origins` | `chrome-extension://kgjfielmhcdlggjppmliabpiljnonhki/` — matches the pinned id |
+
+The real manifest lives in `%LOCALAPPDATA%\AION\relay\`, **outside the repo**, because it carries a
+machine-specific absolute path. The repo keeps only `manifest.template.json`.
+
+**Live verification from the registered path:**
+- correct origin → `origin accepted` + `ready for extension kgjfielm…`, **0 bytes on stdout** (ACP-10)
+- wrong origin → `refused extension aaaa…; this host will execute nothing`
+
+**Two bugs found and fixed during this step:**
+1. The entry point logged `ready for extension <id>` *even when it had just refused that origin*. The
+   refusal worked, but the log claimed readiness. Now reports refusal honestly.
+2. `host.close()` — the host API has no `close()`. It has `stop()`. That would have thrown on every
+   shutdown. Caught by reading the API surface, not by a test.
+
+Bridge suite re-run after the fix: **96/96**.
+
+**Rollback:** `Remove-Item 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.aion.relay'`
+(optionally also delete `%LOCALAPPDATA%\AION\relay\`). No repository data is affected.
+
+**Known risk, untested:** Chrome launches the host via `CreateProcess`. Whether it accepts a `.cmd`
+shim is **not yet proven** — only *we* launching it is proven. If Chrome refuses, the fallback is a Node
+SEA single-executable build or a compiled shim. This surfaces in item 3.
 
 ### 3. Service-worker native adapter (FLOW step 2) — **TODO**
 `extension/src/lib/transport.js` has only `disabled-native` / `disabled-loopback` / `fixture`; the
