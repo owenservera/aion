@@ -7,12 +7,12 @@
     <link rel="stylesheet" href="panel.css" />
   </head>
   <body>
-    <a class="skip-link" href="#role-grid">Skip to role grid</a>
+    <a class="skip-link" href="#steps">Skip to the connection test</a>
 
     <header class="masthead">
       <div class="masthead__identity">
-        <h1 class="masthead__title">AION Relay Station</h1>
-        <p class="masthead__subtitle">Operator console. Reports observed state only.</p>
+        <h1 class="masthead__title">AION Relay</h1>
+        <p class="masthead__subtitle">Links ChatGPT tabs to your local OpenCode agent.</p>
       </div>
       <div class="masthead__tools">
         <span class="chip" id="mode-chip" data-state="unknown">MODE UNKNOWN</span>
@@ -20,237 +20,309 @@
       </div>
     </header>
 
-    <!-- Distinction 1: absence of knowledge is its own state. The banner
-         below is a live element, not decoration, and always says whether the
-         panel currently knows anything. -->
+    <!-- Two views of the same state. The machine view is read-only and cannot send. -->
+    <nav class="viewswitch" aria-label="Choose a view">
+      <a class="viewswitch__link" id="view-human" href="sidepanel.html" aria-current="page">For people</a>
+      <a class="viewswitch__link" id="view-machine" href="agent.html">For agents</a>
+    </nav>
+
+    <!-- Absence of knowledge is its own state. This banner is a live element,
+         not decoration: it always says whether the panel currently knows anything. -->
     <section class="knowledge" id="knowledge-bar" data-state="unknown" aria-live="polite">
-      <span class="knowledge__mark" aria-hidden="true">UNKNOWN</span>
+      <span class="knowledge__mark" aria-hidden="true">Unknown</span>
       <span class="knowledge__text" id="knowledge-text">
         Nothing has been observed yet. Fields below are unknown, not idle.
       </span>
     </section>
 
-    <main class="layout">
-      <section class="panel" aria-labelledby="relay-heading">
-        <h2 class="panel__heading" id="relay-heading">Relay and transport</h2>
-        <p class="panel__note">
-          Transport reachability. Says nothing about task execution or proof.
+    <!-- At a glance: the two facts people look for first. Same elements as before,
+         just moved to the top. Transport reachability says nothing about task
+         execution or proof. -->
+    <section class="glance" aria-labelledby="glance-heading">
+      <h2 class="visually-hidden" id="glance-heading">Connection at a glance</h2>
+      <dl class="glance__list">
+        <div class="glance__item">
+          <dt>Host link</dt>
+          <dd data-state="unknown" id="relay-transport">UNKNOWN</dd>
+        </div>
+        <div class="glance__item">
+          <dt>Adapter</dt>
+          <dd data-state="unknown" id="relay-adapter">UNKNOWN</dd>
+        </div>
+      </dl>
+      <p class="footnote" id="fallback-reason">Fallback reason: UNKNOWN</p>
+    </section>
+
+    <!-- Guidance only. It names the next action a person could take, derived from
+         results already shown on this page. It never clicks, selects or sends. -->
+    <section class="next" id="next-step" data-tone="go" aria-labelledby="next-step-text">
+      <p class="next__text" id="next-step-text">The next step appears here once the panel has loaded.</p>
+      <button type="button" class="btn next__go" id="next-step-go" hidden>Take me there</button>
+    </section>
+
+    <!-- The approval gate is a first-class block, not a footnote. A held task must
+         never look like a progressing one. -->
+    <section class="gate" aria-labelledby="gate-heading" id="gate-panel" data-gate="unknown">
+      <h2 class="section__heading" id="gate-heading">Waiting for your approval</h2>
+      <p class="gate__count" data-state="unknown" id="gate-count">UNKNOWN</p>
+      <ul class="gate__list" id="gate-list"></ul>
+      <p class="footnote" id="gate-note">Approval state not observed.</p>
+    </section>
+
+    <main>
+      <!-- Operator controls. Every action here is a user-initiated probe.
+           Nothing in this section runs on load, on focus, or on a timer. -->
+      <section class="ops" aria-labelledby="ops-heading">
+        <h2 class="section__heading" id="ops-heading">Test the connection</h2>
+        <p class="section__lede">
+          One action at a time. Nothing is sent automatically, and nothing repeats
+          an earlier action on its own.
         </p>
-        <dl class="readout">
-          <div class="readout__row">
-            <dt>Transport</dt>
-            <dd data-state="unknown" id="relay-transport">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Adapter</dt>
-            <dd data-state="unknown" id="relay-adapter">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Detail</dt>
-            <dd data-state="unknown" id="relay-detail">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Worker boots</dt>
-            <dd data-state="unknown" id="relay-boots">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Worker started</dt>
-            <dd data-state="unknown" id="relay-started">UNKNOWN</dd>
-          </div>
-        </dl>
-        <p class="footnote" id="fallback-reason">Fallback reason: UNKNOWN</p>
+
+        <ol class="steps" id="steps">
+          <li class="step" aria-labelledby="step-host">
+            <span class="step__node" aria-hidden="true">1</span>
+            <div class="step__body">
+              <h3 class="step__title" id="step-host">Check the relay host</h3>
+              <p class="step__hint">
+                Check host confirms Chrome can reach the local host. Initialize ACP
+                starts the handshake with OpenCode. Neither sends a message.
+              </p>
+              <div class="btnrow">
+                <button type="button" class="btn" id="btn-native-ping">Check host</button>
+                <button type="button" class="btn" id="btn-native-hello">Initialize ACP</button>
+              </div>
+              <p class="result" id="result-native" role="status" aria-live="polite">Not run.</p>
+              <button type="button" class="btn btn--quiet" data-copy-target="result-native">Copy result</button>
+            </div>
+          </li>
+
+          <li class="step" aria-labelledby="step-tab">
+            <span class="step__node" aria-hidden="true">2</span>
+            <div class="step__body">
+              <h3 class="step__title" id="step-tab">Choose a ChatGPT tab</h3>
+              <div class="btnrow">
+                <button type="button" class="btn" id="btn-chatgpt-tabs">Find ChatGPT tabs</button>
+              </div>
+              <div class="field">
+                <label for="tab-select">Selected tab</label>
+                <select id="tab-select" aria-describedby="tab-select-note" disabled>
+                  <option value="">No tab selected</option>
+                </select>
+              </div>
+              <p class="footnote" id="tab-select-note">
+                Only the tab id and a cleaned-up address are listed. An open tab does
+                not mean an agent is running in it.
+              </p>
+              <div class="btnrow">
+                <button type="button" class="btn" id="btn-chatgpt-ping" disabled>Check selected tab</button>
+              </div>
+              <p class="result" id="result-chatgpt" role="status" aria-live="polite">Not run.</p>
+              <button type="button" class="btn btn--quiet" data-copy-target="result-chatgpt">Copy result</button>
+            </div>
+          </li>
+
+          <li class="step step--send" aria-labelledby="step-probe">
+            <span class="step__node" aria-hidden="true">3</span>
+            <div class="step__body">
+              <h3 class="step__title" id="step-probe">Send one test message</h3>
+              <p class="step__hint">
+                Sends exactly one message into the selected tab. The fields start blank
+                and you fill them in.
+              </p>
+
+              <div class="btnrow">
+                <button type="button" class="btn" id="btn-generate-ids" aria-describedby="generate-note">
+                  Fill in ids and a starter message
+                </button>
+              </div>
+              <p class="footnote" id="generate-note">
+                Optional. Fills the empty fields with a random id, a random token and a message that
+                asks for both. It sends nothing, and it never overwrites what you typed.
+              </p>
+
+              <div class="field">
+                <label for="probe-text">Message</label>
+                <textarea id="probe-text" rows="3" spellcheck="false" aria-describedby="probe-text-note"></textarea>
+              </div>
+              <p class="footnote" id="probe-text-note">
+                Required. Typed by you. <span id="probe-text-count" class="count">0 / 2000</span>
+              </p>
+
+              <div class="field">
+                <label for="probe-correlation">Correlation id</label>
+                <input type="text" id="probe-correlation" autocomplete="off" spellcheck="false" aria-describedby="probe-correlation-note" />
+              </div>
+              <p class="footnote" id="probe-correlation-note">
+                Required. The reply must contain it. Letters, digits, dot, underscore, colon, dash. Up to 128.
+              </p>
+
+              <div class="field">
+                <label for="probe-token">Expected reply token</label>
+                <input type="text" id="probe-token" autocomplete="off" spellcheck="false" aria-describedby="probe-token-note" />
+              </div>
+              <p class="footnote" id="probe-token-note">
+                Required. The reply must have it on a line of its own. Same characters, up to 128.
+                Never a password or key.
+              </p>
+
+              <dl class="review" id="review" aria-label="Check before you send">
+                <div class="review__row">
+                  <dt>Goes to</dt>
+                  <dd id="review-tab">UNKNOWN</dd>
+                </div>
+                <div class="review__row">
+                  <dt>Message</dt>
+                  <dd id="review-length">0 characters</dd>
+                </div>
+                <div class="review__row">
+                  <dt>Reply check</dt>
+                  <dd id="review-token">Not ready: add a token and a message that asks for it.</dd>
+                </div>
+              </dl>
+
+              <div class="field field--check">
+                <input type="checkbox" id="probe-confirm" aria-describedby="probe-confirm-note" />
+                <label for="probe-confirm">
+                  I want to send this one message to the selected tab now.
+                </label>
+              </div>
+              <p class="footnote footnote--warn" id="probe-confirm-note">
+                A sent message cannot be unsent. You can delete the chat by hand
+                afterwards; this panel will not do that for you.
+              </p>
+
+              <div class="btnrow">
+                <button type="button" class="btn btn--armed" id="btn-chatgpt-run" disabled>Run one probe</button>
+                <button type="button" class="btn" id="btn-probe-reconcile" disabled
+                        aria-describedby="probe-reconcile-note">
+                  Reconcile probe state
+                </button>
+              </div>
+              <p class="footnote" id="probe-reconcile-note">
+                Reconcile sends nothing. It only re-arms the run button so you can type
+                and confirm a new probe.
+              </p>
+              <p class="hold" id="probe-hold" data-hold="clear" role="status" aria-live="polite">
+                Probe not sent. Nothing has been dispatched.
+              </p>
+              <p class="gate__list gate__list--inline" id="probe-blockers"></p>
+              <p class="result" id="result-run" role="status" aria-live="polite">Not run.</p>
+              <button type="button" class="btn btn--quiet" data-copy-target="result-run">Copy result</button>
+              <p class="footnote" id="copy-status" role="status" aria-live="polite"></p>
+              <p class="footnote">
+                Anything captured from a tab is a capture, not a verified result. It is
+                not a proof receipt and does not change any task on this page.
+              </p>
+            </div>
+          </li>
+        </ol>
       </section>
 
-      <section class="panel" aria-labelledby="evidence-heading">
-        <h2 class="panel__heading" id="evidence-heading">Proof and evidence</h2>
-        <p class="panel__note">
-          Separate claim from transport. A delivery ACK never populates this.
-        </p>
-        <dl class="readout">
-          <div class="readout__row">
-            <dt>Proof status</dt>
-            <dd data-state="unknown" id="proof-status">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Last evidence</dt>
-            <dd data-state="unknown" id="proof-timestamp">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Staleness</dt>
-            <dd data-state="unknown" id="proof-staleness">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Verifier</dt>
-            <dd data-state="unknown" id="proof-verifier">UNKNOWN</dd>
-          </div>
-        </dl>
-        <p class="footnote" id="proof-note">No proof event observed.</p>
-      </section>
+      <!-- Detail sections are folded away by default. They are read-only. -->
+      <details class="fold">
+        <summary class="fold__summary">Connection details</summary>
+        <div class="fold__body">
+          <p class="section__lede">
+            Reachability only. This says nothing about task execution or proof.
+          </p>
+          <dl class="readout">
+            <div class="readout__row">
+              <dt>Detail</dt>
+              <dd data-state="unknown" id="relay-detail">UNKNOWN</dd>
+            </div>
+            <div class="readout__row">
+              <dt>Worker boots</dt>
+              <dd data-state="unknown" id="relay-boots">UNKNOWN</dd>
+            </div>
+            <div class="readout__row">
+              <dt>Worker started</dt>
+              <dd data-state="unknown" id="relay-started">UNKNOWN</dd>
+            </div>
+          </dl>
+        </div>
+      </details>
 
-      <section class="panel" aria-labelledby="queue-heading">
-        <h2 class="panel__heading" id="queue-heading">Outbox</h2>
-        <p class="panel__note">Queued, not sent, unless the row says otherwise.</p>
-        <dl class="readout">
-          <div class="readout__row">
-            <dt>Queued</dt>
-            <dd data-state="unknown" id="queue-count">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Oldest queued</dt>
-            <dd data-state="unknown" id="queue-oldest">UNKNOWN</dd>
-          </div>
-          <div class="readout__row">
-            <dt>Cursor</dt>
-            <dd data-state="unknown" id="queue-cursor">UNKNOWN</dd>
-          </div>
-        </dl>
-      </section>
+      <details class="fold">
+        <summary class="fold__summary">Verification</summary>
+        <div class="fold__body">
+          <p class="section__lede">
+            Kept apart from the connection. A delivery acknowledgement never fills this in.
+          </p>
+          <dl class="readout">
+            <div class="readout__row">
+              <dt>Proof status</dt>
+              <dd data-state="unknown" id="proof-status">UNKNOWN</dd>
+            </div>
+            <div class="readout__row">
+              <dt>Last evidence</dt>
+              <dd data-state="unknown" id="proof-timestamp">UNKNOWN</dd>
+            </div>
+            <div class="readout__row">
+              <dt>Staleness</dt>
+              <dd data-state="unknown" id="proof-staleness">UNKNOWN</dd>
+            </div>
+            <div class="readout__row">
+              <dt>Verifier</dt>
+              <dd data-state="unknown" id="proof-verifier">UNKNOWN</dd>
+            </div>
+          </dl>
+          <p class="footnote" id="proof-note">No proof event observed.</p>
+        </div>
+      </details>
 
-      <!-- Distinction 4: the approval gate is a first-class block, not a
-           footnote. A held task must never look like a progressing one. -->
-      <section class="panel panel--gate" aria-labelledby="gate-heading" id="gate-panel" data-gate="unknown">
-        <h2 class="panel__heading" id="gate-heading">Permission and approval gate</h2>
-        <p class="panel__note">
-          Tasks here are held. A held task is not moving and has not been sent.
-        </p>
-        <p class="gate__count" data-state="unknown" id="gate-count">UNKNOWN</p>
-        <ul class="gate__list" id="gate-list"></ul>
-        <p class="footnote" id="gate-note">Approval state not observed.</p>
-      </section>
+      <details class="fold">
+        <summary class="fold__summary">Queued messages</summary>
+        <div class="fold__body">
+          <p class="section__lede">Queued means not sent, unless a row says otherwise.</p>
+          <dl class="readout">
+            <div class="readout__row">
+              <dt>Queued</dt>
+              <dd data-state="unknown" id="queue-count">UNKNOWN</dd>
+            </div>
+            <div class="readout__row">
+              <dt>Oldest queued</dt>
+              <dd data-state="unknown" id="queue-oldest">UNKNOWN</dd>
+            </div>
+            <div class="readout__row">
+              <dt>Cursor</dt>
+              <dd data-state="unknown" id="queue-cursor">UNKNOWN</dd>
+            </div>
+          </dl>
+        </div>
+      </details>
+
+      <details class="fold">
+        <summary class="fold__summary">Agent roles</summary>
+        <div class="fold__body">
+          <p class="section__lede">
+            Eight named roles. The tab row is browser metadata only. Whether an agent is
+            actually running is tracked separately and never guessed from an open tab.
+          </p>
+          <ul class="role-grid" id="role-grid"></ul>
+        </div>
+      </details>
+
+      <details class="fold">
+        <summary class="fold__summary">About this panel</summary>
+        <div class="fold__body">
+          <p class="footnote">
+            The status sections are read-only and report observed state only. The
+            controls above can send a probe only after an explicit click.
+          </p>
+          <p class="footnote">
+            This extension has access to chatgpt.com only. Its page script is passive
+            and acts only on commands sent from this panel. It stores no credentials.
+          </p>
+          <p class="footnote">
+            Sources: ARCHITECTURE.md, FALLBACK-AND-ACCEPTANCE.md (modes A to E),
+            ENVELOPE-CONTRACT.md, role-launcher/ROLES.json.
+          </p>
+        </div>
+      </details>
     </main>
 
-    <section class="roles" aria-labelledby="roles-heading">
-      <div class="roles__head">
-        <h2 class="panel__heading" id="roles-heading">Role contexts</h2>
-        <p class="panel__note">
-          Eight named contexts. Tab presence below is browser UI metadata. Executor
-          liveness is tracked separately and is never inferred from an open tab.
-        </p>
-      </div>
-      <ul class="role-grid" id="role-grid"></ul>
-    </section>
-
-    <!-- Operator controls. Every action here is a user-initiated probe.
-         Nothing on this section runs on load, on focus, or on a timer. -->
-    <section class="ops" aria-labelledby="ops-heading">
-      <div class="roles__head">
-        <h2 class="panel__heading" id="ops-heading">Operator controls</h2>
-        <p class="panel__note">
-          Explicit, one action at a time. Nothing is sent automatically, and nothing
-          here repeats an earlier action on its own.
-        </p>
-      </div>
-
-      <section class="panel" aria-labelledby="step-host">
-        <h3 class="panel__subheading" id="step-host">Step 1 — Host and ACP</h3>
-        <div class="btnrow">
-          <button type="button" class="btn" id="btn-native-ping">Check host</button>
-          <button type="button" class="btn" id="btn-native-hello">Initialize ACP</button>
-        </div>
-        <p class="result" id="result-native" role="status" aria-live="polite">Not run.</p>
-      </section>
-
-      <section class="panel" aria-labelledby="step-tab">
-        <h3 class="panel__subheading" id="step-tab">Step 2 — ChatGPT tab</h3>
-        <div class="btnrow">
-          <button type="button" class="btn" id="btn-chatgpt-tabs">Find ChatGPT tabs</button>
-        </div>
-        <div class="field">
-          <label for="tab-select">Selected tab</label>
-          <select id="tab-select" aria-describedby="tab-select-note" disabled>
-            <option value="">No tab selected</option>
-          </select>
-        </div>
-        <p class="footnote" id="tab-select-note">
-          Only id and sanitized URL are listed. Tab presence is metadata; selecting a
-          tab here does not start an agent and does not prove one is running.
-        </p>
-        <div class="btnrow">
-          <button type="button" class="btn" id="btn-chatgpt-ping" disabled>Check selected tab</button>
-        </div>
-        <p class="result" id="result-chatgpt" role="status" aria-live="polite">Not run.</p>
-      </section>
-
-      <section class="panel" aria-labelledby="step-probe">
-        <h3 class="panel__subheading" id="step-probe">Step 3 — Run one probe</h3>
-        <p class="panel__note">
-          Sends exactly one message into the selected tab. Fields start blank.
-        </p>
-
-        <div class="field">
-          <label for="probe-text">Prompt text</label>
-          <textarea id="probe-text" rows="3" spellcheck="false" aria-describedby="probe-text-note"></textarea>
-        </div>
-        <p class="footnote" id="probe-text-note">Required. Typed by the operator.</p>
-
-        <div class="field">
-          <label for="probe-correlation">Correlation id</label>
-          <input type="text" id="probe-correlation" autocomplete="off" spellcheck="false" aria-describedby="probe-correlation-note" />
-        </div>
-        <p class="footnote" id="probe-correlation-note">
-          Required. Letters, digits, dot, underscore, colon, dash. Max 128.
-        </p>
-
-        <div class="field">
-          <label for="probe-token">Expected reply token</label>
-          <input type="text" id="probe-token" autocomplete="off" spellcheck="false" aria-describedby="probe-token-note" />
-        </div>
-        <p class="footnote" id="probe-token-note">
-          Required. Same character rules. Max 128. Never a credential.
-        </p>
-
-        <div class="field field--check">
-          <input type="checkbox" id="probe-confirm" aria-describedby="probe-confirm-note" />
-          <label for="probe-confirm">
-            I have read this and I want to send one probe to the selected tab now.
-          </label>
-        </div>
-        <p class="footnote footnote--warn" id="probe-confirm-note">
-          A message that has been sent cannot be unsent. The chat can be deleted
-          afterwards by hand, but that is a separate manual action this panel will
-          not take for you.
-        </p>
-
-        <div class="btnrow">
-          <button type="button" class="btn btn--armed" id="btn-chatgpt-run" disabled>Run one probe</button>
-          <button type="button" class="btn" id="btn-probe-reconcile" disabled
-                  aria-describedby="probe-reconcile-note">
-            Reconcile probe state
-          </button>
-        </div>
-        <p class="footnote" id="probe-reconcile-note">
-          Reconciling does not send anything. It only re-arms the run button so a
-          new probe can be typed and authorized.
-        </p>
-        <p class="hold" id="probe-hold" data-hold="clear" role="status" aria-live="polite">
-          Probe not sent. Nothing has been dispatched.
-        </p>
-        <p class="gate__list gate__list--inline" id="probe-blockers"></p>
-        <p class="result" id="result-run" role="status" aria-live="polite">Not run.</p>
-      </section>
-
-      <section class="panel panel--gate" aria-labelledby="capture-note">
-        <h3 class="panel__subheading" id="capture-note">What a capture is not</h3>
-        <p class="footnote">
-          Output captured from a tab is a capture, not a verified result. It is not
-          independently verified, it is not a proof receipt, and it does not move any
-          task state on this page.
-        </p>
-      </section>
-    </section>
-
-    <footer class="colophon">
-      <p>
-        The status area above is read-only. The operator controls can send a probe
-        only after an explicit click. No content scripts, no host permissions in this
-        manifest, no credentials.
-      </p>
-      <p>
-        Sources: ARCHITECTURE.md, FALLBACK-AND-ACCEPTANCE.md modes A to E,
-        ENVELOPE-CONTRACT.md, role-launcher/ROLES.json.
-      </p>
-    </footer>
-
     <script type="module" src="panel.js"></script>
+    <script type="module" src="guide.js"></script>
   </body>
 </html>

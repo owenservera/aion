@@ -32,7 +32,7 @@
 //   indicator; and `channel === 'final'` assistant blocks as the only answer.
 //   Deviations are marked "DEVIATION" with the reason.
 
-import { createEnvelope } from '../lib/index.js';
+import { createEnvelope } from '../lib/envelope.js';
 import {
   DEFAULT_POLL_MS,
   DEFAULT_SETTLE_MS,

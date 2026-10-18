@@ -5,7 +5,7 @@
   "type": "module",
   "description": "AION Milestone 1 native messaging bridge: Chrome length-prefixed framing <-> newline JSON-RPC ACP <-> AION relay envelopes. NOT registered, NOT installed.",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "test": "node --test"

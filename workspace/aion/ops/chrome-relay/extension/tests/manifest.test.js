@@ -106,3 +106,15 @@ test('loader.js resolves content.js through the fixed chrome.runtime.getURL path
     'loader.js must dynamic-import content.js by its fixed chrome.runtime.getURL path',
   );
 });
+
+// Least exposure: use_dynamic_url is false (required above), so any chatgpt.com page can fetch these files
+// and fingerprint the extension. Expose exactly what content.js needs, nothing else. In particular the
+// native-messaging transport and the store must never become page-reachable through a `src/lib/*.js` glob.
+test('web-accessible resources are exactly the content.js import closure (no globs)', () => {
+  const declared = manifest.web_accessible_resources.flatMap((entry) => entry.resources).sort();
+  assert.ok(declared.every((r) => !r.includes('*')), 'no wildcard patterns in web_accessible_resources');
+  const needed = [...closure(resolve(root, 'src/chatgpt/content.js'))]
+    .map((f) => relative(root, f).split('\\').join('/'))
+    .sort();
+  assert.deepEqual(declared, needed);
+});
