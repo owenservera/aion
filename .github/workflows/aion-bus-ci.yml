@@ -1,0 +1,74 @@
+name: AION bus regression
+on:
+  push:
+    paths:
+      - ".github/workflows/aion-bus-ci.yml"
+      - "workspace/aion/ops/aion-mcp/**"
+      - "workspace/aion/ops/chrome-relay/**"
+      - "workspace/aion/sessions/01-escape-hatch/adapter/**"
+  pull_request:
+    paths:
+      - ".github/workflows/aion-bus-ci.yml"
+      - "workspace/aion/ops/aion-mcp/**"
+      - "workspace/aion/ops/chrome-relay/**"
+      - "workspace/aion/sessions/01-escape-hatch/adapter/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows native-facing contract tests
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Parse PowerShell scripts without executing them
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = Get-ChildItem workspace/aion/ops/aion-mcp/windows -Filter '*.ps1'
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Host ("PowerShell parse error: " + $_.Message) }
+              exit 1
+            }
+            Write-Host ("Parsed: " + $file.Name)
+          }
+      - name: Read-only MCP protocol/unit tests
+        working-directory: workspace/aion/ops/aion-mcp
+        run: npm test
+      - name: MCP live-local subprocess proof on hosted Windows runner
+        working-directory: workspace/aion/ops/aion-mcp
+        run: npm run verify
+      - name: Chrome extension fixture tests
+        working-directory: workspace/aion/ops/chrome-relay/extension
+        run: npm test
+      - name: ACP bridge fixture tests
+        working-directory: workspace/aion/ops/chrome-relay/bridge
+        run: npm test
+      - name: Browser adapter fixture tests
+        working-directory: workspace/aion/sessions/01-escape-hatch/adapter
+        run: node --test send-m05.test.js
+  linux:
+    name: MCP protocol contract on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Unit and subprocess tests
+        working-directory: workspace/aion/ops/aion-mcp
+        run: npm test
+      - name: Checkout state read-back smoke
+        working-directory: workspace/aion/ops/aion-mcp
+        run: npm run verify
