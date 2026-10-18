@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AION Relay Station: agent view</title>
+    <link rel="stylesheet" href="panel.css" />
+    <link rel="stylesheet" href="agent.css" />
+  </head>
+  <body class="agentpage">
+    <a class="skip-link" href="#state-line">Skip to the state line</a>
+
+    <header class="masthead">
+      <div class="masthead__identity">
+        <h1 class="masthead__title">AION Relay: agent view</h1>
+        <p class="masthead__subtitle">Read-only state for agents. Schema aion.relay-view.v1.</p>
+      </div>
+    </header>
+
+    <nav class="viewswitch" aria-label="Choose a view">
+      <a class="viewswitch__link" id="view-human" href="sidepanel.html">For people</a>
+      <a class="viewswitch__link" id="view-machine" href="agent.html" aria-current="page">For agents</a>
+    </nav>
+
+    <main>
+      <p class="agentnote" id="read-only-note" data-guarantee="read-only">
+        This view only reads. It cannot send a message, approve a task or change any
+        setting. A person does that from the view for people, one click at a time.
+      </p>
+
+      <section class="block" aria-labelledby="line-heading">
+        <h2 class="section__heading" id="line-heading">State line</h2>
+        <p class="stateline" id="state-line" data-field="state_line" role="status" aria-live="polite">
+          HOST_LINK=UNKNOWN MODE=UNKNOWN APPROVALS=UNKNOWN PROOF=UNKNOWN OUTBOX=UNKNOWN
+        </p>
+        <p class="footnote" id="read-stamp" data-field="taken_at">Not read yet.</p>
+        <p class="problem" id="problem" data-field="problem" hidden></p>
+
+        <div class="btnrow">
+          <button type="button" class="btn" id="btn-refresh">Read now</button>
+          <button type="button" class="btn" id="btn-copy-json" aria-describedby="copy-json-note">Copy snapshot</button>
+        </div>
+        <div class="field field--check">
+          <input type="checkbox" id="watch-toggle" aria-describedby="watch-note" />
+          <label for="watch-toggle">Read again every 5 seconds while this page is visible</label>
+        </div>
+        <p class="footnote" id="watch-note">
+          Off by default. Each read only asks the worker for its current state.
+        </p>
+        <p class="footnote" id="copy-json-note" role="status" aria-live="polite">
+          Copies the snapshot below as JSON.
+        </p>
+      </section>
+
+      <section class="block" aria-labelledby="fields-heading">
+        <h2 class="section__heading" id="fields-heading">Fields</h2>
+        <p class="section__lede">
+          Every row has a stable data-field path. A value of UNKNOWN means nobody observed it.
+        </p>
+        <table class="fields" id="fields">
+          <thead>
+            <tr><th scope="col">Path</th><th scope="col">Value</th></tr>
+          </thead>
+          <tbody id="fields-body"></tbody>
+        </table>
+      </section>
+
+      <section class="block" aria-labelledby="changes-heading">
+        <h2 class="section__heading" id="changes-heading">Changes seen</h2>
+        <p class="section__lede">Differences between reads made by this page, newest first.</p>
+        <p class="footnote" id="changes-empty">No changes seen yet.</p>
+        <ol class="changes" id="changes"></ol>
+      </section>
+
+      <section class="block" aria-labelledby="catalog-heading">
+        <h2 class="section__heading" id="catalog-heading">What can be called</h2>
+        <p class="section__lede">
+          Worker messages and who may use them. Only the first row can be called from this view.
+        </p>
+        <table class="fields" id="catalog">
+          <thead>
+            <tr><th scope="col">Message</th><th scope="col">Kind</th><th scope="col">From this view</th></tr>
+          </thead>
+          <tbody id="catalog-body"></tbody>
+        </table>
+        <p class="footnote">
+          Messages are accepted only from this extension's own pages, never from a
+          web page, another extension or a tab.
+        </p>
+      </section>
+
+      <section class="block" aria-labelledby="rules-heading">
+        <h2 class="section__heading" id="rules-heading">Reading rules</h2>
+        <ul class="rules" id="rules"></ul>
+      </section>
+
+      <details class="fold">
+        <summary class="fold__summary">Snapshot as JSON</summary>
+        <div class="fold__body">
+          <pre class="json" id="snapshot-json" tabindex="0">{}</pre>
+        </div>
+      </details>
+
+      <details class="fold">
+        <summary class="fold__summary">How to read this page programmatically</summary>
+        <div class="fold__body">
+          <ul class="rules">
+            <li>The same snapshot is in a script element with id aion-snapshot and type application/json.</li>
+            <li>Every field row carries data-field with its dotted path.</li>
+            <li>Every catalog row carries data-action-type, data-kind and data-machine-callable.</li>
+            <li>This page must be opened in the side panel. In an ordinary tab the worker refuses the read, and the state stays UNKNOWN with the reason shown.</li>
+          </ul>
+        </div>
+      </details>
+
+      <script type="application/json" id="aion-snapshot">{}</script>
+    </main>
+
+    <script type="module" src="agent.js"></script>
+  </body>
+</html>

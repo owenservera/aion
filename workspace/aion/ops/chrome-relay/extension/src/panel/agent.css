@@ -1,0 +1,125 @@
+/* AION Relay Station: machine view.
+
+   Built to be read three ways: by a person, from a screenshot by a computer-use
+   agent (large state line, high contrast, no colour-only meaning), and from the
+   DOM by a browser-use agent (plain tables, stable data attributes). Tokens and
+   base styles come from panel.css. */
+
+.agentpage main {
+  padding-bottom: 24px;
+}
+
+.agentnote {
+  margin: 0 var(--pad) var(--gap);
+  padding: 9px 12px;
+  border-left: 4px solid var(--signal);
+  background: var(--surface);
+  font-size: 12.5px;
+  color: var(--text-mid);
+}
+
+.block {
+  padding: var(--gap) var(--pad) 6px;
+}
+
+/* One line carrying every headline fact, in a large monospace face so a
+   screenshot reader gets it without parsing the layout. Wraps, never truncates. */
+.stateline {
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  font-family: var(--font-data);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  word-spacing: 0.3em;
+  background: var(--surface);
+  border: 2px solid var(--text-hi);
+  overflow-wrap: anywhere;
+}
+
+.problem {
+  margin: 8px 0;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  border-left: 4px solid var(--stop);
+  background: var(--surface);
+}
+
+.fields {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.fields th,
+.fields td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+}
+
+.fields thead th {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-low);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.fields tbody th {
+  font-family: var(--font-data);
+  font-weight: 500;
+  color: var(--text-mid);
+  width: 46%;
+}
+
+.fields td {
+  font-family: var(--font-data);
+}
+
+.catalog__summary {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 11.5px;
+  color: var(--text-low);
+}
+
+.changes {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.changes li {
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+
+.rules {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.rules li {
+  margin-bottom: 5px;
+}
+
+.json {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 360px;
+  overflow: auto;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
