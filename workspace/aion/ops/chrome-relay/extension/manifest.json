@@ -2,12 +2,41 @@
   "manifest_version": 3,
   "name": "AION Chrome Relay Station",
   "version": "0.1.0",
-  "description": "Read-only operator console for the AION relay. Truthful status only: transport, proof, approval and evidence are reported separately. MVP reads no web page content.",
+  "description": "Operator console for the AION relay. Truthful status only: transport, proof, approval and evidence are reported separately. The chatgpt.com content script is passive: it acts only on commands sent over its port.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8SrUEnC0X23xDO5RCF8MG6n+1Gr/oLQCQvMSXHM3sWnaAqA6wU7T1Snwkz93+30CiluDf237DXFTjoltvLCp35PjZcUgLqWEVjd51FuLwDff1Pxx6tcwRANWNtR0G1YXE4GcpH7fSmk+8uUo4miVmoIHTsxBkQ/GmnaaQA1PPG13kbHVHV2wDCSdmKi+aB7O+aU5pQoUizymqHpYvZbOenzAECwSIT3d+8Eo0i/D4/xEYow/TBFcmAR7SGVCsCEIaroQoLZ3Q7ZcqFWbJDnFdO95LbtZhevCWrKeUKtpDLAMv+MSv6BJaKctNlAMiNQluC7WUiWvrL+/eOQrYHmcQIDAQAB",
   "minimum_chrome_version": "155",
   "permissions": [
     "sidePanel",
     "storage",
-    "alarms"
+    "alarms",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "src/chatgpt/loader.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/chatgpt/content.js",
+        "src/chatgpt/correlate.js",
+        "src/lib/*.js"
+      ],
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "use_dynamic_url": true
+    }
   ],
   "background": {
     "service_worker": "src/background/service-worker.js",

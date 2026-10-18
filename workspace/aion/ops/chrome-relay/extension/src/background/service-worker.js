@@ -5,11 +5,13 @@
 // entry point rehydrates from chrome.storage.local first, mutates, persists.
 //
 // MVP constraint (OPENCODE-BUILD-ORDER.md, first bounded deliverable):
-// transports are fixture / disabled only. This worker MUST NOT open a native
-// messaging port, a websocket, or any outbound connection in MVP. The native
-// adapter is constructed in its disabled form and stays that way.
+// transports are fixture / disabled only; this build's native adapter is still
+// constructed in its disabled form. Enabling it is the open step-2 code task
+// (see FLOW.html). The manifest now carries nativeMessaging, but this file does
+// not use it yet.
 //
-// It reads no web page content. There is no content script in this manifest.
+// This worker reads no web page content. The manifest's chatgpt.com content
+// script is passive: it acts only on commands sent over its port.
 
 import { createEventStore, createTransport, isExpired, TASK_STATES } from '../lib/index.js';
 

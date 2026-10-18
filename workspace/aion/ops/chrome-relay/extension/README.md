@@ -17,8 +17,7 @@ A read-only operator console. It reports four things that the AION contract requ
 3. **Approval** — is a task held at `APPROVAL_PENDING`?
 4. **Evidence** — how old is the last evidence, and where is it?
 
-It reads **no web page content whatsoever** in the MVP. There are no content scripts, no host
-permissions, and no `nativeMessaging`. That is deliberate, not unfinished.
+The console itself reads **no web page content**. As of 2026-10-18 the manifest also carries a passive chatgpt.com content script (`src/chatgpt/loader.js` imports `content.js`), `host_permissions` for `https://chatgpt.com/*`, and `nativeMessaging`, for the M1 live path. The content script never composes, sends or reads on load or on a timer; it only acts on commands sent over its port. The service worker's native adapter is still disabled in code until the bridge host exists. The extension id is pinned by the manifest `key` to `kgjfielmhcdlggjppmliabpiljnonhki`.
 
 ## Loading it (unpacked, for review only)
 
@@ -50,7 +49,7 @@ because it requires stubbing rather than a real browser, and this project must n
 
 | Path | Role |
 |---|---|
-| `manifest.json` | MV3, least privilege: `sidePanel`, `storage`, `alarms` only |
+| `manifest.json` | MV3: `sidePanel`, `storage`, `alarms`, `nativeMessaging`; site access `https://chatgpt.com/*` only; id pinned by `key` |
 | `src/lib/envelope.js` | Envelope schema, validation, encode/decode, expiry |
 | `src/lib/state.js` | Task + delivery state machines, presence staleness |
 | `src/lib/store.js` | Event store: dedupe, ACK tracking, restart survival |
@@ -67,11 +66,10 @@ because it requires stubbing rather than a real browser, and this project must n
 | `sidePanel` | Render the operator console | — |
 | `storage` | Survive MV3 worker suspension without losing events | Stores relay state only, never credentials |
 | `alarms` | Periodic presence refresh | — |
+| `nativeMessaging` | Talk to the bridge host `com.aion.relay` | Adapter still disabled in code |
+| `host_permissions` `https://chatgpt.com/*` | Let the worker find the ChatGPT tab and connect to the content script | Content script is passive |
 
-**Deliberately absent:** `host_permissions` (no site access at all), `nativeMessaging` (the relay
-host is not installed in this MVP), `tabs` (tab presence is therefore *structurally* unobservable and
-renders `UNKNOWN` rather than being guessed), `content_scripts`, `cookies`, `debugger`,
-`webRequest`. No credential, endpoint or `allowed_origins` value appears anywhere in this tree.
+**Still absent:** `tabs` (tab presence is therefore *structurally* unobservable and renders `UNKNOWN` rather than being guessed), `cookies`, `debugger`, `webRequest`, and any site other than `https://chatgpt.com/*`. No credential appears anywhere in this tree. The signing key was generated once and not kept; unpacked loading only needs the public `key`.
 
 ## Known limitations — read before trusting any number
 
