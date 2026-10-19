@@ -133,6 +133,9 @@ export function inspectBrowserSetup(plan,{run=spawnSync}={}){
       ||manifest.key!==key.manifestKey
       ||manifest.background?.service_worker!=='src/dev/dev-worker.js')
       return {ok:false,code:'DEV_SETUP_INTEGRITY_FAILED'};
+    const current=sourceSha();
+    if(current&&receipt.source_sha&&current!==receipt.source_sha)
+      return {ok:false,code:'DEV_SOURCE_CHANGED_REAPPLY_REQUIRED'};
     return {ok:true,code:'DEV_SETUP_VERIFIED',extension_id:key.extensionId,
       extension_dir:plan.extensionDir,host:DEV_HOST_NAME,
       source_sha:receipt.source_sha??null};
