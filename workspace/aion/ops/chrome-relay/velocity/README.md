@@ -1,82 +1,58 @@
-# AION Track B — velocity command-plane staging
+# AION Track B — self-contained local command plane
 
-**State:** Track B development source and tests committed (Rounds 1–6). Windows local master remains paused. **Not** installed, registered, connected to a real browser, activated, or live-tested. GitHub Actions has returned startup_failure before jobs, so the Node suite is still UNVERIFIED.
+**NO GITHUB ACTIONS.** GitHub holds source and receipts only; it does not execute or coordinate commands. The software runs locally using Node 22, the existing AION Bus, existing durable file storage and existing engine adapters. No hosted CI, Cloud Browser, Slack, Docker, Playwright, Puppeteer or Orca.
 
-**Branch:** `track-b/velocity-command-plane-20261019`  
-**Issue:** [#32](https://github.com/owenservera/aion/issues/32)  
-**Baseline:** `e5819a36a84ac27405d3d4a6a5e8c37d655c4cc5`  
-**Stable frozen Track A:** `fd347f22dba24e9282e8a39b01ed5f0c760bee14`; do not replace existing Profile 3.
+**Status:** isolated development source committed. The owner's Windows machine remains paused; no installation, native host registration, ChatGPT Send or local OpenCode connection is claimed. Fourteen isolated local Node tests of the portable new modules passed in this chat; the complete repository suites and Windows activation have not yet run.
 
-The proposed `aion.rpc/1` request validator lives in `src/rpc.mjs`. It validates envelopes only: it neither authenticates callers nor grants authority, connects IPC, allocates operation IDs, or dispatches work. Tests are staged, but no successful runner result is claimed.
+## Self-contained commands
 
-This folder is **not** a second bus. It is a small command-client and capability-projection staging area. It intentionally cannot send or activate anything. The existing `extension/src/bus/` is the only bus contract. Future Windows AIOND must become the sole durable mutation authority, with the existing bus core imported rather than copied. Its Chrome/native-host transport will be adapted once local execution resumes and can be independently verified.
+- **aion selftest** — runs bundled offline Node test suites for Velocity, Bus, Chrome extension and bridge, plus the existing Bus offline demo. All suites must return zero; no hosted runners.
+- **aion connections** — discovers the local OpenCode 2.x V2 service and checks its loopback /api/info endpoint. Chrome is NOT_CONNECTED unless separately activated.
+- **aion doctor / capabilities / status** — local read-only engine and Bus state, including binding and grant conditions.
+- **aion connect opencode --cwd PATH --max 10 --hours 24** — explicit owner command: bind the existing OpenCode V2 adapter and grant only the specified directory, number of sends and expiration.
+- **aion send opencode "your task"** — one direct process with the existing Bus: validate → durable reservation → one dispatch → read-only observe → correlated result. A background broker is NOT required.
+- **aion observe OP_ID --follow** — observe the existing operation only. No automatic resend.
+- **aion stop / resume** — locally persisted stop and resume through the same Bus.
+- **aion send chief "..."** — intentionally refused in direct mode until the isolated Track B Chrome host and browser connector are genuinely connected.
 
-## Offline tests (Node >=22)
+The optional dev broker (bin/aiond-dev.mjs) is for Chrome/native messaging. It is not required by direct OpenCode commands and is not yet verified for Windows secure IPC.
 
-```powershell
-cd workspace/aion/ops/chrome-relay/velocity
-node --test
-node bin/aion-velocity.mjs doctor --json
-node bin/aion-velocity.mjs send chief "test"
-```
+## Windows launch (once the local master resumes)
 
-The third command **must refuse** with `RUNTIME_NOT_CONNECTED` and no operation ID. Do not add `--live` magic to this prototype. The final `aion send ...` command belongs behind a verified per-user IPC connection and the existing Bus grants/ledger.
+From the AION repository root, using PowerShell 7:
 
-## Incremental integration gates
+    $Aion = ".\workspace\aion\ops\chrome-relay\velocity\bin\aion.ps1"
+    pwsh -NoProfile -File $Aion selftest
+    pwsh -NoProfile -File $Aion connections
+    pwsh -NoProfile -File $Aion doctor
 
-- **B0 — branch and contract:** Isolated source, readiness rules, CLI grammar, executable tests, and immutable Track A baseline.
-- **B1 — local authority:** per-user Windows AIOND, *actual* current-user ACL on Named Pipe, single-writer bus ledger, read-only doctor and real capability producers. One authoritative state source.
-- **B2 — Chrome adapter:** vetted native host `com.aion.relay.dev`, explicit dev Chrome identity/profile, existing content port, verified live session binding; no duplicate send route.
-- **B3 — command:** `aion send chief "..." ` goes to same durable bus/grants/observer, exactly once; logs operation ID/receipt, negative no-send case.
-- **B4 — Windows/OpenCode:** UIA and ACP/HTTP readiness, deliberate fallback sharing operation identity, permissions and no-resend proof.
-- **B5 — unified pane/release:** side panel reads local projections, activation and rollback, latency evidence, independent Track A acceptance and selective promotion.
+When a compatible OpenCode 2.x shared service is genuinely running and discoverable:
 
-## Never on paused local master
+    pwsh -NoProfile -File $Aion connect opencode --cwd "C:\path\to\authorized\repo" --max 10 --hours 24
+    pwsh -NoProfile -File $Aion send opencode "Run the focused test suite and report" --wait-ms 120000
+    pwsh -NoProfile -File $Aion status
+    pwsh -NoProfile -File $Aion stop
+    pwsh -NoProfile -File $Aion resume
 
-No native-host registration, Chrome extension/profile changes, Task Scheduler, daemon autostart, Git local checkout/pull, shell/UIA action, provider login, Send invocation or claimed M1 verification. No Playwright, Puppeteer, or Orca.
+Another launcher is bin/aion.cmd. No npm install or scheduled tasks are required for direct commands. An already installed Node 22 and compatible OpenCode service are prerequisites. The existing ACP adapter is retained in source; it is not silently substituted for the V2 adapter.
 
-## Runtime reconnect prerequisite
+## Engine / connection status
 
-Local authorized executor must inspect exact Windows branch/worktree, Chrome profiles/extension IDs, native host path, running services and interactive desktop before choosing installation locations. Prepare separate dev extension key/ID and `com.aion.relay.dev` registration **only in its dev namespace**; collect before/after receipts and rollback. Do not overwrite the stable `com.aion.relay` registration.
+| Connection | Reuse | Verified now |
+|---|---|---|
+| Node local test runner | Node 22 builtin test runner | 14 portable new-module tests passed; full repo suite unrun |
+| Durable Bus and scoped grants | Existing Bus V1/V2 and file storage | Earlier isolated Bus source tests passed; Windows unrun |
+| OpenCode V2 | Existing client and adapter, loopback-only discovery | Direct CLI wired; actual owner service status unknown |
+| ACP | Existing bridge and ACP adapter | Source exists, not connected to direct CLI |
+| ChatGPT Chrome | Existing MV3 extension and observer | Dev browser/host NOT_CONNECTED |
+| Windows UIA/CDP | Optional existing tools | Not activated; no alternate send route |
 
-See also [DUAL-TRACK-COMMAND-PLANE-2026-10-19.md](../DUAL-TRACK-COMMAND-PLANE-2026-10-19.md).
+## Security / invariants
 
-## CI verification at bootstrap
+Each operation has a durable Bus identity and grant; the same Bus deletes reserved text before the one external attempt. Read-only observation never resends. A changed target binding refuses or halts the operation. The dedicated Track B ledger must be owner-private (POSIX 0700 or verified Windows ACL). OpenCode service credentials are read only for transient loopback calls and never printed or saved to the Bus.
 
-A GitHub Actions workflow is committed at `.github/workflows/aion-track-b-velocity.yml`, but its initial runs returned `startup_failure` with no jobs. Treat CI as **NOT VERIFIED**, not as passing or a source failure. Investigate Actions availability/permissions/billing or use an authorized independent Node 22 runner; keep the draft PR unmerged until reproducible tests pass.
+No silent Chrome-to-OpenCode fallback, permission escalation, new Bus, new database or GitHub execution dependency. Track A stable Chrome identity, profile, native host and state remain unchanged.
 
-## Round 6: executable path (not a live Chrome claim)
-
-New source now includes:
-- `bin/aion.mjs`: one-command intent, `--detach`, `observe --follow`, bounded `--wait-ms`, and no retry after uncertain delivery.
-- `bin/aiond-dev.mjs`: dev-only broker using the **existing** AION Bus, a private Unix domain socket and a single file ledger; Windows is deliberately refused until an audited owner-SID named-pipe helper exists.
-- `src/broker/core.mjs`: checked role binding, current grant, readiness, atomic binding-revision guard, and one broker-owned dispatch per admission.
-- The existing Bus is extended **on this isolated B branch** with a restrictive target guard at reservation plus a before-dispatch binding check. A changed recipient halts, never retargets.
-- `src/result.mjs`: derived Bus `aion.result/1`; no duplicate state machine.
-- Real Bus/IPC fixture integration tests under `test/round6-*.test.mjs`. These are **not** live browser tests.
-
-### Safe test commands (Node.js 22+)
-
-```bash
-cd workspace/aion/ops/chrome-relay/velocity
-npm test
-npm run test:bus
-npm run test:ipc
-```
-
-The IPC suite intentionally skips on Windows. Linux/macOS dev-only smoke uses a private temp directory and an explicitly fake adapter. Tests run on an ordinary Node installation; no Playwright, Puppeteer or Orca is used.
-
-### Local experimental operator behavior
-
-```text
-aion status --json
-aion send chief "Review the latest integration" --wait-ms 120000
-aion send chief "Review the latest integration" --detach
-aion observe <operation_id> --follow
-```
-
-These commands only work after the authorized **B-only** broker, exact target binding, owner grant and real capability producer are configured. Without a broker, the CLI refuses. The new daemon currently loads **zero real adapters by default** and cannot send to Chrome. Do not mistake test adapter injection for browser integration. Never point it at the Track A ledger or stable Chrome extension.
-
-### Evidence truth as of Round 6
-
-Exact committed Bus/controller/CLI code was evaluated with V8 source-level fixture tests in this chat: once-only dispatch, prompt removal, nonce replay refusal, target-busy, readback, restart no-resend, binding drift and one-command follow all passed. This is **not** the Node 22 `node --test` suite, not Windows secure IPC, and not an actual Chrome Send. Those verification gates remain open. GitHub Issues #31/#32 and draft PRs #33/#34 record scope and pending acceptance.
+Primary work: https://github.com/owenservera/aion/issues/32
+Implementation: https://github.com/owenservera/aion/pull/34
+Agent optimization rules: AGENTS.md in this directory.
