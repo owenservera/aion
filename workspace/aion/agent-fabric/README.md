@@ -22,7 +22,7 @@ The existing [M1/M2 handoff](../handoffs/AGENT-FABRIC-OPENCODE-M1-M2.md) is the 
 
 These JSON Schema 2020-12 files establish payload shapes. The pure [semantic guards](src/semantic-guards.mjs) supplement (but **do not replace**) full JSON Schema validation; the local agent must use a conforming Draft 2020-12 validator in the actual runtime before admitting any envelope. Unknown fields/versions refuse; do not use lenient compatibility for permissions.
 
-All [fixtures](fixtures/) are **synthetic, offline-only** examples. Their sample hashes, IDs, timestamps and references do not prove local files, installed engines or executed tasks; do not promote them to real statuses.
+[Golden OpenCode V2 reviewer Markdown](fixtures/opencode-v2-aion-reviewer.expected.md) specifies a deny-all then read/glob/grep native subagent, in a non-active fixture path; the local agent must compile/validate actual output against it with a real installed V2 parser. All [fixtures](fixtures/) are **synthetic, offline-only** examples. Their sample hashes, IDs, timestamps and references do not prove local files, installed engines or executed tasks; do not promote them to real statuses.
 
 ## Current source-of-truth mismatches to reconcile
 
@@ -57,7 +57,7 @@ This READ-ONLY probe reports local Git/engine executable versions and 8-versus-9
 
 From an AION checkout containing this design directory:
 
-    node --test workspace/aion/agent-fabric/test/contracts.test.mjs workspace/aion/agent-fabric/test/preflight.test.mjs
+    node --test workspace/aion/agent-fabric/test/contracts.test.mjs workspace/aion/agent-fabric/test/preflight.test.mjs workspace/aion/agent-fabric/test/native-reviewer.test.mjs
 
 This uses Node 22 built-in test facilities only. It checks fixture semantics and basic structural contract invariants. It does NOT fully implement JSON Schema validation, compile OpenCode agents, run native models, or prove Windows behavior. A production runtime must add a real Draft 2020-12 validator and integration tests.
 
