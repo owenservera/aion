@@ -71,9 +71,15 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     }
     if(!accepted.accepted){
       events.publish('operation.refused',{target:to,reason:accepted.reason});
+      // A concurrent duplicate may lose the race INSIDE the Bus transaction.
+      // Return the original durable ID, never the newly rejected shadow record.
+      const replayed=accepted.reason==='nonce_replayed';
+      const after=replayed ? await bus.store.read() : null;
+      const existingId=after?.nonces&&Object.hasOwn(after.nonces,nonce)
+        ? after.nonces[nonce] : null;
       return response(false,accepted.reason??'REFUSED',{
-        operation_id:accepted.command_id??null,
-        delivery:accepted.reason==='nonce_replayed'?'NOT_RESENT':'NOT_SENT'
+        operation_id:existingId??accepted.command_id??null,
+        delivery:replayed?'NOT_RESENT':'NOT_SENT'
       });
     }
     const id=accepted.command_id;
