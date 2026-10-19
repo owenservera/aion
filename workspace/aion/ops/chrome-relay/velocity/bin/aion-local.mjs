@@ -5,8 +5,12 @@ import {statSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {parseCommand} from '../src/commands.mjs';
-import {parseEngineSetup} from '../src/setup-args.mjs';
-import {openLocal,engineProbe} from '../src/local-runtime.mjs';
+import {parseEngineSetup,parseRoleConnect} from '../src/setup-args.mjs';
+import {openLocal,engineProbe,browserProbe,publicBrowser} from '../src/local-runtime.mjs';
+import {resolveRole} from '../src/broker/roles.mjs';
+import {projectResult} from '../src/result.mjs';
+import {CHATGPT_ADAPTER,canonicalChatGPTConversation} from '../../extension/src/bus/adapters/chatgpt.js';
+import {canonicalConversation} from '../../extension/src/lib/chatgpt-tasks.js';
 import {probeAcpBinary,verifyAcpCwd} from '../src/engines/acp.mjs';
 import {runLocalSelftest} from '../src/selftest.mjs';
 
@@ -18,7 +22,8 @@ const done=(print,r,exit)=>{print(JSON.stringify(r));return exit;};
 
 export async function main(argv=process.argv.slice(2),{
   print=line=>process.stdout.write(line+'\n'),open=openLocal,probe=engineProbe,
-  tests=runLocalSelftest,acpProbe=probeAcpBinary,delegate=null,pause=sleep,now=()=>Date.now()
+  tests=runLocalSelftest,acpProbe=probeAcpBinary,delegate=null,pause=sleep,now=()=>Date.now(),
+  chromeProbe=async()=>{const b=await browserProbe();b.link?.close();return b;}
 }={}){
  const cmd=argv[0]??'status';
  if(cmd==='selftest'){
@@ -27,13 +32,14 @@ export async function main(argv=process.argv.slice(2),{
  }
  if(cmd==='connections'){
    if(argv.length>1)return done(print,{ok:false,code:'BAD_COMMAND'},2);
-   const [engine,acp]=await Promise.all([probe(),acpProbe()]);
-   return done(print,{schema:'aion.connections/1',opencode_v2:safe(engine),acp:safe(acp),chrome:{state:'NOT_CONNECTED'}},0);
+   const [engine,acp,chrome]=await Promise.all([probe(),acpProbe(),chromeProbe()]);
+   return done(print,{schema:'aion.connections/1',opencode_v2:safe(engine),acp:safe(acp),chrome:publicBrowser(chrome)},0);
  }
  if(process.env.AION_DEV_SOCKET && cmd!=='connect'){
    const invoke=delegate??(await import('./aion.mjs')).main;
    return invoke(argv,{write:print});
  }
+ if(cmd==='connect'&&argv[1]&&!['opencode','acp'].includes(argv[1]))return connectRole(argv,{print,open,now});
  if(cmd==='connect'){
    let args;
    try{args=parseEngineSetup(argv);}catch(error){return done(print,{ok:false,code:'BAD_COMMAND',reason:error.message},2);}
@@ -80,24 +86,24 @@ export async function main(argv=process.argv.slice(2),{
  }
  let parsed;
  try{parsed=parseCommand(argv);}catch(error){return done(print,{ok:false,code:'BAD_COMMAND',reason:error.message},2);}
- if(parsed.command==='send'&&parsed.alias!=='opencode')
-   return done(print,{ok:false,code:'BROWSER_CONNECTOR_NOT_CONNECTED',delivery:'NOT_SENT'},3);
  if(parsed.command==='send'&&parsed.detach)
    return done(print,{ok:false,code:'DETACH_REQUIRES_BROKER',delivery:'NOT_SENT'},2);
- const needsEngine=['send','observe','capabilities'].includes(parsed.command);
+ const browserSend=parsed.command==='send'&&parsed.alias!=='opencode';
+ const needsEngine=['observe','capabilities'].includes(parsed.command)||(parsed.command==='send'&&!browserSend);
+ const needsBrowser=browserSend||['observe','capabilities','doctor'].includes(parsed.command);
  let rt;
- try{rt=await open({withEngine:needsEngine});}
+ try{rt=await open({withEngine:needsEngine,withBrowser:needsBrowser});}
  catch(error){return done(print,{ok:false,code:error.code??'LOCAL_STATE_UNAVAILABLE',delivery:'NOT_SENT'},3);}
  try{
    if(parsed.command==='doctor'){
      const [engine,acp]=await Promise.all([probe(),acpProbe()]);
      return done(print,{schema:'aion.doctor/1',ok:true,mode:'DIRECT_LOCAL',
-       state_path:rt.statePath,engines:[safe(engine),safe(acp)],chrome:'NOT_CONNECTED',actions:'OWNER_GRANTED_ONLY'},0);
+       state_path:rt.statePath,engines:[safe(engine),safe(acp)],chrome:publicBrowser(rt.browser),actions:'OWNER_GRANTED_ONLY'},0);
    }
    if(parsed.command==='capabilities'){
      const ready=await rt.refresh();
      return done(print,{schema:'aion.capabilities/1',engine:safe(rt.engine),
-       opencode_submit:ready?'READY_TO_ATTEMPT':'BLOCKED',chrome_submit:'NOT_CONNECTED'},0);
+       opencode_submit:ready?'READY_TO_ATTEMPT':'BLOCKED',chrome:publicBrowser(rt.browser)},0);
    }
    if(parsed.command==='status'){
      const s=await rt.bus.status();
@@ -113,17 +119,31 @@ export async function main(argv=process.argv.slice(2),{
      const result=await rt.bus.resume('explicit local operator resume');
      return done(print,{ok:true,schema:'aion.resume/1',kill:result},0);
    }
+   if(parsed.command==='send'&&browserSend){
+     if(!rt.browser?.ok)return done(print,{ok:false,code:'BROWSER_CONNECTOR_NOT_CONNECTED',delivery:'NOT_SENT',
+       chrome:publicBrowser(rt.browser)},3);
+     const state=await rt.bus.store.read();
+     const role=resolveRole(parsed.alias,rt.roleCatalog,state.agents);
+     if(!role.ok)return done(print,{ok:false,code:role.reason,delivery:'NOT_SENT'},3);
+     if(role.adapter!==CHATGPT_ADAPTER)return done(print,{ok:false,code:'ROLE_NOT_A_CHATGPT_BINDING',delivery:'NOT_SENT'},3);
+     if(!await rt.readyFor(role.target))return done(print,{ok:false,code:'OWNER_BINDING_OR_GRANT_REQUIRED',delivery:'NOT_SENT',
+       hint:`aion connect ${parsed.alias} --conversation https://chatgpt.com/c/<id>`},3);
+     const admit=await rt.plane.sendAlias({alias:parsed.alias,text:parsed.text,nonce:token('nonce-')});
+     if(!admit.ok)return done(print,admit,3);
+     await rt.plane.waitForIdle();
+     return await follow(rt,admit.operation_id,parsed.wait_ms??120000,{print,pause,now});
+   }
    if(parsed.command==='send'){
      if(!rt.engine?.ok)return done(print,{ok:false,code:'ENGINE_NOT_CONNECTED',delivery:'NOT_SENT',opencode:safe(rt.engine)},3);
      if(!await rt.refresh())return done(print,{ok:false,code:'OWNER_BINDING_OR_GRANT_REQUIRED',delivery:'NOT_SENT'},3);
      const admit=await rt.plane.sendAlias({alias:'opencode',text:parsed.text,nonce:token('nonce-')});
      if(!admit.ok)return done(print,admit,3);
      await rt.plane.waitForIdle();
-     return follow(rt,admit.operation_id,parsed.wait_ms??120000,{print,pause,now});
+     return await follow(rt,admit.operation_id,parsed.wait_ms??120000,{print,pause,now});
    }
    if(parsed.command==='observe'){
      if(!parsed.follow){const r=await rt.plane.handle('observe',{operation_id:parsed.operation_id});return done(print,r,r.ok?0:3);}
-     return follow(rt,parsed.operation_id,parsed.wait_ms??120000,{print,pause,now});
+     return await follow(rt,parsed.operation_id,parsed.wait_ms??120000,{print,pause,now});
    }
    return done(print,{ok:false,code:'UNSUPPORTED_DIRECT_COMMAND'},2);
  }catch(error){
@@ -137,14 +157,61 @@ export async function follow(rt,operationId,waitMs,{print,pause,now}){
    const r=await rt.plane.handle('observe',{operation_id:operationId});
    if(!r.ok)return done(print,r,3);
    last=r.result;
-   if(last?.status==='SUCCEEDED'||last?.status==='REPLY_OBSERVED')
-     return done(print,{ok:true,code:'RESULT_OBSERVED',operation_id:operationId,result:last},0);
+   if(last?.status==='SUCCEEDED'||last?.status==='REPLY_OBSERVED'){
+     // The owner's own terminal: include the stored reply excerpt with the result.
+     let full=last;
+     try{const c=await rt.bus.readCommand?.(operationId);if(c)full=projectResult(c,{includeExcerpt:true});}catch{}
+     return done(print,{ok:true,code:'RESULT_OBSERVED',operation_id:operationId,result:full},0);
+   }
    if(last?.terminal)return done(print,{ok:false,code:last.status,operation_id:operationId,result:last},3);
    if(now()-begin>=waitMs)break;
    await pause(Math.min(750,Math.max(0,waitMs-(now()-begin))));
  }while(now()-begin<waitMs);
  return done(print,{ok:false,code:'WAIT_TIMEOUT',operation_id:operationId,last_result:last,
    delivery:last?.delivery??'UNKNOWN',no_automatic_retry:true},3);
+}
+// `aion connect <role> --conversation URL`: explicit owner binding of ONE open
+// ChatGPT conversation to a role, plus a finite scoped send grant. Read-only
+// proof first: a live host link and exactly one open tab showing that chat.
+export async function connectRole(argv,{print,open,now}){
+ let args;
+ try{args=parseRoleConnect(argv);}catch(error){return done(print,{ok:false,code:'BAD_COMMAND',reason:error.message},2);}
+ let ref;
+ try{ref=canonicalChatGPTConversation(args.conversation);}
+ catch{return done(print,{ok:false,code:'BAD_CONVERSATION_URL',reason:'use https://chatgpt.com/c/<id>'},2);}
+ let rt;
+ try{rt=await open({withBrowser:true});}
+ catch(error){return done(print,{ok:false,code:error.code??'LOCAL_STATE_UNAVAILABLE'},3);}
+ try{
+   if(!rt.browser?.ok)return done(print,{ok:false,code:'BROWSER_CONNECTOR_NOT_CONNECTED',chrome:publicBrowser(rt.browser)},3);
+   const state=await rt.bus.store.read();
+   const roles=(rt.roleCatalog?.roles??[]).filter(r=>Array.isArray(r.aliases)&&r.aliases.includes(args.alias));
+   if(roles.length!==1)return done(print,{ok:false,code:roles.length?'ALIAS_AMBIGUOUS':'ALIAS_UNKNOWN'},3);
+   const agents=Object.values(state.agents??{}).filter(a=>a?.role_id===roles[0].id&&a.kind==='conversation'&&a.status!=='retired');
+   if(agents.length!==1)return done(print,{ok:false,code:agents.length?'ROLE_AMBIGUOUS':'ROLE_AGENT_MISSING'},3);
+   const agent=agents[0];
+   const tabs=await rt.browser.link.request('aion/chatgpt-tabs',{},{timeoutMs:60000}).catch(()=>null);
+   if(tabs?.ok!==true||!Array.isArray(tabs.tabs))return done(print,{ok:false,code:'TAB_LISTING_FAILED'},3);
+   const open_=tabs.tabs.filter(t=>{try{return canonicalConversation(t.url)===ref;}catch{return false;}});
+   if(open_.length!==1)return done(print,{ok:false,code:open_.length?'CONVERSATION_OPEN_IN_MULTIPLE_TABS':'CONVERSATION_NOT_OPEN',
+     hint:'open exactly one tab on that conversation in the Track B dev profile'},3);
+   if(Object.values(state.commands??{}).some(c=>c.to===agent.agent_id&&
+     ['RESERVED','DISPATCHED','SUBMISSION_OBSERVED','UNRESOLVED'].includes(c.state)))
+     return done(print,{ok:false,code:'TARGET_BUSY',delivery:'NOT_SENT'},3);
+   if(agent.binding?.adapter!==CHATGPT_ADAPTER||agent.binding?.ref!==ref){
+     if(agent.binding)await rt.bus.unbind(agent.agent_id);
+     await rt.bus.bind(agent.agent_id,{adapter:CHATGPT_ADAPTER,ref,label:roles[0].display_title??null,
+       confirmed_by:'explicit-local-operator-connect'});
+   }
+   for(const prior of Object.values(state.grants??{})){
+     if(!prior.revoked&&prior.agents?.includes(agent.agent_id)&&prior.ops?.includes('send'))await rt.bus.revoke(prior.grant_id);
+   }
+   const grantId=token('grant-');
+   await rt.bus.grant({grant_id:grantId,ref:'explicit-local-operator-connect',agents:[agent.agent_id],ops:['send'],
+     max_count:args.max,rate_per_hour:Math.min(args.max,100),expires_utc:new Date(now()+args.hours*3600000).toISOString(),cwd:null});
+   return done(print,{ok:true,code:'ROLE_BOUND_AND_GRANTED',role:roles[0].id,agent_id:agent.agent_id,
+     conversation:ref,grant_id:grantId,max_sends:args.max,expires_hours:args.hours,local_only:true},0);
+ }finally{await rt.close();}
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))
  main().then(code=>{process.exitCode=code;});

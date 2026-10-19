@@ -87,6 +87,8 @@ export async function openBus(args) {
     const svc = args['opencode-url'] === 'auto' ? discoverOpenCodeService({ stateFile: args['opencode-state'] }) : { url: args['opencode-url'], headers: {} };
     adapters.push(createOpenCodeV2Adapter({ client: createOpenCodeHttpClient({ baseUrl: svc.url, headers: svc.headers }) }));
   }
+  // Callers (Track B CLI) may load further existing adapters, e.g. the ChatGPT adapter over a host link.
+  if (Array.isArray(args.extraAdapters)) adapters.push(...args.extraAdapters);
   // A Node runner usually has no commander conversation; reports stay held.
   const bus = createBus({ storage, adapters, initialConfig: { report_back: false, ops_enabled: ['send', 'status', 'cancel'] } });
   return { bus, state, close: async () => { for (const c of closers) await c(); } };
