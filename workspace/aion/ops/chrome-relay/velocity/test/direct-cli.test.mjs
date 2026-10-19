@@ -51,3 +51,31 @@ test('selftest works with no broker and propagates local failure',async()=>{
    tests:()=>({schema:'aion.selftest/1',all_pass:false,suites:[{state:'FAIL'}]})});
  assert.equal(exit,1);assert.equal(JSON.parse(lines[0]).all_pass,false);
 });
+
+
+test('explicit connect replaces old working-directory grants',async()=>{
+ const {tmpdir}=await import('node:os');
+ let binds=0,revokes=0,grant=null;
+ const rt={engine:{ok:true},close:async()=>{},bus:{store:{read:async()=>({
+  agents:{opencode:{binding:null}},commands:{},
+  grants:{old:{grant_id:'old',agents:['opencode'],ops:['send'],revoked:false}}
+ })},bind:async()=>{binds++},revoke:async()=>{revokes++},grant:async p=>{grant=p}}};
+ const lines=[];
+ const status=await main(['connect','opencode','--cwd',tmpdir(),'--max','2','--hours','1'],{
+  open:async()=>rt,probe:async()=>({ok:true}),print:x=>lines.push(x)});
+ assert.equal(status,0);assert.equal(binds,1);assert.equal(revokes,1);
+ assert.equal(grant.max_count,2);assert.equal(grant.cwd,tmpdir());
+});
+test('connect refuses to change grants while target has an active operation',async()=>{
+ const {tmpdir}=await import('node:os');
+ let revokes=0,grants=0;
+ const rt={engine:{ok:true},close:async()=>{},bus:{store:{read:async()=>({
+  agents:{opencode:{binding:null}},
+  commands:{op1:{to:'opencode',state:'SUBMISSION_OBSERVED'}},grants:{}
+ })},bind:async()=>{},revoke:async()=>{revokes++},grant:async()=>{grants++}}};
+ const lines=[];
+ const status=await main(['connect','opencode','--cwd',tmpdir()],{
+  open:async()=>rt,probe:async()=>({ok:true}),print:x=>lines.push(x)});
+ assert.equal(status,3);assert.equal(revokes,0);assert.equal(grants,0);
+ assert.equal(JSON.parse(lines[0]).code,'TARGET_BUSY');
+});
