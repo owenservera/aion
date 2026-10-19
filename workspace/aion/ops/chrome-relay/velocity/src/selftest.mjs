@@ -9,7 +9,8 @@ export const DEFAULT_SUITES = Object.freeze([
   { name:'velocity', cwd:VELOCITY, argv:['--test'] },
   { name:'bus', cwd:resolve(RELAY,'bus'), argv:['--test'] },
   { name:'extension', cwd:resolve(RELAY,'extension'), argv:['--test'] },
-  { name:'bridge', cwd:resolve(RELAY,'bridge'), argv:['--test'] }
+  { name:'bridge', cwd:resolve(RELAY,'bridge'), argv:['--test'] },
+  { name:'bus-demo', cwd:resolve(RELAY,'bus'), argv:['bin/aion-bus.mjs','demo','--json'] }
 ]);
 export function runLocalSelftest({ suites=DEFAULT_SUITES, executor=spawnSync, node=process.execPath, print=()=>{} }={}){
   const started=Date.now();
