@@ -2,6 +2,7 @@
 // The controller never persists a second command queue or supplies fake grants.
 import {resolveRole} from './roles.mjs';
 import {selectGrant} from '../../../extension/src/bus/grants.js';
+import {projectResult} from '../result.mjs';
 
 const ACTIVE=new Set(['RESERVED','DISPATCHED','SUBMISSION_OBSERVED','UNRESOLVED']);
 const response=(ok,code,more={})=>({ok,code,...more});
@@ -15,12 +16,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
   async function inspect(id){
     const c=await bus.readCommand(id);
     if(!c) return response(false,'OPERATION_UNKNOWN');
-    return response(true,'OBSERVED',{
-      operation_id:c.command_id,to:c.to,state:c.state,
-      attempted:c.attempted,reason:c.reason,reply:c.reply ? {
-        chars:c.reply.chars,sig:c.reply.sig,observed_utc:c.reply.observed_utc
-      }:null
-    });
+    return response(true,'OBSERVED',{operation_id:c.command_id,result:projectResult(c)});
   }
   async function sendTo(to,text,nonce,grantRef,{expectedRevision=null}={}){
     // Preflight is read-only; the REAL Bus validates grants, locks and nonce under mutate().
@@ -62,7 +58,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
           state:sent.state??'UNRESOLVED'});
         const observed=await inspect(id);
         events.publish('operation.settled',{operation_id:id,target:to,
-          state:observed.state??'UNKNOWN'});
+          state:observed.result?.bus_state??'UNKNOWN'});
       }catch{
         events.publish('operation.settled',{operation_id:id,target:to,state:'UNRESOLVED',
           reason:'dispatch_outcome_uncertain'});
