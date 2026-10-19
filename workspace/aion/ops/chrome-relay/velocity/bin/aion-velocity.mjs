@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 // Read-only/offline-safe Track B prototype client. NOT the final 'aion' CLI.
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 import { parseCommand } from '../src/commands.mjs';
 import { projectReadiness } from '../src/readiness.mjs';
 
@@ -27,6 +29,6 @@ export function run(argv, write = line => process.stdout.write(line + '\n')) {
   }));
   return 3;
 }
-if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1].replaceAll('\\', '/')).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   process.exitCode = run(process.argv.slice(2));
 }
