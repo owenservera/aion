@@ -13,7 +13,7 @@
     "aion-velocity": "./bin/aion-velocity.mjs"
   },
   "scripts": {
-    "test": "node --test test",
+    "test": "node --test",
     "selftest": "node bin/aion-selftest.mjs",
     "doctor": "node bin/aion-local.mjs doctor",
     "connections": "node bin/aion-local.mjs connections",
