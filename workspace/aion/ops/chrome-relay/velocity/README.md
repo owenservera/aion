@@ -4,6 +4,21 @@
 
 **Status (2026-10-19, round 8):** COMMITTED; fresh local regression still required. Last VERIFIED full offline selftest was Opus's round 7 at `1347253`: 965 tests, 963 pass, 2 pre-existing skips, 0 fail on Node 22 / Linux (velocity 92, bus 10, extension 736, bridge 127, plus bus demo). **Those numbers do not claim a test run at the newer round 8 head.** The Chrome leg of `aion send <role>` is wired end to end in source and proven offline with a spawned host process, a real file ledger and a fake worker. **Not yet:** WINDOWS VERIFIED, REAL CHROME VERIFIED, real ChatGPT Send.
 
+## Agents + context (Round 9)
+
+One AION CLI, existing eight-role catalogue and existing Bus. No new agent database, separate memory system, or GitHub Actions.
+
+- `aion agents` — list all configured AION roles with current Bus binding status, agent ID and adapter. This is informational and never launches or sends.
+- `aion context chief` — read exactly Chief's bootstrap and latest committed SITREP, with paths, content and SHA-256 provenance. `--scope bootstrap|sitrep|both|brief` selects the material.
+- `aion send chief "Give me a status report" --context brief` — explicitly attach labelled **excerpts** from both source docs, with hashes and disclosed omission counts, to one owner-authorized send through the same existing Bus.
+- `aion send chief "..." --context bootstrap`, `sitrep` or `both` — explicit full source content, accepted **only if** the complete resulting prompt fits the existing Bus 2,000-character send limit. Otherwise `CONTEXT_EXCEEDS_SEND_LIMIT` is returned with no send. No silent truncation or multi-message automatic context fan-out.
+
+Because the existing Chief bootstrap is over 4,500 characters and SITREP almost 20,000, full-context sends will currently refuse; **`--context brief` is the immediately usable compact mode**. It does *not* pretend excerpts are the entire briefing. Relative file paths are restricted to the repo root and realpaths are checked against symlink traversal. Agent context never creates grants or overrides target authorization. The default `aion send chief "..." ` remains unchanged and sends **no automatically attached context**.
+
+The local context command reads the checked-out repo, so agents use the source that is actually on the Windows machine—not fresh GitHub calls at runtime. Provenance is reported for every selected source document.
+
+**Verification:** six new offline Node tests committed, and four changed JS files syntax-checked; a fresh complete Node suite on the Round 9 head remains pending.
+
 ## Self-contained commands
 
 - **aion selftest** — runs bundled offline Node test suites for Velocity, Bus, Chrome extension and bridge, plus the existing Bus offline demo. All suites must return zero; no hosted runners.
