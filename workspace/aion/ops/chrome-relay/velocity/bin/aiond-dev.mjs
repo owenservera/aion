@@ -27,7 +27,7 @@ export async function serve({socketPath=process.env.AION_DEV_SOCKET,
      {code:'UNSAFE_LEDGER_DIRECTORY'});
  }
  const storage=createFileStorage(state);
- const bus=createBus({storage,adapters:[]});
+ const bus=createBus({storage,adapters:[],initialConfig:{report_back:false,watch:false}});
  const events=createEventStream();
  const capabilities=createCapabilityIndex({publish:(type,data)=>events.publish(type,data)});
  const rolesPath=fileURLToPath(new URL('../../role-launcher/ROLES.json',import.meta.url));
