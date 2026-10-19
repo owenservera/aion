@@ -1,6 +1,9 @@
 # AION Track B — Agent Optimization Contract
 **Scope:** This directory and Track B implementation branches. Read root `AGENTS.md` first; this file adds Track B-specific priorities. Updated 2026-10-19.
 
+## 0. Local-runtime requirement
+**No GitHub Actions.** GitHub only distributes source/tasks/receipts. Engines, connections, tests, readiness and command-to-result execution live entirely in AION's own Node runtime on the owner's machine. The working local runner and OpenCode direct engine are on implementation PR #34; this bootstrap branch is not an installed executable.
+
 ## 1. The optimization target (one sentence)
 **Minimize time, code, dependencies, machine resources and owner intervention per VERIFIED useful operation, while keeping wrong-target sends and duplicate sends at zero.**
 
@@ -50,7 +53,7 @@ Track A frozen source/Chrome Profile 3/extension ID `kgjfielmhcdlggjppmliabpiljn
 - **On blocked external dependencies:** implement an interface + fake and mark real integration BLOCKED; do not fill gaps with invented readiness or silently switch accounts/models.
 - **On uncertain dispatch:** retain immutable operation ID; reconcile read-only; never retry.
 - **Before writing to shared branch:** check latest head/PR, avoid blind overwrites, commit focused source/test pairs.
-- **No success theater:** GitHub Actions `startup_failure` is UNRUN, mock tests are not M1, Chrome port CONNECTED is not prompt SENT.
+- **No success theater:** The local Node suites and receipt are required; mock tests are not M1, Chrome port CONNECTED is not prompt SENT.
 - **Handoff/receipt:** concise commit SHA, files, commands and exact test results, remaining blocker, next direct coding action. No long SITREP or extra coordination artifacts unless they remove actual work.
 
 ## 7. Completion scorecard (minimum useful numbers)
