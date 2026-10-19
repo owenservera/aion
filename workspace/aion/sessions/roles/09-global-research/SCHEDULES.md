@@ -13,3 +13,16 @@ Every active session launch performs fresh SITREP (not a timed promise). Inspect
 
 ## Live scheduler evidence
 Task IDs, last run, next run, delivery mode and tool errors belong here or linked SITREP only *after verified creation*. If a schedule lacks necessary connector scope, report the gap, don't simulate execution. Existing GPM daily/hourly audits cover portfolio implementation; research schedules must not replicate those.
+
+## Confirmed scheduled status — 2026-10-19
+
+| Task | Cadence | Status | Runtime result |
+|---|---|---|---|
+| AION Research Intake | Daily ~08:00 Europe/Madrid, flexible | ENABLED (created 2026-10-19) | Pending first verified run |
+| AION Research Frontier | Thursdays ~09:00 Europe/Madrid, flexible | ENABLED (created 2026-10-19) | Pending first verified run |
+
+**Canonical intake source:** [AION RESEARCH issue #30](https://github.com/owenservera/aion/issues/30). Both scheduled tasks load the same Role 09 bootstrap and one research queue; neither creates a second agent.
+
+**Reclaimed schedule capacity:** disabled GPM Portfolio Change Intake (four times per day) and Weekly Improvement Review (Friday). Preserved and active GPM Executive Operator, GitHub Coverage Audit and Critical Portfolio Alerts. This is an explicit portfolio automation trade-off, not a deletion of the tasks' historical definitions. If GPM coverage becomes inadequate, consolidate lower-value monitoring before sacrificing critical alerts or recreating duplicate trackers.
+
+**Important distinction:** active/enabled task is a scheduled future invocation, not a verified completed run, GitHub readback, NotebookLM integration or delivery acknowledgment.
