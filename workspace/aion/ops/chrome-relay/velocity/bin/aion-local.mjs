@@ -49,8 +49,16 @@ export async function main(argv=process.argv.slice(2),{
      if(!existing)return done(print,{ok:false,code:'EXECUTOR_MISSING'},3);
      if(existing.binding && (existing.binding.adapter!=='opencode-v2'||existing.binding.ref!=='opencode'))
        return done(print,{ok:false,code:'EXISTING_BINDING_MISMATCH'},3);
+     if(Object.values(state.commands??{}).some(c=>c.to==='opencode'&&
+       ['RESERVED','DISPATCHED','SUBMISSION_OBSERVED','UNRESOLVED'].includes(c.state)))
+       return done(print,{ok:false,code:'TARGET_BUSY',delivery:'NOT_SENT'},3);
      if(!existing.binding){await rt.bus.bind('opencode',{
        adapter:'opencode-v2',ref:'opencode',confirmed_by:'explicit-local-operator-connect'});}
+     // Reconnecting replaces older send grants so no task runs in a stale cwd.
+     for(const prior of Object.values(state.grants??{})){
+       if(!prior.revoked && prior.agents?.includes('opencode') && prior.ops?.includes('send'))
+         await rt.bus.revoke(prior.grant_id);
+     }
      const grantId=token('grant-');
      await rt.bus.grant({grant_id:grantId,ref:'explicit-local-operator-connect',
        agents:['opencode'],ops:['send'],max_count:args.max,rate_per_hour:Math.min(args.max,100),
