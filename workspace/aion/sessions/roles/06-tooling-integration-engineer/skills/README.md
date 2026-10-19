@@ -24,6 +24,8 @@ All skills are repository-owned instructions (not automatically installed tools)
 One problem → select skill → verify environment → run authorized implementation through OpenCode/ZCode → test → evidence → feed reusable finding back into relevant skill.
 
 
+> **OpenCode 2.0 update (2026-10-19):** [Context7 contracts addendum in SOFTWARE_HQ](https://github.com/owenservera/SOFTWARE_HQ/blob/main/context7/research/2026-10-19-opencode-v2-aion-contract-addendum.md), [existing AION OpenCode V2 dossier](../../../../ops/opencode-2/README.md). Context7 library `/websites/opencode_ai_v2`. Special attention: **V1→V2 incompatible server/client and plugin APIs**, V2 `@opencode/client` session create/prompt, `GET /api/event` SSE that **does not guarantee event replay**, `Plugin.define` domain hooks, and separate `opencode acp` session scope. Prior Windows v2.0.32 report is source evidence, not an observation made by this research session.
+
 ## Protocol reference pack — 2026-10-19 research (Windows M1)
 
 **Review outcome:** The eight skills already cover discovery, bootstrap, ACP interoperability, Chrome relay, verification, Context7 harvesting, recovery and routing. Do not create four duplicate skills just to index four protocols. Add specialized references/test recipes within the existing skill matched to the task.
