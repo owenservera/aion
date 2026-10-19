@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AION correlated execution receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "work_ref",
+    "attempt_id",
+    "operation_ref",
+    "deployment_id",
+    "session_ref",
+    "outcome",
+    "verification",
+    "observed_utc",
+    "evidence_refs",
+    "side_effect"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aion.execution-receipt/1"
+    },
+    "work_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1024
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160
+    },
+    "operation_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "deployment_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "session_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1024
+    },
+    "outcome": {
+      "enum": [
+        "ADMITTED",
+        "ATTEMPTED",
+        "REPLY_OBSERVED",
+        "TASK_DELIVERED",
+        "VERIFIED",
+        "BLOCKED",
+        "FAILED",
+        "CANCELLED",
+        "UNKNOWN"
+      ]
+    },
+    "verification": {
+      "enum": [
+        "UNVERIFIED",
+        "SELF_REPORTED",
+        "INDEPENDENTLY_VERIFIED"
+      ]
+    },
+    "observed_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 1024
+      }
+    },
+    "side_effect": {
+      "enum": [
+        "NONE",
+        "NOT_ATTEMPTED",
+        "ATTEMPTED",
+        "OBSERVED",
+        "UNKNOWN"
+      ]
+    },
+    "error_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "verifier_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1024
+    },
+    "source_commit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    }
+  }
+}
