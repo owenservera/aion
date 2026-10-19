@@ -1,6 +1,6 @@
 # Bus V1 / Bus V2 — design from the current baseline
 
-Date: 2026-10-19 · Status: **PROPOSED DESIGN, not approved, not built.** Authority and open owner decisions: [DECISION-2026-10-19-BUS-V1-V2-DIRECTION](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md). Architecture rules this builds on: [ARCHITECTURE.md](./ARCHITECTURE.md) §§2–7, §11. Nothing here authorizes a live send, install or agent start; `live_execution_authorized` and `m1_verified` stay `false`.
+Date: 2026-10-19 · Status: **PROPOSED DESIGN, not owner-approved. Built offline 2026-10-19 (OFFLINE_PASS; WINDOWS_PENDING, CHATGPT_LIVE_PENDING) — see [bus/README.md](./bus/README.md).** Authority and open owner decisions: [DECISION-2026-10-19-BUS-V1-V2-DIRECTION](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md). Architecture rules this builds on: [ARCHITECTURE.md](./ARCHITECTURE.md) §§2–7, §11. Nothing here authorizes a live send, install or agent start; `live_execution_authorized` and `m1_verified` stay `false`.
 
 ## 0. Design principle: build and prove everything offline first
 
@@ -143,4 +143,4 @@ Injection: hostile text in an agent report, in a page, in a user turn, or in a s
 5. Whether report-back text goes to the commander verbatim (bounded) or as a hash plus summary.
 
 ## 6. Not claimed
-No Bus V1/V2 code, watcher behavior, mobile sync, executor leg or grant exists. Offline tests would prove logic against fakes, not real Chrome, ChatGPT or OpenCode behavior.
+Code for S1–S4 and V2-2/V2-3 now exists and passes offline (bus/README.md). No live watcher behavior, mobile sync, real executor run or owner grant exists. Offline tests would prove logic against fakes, not real Chrome, ChatGPT or OpenCode behavior.
