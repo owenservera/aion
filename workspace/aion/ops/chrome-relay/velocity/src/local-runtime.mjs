@@ -1,7 +1,7 @@
 // Self-contained Track B local process: reuses the EXISTING Node Bus runner
 // and OpenCode V2 adapter. No daemon, GitHub Actions, cloud endpoint or second queue.
 import {homedir} from 'node:os';
-import {join,resolve} from 'node:path';
+import {join,resolve,dirname} from 'node:path';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {openBus} from '../../bus/bin/aion-bus.mjs';
@@ -13,6 +13,25 @@ import {assertPrivateStateDir} from './security.mjs';
 import {createCommandPlane} from './broker/core.mjs';
 import {createEventStream} from './broker/events.mjs';
 import {selectGrant} from '../../extension/src/bus/grants.js';
+import {connectHost} from './transport/local-ipc.mjs';
+import {createRemoteChatGPTAdapter,createOfflineChatGPTAdapter} from './browser/remote-call.mjs';
+import {CHATGPT_ADAPTER} from '../../extension/src/bus/adapters/chatgpt.js';
+import {PING} from './native-host/relay.mjs';
+
+/** Truthful Chrome leg probe: CONNECTED only after a worker answered a ping through the host. */
+export async function browserProbe({stateDir=dirname(localStatePath()),connect=connectHost}={}){
+  let link;
+  try{link=await connect({stateDir});}
+  catch(error){return {ok:false,state:'NOT_CONNECTED',reason:error.code??'HOST_UNREACHABLE',link:null};}
+  try{
+    const pong=await link.request(PING,{},{timeoutMs:3000});
+    if(pong?.ok!==true||pong.pong!==true)throw Object.assign(new Error('bad pong'),{code:'WORKER_NOT_ANSWERING'});
+    return {ok:true,state:'CONNECTED',extension_id:pong.extension_id??link.session.extension_id,
+      ipc_auth:link.session.ipc_auth,pipe_dacl:link.session.pipe_dacl,link};
+  }catch(error){link.close();return {ok:false,state:'HOST_UP_WORKER_SILENT',reason:error.code??'WORKER_NOT_ANSWERING',link:null};}
+}
+export const publicBrowser=b=>b?{state:b.state,reason:b.reason??null,extension_id:b.extension_id??null,
+  ipc_auth:b.ipc_auth??null,pipe_dacl:b.pipe_dacl??null}:{state:'NOT_PROBED'};
 
 export function localStatePath(env=process.env) {
   const home=env.LOCALAPPDATA||join(env.USERPROFILE||env.HOME||homedir(),'.aion');
@@ -29,7 +48,7 @@ const root=fileURLToPath(new URL('../../role-launcher/ROLES.json',import.meta.ur
 export function readRoleCatalog(){return JSON.parse(readFileSync(root,'utf8'));}
 
 export async function openLocal({withEngine=false,engineChoice=null,stateFile=localStatePath(),
-  serviceState=process.env.AION_OPENCODE_STATE}={}){
+  serviceState=process.env.AION_OPENCODE_STATE,withBrowser=false,probeBrowser=browserProbe}={}){
   const state=resolve(stateFile);
   // No implicit use of the stable ~/.aion/bus/state.json or Chrome journal.
   if(state===resolve(join(homedir(),'.aion','bus','state.json')))
@@ -49,7 +68,11 @@ export async function openLocal({withEngine=false,engineChoice=null,stateFile=lo
     throw Object.assign(new Error('Unsupported local engine binding'),{code:'ENGINE_UNSUPPORTED'});
   const info=!withEngine?null:(selected==='acp'
     ? probeAcpBinary():await engineProbe({stateFile:serviceState}));
-  const args={state};
+  // The ChatGPT adapter is always loaded so role bindings validate; it can only
+  // deliver when a live host link answered a ping (otherwise it refuses, NOT_SENT).
+  const browser=withBrowser?await probeBrowser({stateDir:dirname(state)}):null;
+  const chat=browser?.ok?createRemoteChatGPTAdapter({link:browser.link}):createOfflineChatGPTAdapter();
+  const args={state,extraAdapters:[chat]};
   if(info?.ok&&selected==='acp')args.live=true;
   if(info?.ok&&selected==='opencode-v2'){
     args['opencode-url']='auto';
@@ -58,21 +81,24 @@ export async function openLocal({withEngine=false,engineChoice=null,stateFile=lo
   const opened=await openBus(args);
   const roleCatalog=readRoleCatalog();
   const events=createEventStream();
+  const readyFor=(s,id)=>{
+    const agent=s.agents?.[id];
+    if(agent?.status!=='bound')return false;
+    if(!selectGrant(s,id,'send',new Date().toISOString()).ok)return false;
+    if(agent.binding?.adapter===CHATGPT_ADAPTER)return browser?.ok===true;
+    return id==='opencode'&&info?.ok===true&&agent.binding?.adapter===selected;
+  };
+  let snapshot=null;
   const capabilities={
-    async refresh(){
-      const s=await opened.bus.store.read();
-      const agent=s.agents?.opencode;
-      const grant=selectGrant(s,'opencode','send',new Date().toISOString());
-      const ready=info?.ok && agent?.status==='bound'
-        && agent.binding?.adapter===selected&&grant.ok;
-      return ready;
-    },
+    async refresh(){snapshot=await opened.bus.store.read();return readyFor(snapshot,'opencode');},
     list(){return info?.ok?[{engine:selected,state:info.status,endpoint:info.endpoint}]:[];}
   };
-  let ready=await capabilities.refresh();
+  await capabilities.refresh();
   const plane=createCommandPlane({bus:opened.bus,roleCatalog,
-    capabilities:{get:()=>({actions:{submit:ready?'READY':'UNKNOWN'}}),list:capabilities.list},
-    events});
-  return {bus:opened.bus,plane,engine:info,events,statePath:state,
-    async refresh(){ready=await capabilities.refresh();return ready;},close:opened.close};
+    capabilities:{get:key=>({actions:{submit:snapshot&&readyFor(snapshot,String(key).replace(/^agent:/,''))?'READY':'UNKNOWN'}}),
+      list:capabilities.list},events});
+  return {bus:opened.bus,plane,engine:info,browser,events,statePath:state,roleCatalog,
+    async refresh(){return capabilities.refresh();},
+    async readyFor(id){snapshot=await opened.bus.store.read();return readyFor(snapshot,id);},
+    async close(){try{browser?.link?.close();}finally{await opened.close();}}};
 }

@@ -91,3 +91,12 @@ test('connections distinguish available ACP binary from a live OpenCode service'
  assert.equal(v.opencode_v2.state,'UNAVAILABLE');
  assert.equal(v.chrome.state,'NOT_CONNECTED');
 });
+
+test('runtime is closed only after the follow loop finishes (no observe on a closed engine)',async()=>{
+ const {runtime,stats}=fixture();let closedAt=null;
+ runtime.close=async()=>{closedAt=stats.observes;};
+ const status=await main(['send','opencode','hello'],
+  {open:async()=>runtime,probe:async()=>runtime.engine,print:()=>{},pause:async()=>{}});
+ assert.equal(status,0);assert.equal(stats.observes,2);
+ assert.equal(closedAt,2,'close ran after every observation, not before');
+});
