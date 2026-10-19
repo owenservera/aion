@@ -57,6 +57,7 @@ export async function startUnixBroker({socketPath,channel}){
 }
 
 export async function requestUnix({socketPath,request,timeoutMs=5000}){
+ if(process.platform==='win32')throw Object.assign(new Error('Windows secure IPC not yet verified'),{code:'WINDOWS_IPC_UNVERIFIED'});
  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000)throw new RangeError('timeoutMs');
  // Never resend after a timeout. Caller cannot infer no-send from lost ACK.
  return new Promise((resolve,reject)=>{
