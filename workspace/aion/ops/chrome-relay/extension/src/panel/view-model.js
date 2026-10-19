@@ -197,6 +197,8 @@ export const ACTION_CATALOG = Object.freeze([
   { type: 'aion/chatgpt-tabs', kind: 'probe', machine_view: false, summary: 'List open chatgpt.com tabs by id and cleaned address.' },
   { type: 'aion/chatgpt-ping', kind: 'probe', machine_view: false, summary: 'Check that one chosen tab answers. Reads nothing from the page.' },
   { type: 'aion/chatgpt-run', kind: 'send', machine_view: false, summary: 'Send exactly one message into one chosen tab. Cannot be unsent.' },
+  { type: 'aion/chatgpt-submit', kind: 'send', machine_view: false, summary: 'Submit one approved task once: reserve durably, arm the page observer, activate, return the first receipt.' },
+  { type: 'aion/chatgpt-observe', kind: 'probe', machine_view: false, summary: 'Read-only poll of an already-armed observer for one operation. Never submits, never extends its deadline.' },
   { type: 'aion/chatgpt-read', kind: 'probe', machine_view: false, summary: 'Read back the final reply for one correlation id.' }
 ]);
 

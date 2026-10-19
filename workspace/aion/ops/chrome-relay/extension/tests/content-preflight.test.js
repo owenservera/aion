@@ -27,12 +27,22 @@ const { NO_SEND, __testing } = content;
  * visibility check has something real to reason about: a zero-size layout box, an
  * inline `display:none`, or `hidden`.
  */
-function composer({ text = '', visible = true, hidden = false } = {}) {
+function composer({
+  text = '',
+  visible = true,
+  hidden = false,
+  id = 'prompt-textarea',
+  className = '',
+  contentEditable = null,
+  attrs = {}
+} = {}) {
+  const classes = className.split(/\s+/).filter(Boolean);
   const node = {
     hidden,
     style: visible ? {} : { display: 'none' },
     textContent: text,
     innerText: text,
+    classList: { contains: (token) => classes.includes(token) },
     focus() { node.focused = true; },
     getClientRects() {
       return visible ? [{ width: 600, height: 48 }] : [];
@@ -41,14 +51,108 @@ function composer({ text = '', visible = true, hidden = false } = {}) {
       return visible ? { x: 0, y: 0, width: 600, height: 48 } : { x: 0, y: 0, width: 0, height: 0 };
     },
     dispatchEvent() { return true; },
-    getAttribute() { return null; },
+    getAttribute(name) {
+      if (name === 'contenteditable') return contentEditable;
+      if (Object.prototype.hasOwnProperty.call(attrs, name)) return attrs[name];
+      if (name === 'id') return id;
+      return null;
+    },
+    hasAttribute(name) { return node.getAttribute(name) !== null; },
     ownerDocument: null
   };
   return node;
 }
 
-function button({ present = false } = {}) {
-  return present ? { disabled: false } : null;
+/**
+ * The composer the current page renders: a ProseMirror contenteditable div with
+ * an accessible name but no legacy `#prompt-textarea` id.
+ */
+function prosemirrorComposer({ text = '', visible = true, hidden = false, attrs = {}, contentEditable = 'true' } = {}) {
+  return composer({
+    text,
+    visible,
+    hidden,
+    id: null,
+    className: 'ProseMirror',
+    contentEditable,
+    attrs: { role: 'textbox', 'aria-label': 'Ask ChatGPT', ...attrs }
+  });
+}
+
+/**
+ * Selector matching for the two composer selectors content.js may use.
+ *
+ * Deliberately literal rather than a general CSS engine: only the forms the
+ * production code names are modelled, so the stub cannot silently agree with a
+ * broader selector that the code was not supposed to use.
+ */
+function matchesComposer(node, selector) {
+  if (selector === '#prompt-textarea') return node.getAttribute('id') === 'prompt-textarea';
+  if (selector === '.ProseMirror[contenteditable="true"]') {
+    return node.classList.contains('ProseMirror') && node.getAttribute('contenteditable') === 'true';
+  }
+  return false;
+}
+
+/**
+ * A submit control.
+ *
+ * `legacy` carries the old `data-testid`; `named` carries an exact aria-label;
+ * `text` has neither and takes its accessible name from nested text. `disabled`
+ * models the empty-composer state where Send exists but cannot be used yet.
+ */
+function sendButton({
+  disabled = false,
+  ariaLabel = null,
+  text = 'Send',
+  dataTestId = 'send-button',
+  visible = true,
+  hidden = false,
+  attrs = {}
+} = {}) {
+  const node = {
+    tagName: 'BUTTON',
+    disabled,
+    hidden,
+    style: visible ? {} : { display: 'none' },
+    textContent: text,
+    innerText: text,
+    focus() { node.focused = true; },
+    getClientRects() {
+      return visible ? [{ width: 40, height: 40 }] : [];
+    },
+    getBoundingClientRect() {
+      return visible ? { x: 0, y: 0, width: 40, height: 40 } : { x: 0, y: 0, width: 0, height: 0 };
+    },
+    dispatchEvent() { return true; },
+    getAttribute(name) {
+      if (name === 'aria-label') return ariaLabel;
+      if (name === 'data-testid') return dataTestId;
+      if (Object.prototype.hasOwnProperty.call(attrs, name)) return attrs[name];
+      return null;
+    },
+    hasAttribute(name) { return node.getAttribute(name) !== null; },
+    ownerDocument: null
+  };
+  return node;
+}
+
+function matchesSend(node, selector) {
+  if (!node || node.tagName !== 'BUTTON') return false;
+  if (selector === '[data-testid="send-button"]') return node.getAttribute('data-testid') === 'send-button';
+  if (selector === 'button[aria-label="Send"]') return node.getAttribute('aria-label') === 'Send';
+  if (selector === 'button') return true;
+  return false;
+}
+
+/** Build the send-control list a test asked for. */
+function sendNodesFor({ send = false, sendDisabled = false } = {}) {
+  if (send === 'legacy') return [sendButton({ disabled: sendDisabled })];
+  if (send === 'named') return [sendButton({ disabled: sendDisabled, ariaLabel: 'Send', dataTestId: null })];
+  if (send === 'text') {
+    return [sendButton({ disabled: sendDisabled, ariaLabel: null, dataTestId: null, text: 'Send' })];
+  }
+  return [];
 }
 
 /**
@@ -57,10 +161,18 @@ function button({ present = false } = {}) {
  * content.js reads `document` at call time, so nothing has to be installed at
  * import time and the stub cannot leak into another test file.
  */
-async function withDom({ composers = [], stop = false, send = false, execCommand = true }, body) {
+async function withDom({
+  composers = [],
+  stop = false,
+  send = false,
+  sendDisabled = false,
+  sendNodes = null,
+  execCommand = true
+}, body) {
   const previousDocument = globalThis.document;
   const previousInputEvent = globalThis.InputEvent;
   const inserted = [];
+  const sends = sendNodes || sendNodesFor({ send, sendDisabled });
   // content.js dispatches InputEvent/MouseEvent. A browser has them; Node does
   // not, and without them every dispatch throws inside content.js's own try/catch
   // and the fallback insert path reports failure AFTER it has set the text — a
@@ -74,12 +186,22 @@ async function withDom({ composers = [], stop = false, send = false, execCommand
   globalThis.document = {
     querySelector(selector) {
       if (selector === '[data-testid="stop-button"]') return stop ? {} : null;
-      if (selector === '[data-testid="send-button"]') return button({ present: send });
-      if (selector === '#prompt-textarea') return composers[0] || null;
+      if (selector === '[data-testid="send-button"]' || selector === 'button[aria-label="Send"]') {
+        return sends.find((node) => matchesSend(node, selector)) || null;
+      }
+      if (selector === '#prompt-textarea' || selector === '.ProseMirror[contenteditable="true"]') {
+        return composers.find((node) => matchesComposer(node, selector)) || null;
+      }
       return null;
     },
     querySelectorAll(selector) {
-      return selector === '#prompt-textarea' ? composers : [];
+      if (selector === '#prompt-textarea' || selector === '.ProseMirror[contenteditable="true"]') {
+        return composers.filter((node) => matchesComposer(node, selector));
+      }
+      if (selector === '[data-testid="send-button"]' || selector === 'button[aria-label="Send"]' || selector === 'button') {
+        return sends.filter((node) => matchesSend(node, selector));
+      }
+      return [];
     },
     execCommand(command, _ui, text) {
       if (!execCommand) return false;
@@ -192,7 +314,7 @@ test('an existing draft is preserved: the fill refuses instead of erasing it', a
 
 test('a whitespace-only composer is treated as empty and may be filled', async () => {
   const editor = composer({ text: '   \n  ' });
-  await withDom({ composers: [editor] }, ({ inserted }) => {
+  await withDom({ composers: [editor], send: 'legacy' }, ({ inserted }) => {
     const fill = __testing.composerFill('probe text');
     assert.equal(fill.ok, true, fill.error);
     assert.deepEqual(inserted, ['probe text']);
@@ -204,7 +326,7 @@ test('a whitespace-only composer is treated as empty and may be filled', async (
 
 test('exactly one empty visible composer is filled', async () => {
   const editor = composer();
-  await withDom({ composers: [editor] }, ({ inserted }) => {
+  await withDom({ composers: [editor], send: 'legacy' }, ({ inserted }) => {
     const pre = __testing.preflightComposer();
     assert.equal(pre.ok, true);
     assert.equal(pre.composer_visible_count, 1);
@@ -219,11 +341,258 @@ test('exactly one empty visible composer is filled', async () => {
 
 test('the fallback insert path is used when execCommand is unavailable', async () => {
   const editor = composer();
-  await withDom({ composers: [editor], execCommand: false }, ({ inserted }) => {
+  await withDom({ composers: [editor], execCommand: false, send: 'legacy' }, ({ inserted }) => {
     const fill = __testing.composerFill('probe text');
     assert.equal(fill.ok, true);
     assert.deepEqual(inserted, [], 'execCommand did nothing');
     assert.equal(editor.textContent, 'probe text', 'the textContent fallback still ran');
+  });
+});
+
+/* ------------------------------------------- current ProseMirror composer */
+
+test('a legacy #prompt-textarea composer is still discovered', async () => {
+  const editor = composer();
+  await withDom({ composers: [editor], send: 'legacy' }, ({ inserted }) => {
+    assert.equal(__testing.sendState().composer_visible_count, 1);
+    assert.deepEqual(__testing.visibleComposers(), [editor]);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, true, fill.error);
+    assert.deepEqual(inserted, ['probe']);
+  });
+});
+
+test('the current ProseMirror composer is discovered by class and editable state', async () => {
+  // The live page reports class `ProseMirror` and accessible name `Ask ChatGPT`
+  // with no legacy id. Discovery must accept it without guessing at a generic
+  // editable region.
+  const editor = prosemirrorComposer();
+  await withDom({ composers: [editor], send: 'named' }, ({ inserted }) => {
+    assert.equal(__testing.sendState().composer_visible_count, 1);
+    const pre = __testing.preflightComposer();
+    assert.equal(pre.ok, true, pre.error);
+    assert.equal(pre.editor, editor);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, true, fill.error);
+    assert.deepEqual(inserted, ['probe']);
+  });
+});
+
+test('a node matching both selectors is counted once, not twice', async () => {
+  // Legacy id AND ProseMirror class on the same editable node is one composer.
+  const editor = composer({ id: 'prompt-textarea', className: 'ProseMirror', contentEditable: 'true' });
+  await withDom({ composers: [editor], send: 'legacy' }, () => {
+    assert.equal(__testing.visibleComposers().length, 1);
+    const pre = __testing.preflightComposer();
+    assert.equal(pre.ok, true, pre.error);
+    assert.equal(pre.composer_visible_count, 1);
+  });
+});
+
+test('a generic editable decoy without composer identity is never selected', async () => {
+  // A bare contenteditable region is not the composer: no legacy id, no
+  // ProseMirror class. It must not be typed into even when it is the only editor.
+  const decoy = composer({ id: null, className: '', contentEditable: 'true' });
+  await withDom({ composers: [decoy] }, ({ inserted }) => {
+    assert.deepEqual(__testing.visibleComposers(), []);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, false);
+    assert.equal(fill.code, NO_SEND.COMPOSER_MISSING);
+    assert.deepEqual(inserted, []);
+  });
+});
+
+test('a non-editable ProseMirror decoy is not counted', async () => {
+  const decoy = prosemirrorComposer({ attrs: { 'aria-disabled': 'true' } });
+  await withDom({ composers: [decoy] }, ({ inserted }) => {
+    assert.deepEqual(__testing.visibleComposers(), []);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.code, NO_SEND.COMPOSER_MISSING);
+    assert.deepEqual(inserted, []);
+  });
+});
+
+test('a disabled legacy composer is not counted', async () => {
+  const decoy = composer();
+  decoy.disabled = true;
+  await withDom({ composers: [decoy] }, ({ inserted }) => {
+    assert.deepEqual(__testing.visibleComposers(), []);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.code, NO_SEND.COMPOSER_MISSING);
+    assert.deepEqual(inserted, []);
+  });
+});
+
+test('hidden ProseMirror clones are ignored and the visible one is chosen', async () => {
+  const visible = prosemirrorComposer();
+  const displayNone = prosemirrorComposer({ visible: false });
+  const hiddenAttr = prosemirrorComposer({ hidden: true });
+  await withDom({ composers: [visible, displayNone, hiddenAttr], send: 'named' }, () => {
+    assert.deepEqual(__testing.visibleComposers(), [visible]);
+    const pre = __testing.preflightComposer();
+    assert.equal(pre.ok, true, pre.error);
+    assert.equal(pre.editor, visible);
+  });
+});
+
+test('two visible ProseMirror composers are refused as ambiguous', async () => {
+  await withDom({ composers: [prosemirrorComposer(), prosemirrorComposer()] }, ({ inserted }) => {
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, false);
+    assert.equal(fill.code, NO_SEND.COMPOSER_AMBIGUOUS);
+    assert.equal(fill.composer_visible_count, 2);
+    assert.deepEqual(inserted, []);
+  });
+});
+
+test('an existing ProseMirror draft is preserved', async () => {
+  const editor = prosemirrorComposer({ text: 'half-written operator prompt' });
+  await withDom({ composers: [editor] }, ({ inserted }) => {
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, false);
+    assert.equal(fill.code, NO_SEND.COMPOSER_DRAFT_PRESENT);
+    assert.deepEqual(inserted, []);
+    assert.equal(editor.textContent, 'half-written operator prompt');
+    assert.equal(editor.focused, undefined, 'and the composer was not even focused');
+  });
+});
+
+test('an unreadable ProseMirror draft refuses: unread is not empty', async () => {
+  const editor = prosemirrorComposer();
+  Object.defineProperty(editor, 'value', {
+    get() { throw new Error('cross-origin read blocked'); }
+  });
+  await withDom({ composers: [editor] }, ({ inserted }) => {
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, false);
+    assert.equal(fill.code, NO_SEND.COMPOSER_STATE_UNKNOWN);
+    assert.deepEqual(inserted, []);
+  });
+});
+
+test('a running generation still refuses the ProseMirror composer', async () => {
+  const editor = prosemirrorComposer();
+  await withDom({ composers: [editor], stop: true }, ({ inserted }) => {
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.code, NO_SEND.GENERATION_ACTIVE);
+    assert.deepEqual(inserted, []);
+  });
+});
+
+/* ---------------------------------------------- send control (legacy/current) */
+
+test('a legacy [data-testid="send-button"] is discovered', async () => {
+  const editor = composer();
+  await withDom({ composers: [editor], send: 'legacy' }, ({ inserted }) => {
+    assert.equal(__testing.sendControls().length, 1);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, true, fill.error);
+    assert.deepEqual(inserted, ['probe']);
+  });
+});
+
+test('the current Send button is discovered by exact accessible name', async () => {
+  // UI Automation reports a Button named "Send" with no data-testid.
+  const editor = prosemirrorComposer();
+  await withDom({ composers: [editor], send: 'named' }, ({ inserted }) => {
+    const controls = __testing.sendControls();
+    assert.equal(controls.length, 1);
+    assert.equal(controls[0].getAttribute('aria-label'), 'Send');
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, true, fill.error);
+    assert.deepEqual(inserted, ['probe']);
+  });
+});
+
+test('a Send button whose name is nested text is discovered without aria', async () => {
+  const editor = prosemirrorComposer();
+  await withDom({ composers: [editor], send: 'text' }, ({ inserted }) => {
+    const controls = __testing.sendControls();
+    assert.equal(controls.length, 1);
+    assert.equal(controls[0].getAttribute('aria-label'), null);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, true, fill.error);
+    assert.deepEqual(inserted, ['probe']);
+  });
+});
+
+test('a node matching legacy and name selectors is deduped to one control', async () => {
+  const both = sendButton({ ariaLabel: 'Send', dataTestId: 'send-button' });
+  const editor = composer();
+  await withDom({ composers: [editor], sendNodes: [both] }, () => {
+    assert.deepEqual(__testing.sendControls(), [both]);
+    assert.equal(__testing.preflightComposer().ok, true);
+  });
+});
+
+test('non-Send and hidden buttons are not send controls', async () => {
+  const send = sendButton({ ariaLabel: 'Send', dataTestId: null });
+  const cancel = sendButton({ ariaLabel: 'Cancel', dataTestId: null, text: 'Cancel' });
+  const hiddenSend = sendButton({ ariaLabel: 'Send', dataTestId: null, visible: false });
+  const editor = composer();
+  await withDom({ composers: [editor], sendNodes: [send, cancel, hiddenSend] }, () => {
+    assert.deepEqual(__testing.sendControls(), [send]);
+    assert.equal(__testing.preflightComposer().ok, true);
+  });
+});
+
+test('two visible Send controls refuse as ambiguous before any text is typed', async () => {
+  const editor = composer();
+  const first = sendButton();
+  const second = sendButton({ ariaLabel: 'Send', dataTestId: null });
+  await withDom({ composers: [editor], sendNodes: [first, second] }, ({ inserted }) => {
+    assert.equal(__testing.sendControls().length, 2);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, false);
+    assert.equal(fill.code, NO_SEND.SEND_AMBIGUOUS);
+    assert.deepEqual(inserted, [], 'no text may be inserted');
+    assert.equal(editor.textContent, '', 'the composer is untouched');
+  });
+});
+
+test('a missing Send control refuses before any text is typed', async () => {
+  const editor = composer();
+  await withDom({ composers: [editor] }, ({ inserted }) => {
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, false);
+    assert.equal(fill.code, NO_SEND.SEND_MISSING);
+    assert.match(fill.error, /nothing was typed or sent/);
+    assert.deepEqual(inserted, [], 'no text may be inserted');
+    assert.equal(editor.textContent, '', 'the composer is untouched');
+    assert.equal(editor.focused, undefined, 'and it was not even focused');
+  });
+});
+
+test('an empty composer may fill while Send is disabled, then the state reports disabled', async () => {
+  // The live page renders Send disabled on an empty composer. Presence is what
+  // the preflight needs; enablement is re-checked only after the fill.
+  const editor = composer();
+  await withDom({ composers: [editor], send: 'named', sendDisabled: true }, ({ inserted }) => {
+    assert.equal(__testing.sendState().sendPresent, true);
+    assert.equal(__testing.sendState().sendDisabled, true);
+    const fill = __testing.composerFill('probe');
+    assert.equal(fill.ok, true, fill.error);
+    assert.deepEqual(inserted, ['probe']);
+    // Still disabled after the fill: runTurn refuses at the post-fill gate.
+    assert.equal(__testing.sendState().sendDisabled, true);
+  });
+});
+
+test('send discovery is scoped to the composer form when one exists', async () => {
+  const inForm = sendButton({ ariaLabel: 'Send', dataTestId: null });
+  const outside = sendButton({ ariaLabel: 'Send', dataTestId: null });
+  const form = {
+    querySelectorAll: (selector) => {
+      if (selector === 'button' || selector === 'button[aria-label="Send"]') {
+        return [inForm].filter((node) => matchesSend(node, selector));
+      }
+      return [];
+    }
+  };
+  const editor = prosemirrorComposer();
+  editor.closest = (selector) => (selector === 'form' ? form : null);
+  await withDom({ composers: [editor], sendNodes: [inForm, outside] }, () => {
+    assert.deepEqual(__testing.sendControls(), [inForm], 'the same-named button outside the form is ignored');
   });
 });
 
@@ -308,6 +677,19 @@ test('the real run-turn action refuses a draft and types nothing', async () => {
   });
 });
 
+test('the real run-turn action rejects malformed work budgets before filling', async () => {
+  const onConnect = await loadContentWithChrome();
+  for (const timeout_ms of [null, '300000', NaN, Infinity, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    await withDom({ composers: [composer()] }, ({ inserted }) => {
+      const port = connectPort(onConnect);
+      const reply = port.ask({ action: 'run-turn', user_gesture: true, text: 'test', timeout_ms });
+      assert.equal(reply.reason, 'invalid_work_budget');
+      assert.equal(reply.submitted, false);
+      assert.deepEqual(inserted, []);
+    });
+  }
+});
+
 test('the real run-turn action refuses an ambiguous composer set', async () => {
   const onConnect = await loadContentWithChrome();
   await withDom({ composers: [composer(), composer()] }, ({ inserted }) => {
@@ -375,6 +757,7 @@ test('the real state action answers with sendState instead of being dropped', as
       generating: false,
       sendPresent: false,
       sendDisabled: true,
+      sendControlCount: 0,
       composer_visible_count: 1
     });
   });

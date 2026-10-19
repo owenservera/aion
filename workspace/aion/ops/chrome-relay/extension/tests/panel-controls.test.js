@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveCommandDeadline } from '../src/lib/command-deadlines.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const panelPath = resolve(root, 'src', 'panel', 'panel.js');
@@ -82,6 +83,7 @@ const realSetTimeout = globalThis.setTimeout;
  */
 function installFakeClock() {
   const real = globalThis.setTimeout;
+  const realClear = globalThis.clearTimeout;
   let now = 0;
   let seq = 0;
   const pending = new Map();
@@ -91,9 +93,11 @@ function installFakeClock() {
     pending.set(seq, { fn, at: now + (Number(delay) || 0) });
     return seq;
   };
+  globalThis.clearTimeout = (id) => pending.delete(id);
 
   return {
-    restore() { globalThis.setTimeout = real; },
+    get pending() { return pending.size; },
+    restore() { globalThis.setTimeout = real; globalThis.clearTimeout = realClear; },
     async advance(ms) {
       const target = now + ms;
       for (;;) {
@@ -199,6 +203,63 @@ async function selectOneTab(env, tab = { id: 7, url: 'https://chatgpt.com/c/abc'
   await env.settle();
   env.get('tab-select').value = String(tab.id);
   env.change('tab-select');
+}
+
+/**
+ * Run the REAL worker-side driver ping for tab 7 and return the reply the
+ * worker's actionReply hands the panel.
+ *
+ * The panel used to be tested against a flat `{ok, tab_id, status, detail}`
+ * shape that no driver produces. This feeds the actual driver output, wrapped
+ * in the actual worker envelope, so the contract mismatch cannot come back.
+ */
+async function realDriverPingReply(options = {}) {
+  const { createChatGPTPortDriver } = await import('../src/background/chatgpt-port.js');
+  const { answer, connectThrows = false } = options;
+  const tab = {
+    id: 7,
+    windowId: 1,
+    active: true,
+    status: 'complete',
+    url: 'https://chatgpt.com/c/abc123?share=secret#frag'
+  };
+  const chromeApi = {
+    tabs: {
+      async query() { return [tab]; },
+      connect() {
+        if (connectThrows) {
+          throw new Error('Could not establish connection. Receiving end does not exist.');
+        }
+        const listeners = [];
+        const port = {
+          name: 'aion-chatgpt',
+          posted: [],
+          onMessage: { addListener(fn) { listeners.push(fn); } },
+          onDisconnect: { addListener() {} },
+          postMessage(message) {
+            port.posted.push(message);
+            const reply = answer ? answer(message) : undefined;
+            if (reply === undefined || reply === null) return;
+            queueMicrotask(() => { for (const fn of listeners) fn(reply); });
+          },
+          disconnect() {}
+        };
+        return port;
+      }
+    }
+  };
+  const driver = createChatGPTPortDriver({ chrome: chromeApi });
+  const result = await driver.ping({ tab_id: 7 });
+  // actionReply() in the worker: body fields spread at the top level, `ok`
+  // normalised, `code`/`error` always present, and the body kept as `result`.
+  return {
+    ...result,
+    ok: result.ok === true,
+    code: result.ok === true ? (result.code ?? null) : (result.code ?? 'internal_error'),
+    error: result.ok === true ? (result.error ?? null) : (result.error ?? 'the request failed'),
+    result,
+    type: 'aion/chatgpt-ping'
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -315,6 +376,58 @@ test('the real driver tab shape is accepted by the real panel sanitizer', async 
 
   // The panel must now accept it, and keep the rest of the record out.
   assert.deepEqual(panelSanitizeTab(fromDriver), { id: 7, url: 'https://chatgpt.com/c/abc123' });
+});
+
+test('a real driver ping renders as tab reachability, never as UNKNOWN placeholders', async () => {
+  const reply = await realDriverPingReply({
+    answer: (message) => ({
+      action: message.action,
+      ok: true,
+      href: 'https://chatgpt.com/c/abc123?share=secret#frag',
+      title: 'private conversation title',
+      state: { generating: false, sendPresent: true, sendDisabled: false, composer_visible_count: 1 },
+      note: 'read-only probe; nothing composed or sent'
+    })
+  });
+
+  // Premise guard: this is the real driver contract, not an invented shape.
+  assert.equal(reply.result.tab.tab_id, 7);
+  assert.equal(reply.result.action, 'ping');
+  assert.equal(reply.result.state.composer_visible_count, 1);
+
+  const env = await loadPanel({ reply: () => reply });
+  env.get('tab-select').value = '7';
+  env.get('tab-select').disabled = false;
+  env.change('tab-select');
+  env.click('btn-chatgpt-ping');
+  await env.settle();
+
+  const shown = env.get('result-chatgpt').textContent;
+  assert.match(shown, /Tab: 7/);
+  assert.match(shown, /Status: ANSWERED — tab reachability only; not ACP or M1 proof/);
+  assert.match(shown, /State: .*composer_visible_count=1/);
+  assert.match(shown, /State: .*generating=false/);
+  assert.match(shown, /Note: read-only probe; nothing composed or sent/);
+  assert.doesNotMatch(shown, /UNKNOWN/, 'a successful real ping must not render UNKNOWN placeholders');
+  assert.doesNotMatch(shown, /private conversation title/, 'the driver drops the title and so must the panel');
+  assert.doesNotMatch(shown, /share=secret/, 'only the sanitized tab url may be shown');
+});
+
+test('a real driver ping failure keeps its code and claims no reachability', async () => {
+  const reply = await realDriverPingReply({ connectThrows: true });
+  assert.equal(reply.ok, false);
+
+  const env = await loadPanel({ reply: () => reply });
+  env.get('tab-select').value = '7';
+  env.get('tab-select').disabled = false;
+  env.change('tab-select');
+  env.click('btn-chatgpt-ping');
+  await env.settle();
+
+  const shown = env.get('result-chatgpt').textContent;
+  assert.match(shown, /FAILED — no_content_script/);
+  assert.match(shown, /Code: no_content_script/);
+  assert.doesNotMatch(shown, /ANSWERED/, 'a failed ping is not reachability');
 });
 
 test('a conflicting or malformed tab id is refused, and nothing is coerced', async () => {
@@ -448,6 +561,7 @@ test('sends exactly one message with exactly the agreed command shape', async ()
       correlation_id: 'corr-1',
       expected_reply_token: 'tok-1',
       approved_scope_ref: 'workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md',
+      timeout_ms: 300000,
       user_gesture: true
     }
   });
@@ -666,7 +780,7 @@ test('reconcile re-arms without resending anything', async () => {
  * Deadlines
  * ------------------------------------------------------------------ */
 
-test('diagnostics fail fast and the live run waits far longer', async () => {
+test('native diagnostics remain unchanged; ChatGPT tab discovery uses its complete plan', async () => {
   const env = await loadPanel({ reply: () => undefined }); // never answers
   const clock = installFakeClock();
   try {
@@ -678,8 +792,33 @@ test('diagnostics fail fast and the live run waits far longer', async () => {
       'the host check keeps the five second budget');
 
     env.click('btn-chatgpt-tabs');
-    await clock.advance(5000);
+    await clock.advance(resolveCommandDeadline({ command: 'tabs' }).panelMs);
     assert.match(env.get('result-chatgpt').textContent, /UNCERTAIN/);
+  } finally {
+    clock.restore();
+  }
+});
+
+test('the ChatGPT tab ping outlasts the driver ping and stays bounded', async () => {
+  const env = await loadPanel({ reply: () => undefined }); // never answers
+  const clock = installFakeClock();
+  try {
+    env.get('tab-select').value = '7';
+    env.get('tab-select').disabled = false;
+    env.change('tab-select');
+    env.click('btn-chatgpt-ping');
+
+    // The driver's own ping budget is 5000ms. If the panel gave up at the same
+    // five seconds, a driver timeout would be masked by the panel's deadline and
+    // the operator would never see the driver's code.
+    await clock.advance(5000);
+    assert.doesNotMatch(env.get('result-chatgpt').textContent, /UNCERTAIN/,
+      'the panel must still be waiting while the driver ping may answer');
+
+    const panelMs = resolveCommandDeadline({ command: 'ping' }).panelMs;
+    await clock.advance(panelMs - 5000);
+    assert.match(env.get('result-chatgpt').textContent, /UNCERTAIN/);
+    assert.match(env.get('result-chatgpt').textContent, new RegExp(`No reply within ${panelMs / 1000}s`));
   } finally {
     clock.restore();
   }
@@ -706,6 +845,8 @@ test('the ACP handshake carries its own bounded twenty second deadline', async (
 test('the live probe is still waiting well past the diagnostic deadline', async () => {
   const env = await loadPanel({ reply: () => undefined });
   const clock = installFakeClock();
+  const { MAX_PORT_GUARD_MS } = await import('../src/background/chatgpt-port.js');
+  const panelMs = resolveCommandDeadline({ command: 'run-turn' }).panelMs;
   try {
     // The tab list never answers, so the tab is selected from the stub directly.
     env.get('tab-select').value = '7';
@@ -726,13 +867,107 @@ test('the live probe is still waiting well past the diagnostic deadline', async 
     assert.doesNotMatch(env.get('result-run').textContent, /UNCERTAIN/,
       'fifteen seconds must not end a live run');
 
-    await clock.advance(165001);
+    // The 2026-10-18 turn outlived the worker's 120s page budget and was refused
+    // `generation_incomplete`. The panel must therefore still be listening well
+    // past two minutes, which is where the previous 180s deadline used to sit.
+    await clock.advance(120000);
+    assert.equal(env.runs().length, 1);
+    assert.doesNotMatch(env.get('result-run').textContent, /UNCERTAIN/,
+      '120s is the latency the live run must survive, so the panel cannot have given up');
+
+    // And past the worker's OWN guard. If the panel's generic deadline ever
+    // drops to the guard's, it reports a vague UNKNOWN where the worker actually
+    // has a stable timeout code to show.
+    await clock.advance(MAX_PORT_GUARD_MS - 135000);
+    assert.doesNotMatch(env.get('result-run').textContent, /UNCERTAIN/,
+      `the panel must still be listening at the worker guard (${MAX_PORT_GUARD_MS}ms)`);
+
+    await clock.advance(panelMs);
     assert.match(env.get('result-run').textContent, /UNCERTAIN/,
-      'the live deadline is three minutes, not fifteen seconds');
+      'the live deadline is finite, and firing it is not a claim that nothing was sent');
+    assert.match(env.get('result-run').textContent, new RegExp(`No reply within ${Math.round(panelMs / 1000)}s`));
     assert.equal(env.get('btn-chatgpt-run').disabled, true, 'a timed-out run is still locked');
     assert.equal(env.get('btn-probe-reconcile').disabled, false);
   } finally {
     clock.restore();
+  }
+});
+
+test('the panel deadline outlasts the worker guard, which outlasts the page budget', async () => {
+  // The whole failure of 2026-10-18 was a bound-versus-latency mismatch, and the
+  // three numbers that decide it live in three different files. This asserts the
+  // ORDERING, so a future edit to any one of them cannot silently restore the
+  // bug by making one layer's deadline shorter than the layer it wraps.
+  const { MAX_RUN_TIMEOUT_MS, MAX_PORT_GUARD_MS, DEFAULT_CHATGPT_GRACE_MS } =
+    await import('../src/background/chatgpt-port.js');
+  const { __testing: contentTesting } = await import('../src/chatgpt/content.js');
+
+  // 1. the panel's own live deadline, read out of the module that owns it.
+  assert.match(panelSource, /const LIVE_RUN_TIMEOUT_MS = resolveCommandDeadline/);
+  const panelMs = resolveCommandDeadline({ command: 'run-turn' }).panelMs;
+  assert.ok(Number.isFinite(panelMs), 'the panel deadline is a finite number');
+
+  // 2. page clamp >= worker run ceiling, or the worker's budget is truncated
+  //    silently in the page and a slow turn is read mid-generation again.
+  assert.ok(contentTesting.MAX_TIMEOUT_MS >= MAX_RUN_TIMEOUT_MS,
+    'the page clamp must not be shorter than the budget the worker hands it');
+
+  // 3. worker guard > page budget, or the worker gives up while the page is
+  //    still entitled to be working.
+  assert.ok(MAX_PORT_GUARD_MS >= MAX_RUN_TIMEOUT_MS + DEFAULT_CHATGPT_GRACE_MS,
+    'the port guard must outlast the page budget plus the grace the worker adds');
+
+  // 4. panel deadline > worker guard. Otherwise the panel's generic
+  //    "no reply within Ns" races the worker's stable timeout code, and the
+  //    operator is shown UNKNOWN where a real code existed.
+  assert.ok(panelMs > MAX_PORT_GUARD_MS,
+    `the panel deadline (${panelMs}ms) must outlast the worker guard (${MAX_PORT_GUARD_MS}ms)`);
+
+  // And the whole chain is still bounded: no layer waits without an end.
+  for (const [label, ms] of [
+    ['page clamp', contentTesting.MAX_TIMEOUT_MS],
+    ['worker run ceiling', MAX_RUN_TIMEOUT_MS],
+    ['worker port guard', MAX_PORT_GUARD_MS],
+    ['panel live deadline', panelMs]
+  ]) {
+    assert.ok(Number.isFinite(ms) && ms > 0, `${label} is a positive finite bound`);
+  }
+});
+
+test('panel timeout cleans its wait and ignores a late callback without rearming', async () => {
+  const env = await loadPanel();
+  await armProbe(env);
+  let callback;
+  globalThis.chrome.runtime.sendMessage = (message, cb) => { env.sent.push(message); callback = cb; };
+  const clock = installFakeClock();
+  try {
+    env.click('btn-chatgpt-run');
+    assert.equal(clock.pending, 1);
+    await clock.advance(resolveCommandDeadline({ command: 'run-turn' }).panelMs);
+    const result = env.get('result-run').textContent;
+    assert.match(result, /UNCERTAIN/);
+    callback({ ok: true, captured: true });
+    await clock.advance(0);
+    assert.equal(env.get('result-run').textContent, result);
+    assert.equal(env.get('btn-chatgpt-run').disabled, true);
+    assert.equal(clock.pending, 0);
+    assert.equal(env.runs().length, 1);
+  } finally { clock.restore(); }
+});
+
+test('synchronous panel timer expiry or setup failure never posts the command', async () => {
+  for (const timer of [(fn) => { fn(); return 1; }, () => { throw new Error('timer setup'); }]) {
+    const env = await loadPanel();
+    await armProbe(env);
+    const real = globalThis.setTimeout, clear = globalThis.clearTimeout;
+    try {
+      globalThis.setTimeout = timer;
+      globalThis.clearTimeout = () => { throw new Error('timer cleanup'); };
+      env.click('btn-chatgpt-run');
+      await Promise.resolve(); await Promise.resolve();
+      assert.equal(env.runs().length, 0);
+      assert.equal(env.get('btn-chatgpt-run').disabled, true);
+    } finally { globalThis.setTimeout = real; globalThis.clearTimeout = clear; }
   }
 });
 

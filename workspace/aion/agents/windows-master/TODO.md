@@ -28,8 +28,8 @@ competing ACP buses.
 
 | # | Item | Lane | Status | Blocked by |
 |---|---|---|---|---|
-| T1 | Reload the pinned extension in Chrome Profile 3 so the `use_dynamic_url:false` loader fix is live | #27 | TODO | owner one-click reload |
-| T2 | Open a fresh empty `chatgpt.com` tab (never touch the preserved 12-char draft) | #27 | TODO | owner |
+| T1 | Reload the pinned extension in Chrome Profile 3 so the merged build is live | #27 | TODO | local executor; no owner click required |
+| T2 | Open a fresh empty `chatgpt.com` tab (never touch the preserved draft) | #27 | TODO | local executor; T1 |
 | T3 | Side panel: tab listing + read-only PING must pass | #27 | TODO | T1, T2 |
 | T4 | One owner-authorized benign correlated `run-turn` on the empty composer | #27 | TODO — **irreversible** | T3 |
 | T5 | Capture send/reply/consume + wrong-correlation rejection; minimized receipt into issue #27 | #27 | TODO | T4 |
@@ -72,6 +72,16 @@ no `chatgpt.com` tab, no correlated turn, no custom-plugin tool call. T1–T5 an
 `m1_verified` is unchanged.
 
 ## Owner's top-level goals — 2026-10-18
+
+### Autonomous local loop — owner instruction, 2026-10-18
+
+- Coordinator owns build/test/deploy/reload, diagnostics, bounded fixes, evidence reconciliation and final reporting; the owner is not the routine click/relay operator.
+- Baseline `fa5773e`: coordinator independently ran extension 335/335, bridge 119/119, MCP 7/7 and adapter 35/35, all exit 0, no failures/cancellations/skips. These are offline receipts, not browser acceptance.
+- One live operator only: task `ses_eaf8b63a9ffe391WMvPcmrJ6ro`. Initial dispatch failed with `getaddrinfo ENOTFOUND opencode.ai`; revival was requested. Host task status is unconfirmed; neither launch acknowledgement nor a running label proves browser progress.
+- Require a concrete action/UTC/receipt checkpoint before claiming progress or assigning a replacement operator. No live-send outcome is currently established by this entry.
+- Loop: reproduce -> regression test -> minimal fix -> full relevant tests -> reload exact installed extension -> read-only ping -> one authorized correlated send -> capture/readback -> wrong-ID rejection -> independent acceptance review.
+- Never overwrite drafts, weaken sender/approval boundaries, retry an uncertain send, automate login, collect credentials, or use Orca/Playwright/Puppeteer. An inaccessible account/permission is a blocker, not permission to bypass it.
+- Update the tracker and minimized receipts at real phase boundaries. Keep `m1_verified=false` until independent review of real positive and negative evidence; machine-readable status alone does not establish an ACP execution path or hidden-model introspection.
 
 1. **Pure ChatGPT introspection:** named agents on `chatgpt.com` interact with agents on `chatgpt.com`, using the AION repo as HQ. A local-runtime-originated browser probe is supporting transport evidence, not proof of this full goal.
 2. **ChatGPT → Windows execution → ChatGPT:** a ChatGPT-hosted agent sends a scoped prompt to OpenCode or ZCode on the owner's Windows PC and reads its actual response without owner copy/paste. OpenCode remains the first execution target; ZCode is deferred, not silently enabled.
