@@ -2,7 +2,7 @@
 
 **NO GITHUB ACTIONS.** GitHub holds source and receipts only; it does not execute or coordinate commands. The software runs locally using Node 22, the existing AION Bus, existing durable file storage and existing engine adapters. No hosted CI, Cloud Browser, Slack, Docker, Playwright, Puppeteer or Orca.
 
-**Status:** isolated development source committed. The owner's Windows machine remains paused; no installation, native host registration, ChatGPT Send or local OpenCode connection is claimed. Fourteen isolated local Node tests of the portable new modules passed in this chat; the complete repository suites and Windows activation have not yet run.
+**Status (2026-10-19, round 7):** COMMITTED + LOCALLY TESTED on Node 22 / Linux. Full offline selftest: 965 tests, 963 pass, 2 pre-existing skips, 0 fail (velocity 92, bus 10, extension 736, bridge 127, plus bus demo). The Chrome leg of `aion send <role>` is wired end to end in source and proven offline with a spawned host process, a real file ledger and a fake worker. **Not yet:** WINDOWS VERIFIED, REAL CHROME VERIFIED, real ChatGPT Send.
 
 ## Self-contained commands
 
@@ -14,9 +14,23 @@
 - **aion send opencode "your task"** — one direct process with the existing Bus: validate → durable reservation → one dispatch → read-only observe → correlated result. A background broker is NOT required.
 - **aion observe OP_ID --follow** — observe the existing operation only. No automatic resend.
 - **aion stop / resume** — locally persisted stop and resume through the same Bus.
-- **aion send chief "..."** — intentionally refused in direct mode until the isolated Track B Chrome host and browser connector are genuinely connected.
+- **aion setup browser [--apply | --uninstall]** — dry run by default (zero writes). `--apply` generates a persistent dev key (stable dev extension ID, never Track A's), builds the B dev extension copy, writes the `com.aion.relay.dev` host manifest + launcher, and registers it per user (Windows: `HKCU\...\NativeMessagingHosts\com.aion.relay.dev`). Writes a setup receipt with source SHA. `--uninstall` removes only those B files and the B key registration.
+- **aion connect chief --conversation https://chatgpt.com/c/ID [--max 10] [--hours 24]** — explicit owner binding of the role to ONE open conversation plus a finite grant. Requires a live host+worker ping and exactly one open tab on that conversation; otherwise refuses.
+- **aion send chief "..."** — validate → durable Bus reservation → one guarded submit through the dev host into the worker's existing `runChatGPTCommand` → read-only observe → correlated reply → `aion.result/1` with the reply excerpt. Chrome unavailable → `BROWSER_CONNECTOR_NOT_CONNECTED`, never routed to OpenCode. Any role alias from `role-launcher/ROLES.json` works the same way.
 
-The optional dev broker (bin/aiond-dev.mjs) is for Chrome/native messaging. It is not required by direct OpenCode commands and is not yet verified for Windows secure IPC.
+### Chrome leg (round 7)
+
+    aion CLI ── Bus ledger (single writer, file lock) ── ChatGPT adapter (existing)
+        │ call(type,payload)
+        └─ token IPC (POSIX socket / Windows pipe) ── com.aion.relay.dev host (spawned by Chrome)
+              └─ native messaging ── B dev worker: dev-link → existing runChatGPTCommand → page
+
+- Host↔CLI auth: 256-bit per-session token in the owner-private state dir. The Windows pipe keeps Node's default DACL and is reported `pipe_dacl: DEFAULT_UNVERIFIED`; the token is the access control, not the pipe ACL.
+- Host forwards only `tabs`, `submit`, `observe`, `dispose`, `ping`. No ledger, grant or retry logic in the host or worker link.
+- A request that never left the CLI is a positive no-send; once written, a lost reply is UNKNOWN and blocks the target. Chrome closing the port fails pending calls as UNKNOWN.
+- The dev build loads the UNCHANGED worker and adds `src/dev/dev-link.js`; Track A source, ID, host and profile are untouched.
+
+The optional dev broker (bin/aiond-dev.mjs) is not required by any direct command.
 
 ## Windows launch (once the local master resumes)
 
@@ -26,6 +40,16 @@ From the AION repository root, using PowerShell 7:
     pwsh -NoProfile -File $Aion selftest
     pwsh -NoProfile -File $Aion connections
     pwsh -NoProfile -File $Aion doctor
+
+Chrome leg bring-up (Track B dev profile only):
+
+    pwsh -NoProfile -File $Aion setup browser            # review the plan
+    pwsh -NoProfile -File $Aion setup browser --apply    # B-only files + HKCU dev host key
+    # Owner, once: chrome://extensions -> Developer mode -> Load unpacked -> <extension_dir from the receipt>
+    # Open exactly one tab on the chief conversation in that profile, then:
+    pwsh -NoProfile -File $Aion connections              # chrome.state must be CONNECTED
+    pwsh -NoProfile -File $Aion connect chief --conversation "https://chatgpt.com/c/<id>" --max 5 --hours 8
+    pwsh -NoProfile -File $Aion send chief "Reply with OK" --wait-ms 180000
 
 When a compatible OpenCode 2.x shared service is running and discoverable, OR the local ACP executable is present, explicitly select one engine:
 
@@ -42,11 +66,12 @@ Another launcher is bin/aion.cmd. No npm install or scheduled tasks are required
 
 | Connection | Reuse | Verified now |
 |---|---|---|
-| Node local test runner | Node 22 builtin test runner | 14 portable new-module tests passed; full repo suite unrun |
+| Node local test runner | Node 22 builtin test runner | Full offline selftest 963/965 pass, 2 skipped (Linux); Windows unrun |
 | Durable Bus and scoped grants | Existing Bus V1/V2 and file storage | Earlier isolated Bus source tests passed; Windows unrun |
 | OpenCode V2 | Existing client and adapter, loopback-only discovery | Direct CLI wired; actual owner service status unknown |
 | ACP | Existing bridge, config and ACP adapter, chosen by explicit connect acp | Binary presence can be checked; handshake and local live result unverified |
-| ChatGPT Chrome | Existing MV3 extension and observer | Dev browser/host NOT_CONNECTED |
+| ChatGPT Chrome | Existing MV3 extension, worker runner and observer via dev host | Offline e2e with spawned host + fake worker passes; real Chrome/ChatGPT UNRUN |
+| Dev host setup | `aion setup browser` | Linux apply/uninstall + launcher-as-Chrome test pass; Windows `reg add` path tested with a fake runner only |
 | Windows UIA/CDP | Optional existing tools | Not activated; no alternate send route |
 
 ## Security / invariants
