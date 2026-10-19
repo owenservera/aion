@@ -83,6 +83,8 @@ test('grant cwd outside the host allowlist: host refuses before storing; NOT_SEN
 test('long turn: native request times out -> OUTCOME_UNKNOWN; second command busy; cancel; late terminal observed', async (t) => {
   const w = await world({ requestTimeoutMs: 400, ops: ['send', 'status', 'cancel'] });
   t.after(() => w.relay.close());
+  // Exercise a held prompt's timeout, not cold-start/session initialization latency.
+  await w.relay.host.ensureSession();
   const r = await w.say(send('HOLD this one open', 'exec-0004'));
   assert.equal(r.dispatched.state, 'UNRESOLVED');
   assert.equal(r.dispatched.reason, REASON.TIMEOUT);

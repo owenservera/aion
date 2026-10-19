@@ -42,9 +42,9 @@
 //   read-final: read-only correlation of the last assistant turn
 
 import { validateEnvelope } from '../lib/index.js';
-import { COMMAND_POLICY, COMMAND_WORK, resolveCommandDeadline, validateCommandPolicy } from '../lib/command-deadlines.js';
+import { COMMAND_POLICY, COMMAND_WORK, resolveCommandDeadline, resolveSettlementDeadline, validateCommandPolicy } from '../lib/command-deadlines.js';
 import { createBoundedLifecycle } from '../lib/bounded-lifecycle.js';
-import { createChatGPTTaskStore, prepareTask, MAX_OBSERVER_ANNOTATION } from '../lib/chatgpt-tasks.js';
+import { createChatGPTTaskStore, prepareTask, MAX_OBSERVER_ANNOTATION, storedReplyToken } from '../lib/chatgpt-tasks.js';
 import { VERDICT_SCHEMA, REASON } from '../chatgpt/correlate.js';
 
 /** Must equal `PORT_NAME` in src/chatgpt/content.js. */
@@ -122,6 +122,10 @@ export const CHATGPT_ERROR = Object.freeze({
   SUBMIT_PENDING: 'submit_pending',
   OBSERVATION_PENDING: 'observation_pending',
   ADAPTER_CONTRACT: 'adapter_acceptance_mismatch',
+  // The caller supplied a token that is not the one this operation was sent
+  // with. The stored one is authoritative, so the read is refused rather than
+  // checked against the wrong marker.
+  TOKEN_MISMATCH: 'expected_reply_token_mismatch',
 });
 
 /** Bounds. A prompt longer than this is refused, not truncated and sent. */
@@ -186,6 +190,7 @@ export const DEFAULT_CHATGPT_TIMEOUTS = Object.freeze({
   stop: COMMAND_WORK.stop,
   submit: COMMAND_WORK['submit-turn'],
   observe: COMMAND_WORK['observe-turn'],
+  reconcile: COMMAND_WORK['reconcile-turn'],
 });
 
 /**
@@ -203,7 +208,7 @@ export const DEFAULT_CHATGPT_GRACE_MS = COMMAND_POLICY.grace;
 /** `DEFAULT_CHATGPT_TIMEOUTS` key -> command-deadlines command name. */
 const TIMEOUT_KEY_TO_COMMAND = Object.freeze({
   ping: 'ping', state: 'state', read: 'read-final', run: 'run-turn', stop: 'stop',
-  submit: 'submit-turn', observe: 'observe-turn',
+  submit: 'submit-turn', observe: 'observe-turn', reconcile: 'reconcile-turn',
 });
 
 /** Driver method -> command-deadlines command name (its absolute budget). */
@@ -211,11 +216,13 @@ const METHOD_COMMANDS = Object.freeze({
   listTabs: 'tabs', ping: 'ping', runTurn: 'run-turn', submitTurn: 'submit-turn',
   observeTurn: 'observe-turn', readFinal: 'read-final', commanderScan: 'commander-scan',
   disposeTurn: 'dispose', archiveResolved: 'archive',
+  reconcileTurn: 'reconcile-turn',
 });
 
 /** Command name -> `DEFAULT_CHATGPT_TIMEOUTS` key. */
 const COMMAND_TO_TIMEOUT_KEY = Object.freeze({
   'read-final': 'read', 'run-turn': 'run', 'submit-turn': 'submit', 'observe-turn': 'observe',
+  'reconcile-turn': 'reconcile',
 });
 
 /** Is this a chatgpt.com tab URL? Exact origin match; nothing else. */
@@ -512,7 +519,17 @@ export function createChatGPTPortDriver(options = {}) {
      * about the split engine may be bypassed by calling this instead.
      */
     async runTurn(command = {}, lifecycle) {
-      const prepared = await reserveSend(command, lifecycle, CHATGPT_ACTION.RUN_TURN);
+      let prepared = null;
+      try {
+        prepared = await reserveSend(command, lifecycle, CHATGPT_ACTION.RUN_TURN);
+      } catch (error) {
+        // The reservation itself failed (a preflight that could not be
+        // answered, for example). Nothing was reserved, so there is no record
+        // to settle and nothing was sent.
+        return failureAfterError(error, null, { ok: false, sendPosted: false }, CHATGPT_ACTION.RUN_TURN, {
+          submitted: false
+        });
+      }
       if (prepared.error) return prepared.error;
       const { tab, correlationKey, startedAt, settle, release, timeoutMs, expectedToken, text } = prepared;
 
@@ -573,7 +590,9 @@ export function createChatGPTPortDriver(options = {}) {
             tab,
             action: CHATGPT_ACTION.RUN_TURN,
             correlation_id: correlationKey,
-            expected_reply_token: typeof expectedToken === 'string' ? expectedToken.trim() : null,
+            // The expected reply token is NOT echoed. It is a marker this
+            // operation was sent with, not a fact about the outcome, and the
+            // machine reply has no need to carry it back.
             verdict,
             envelope: null,
             captured: false,
@@ -621,7 +640,8 @@ export function createChatGPTPortDriver(options = {}) {
           tab,
           action: CHATGPT_ACTION.RUN_TURN,
           correlation_id: correlationKey,
-          expected_reply_token: typeof expectedToken === 'string' ? expectedToken.trim() : null,
+          // The expected reply token is NOT echoed: it is a marker, not an
+          // outcome, and the machine reply does not need it back.
           verdict: sanitizeVerdict(reply.verdict),
           // The envelope ITSELF, not the validation result: validateEnvelope
           // returns {valid, errors}, so handing that on would ship the verdict
@@ -635,6 +655,17 @@ export function createChatGPTPortDriver(options = {}) {
           started_at: startedAt,
           finished_at: new Date().toISOString()
         };
+      } catch (error) {
+        // THE COMMAND FAILED. A lifecycle timeout, a dropped port or a
+        // transport error throws out of the exchange, and the reservation that
+        // was already written would otherwise stay SUBMIT_RESERVED with no
+        // observer and no outcome — unobservable and unresolvable, with the
+        // conversation locked forever. The record is settled here instead, and
+        // the answer says exactly which outcome was recorded.
+        const settlement = await settleAfterFailure(lifecycle, prepared);
+        return failureAfterError(error, prepared, settlement, CHATGPT_ACTION.RUN_TURN, {
+          started_at: startedAt, finished_at: new Date().toISOString()
+        });
       } finally {
         release();
       }
@@ -662,7 +693,16 @@ export function createChatGPTPortDriver(options = {}) {
      * activation happens before the arm facts are on disk.
      */
     async submitTurn(command = {}, lifecycle) {
-      const prepared = await reserveSend(command, lifecycle, CHATGPT_ACTION.SUBMIT_TURN, { requireIdentity: true });
+      let prepared = null;
+      try {
+        prepared = await reserveSend(command, lifecycle, CHATGPT_ACTION.SUBMIT_TURN, { requireIdentity: true });
+      } catch (error) {
+        // The reservation itself failed. Nothing was reserved, so there is no
+        // record to settle and nothing was sent.
+        return failureAfterError(error, null, { ok: false, sendPosted: false }, CHATGPT_ACTION.SUBMIT_TURN, {
+          submitted: false
+        });
+      }
       if (prepared.error) return prepared.error;
       const { tab, correlationKey, startedAt, settle, release, timeoutMs, expectedToken, text, task } = prepared;
 
@@ -736,6 +776,11 @@ export function createChatGPTPortDriver(options = {}) {
         // stays uncertain with the lock held; it is never a checked reply.
         const armed = await recordObserverFacts(receipt, task, lifecycle);
         if (!armed.ok) {
+          // The observer identity could not be recorded, so this record would
+          // otherwise sit in SUBMIT_RESERVED with no observer and no outcome —
+          // exactly the state a later poll can never resolve. The activation was
+          // attempted, so the only honest outcome is "uncertain, still locked".
+          await settle(null);
           return fail(armed.code, {
             tab, action: CHATGPT_ACTION.SUBMIT_TURN, correlation_id: correlationKey,
             message: armed.message, submitted: true, uncertain: true, captured: false,
@@ -794,7 +839,8 @@ export function createChatGPTPortDriver(options = {}) {
           return {
             ok: true,
             tab, action: CHATGPT_ACTION.SUBMIT_TURN, correlation_id: correlationKey,
-            expected_reply_token: typeof expectedToken === 'string' ? expectedToken.trim() : null,
+            // The expected reply token is NOT echoed: it is a marker, not an
+            // outcome, and the machine reply does not need it back.
             verdict: sanitizeVerdict(receipt.verdict),
             envelope: structuredClone(receipt.envelope),
             observer: fact,
@@ -832,6 +878,15 @@ export function createChatGPTPortDriver(options = {}) {
           pending: true, captured: false, submitted: true, uncertain: true,
           started_at: startedAt, finished_at: new Date().toISOString(),
         };
+      } catch (error) {
+        // THE COMMAND FAILED. A lifecycle timeout, a dropped port or a
+        // transport error throws out of the exchange, and the reservation that
+        // was already written would otherwise stay SUBMIT_RESERVED with no
+        // observer and no outcome. The record is settled here instead.
+        const settlement = await settleAfterFailure(lifecycle, prepared);
+        return failureAfterError(error, prepared, settlement, CHATGPT_ACTION.SUBMIT_TURN, {
+          started_at: startedAt, finished_at: new Date().toISOString()
+        });
       } finally {
         release();
       }
@@ -863,6 +918,18 @@ export function createChatGPTPortDriver(options = {}) {
       }
       const task = await durableTask(correlationId.trim(), lifecycle, { required: true });
       if (task.error) return pollOnly(task.error);
+      // The token this operation was sent with is durable, so a poll does not
+      // need the original caller to supply it. A caller token that contradicts
+      // the stored one is refused, and the lock is kept.
+      const token = resolveExpectedToken(task.record, command.expected_reply_token);
+      if (token.mismatch) {
+        return pollOnly(fail(CHATGPT_ERROR.TOKEN_MISMATCH, {
+          correlation_id: correlationId.trim(),
+          phase: task.record.phase,
+          reason: 'expected_reply_token_mismatch',
+          message: 'the expected_reply_token supplied by the caller is not the one this operation was sent with; the stored marker is authoritative and nothing is checked against the wrong one',
+        }));
+      }
       if (task.record.observer === null) {
         return pollOnly(fail(CHATGPT_ERROR.OBSERVER_IDENTITY_REQUIRED, {
           correlation_id: correlationId.trim(),
@@ -946,7 +1013,7 @@ export function createChatGPTPortDriver(options = {}) {
       const refusedOutcome = !provenNoSubmit && !claimsAcceptance(receipt);
       const capture = refusedOutcome || receipt.envelope === undefined || receipt.envelope === null
         ? { ok: false, contracted: false, invalid: false, reports: false, errors: '' }
-        : envelopeAndContract(validateEnvelope(receipt.envelope), receipt, task.record.correlation_id, command.expected_reply_token);
+        : envelopeAndContract(validateEnvelope(receipt.envelope), receipt, task.record.correlation_id, token.token);
       // Only these two release the conversation lock.
       await task.settle(provenNoSubmit ? false : (capture.ok ? true : null),
         provenNoSubmit ? { noSubmit: true } : (capture.ok ? { replyChecked: true } : {}));
@@ -1077,6 +1144,254 @@ export function createChatGPTPortDriver(options = {}) {
     },
 
     /**
+     * `reconcile-turn` — the READ-ONLY resolution path.
+     *
+     * WHY IT EXISTS. An operation that cannot settle on its own used to have no
+     * way out at all. A terminal non-accepted settle leaves NEEDS_RECONCILIATION
+     * with the conversation locked; a submission that never settled leaves a
+     * reservation nobody can observe; a lost observer leaves an identity that
+     * can never be presented again. Each of those holds the lock, and a
+     * conversation that maps to the conservative home key holds EVERY
+     * conversation. The lock must not be dropped on a guess, so the answer is
+     * not a release: it is an honest, addressable, machine-readable report of
+     * what is actually known.
+     *
+     * WHAT IT IS NOT. It is never send-capable. It composes nothing, clicks
+     * nothing, stops nothing, re-arms nothing, resubmits nothing and never
+     * offers the page a new deadline. The only page action it may use is the
+     * same read-only observer poll the poll path uses, and it presents the
+     * DURABLE identity — never one the caller supplies.
+     *
+     * WHAT IT MAY RELEASE. Only two things, and only when they are proven: a
+     * positive no-submit from the page, and a fully validated accepted reply.
+     * A timeout, a lost observer, a pending observer and a terminal refusal all
+     * keep the lock. Reconciling is not a way to clear a lock; it is a way to
+     * find out whether the lock may be released, and to say so honestly when it
+     * may not.
+     */
+    async reconcileTurn(command = {}, lifecycle) {
+      const report = (result, extra = {}) => ({ ...result, ...extra, read_only: true, action: 'reconcile-turn' });
+      const correlationId = typeof command.correlation_id === 'string' ? command.correlation_id.trim() : '';
+      const taskId = typeof command.task_id === 'string' ? command.task_id.trim() : '';
+      if (correlationId === '' && taskId === '') {
+        return report(fail(CHATGPT_ERROR.CORRELATION_REQUIRED, {
+          message: `reconcile reads an existing operation; correlation_id or task_id must name it (max ${MAX_ID_CHARS} chars)`,
+        }));
+      }
+      if (correlationId.length > MAX_ID_CHARS || taskId.length > MAX_ID_CHARS) {
+        return report(fail(CHATGPT_ERROR.BAD_ARGUMENT, {
+          message: `correlation_id and task_id must be at most ${MAX_ID_CHARS} characters`,
+        }));
+      }
+
+      // The record comes from the durable store. Every identity below is read
+      // from it, never from the caller.
+      const found = correlationId !== ''
+        ? await durableTask(correlationId, lifecycle, { required: true })
+        : await durableTaskByTaskId(taskId, lifecycle);
+      if (found.error) return report(found.error);
+      const record = found.record;
+      // Two selectors that disagree are refused, not silently resolved in
+      // favour of one of them.
+      if (taskId !== '' && record.task_id !== taskId) {
+        return report(fail(CHATGPT_ERROR.BAD_ARGUMENT, {
+          correlation_id: record.correlation_id,
+          task_id: record.task_id,
+          message: 'the task_id does not name the operation the correlation_id names; the operation is selected by one of them, not by a pair that disagrees',
+        }));
+      }
+
+      const token = resolveExpectedToken(record, command.expected_reply_token);
+      if (token.mismatch) {
+        return report(fail(CHATGPT_ERROR.TOKEN_MISMATCH, {
+          correlation_id: record.correlation_id,
+          reason: 'expected_reply_token_mismatch',
+          message: 'the expected_reply_token supplied by the caller is not the one this operation was sent with; the stored marker is authoritative and nothing is checked against the wrong one',
+        }));
+      }
+      if (command.tab_id !== undefined && command.tab_id !== null
+        && Number(command.tab_id) !== record.target.tab_id) {
+        return report(fail(CHATGPT_ERROR.NOT_A_CHATGPT_TAB, {
+          tab_id: Number.isInteger(Number(command.tab_id)) ? Number(command.tab_id) : null,
+          correlation_id: record.correlation_id,
+          message: 'this operation belongs to a different tab; the observer is bound to the page it was armed on',
+        }));
+      }
+
+      // THE DURABLE FACTS. These are reported whatever the page says, because
+      // they are what the operation actually knows.
+      const base = {
+        correlation_id: record.correlation_id,
+        task_id: record.task_id,
+        operation_key: record.operation_key,
+        phase: record.phase,
+        lock_active: record.lock_active,
+        observer: record.observer ? { ...record.observer } : null,
+        facts: { ...record.facts },
+        conversation_key: record.conversation_key,
+        tab_id: record.target.tab_id,
+        created_at: record.created_at,
+        updated_at: record.updated_at
+      };
+
+      // ALREADY RESOLVED. A durable outcome is recorded, so there is nothing to
+      // reconcile and nothing to ask the page about.
+      if (!record.lock_active) {
+        return report({ ...base, ok: true, settled: false, resolved: true,
+          reason: 'operation_already_resolved', captured: false });
+      }
+
+      // NO OBSERVER. Nothing was armed, or the arm was never recorded, so the
+      // page cannot be asked about THIS operation: an observer poll has to
+      // present an identity, and inventing one is forbidden. The report says
+      // so, and the lock stays.
+      if (!record.observer) {
+        return report({ ...base, ok: false, settled: false, resolved: false,
+          reason: 'observer_not_armed', captured: false, uncertain: true });
+      }
+
+      // ASK THE PAGE ABOUT THAT OBSERVER. The same read-only action the poll
+      // uses, with the durable identity, and WITHOUT a timeout: the page's own
+      // observation deadline was set when the task was armed and must not move.
+      const identity = observerIdentity(record);
+      const answer = await exchange(record.target.tab_id, CHATGPT_ACTION.OBSERVE_TURN, {
+        task_id: record.task_id,
+        operation_key: record.operation_key,
+        correlation_id: record.correlation_id,
+        observer_id: identity.observer_id,
+        page_instance_id: identity.page_instance_id,
+      }, lifecycle);
+
+      // The page was asked and did not answer. That is uncertainty about the
+      // operation, never a statement that nothing was submitted.
+      if (isTransportFailure(answer)) {
+        return report({ ...base, ok: false, settled: false, resolved: false,
+          reason: 'page_unreachable', captured: false, uncertain: true });
+      }
+      const checked = checkReply(answer, CHATGPT_ACTION.OBSERVE_TURN, record.target.tab_id);
+      if (checked.error) {
+        return report({ ...base, ok: false, settled: false, resolved: false,
+          reason: 'page_unreadable', captured: false, uncertain: true });
+      }
+      const receipt = checked.reply;
+      const pageReason = typeof receipt.reason === 'string' && receipt.reason !== '' ? receipt.reason : null;
+
+      // The page's OWN refusal — it holds no evidence for this operation, or
+      // the observer is gone — is carried verbatim. It is the lost-observer
+      // case, and it is never a reason to release the lock.
+      if (pageReason !== null && OBSERVER_REFUSAL_REASONS.has(pageReason)) {
+        return report({ ...base, ok: false, settled: false, resolved: false,
+          reason: pageReason, page_reason: pageReason, captured: false, uncertain: true });
+      }
+      const identityProblem = receiptIdentityProblem(receipt, record, record.correlation_id);
+      if (identityProblem) {
+        return report({ ...base, ok: false, settled: false, resolved: false,
+          reason: 'observer_identity_mismatch', page_reason: pageReason,
+          message: identityProblem, captured: false, uncertain: true });
+      }
+
+      // Record what was observed before judging it, exactly as the poll does:
+      // the durable evidence must not depend on the outcome being nice. The
+      // observer IDENTITY is immutable, so this can never clear an armed
+      // observer or swap it for another one.
+      const armed = await recordObserverFacts(receipt, record, lifecycle);
+      if (!armed.ok) {
+        return report({ ...base, ok: false, settled: false, resolved: false,
+          reason: 'observer_record_failed', captured: false, uncertain: true });
+      }
+      const fact = armFacts(receipt, armed.at);
+
+      if (receipt.pending !== false) {
+        // Still running. The observation facts are durable; the lock stays and
+        // nothing is settled.
+        return report({ ...base, ok: false, settled: false, resolved: false,
+          reason: 'observation_pending', observer: fact, pending: true,
+          captured: false, uncertain: true });
+      }
+
+      // TERMINAL. Exactly two outcomes may release the lock, and both have to
+      // be proven here.
+      const provenNoSubmit = receipt.submitted === false && receipt.no_send === true;
+      const refusedOutcome = !provenNoSubmit && !claimsAcceptance(receipt);
+      const capture = refusedOutcome || receipt.envelope === undefined || receipt.envelope === null
+        ? { ok: false, contracted: false, invalid: false, reports: false, errors: '' }
+        : envelopeAndContract(validateEnvelope(receipt.envelope), receipt, record.correlation_id, token.token);
+
+      if (provenNoSubmit) {
+        // POSITIVE NO-SEND. The only refusal that frees a conversation — and
+        // it frees it only if the release was actually RECORDED. A settlement
+        // that could not be written releases nothing, so the report says
+        // `not_recorded`, `resolved:false` and the ACTUAL phase and lock.
+        //
+        // BUT A WRITE THAT LANDED AND LOST ITS ACKNOWLEDGEMENT IS NOT A WRITE
+        // THAT DID NOT HAPPEN. The durable outcome is read back from the
+        // record, so a release that IS on disk is reported as resolved even
+        // though the acknowledgement never arrived. The acknowledgement and the
+        // durable state are two different facts and the report keeps them apart.
+        const settled = await settleQuietly(found, false, { noSubmit: true }, lifecycle);
+        const durableResolved = settled.phase === 'REFUSED_NO_SUBMIT' && settled.lock_active === false;
+        const recorded = settled.ok === true || durableResolved;
+        return report({ ...base,
+          ok: recorded, settled: settled.ok === true, resolved: recorded,
+          settlement: settled.ok === true ? 'recorded' : durableResolved ? 'recorded_unacked' : 'not_recorded',
+          phase: settled.phase, lock_active: settled.lock_active,
+          ...(settled.settlement_error ? { settlement_error: settled.settlement_error } : {}),
+          reason: 'no_submit_proven', page_reason: pageReason, observer: fact,
+          submitted: false, captured: false });
+      }
+      if (capture.ok) {
+        // A FULLY VALIDATED ACCEPTED REPLY. The checked reply is available and
+        // the lock may be released — but only once that release is recorded.
+        // As above, the durable outcome is read back: a release that landed
+        // without its acknowledgement is a released operation, and saying
+        // otherwise contradicts the record it is reporting.
+        const settled = await settleQuietly(found, true, { replyChecked: true }, lifecycle);
+        const durableResolved = settled.phase === 'REPLY_CHECKED' && settled.lock_active === false;
+        const recorded = settled.ok === true || durableResolved;
+        return report({ ...base,
+          ok: recorded, settled: settled.ok === true, resolved: recorded,
+          settlement: settled.ok === true ? 'recorded' : durableResolved ? 'recorded_unacked' : 'not_recorded',
+          phase: settled.phase, lock_active: settled.lock_active,
+          ...(settled.settlement_error ? { settlement_error: settled.settlement_error } : {}),
+          reason: 'reply_checked', observer: fact,
+          // The page's capture is a fact about the page and is reported as
+          // one; what the failed write changed is the RELEASE, and that is
+          // what `resolved` and `lock_active` now say.
+          captured: true, verdict: sanitizeVerdict(receipt.verdict),
+          envelope: structuredClone(receipt.envelope) });
+      }
+
+      // Terminal but not accepted, or a contract mismatch. The facts are kept
+      // and the lock STAYS: a refusal is not a checked reply, and a mismatch is
+      // not an outcome. The DURABLE phase and lock come from the settlement
+      // itself, so a write that did not land is reported as the state it
+      // really left behind.
+      //
+      // A refusal resolves nothing either way, so `ok`, `settled` and
+      // `resolved` stay false whatever the write did. What the write DID do is
+      // classified: a re-read that shows the intended durable state — the
+      // record held in NEEDS_RECONCILIATION with the lock still on — is
+      // reported as `recorded_unacked`, because the state IS recorded even
+      // though the acknowledgement was lost.
+      const settled = await settleQuietly(found, null, {}, lifecycle);
+      const durableHeld = settled.phase === 'NEEDS_RECONCILIATION' && settled.lock_active === true;
+      const reason = refusedOutcome ? 'terminal_refusal' : 'adapter_acceptance_mismatch';
+      return report({ ...base,
+        // A refusal resolves nothing, so `settled` and `resolved` stay false
+        // whatever the write did; only the phase and the lock are the
+        // settlement's to report.
+        ok: false, settled: false, resolved: false,
+        settlement: settled.ok === true ? 'recorded' : durableHeld ? 'recorded_unacked' : 'not_recorded',
+        phase: settled.phase, lock_active: settled.lock_active,
+        ...(settled.settlement_error ? { settlement_error: settled.settlement_error } : {}),
+        reason, page_reason: pageReason ?? (refusedOutcome ? pageRefusalReason(receipt) : null),
+        observer: fact, captured: false, uncertain: true,
+        ...(capture.invalid ? { code: CHATGPT_ERROR.INVALID_ENVELOPE, error: `${CHATGPT_ERROR.INVALID_ENVELOPE}: ${capture.errors}` } : {}),
+        ...(capture.contracted ? { code: CHATGPT_ERROR.ADAPTER_CONTRACT,
+          error: 'adapter_acceptance_mismatch: accepting verdict/envelope/payload contract is missing or contradictory' } : {}) });
+    },
+
+    /**
      * Read the last assistant turn and correlate it. Read-only: it never
      * composes, never clicks, and needs no gesture.
      *
@@ -1095,7 +1410,11 @@ export function createChatGPTPortDriver(options = {}) {
       }
       const known = typeof correlationId === 'string' && correlationId.trim() !== ''
         ? await durableTask(correlationId.trim(), lifecycle) : { record: null };
-      if (known.error) return { ...known.error, read_only: true, captured: false, submitted: false };
+      // A READ THAT FAILED CLAIMS NOTHING ABOUT THE OPERATION. Nothing was
+      // submitted BY THIS CALL, but the operation may have been submitted
+      // earlier, so `submitted:false` would be a no-send statement this read is
+      // not entitled to make. The claim is ABSENT, not false.
+      if (known.error) return { ...known.error, read_only: true, captured: false };
 
       const identity = known.record ? observerIdentity(known.record) : null;
       const tabId = command.tab_id === undefined || command.tab_id === null
@@ -1107,13 +1426,28 @@ export function createChatGPTPortDriver(options = {}) {
         return fail(CHATGPT_ERROR.NOT_A_CHATGPT_TAB, {
           tab_id: Number.isInteger(Number(tabId)) ? Number(tabId) : null,
           message: 'this operation belongs to a different tab; the observer is bound to the page it was armed on',
-          read_only: true, captured: false, submitted: false,
+          // No `submitted` claim: this refusal says nothing about whether the
+          // operation was activated.
+          read_only: true, captured: false,
         });
       }
       const resolved = await resolveTab(tabId, lifecycle);
       if (resolved.error) return resolved.error;
 
-      const token = typeof command.expected_reply_token === 'string' ? command.expected_reply_token.trim() : '';
+      // The stored marker is authoritative for a read about a known operation,
+      // and a caller marker that contradicts it is refused rather than used.
+      const resolvedToken = resolveExpectedToken(known.record, command.expected_reply_token);
+      if (resolvedToken.mismatch) {
+        return fail(CHATGPT_ERROR.TOKEN_MISMATCH, {
+          correlation_id: typeof correlationId === 'string' ? correlationId.trim() : null,
+          reason: 'expected_reply_token_mismatch',
+          message: 'the expected_reply_token supplied by the caller is not the one this operation was sent with; the stored marker is authoritative and nothing is checked against the wrong one',
+          // No `submitted` claim: a refused read learned nothing about the
+          // activation.
+          read_only: true, captured: false,
+        });
+      }
+      const token = resolvedToken.token ?? '';
       const correlationKey = typeof correlationId === 'string' ? correlationId.trim() : '';
       const answer = await exchange(resolved.tab.tab_id, CHATGPT_ACTION.READ_FINAL, {
         correlation_id: correlationKey,
@@ -1173,7 +1507,7 @@ export function createChatGPTPortDriver(options = {}) {
           error: claimed && !capture.reports
             ? 'adapter_acceptance_mismatch: the page claimed an accepted capture but sent no envelope to check it against'
             : (token === ''
-              ? 'adapter_acceptance_mismatch: the page reported a capture, but no expected_reply_token was supplied to check it against. The token is not stored durably, so it must come from the caller.'
+              ? 'adapter_acceptance_mismatch: the page reported a capture, but this operation has no expected_reply_token — neither stored nor supplied — to check it against.'
               : 'adapter_acceptance_mismatch: accepting verdict/envelope/payload contract is missing or contradictory') } : {}),
         ...(claimed && !accepted ? { captured: false, uncertain: true } : { captured: accepted }),
         generation: reply.generation && typeof reply.generation === 'object'
@@ -1190,13 +1524,14 @@ export function createChatGPTPortDriver(options = {}) {
     async (command = {}, sharedLifecycle) => {
       let lifecycle = sharedLifecycle;
       let possibleSend = false;
+      let result = null;
       try {
         const defaultMs = timeouts[COMMAND_TO_TIMEOUT_KEY[name] ?? name];
         const plan = resolveCommandDeadline({ command: name, requestedWorkMs: command.timeout_ms === undefined ? defaultMs : command.timeout_ms }, policy);
         lifecycle ??= createBoundedLifecycle(plan, { now: options.now, setTimeout: setTimer, clearTimeout: clearTimer });
         lifecycle.assertActive();
         // The actual dispatch marker is set immediately before posting RUN_TURN.
-        const result = await methods[method](command, lifecycle);
+        result = await methods[method](command, lifecycle);
         lifecycle.assertActive();
         return lifecycle.taskIdentity ? { ...result, ...lifecycle.taskIdentity } : result;
       } catch (error) {
@@ -1206,12 +1541,34 @@ export function createChatGPTPortDriver(options = {}) {
         // anything; a READ-ONLY one that failed (a poll that timed out, a read
         // that could not resolve its tab) says nothing at all about the operation
         // it was asked about, so it claims nothing and reports the uncertainty.
+        //
+        // AND THE METHOD'S OWN ANSWER WINS. When the method already produced an
+        // answer, that answer knows whether the activation happened — a
+        // PROVEN no-send stays a proven no-send, even though a send-capable
+        // port was opened. `possibleSend` is only the fallback for a method
+        // that never got that far.
         const outcome = possibleSend
-          ? { submitted: true, uncertain: true, captured: false }
+          ? (result && typeof result === 'object' && Object.hasOwn(result, 'submitted')
+            ? { submitted: result.submitted === true,
+              ...(result.submitted === true ? { uncertain: true } : {}),
+              ...(Object.hasOwn(result, 'uncertain') ? { uncertain: result.uncertain === true } : {}),
+              ...(Object.hasOwn(result, 'captured') ? { captured: result.captured === true } : { captured: false }) }
+            : { submitted: true, uncertain: true, captured: false })
           : (SEND_CAPABLE_ACTIONS.has(name)
             ? { submitted: false, captured: false }
             : { read_only: true, uncertain: true, captured: false });
+        // The method's own facts survive the expiry. WHICH PHASE WAS RECORDED
+        // and WHETHER THE LOCK IS HELD are facts the method established, not
+        // claims about the budget, and they are exactly what a caller needs to
+        // find and reconcile the operation afterwards. The diagnostic fields
+        // (code, error, stage) stay the expiry's, because the expiry is what
+        // they describe.
+        const facts = result && typeof result === 'object'
+          ? Object.fromEntries(Object.entries(result).filter(([key]) =>
+            !['ok', 'code', 'error', 'stage', 'timeout_ms', 'absolute_ms', 'elapsed_ms'].includes(key)))
+          : {};
         return fail(error.code ?? (error instanceof TypeError || error instanceof RangeError ? CHATGPT_ERROR.BAD_ARGUMENT : CHATGPT_ERROR.TURN_REFUSED), {
+          ...facts,
           stage: error.stage ?? null, timeout_ms: error.timeout_ms ?? null,
           absolute_ms: error.absolute_ms ?? null, elapsed_ms: error.elapsed_ms ?? null,
           message: String(error.message ?? error),
@@ -1351,6 +1708,9 @@ export function createChatGPTPortDriver(options = {}) {
       // submitted a second time. Refuse before any send-capable port is opened;
       // the read-only preflight above may have opened one, and "composed
       // nothing" is not the same claim as "never touched the page".
+      //
+      // The stage and the original code are carried, so the refusal says WHICH
+      // read failed and why instead of collapsing every cause into one word.
       return {
         error: fail(CHATGPT_ERROR.RESERVATION_FAILED, {
           correlation_id: correlationKey,
@@ -1385,18 +1745,43 @@ export function createChatGPTPortDriver(options = {}) {
     const startedAt = task.created_at;
     const identity = { task_id: task.task_id, operation_key: task.operation_key };
     lifecycle.taskIdentity = identity;
+    let pendingReservation = null;
     try {
       if (typeof reservations.reserveOperation !== 'function') throw new Error('operation guard unavailable');
-      const persisted = await lifecycle.wait('reservationWrite', () => reservations.reserveOperation(task, lifecycle));
+      const persisted = await lifecycle.wait('reservationWrite', () => {
+        pendingReservation = reservations.reserveOperation(task, lifecycle);
+        return pendingReservation;
+      });
       if (persisted === false || reservations.durable === false) throw new Error('durable storage unavailable');
     } catch (error) {
       turnsInFlight.delete(resolved.tab.tab_id);
+      // THE RESERVATION ITSELF FAILED, and TWO SHAPES ARE POSSIBLE:
+      //   (a) both records landed and the lifecycle expired after the write,
+      //       so a SUBMIT_RESERVED task holds the conversation lock with no
+      //       observer and no outcome;
+      //   (b) only the legacy IN_FLIGHT landed, so there is no task at all and
+      //       the conversation is locked by an orphan tombstone.
+      // Neither can have sent anything — the reservation is durable BEFORE any
+      // page exchange — so both are settled to a positive no-submit here.
+      // Left alone, either one wedges the conversation forever.
+      const settlement = await settleIncompleteReservation(correlationKey, pendingReservation);
       return {
         error: fail(error.code ?? CHATGPT_ERROR.RESERVATION_FAILED, {
           ...identity,
           correlation_id: correlationKey,
+          stage: error.stage ?? null,
+          timeout_ms: error.timeout_ms ?? null,
+          absolute_ms: error.absolute_ms ?? null,
+          elapsed_ms: error.elapsed_ms ?? null,
           message: `the dispatch could not be recorded, so it was not submitted: ${String((error && error.message) || error)}`,
-          submitted: false
+          submitted: false,
+          captured: false,
+          // The durable truth after the settlement, so the operation stays
+          // ADDRESSABLE: a caller can find it by correlation, task or
+          // operation and see whether the lock is still held.
+          phase: settlement.phase,
+          lock_active: settlement.lock_active,
+          settlement: settlement.settlement
         })
       };
     }
@@ -1404,19 +1789,240 @@ export function createChatGPTPortDriver(options = {}) {
     // Finish the reservation whatever happens. It is never rolled back to
     // "nothing happened": the page may have received the text even if the reply
     // was lost, and pretending otherwise is how a duplicate gets typed.
-    const settle = async (captured, { noSubmit = false, replyChecked = false } = {}) => {
-      try {
-        return await lifecycle.wait('settlement', () => reservations.settleOperation(task, { captured, noSubmit, replyChecked }, lifecycle));
-      } catch (error) {
-        if (error.code === CHATGPT_ERROR.TIMEOUT) throw error;
-        throw Object.assign(new Error('task settlement not acknowledged; reconcile without resending'), { code: CHATGPT_ERROR.RESERVATION_FAILED });
-      }
-    };
+    const settle = (captured, options) => settleOperation(lifecycle, task, captured, options);
 
     return {
       ok: true, action, tab: resolved.tab, task, text, expectedToken, correlationKey,
       startedAt, timeoutMs, settle,
       release: () => turnsInFlight.delete(resolved.tab.tab_id),
+    };
+  }
+
+  /**
+   * Settle a reservation whose own write failed.
+   *
+   * The settlement runs on its own small, policy-derived budget, because the
+   * command's budget is exactly what has just expired — the same rule
+   * `settleAfterFailure` follows.
+   *
+   * IT WAITS FOR THE FAILED WRITE FIRST. The failed write may still be
+   * landing: its acknowledgement was lost, not its data. The SHAPE of the
+   * store — a task, a legacy entry, or both — decides what may honestly be
+   * settled, and a settlement that raced its own write would report a shape
+   * that never existed (or settle one that did).
+   *
+   * It never claims a release it could not write. A store that cannot be read
+   * or written is reported as `not_recorded` with null phase/lock, and the
+   * caller is told the truth rather than a lock that is still held.
+   */
+  async function settleIncompleteReservation(correlation, pending) {
+    const life = createBoundedLifecycle(resolveSettlementDeadline(policy), {
+      now: options.now, setTimeout: setTimer, clearTimeout: clearTimer
+    });
+    try {
+      if (typeof reservations.settleIncompleteReservation !== 'function') {
+        return { settlement: 'not_recorded', phase: null, lock_active: null };
+      }
+      await awaitPendingWrite(pending);
+      const settled = await life.wait('settlement', () =>
+        reservations.settleIncompleteReservation(correlation, { noSend: true }, life));
+      if (settled && settled.settlement === 'not_recorded') {
+        return { settlement: 'not_recorded', phase: settled.phase ?? null,
+          lock_active: settled.lock_active ?? null, reason: settled.reason ?? null };
+      }
+      return { settlement: 'recorded', phase: settled?.phase ?? null, lock_active: settled?.lock_active ?? null };
+    } catch (error) {
+      return { settlement: 'not_recorded', phase: null, lock_active: null,
+        reason: String((error && error.message) || error) };
+    } finally {
+      life.finish();
+    }
+  }
+
+  /**
+   * Wait for an in-flight storage write to land, bounded by the very budget
+   * that write was issued under.
+   *
+   * The failed write may still be landing: its acknowledgement was lost, not
+   * its data. The SHAPE of the store decides what may honestly be settled, and
+   * a settlement that raced its own write would report a shape that never
+   * existed — or settle one that did.
+   *
+   * WHY A REAL TIMER. The command's own clock is injectable and may be a fake
+   * that never advances on its own, and a wait bounded by a clock that does
+   * not move would never end: a command that must answer would hang instead.
+   * The bound is therefore a REAL, finite delay, and it is the budget the
+   * failed write was issued under — the write gets at most that long again to
+   * land. A write that never lands costs this wait its bound and is reported
+   * as not recorded, never as a release.
+   */
+  async function awaitPendingWrite(pending) {
+    if (!pending) return;
+    let handle = null;
+    const expiry = new Promise((resolve) => {
+      handle = globalThis.setTimeout(resolve, Math.max(1, policy.reservationWrite));
+    });
+    try {
+      await Promise.race([
+        Promise.resolve(pending).then(() => undefined, () => undefined),
+        expiry
+      ]);
+    } finally {
+      if (handle !== null) globalThis.clearTimeout(handle);
+    }
+  }
+
+  /**
+   * Settle one operation, on the lifecycle given.
+   *
+   * The lifecycle is a parameter, not an ambient fact, for one reason: a
+   * command that has already run out of budget cannot settle anything on a
+   * dead lifecycle, and that is exactly the case where a settlement matters
+   * most. See `settleAfterFailure`.
+   */
+  async function settleOperation(life, record, captured, { noSubmit = false, replyChecked = false } = {}) {
+    try {
+      return await life.wait('settlement', () => reservations.settleOperation(record, { captured, noSubmit, replyChecked }, life));
+    } catch (error) {
+      if (error.code === CHATGPT_ERROR.TIMEOUT) throw error;
+      throw Object.assign(new Error('task settlement not acknowledged; reconcile without resending'), { code: CHATGPT_ERROR.RESERVATION_FAILED });
+    }
+  }
+
+  /**
+   * A settlement that REPORTS its failure instead of throwing it.
+   *
+   * A reconciliation that cannot be written must still report what it found:
+   * the facts are worth more than the write, and a write that was refused is
+   * reported as refused rather than swallowed or turned into a crash.
+   *
+   * AND IT RE-READS THE RECORD. A refused write is not proof that the durable
+   * state is unchanged — the write may have landed and lost its
+   * acknowledgement — so the SAME record is read again and ITS phase and lock
+   * are what the report carries. A lock is never released on a write that did
+   * not land, and never reported as held on a write that did.
+   */
+  async function settleQuietly(found, captured, options, lifecycle) {
+    try {
+      const record = await found.settle(captured, options);
+      return { ok: true, record, phase: record.phase, lock_active: record.lock_active, settlement: 'recorded' };
+    } catch (error) {
+      let record = null;
+      try {
+        record = await lifecycle.wait('reservationRead', () =>
+          reservations.getTaskByCorrelation(found.record.correlation_id, lifecycle));
+      } catch { record = null; }
+      return {
+        ok: false,
+        settlement: 'not_recorded',
+        settlement_error: String((error && error.message) || error),
+        // The ACTUAL durable phase and lock, or null when even the re-read
+        // could not be made. Never an invented release.
+        phase: record ? record.phase : null,
+        lock_active: record ? record.lock_active : null
+      };
+    }
+  }
+
+  /**
+   * The settlement that runs when a command has ALREADY failed.
+   *
+   * WHY IT EXISTS. `runTurn` and `submitTurn` reserve durably, then talk to
+   * the page. A lifecycle timeout, a dropped port or a transport failure can
+   * throw out of that exchange. Without this, the record stays SUBMIT_RESERVED
+   * with no observer and no outcome: the reservation exists, so the operation
+   * can never be sent again, and nothing can ever observe it, so nothing can
+   * ever resolve it. The conversation stays locked forever.
+   *
+   * WHAT IT SETTLES. Only one honest outcome is available after an error:
+   *
+   *   - the send-capable message WAS posted  -> the submission is UNCERTAIN ->
+   *     NEEDS_RECONCILIATION, the lock is kept, every known fact is kept.
+   *   - the send-capable message was NEVER posted -> positive pre-dispatch
+   *     evidence that nothing was activated -> REFUSED_NO_SUBMIT, and the
+   *     lock is released because the conversation is demonstrably free.
+   *
+   * It never claims an acceptance, and it never releases a lock on the
+   * strength of a timeout alone.
+   *
+   * The settlement runs on its own small, finite, policy-derived budget
+   * because the command's own budget has usually just expired; that budget
+   * comes from the shared command policy, not from a hardcoded timer.
+   */
+  async function settleAfterFailure(lifecycle, prepared) {
+    const sendPosted = lifecycle?.possibleSend === true;
+    const life = createBoundedLifecycle(resolveSettlementDeadline(policy), {
+      now: options.now, setTimeout: setTimer, clearTimeout: clearTimer
+    });
+    try {
+      const record = await settleOperation(life, prepared.task, sendPosted ? null : false,
+        sendPosted ? {} : { noSubmit: true });
+      return { ok: true, record, sendPosted };
+    } catch (failure) {
+      // THE ACKNOWLEDGEMENT WAS LOST, NOT THE WRITE. The settlement may have
+      // landed anyway, so the record is read again and reported as it really
+      // is: reporting `not_recorded` over a durable NEEDS_RECONCILIATION
+      // would under-report a capture that DID happen.
+      let record = null;
+      try {
+        record = await life.wait('settlement', () =>
+          reservations.getTaskByCorrelation(prepared.correlationKey, life));
+      } catch { record = null; }
+      return { ok: false, failure, sendPosted, record };
+    } finally {
+      life.finish();
+    }
+  }
+
+  /**
+   * The honest answer to a command that threw.
+   *
+   * The record's addressable identity (correlation, task, operation) is always
+   * in the answer, so the operation can be found and reconciled afterwards.
+   */
+  function failureAfterError(error, prepared, settlement, action, extra = {}) {
+    const sent = settlement?.sendPosted === true;
+    // The durable truth after the failure settlement, whenever it could be
+    // read — whether the write was acknowledged or only observed afterwards.
+    // `null` means there is no record at all (nothing was reserved) or that
+    // even the re-read could not be made, which is itself reported rather
+    // than hidden.
+    const record = settlement?.record ?? null;
+    return {
+      ok: false,
+      code: error.code ?? (error instanceof TypeError || error instanceof RangeError
+        ? CHATGPT_ERROR.BAD_ARGUMENT
+        : CHATGPT_ERROR.TURN_REFUSED),
+      error: String(error.message ?? error),
+      stage: error.stage ?? null,
+      timeout_ms: error.timeout_ms ?? null,
+      absolute_ms: error.absolute_ms ?? null,
+      elapsed_ms: error.elapsed_ms ?? null,
+      action,
+      ...(prepared ? {
+        correlation_id: prepared.correlationKey,
+        task_id: prepared.task.task_id,
+        operation_key: prepared.task.operation_key,
+        tab: prepared.tab
+      } : {}),
+      phase: record ? record.phase : null,
+      lock_active: record ? record.lock_active : null,
+      settlement: settlement?.ok === true ? 'recorded' : 'not_recorded',
+      // `submitted` describes the ACTIVATION. A send-capable message that was
+      // posted may or may not have reached the page, so the outcome is
+      // uncertain; one that was never posted is a fact, and no uncertainty is
+      // claimed about it.
+      submitted: sent,
+      ...(sent ? { uncertain: true } : {}),
+      // THE CAPTURE IS A FACT ABOUT THE DURABLE RECORD, not a fixed answer.
+      // A checked reply whose settlement landed but whose acknowledgement was
+      // lost is still a checked reply, and the record says so: `captured` is
+      // derived from the phase, never hardcoded.
+      captured: record ? record.phase === 'REPLY_CHECKED' : false,
+      // And the operation is resolved exactly when the record says the lock is
+      // not held any more.
+      resolved: record ? record.lock_active === false : false,
+      ...extra
     };
   }
 
@@ -1427,13 +2033,19 @@ export function createChatGPTPortDriver(options = {}) {
    * without an operation, while a legacy bounded read with no durable store (or
    * no record) keeps its old page-read shape rather than inventing an identity
    * — and reports honestly when the page then has no evidence either.
+   *
+   * EVERY FAILURE ENVELOPE HERE IS READ-ONLY, so none of them claims anything
+   * about the activation: `submitted` is ABSENT, not false. A store that could
+   * not be read says nothing about whether the operation was submitted earlier,
+   * and a no-send statement this read is not entitled to make is exactly the
+   * kind of claim that gets a duplicate typed.
    */
   async function durableTask(correlation, lifecycle, { required = false } = {}) {
     if (!reservations || typeof reservations.getTaskByCorrelation !== 'function' || reservations.durable === false) {
       if (!required) return { record: null };
       return {
         error: fail(CHATGPT_ERROR.RESERVATION_FAILED, {
-          correlation_id: correlation, submitted: false, captured: false,
+          correlation_id: correlation, captured: false,
           message: 'no durable task store is available, so no operation identity can be proven; nothing was asked of the page'
         })
       };
@@ -1444,7 +2056,7 @@ export function createChatGPTPortDriver(options = {}) {
     } catch (error) {
       return {
         error: fail(error.code ?? CHATGPT_ERROR.RESERVATION_FAILED, {
-          correlation_id: correlation, submitted: false, captured: false,
+          correlation_id: correlation, captured: false,
           message: `the durable task record could not be read, so nothing was asked of the page: ${String((error && error.message) || error)}`
         })
       };
@@ -1452,7 +2064,7 @@ export function createChatGPTPortDriver(options = {}) {
     if (record === null) {
       if (!required) return { record: null };
       return { error: fail(CHATGPT_ERROR.OPERATION_NOT_RESERVED, {
-        correlation_id: correlation, submitted: false, captured: false,
+        correlation_id: correlation, captured: false,
         message: 'no operation is reserved for this correlation; nothing is observed and nothing is sent',
       }) };
     }
@@ -1465,6 +2077,48 @@ export function createChatGPTPortDriver(options = {}) {
       }
     };
     return { record, settle };
+  }
+
+  /**
+   * The durable record for a TASK id, with the same discipline as the
+   * correlation lookup: the identity comes from the store, never from the
+   * caller.
+   *
+   * The general task view redacts the stored reply token, so the operation is
+   * re-read by its correlation to obtain the full record the acceptance
+   * contract has to be checked against. Two reads, one durable source of truth,
+   * and no way for a caller to name somebody else's operation.
+   *
+   * LIKE EVERY OTHER READ-ONLY FAILURE HERE, these envelopes claim NOTHING
+   * about the activation: `submitted` is absent, not false.
+   */
+  async function durableTaskByTaskId(taskId, lifecycle) {
+    if (!reservations || typeof reservations.getTask !== 'function' || reservations.durable === false) {
+      return {
+        error: fail(CHATGPT_ERROR.RESERVATION_FAILED, {
+          correlation_id: null, captured: false,
+          message: 'no durable task store is available, so no operation identity can be proven; nothing was asked of the page'
+        })
+      };
+    }
+    let summary;
+    try {
+      summary = await lifecycle.wait('reservationRead', () => reservations.getTask(taskId, lifecycle));
+    } catch (error) {
+      return {
+        error: fail(error.code ?? CHATGPT_ERROR.RESERVATION_FAILED, {
+          correlation_id: null, captured: false,
+          message: `the durable task record could not be read, so nothing was asked of the page: ${String((error && error.message) || error)}`
+        })
+      };
+    }
+    if (summary === null) {
+      return { error: fail(CHATGPT_ERROR.OPERATION_NOT_RESERVED, {
+        correlation_id: null, captured: false,
+        message: 'no operation is reserved for this task; nothing is reconciled and nothing is sent',
+      }) };
+    }
+    return durableTask(summary.correlation_id, lifecycle, { required: true });
   }
 
   /**
@@ -1492,6 +2146,30 @@ export function createChatGPTPortDriver(options = {}) {
   function observerIdentity(record) {
     if (!record || !record.observer) return { observer_id: null, page_instance_id: null };
     return { observer_id: record.observer.observer_id, page_instance_id: record.observer.page_instance_id };
+  }
+
+  /**
+   * The token a read must check the page's own verdict against.
+   *
+   * THE STORED TOKEN IS AUTHORITATIVE. It is the marker this operation was
+   * actually sent with, it is durable, and it is what a later worker needs
+   * after a restart — which is the whole point of storing it: acceptance used
+   * to be reachable only while the original caller was still holding the
+   * marker, so a restarted worker could never settle a lock it was holding.
+   *
+   * A caller's token is a FALLBACK for an operation that has none stored (a
+   * record written before the token was durable), and a caller token that
+   * CONTRADICTS the stored one is REFUSED rather than used: checking a
+   * verdict against the wrong marker is how a foreign reply is accepted.
+   *
+   * The values themselves are never echoed, logged or returned: only the
+   * mismatch is.
+   */
+  function resolveExpectedToken(record, callerToken) {
+    const stored = storedReplyToken(record);
+    const caller = typeof callerToken === 'string' ? callerToken.trim() : '';
+    if (stored !== null && caller !== '' && stored !== caller) return { mismatch: true, token: null };
+    return { mismatch: false, token: stored ?? (caller === '' ? null : caller) };
   }
 
   /**

@@ -541,15 +541,44 @@ const CHATGPT_PING_TIMEOUT_MS = resolveCommandDeadline({ command: 'ping' }).pane
 const LIVE_RUN_TIMEOUT_MS = resolveCommandDeadline({ command: 'run-turn' }).panelMs;
 
 /**
- * The approval every commanded run acts under.
+ * The split engine's own budgets, read from the same policy the worker uses.
  *
- * The worker refuses a run whose command carries no `approved_scope_ref`: a
- * user gesture says a human clicked, it is not authorisation, and the panel
- * must not claim the authority to grant itself. This constant names the
- * existing owner authorization record for this scope. It is a fixed reference,
- * not an operator input — the panel offers no way to widen its own approval.
+ * The submit is a submission-observation bound, not a generation bound: it
+ * reserves durably, arms the page observer, activates once and returns the
+ * first receipt. The observe is a short read-only poll of an already-armed
+ * observer. Neither budget is derived from the run budget, so a poll can
+ * never outlast — let alone move — the operation it is asking about.
  */
-const APPROVED_SCOPE_REF = 'workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md';
+const SUBMIT_TIMEOUT_MS = resolveCommandDeadline({ command: 'submit-turn' }).panelMs;
+const OBSERVE_TIMEOUT_MS = resolveCommandDeadline({ command: 'observe-turn' }).panelMs;
+const READ_TIMEOUT_MS = resolveCommandDeadline({ command: 'read-final' }).panelMs;
+
+/**
+ * The read-only reconciliation budget.
+ *
+ * A reconcile reads the durable record and, where an observer identity is
+ * known, asks the PAGE about that observer — the same read-only action the
+ * poll uses. It is a read budget, so it is the same shape as the poll's and
+ * it can never outlast the operation it is asking about.
+ */
+const RECONCILE_TIMEOUT_MS = resolveCommandDeadline({ command: 'reconcile-turn' }).panelMs;
+
+/**
+ * The approval every commanded turn acts under.
+ *
+ * The worker refuses a run or a submit whose command carries no
+ * `approved_scope_ref`: a user gesture says a human clicked, it is not
+ * authorisation, and the panel must not claim the authority to grant itself.
+ *
+ * So the reference is OPERATOR-SUPPLIED and starts EMPTY. The panel holds no
+ * grant of its own, and it refuses to send until the operator names the
+ * approval their own authorization record names. The bound mirrors the
+ * worker's: a non-empty, trimmed, 1-128 character reference from a
+ * deliberately narrow charset, and never one of the names a plain object
+ * would inherit.
+ */
+export const SCOPE_REF_PATTERN = /^[A-Za-z0-9._:/-]{1,128}$/;
+const DANGEROUS_REFERENCE_NAMES = new Set(['__proto__', 'prototype', 'constructor']);
 
 // Correlation ids and reply tokens are operator-typed identifiers, not
 // secrets. The charset is deliberately narrow so a stray paste of a URL or a
@@ -728,13 +757,44 @@ export function sanitizeTab(raw) {
 }
 
 /**
+ * The problem with an approval reference, or null when it is usable.
+ *
+ * The bound is the worker's own: a non-empty, trimmed, 1-128 character
+ * reference. The charset is deliberately narrower than "any string" so a
+ * stray paste of a URL, a path with a space, or a credential is refused by
+ * the field rather than carried into a durable dispatch record. A name a
+ * plain object would inherit is refused too, for the same reason the task
+ * store refuses it.
+ *
+ * Exported so the checking lane can assert the same rules without
+ * duplicating them.
+ */
+export function scopeRefProblem(value) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return 'Approval reference is required: a click alone is not authorisation.';
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > 128) {
+    return 'Approval reference must be 1-128 characters.';
+  }
+  if (!SCOPE_REF_PATTERN.test(trimmed) || DANGEROUS_REFERENCE_NAMES.has(trimmed)) {
+    return 'Approval reference must be 1-128 characters of A-Z a-z 0-9 . _ : / -';
+  }
+  return null;
+}
+
+/**
  * Validate the probe fields.
  *
  * Returns the per-field problem list. An empty list means the operator may
  * arm the probe. Exported so the checking lane can assert the same rules
  * without duplicating them.
+ *
+ * `scopeRef` is required: the worker refuses a send whose command carries no
+ * approval reference, and the panel holds no grant of its own to fall back
+ * on. An empty reference is a refusal here, before anything is dispatched.
  */
-export function validateProbeInput({ text, correlationId, token, tabId, confirmed }) {
+export function validateProbeInput({ text, correlationId, token, tabId, confirmed, scopeRef }) {
   const problems = [];
   if (!tabId) problems.push('Select a ChatGPT tab first.');
   if (typeof text !== 'string' || text.trim() === '') problems.push('Prompt text is required.');
@@ -745,6 +805,8 @@ export function validateProbeInput({ text, correlationId, token, tabId, confirme
   if (typeof token !== 'string' || !IDENTIFIER_PATTERN.test(token.trim())) {
     problems.push('Expected reply token must be 1-128 characters of A-Z a-z 0-9 . _ : -');
   }
+  const scopeProblem = scopeRefProblem(scopeRef);
+  if (scopeProblem) problems.push(scopeProblem);
   if (confirmed !== true) problems.push('Tick the confirmation to send.');
   return problems;
 }
@@ -994,6 +1056,64 @@ async function pingSelectedTab() {
 let probePhase = 'idle';
 let probeInFlight = false;
 
+/**
+ * The operation this panel is currently addressing.
+ *
+ * The correlation id and the expected reply token are how a later read-only
+ * poll names the SAME operation — including after this panel's own deadline
+ * expired, which is exactly when the operator most needs to be able to ask
+ * again. They are therefore kept from the moment of dispatch until an
+ * explicit new run replaces them.
+ *
+ * `source` says WHICH control dispatched it, and it is not cosmetic:
+ *   'submit' — the split engine. It reserves the turn durably, arms the page
+ *              observer and records the observer's identity, so the operation
+ *              can be polled and reconciled.
+ *   'run'    — the legacy blocking path. It never arms an observer, so a poll
+ *              against it could only ever answer `observer_identity_required`.
+ *
+ * The token is deliberately never rendered. It is in state, and in the
+ * operator's own field, and nowhere else: not in a result, not in a receipt,
+ * not in a log line.
+ */
+let addressedOperation = null;
+
+/**
+ * In-flight guards for the three read-only controls.
+ *
+ * They exist so one click is one command: a second click while a poll, a read
+ * or a reconcile is still waiting cannot queue a second request. They are NOT a
+ * send lock — a read-only control never changes the send state, and a held or
+ * timed-out send never blocks them.
+ */
+let observeInFlight = false;
+let readInFlight = false;
+let reconcileInFlight = false;
+
+function rememberOperation({ correlationId, token, tabId, source }) {
+  addressedOperation = { correlationId, token, tabId, source };
+}
+
+function forgetOperation() {
+  addressedOperation = null;
+}
+
+/**
+ * Whether the addressed operation has a durable observer to poll.
+ *
+ * ONLY the split engine's submit arms one: it reserves the turn durably, arms
+ * the page observer and records that observer's identity. A legacy "run one
+ * probe" never arms an observer, so a poll against it could only ever answer
+ * `observer_identity_required` — the panel must not offer a control whose only
+ * possible answer is a refusal.
+ *
+ * The READ control stays available for both, because it can scan the page for
+ * a reply without a durable observer.
+ */
+function observerAvailable() {
+  return addressedOperation !== null && addressedOperation.source === 'submit';
+}
+
 function setHold(text, holdState) {
   const node = el('probe-hold');
   if (!node) return;
@@ -1010,6 +1130,10 @@ function setHold(text, holdState) {
  * that may still be executing — the double-send this panel exists to prevent.
  * The control is disabled for the same reason; the guard is here so the
  * invariant does not depend on the button's disabled state.
+ *
+ * Reconciling is the EXPLICIT NEW RUN: it drops the addressable operation, so
+ * a later poll can no longer name the previous one. That is the point of it —
+ * the operator is declaring that the previous operation is done with.
  */
 function reconcileProbe() {
   if (probePhase === 'idle') return;
@@ -1021,6 +1145,7 @@ function reconcileProbe() {
   }
   probePhase = 'idle';
   probeInFlight = false;
+  forgetOperation();
   blankProbeFields();
   setHold('Probe state reconciled. Nothing was resent and nothing is armed.', 'clear');
   setResult('result-run', 'Not run.', 'unknown');
@@ -1038,8 +1163,9 @@ async function runProbe() {
   const correlationId = (correlationNode && correlationNode.value) || '';
   const token = (tokenNode && tokenNode.value) || '';
   const confirmed = !!confirmNode && confirmNode.checked === true;
+  const scopeRef = scopeRefValue();
 
-  const problems = validateProbeInput({ text, correlationId, token, tabId, confirmed });
+  const problems = validateProbeInput({ text, correlationId, token, tabId, confirmed, scopeRef });
   if (problems.length > 0 || probePhase !== 'idle' || probeInFlight) {
     const reason = probePhase === 'idle' ? problems[0] : 'A probe is already dispatched or unsettled.';
     setResult('result-run', 'NOT SENT — ' + (reason || 'action already in flight.'), 'warn');
@@ -1051,7 +1177,19 @@ async function runProbe() {
   // panel is still locked, because the request may already have been delivered.
   probePhase = 'dispatched';
   probeInFlight = true;
-  blankProbeFields();
+  // The operation is remembered BEFORE the request goes out, so a panel
+  // timeout can still be followed by a read-only poll that names THIS
+  // operation. The correlation id and the reply token are the address, so
+  // they are NOT blanked here; only the message and the confirmation are.
+  // `source` records that this was the LEGACY run: it arms no observer, so
+  // only the read-back may follow it.
+  rememberOperation({
+    correlationId: correlationId.trim(),
+    token: token.trim(),
+    tabId,
+    source: 'run'
+  });
+  clearSendFields();
   setHold('Request dispatched to tab ' + tabId + '. Outcome unknown until the worker reports.', 'unknown');
   setResult('result-run', 'Dispatched. Waiting for the worker...', 'known');
   updateOperatorGate();
@@ -1064,7 +1202,7 @@ async function runProbe() {
         text: text.trim(),
         correlation_id: correlationId.trim(),
         expected_reply_token: token.trim(),
-        approved_scope_ref: APPROVED_SCOPE_REF,
+        approved_scope_ref: scopeRef,
         user_gesture: true
       }
     },
@@ -1075,9 +1213,10 @@ async function runProbe() {
   probePhase = 'settled';
 
   if (replyOk(reply)) {
+    // The reply token is never echoed. It is in panel state so a later poll
+    // can address this operation, and nowhere else.
     const shown = describeReply(reply, [
       ['Correlation id', 'correlation_id'],
-      ['Reply token seen', 'expected_reply_token'],
       ['Captured', 'captured'],
       ['Detail', 'detail']
     ]);
@@ -1121,6 +1260,383 @@ async function runProbe() {
   updateOperatorGate();
 }
 
+/* ---- Step 3b: the split engine's send ---- */
+
+/**
+ * A reply from the split engine, rendered for a person.
+ *
+ * The split engine's answers are often "not settled yet" states rather than
+ * plain failures, so the worker's own stable code is carried next to the
+ * reason: `submit_pending` and `observation_pending` mean the operation is
+ * still going, and a code the operator can quote is worth more than a
+ * paraphrase. A field nobody sent stays UNKNOWN, and the reply token is never
+ * among the fields.
+ */
+function describeSplitReply(reply, fields) {
+  const shown = describeReply(reply, fields);
+  if (replyOk(reply)) return shown;
+  const code = safePingLine(pick(reply, 'code'), 64);
+  if (code === '') return shown;
+  return { text: shown.text + '\nCode: ' + code, state: shown.state };
+}
+
+/**
+ * Submit one turn through the split engine.
+ *
+ * The same gates the run path uses — an explicit gesture and the operator's
+ * own approval reference — plus the stable identity the split engine
+ * requires: it keys the operation on a task and an operation key and refuses
+ * a correlation marker alone. The operator's correlation id names both, so
+ * the operation the worker reserves is exactly the one a later poll selects.
+ *
+ * One click, one submission. There is no loop and no automatic retry: this
+ * uses the same lock as the run path, so a second send is impossible until
+ * the operator reconciles.
+ */
+async function submitTurn() {
+  const tabId = selectedTabId();
+  const text = (el('probe-text') && el('probe-text').value) || '';
+  const correlationId = ((el('probe-correlation') && el('probe-correlation').value) || '').trim();
+  const token = ((el('probe-token') && el('probe-token').value) || '').trim();
+  const confirmNode = el('probe-confirm');
+  const confirmed = !!confirmNode && confirmNode.checked === true;
+  const scopeRef = scopeRefValue();
+
+  const problems = validateProbeInput({ text, correlationId, token, tabId, confirmed, scopeRef });
+  if (problems.length > 0 || probePhase !== 'idle' || probeInFlight) {
+    const reason = probePhase === 'idle' ? problems[0] : 'A turn is already dispatched or unsettled.';
+    setResult('result-submit', 'NOT SENT — ' + (reason || 'action already in flight.'), 'warn');
+    updateOperatorGate();
+    return;
+  }
+
+  probePhase = 'dispatched';
+  probeInFlight = true;
+  // Remembered BEFORE the request goes out, so a panel timeout can still be
+  // followed by a read-only poll that names THIS operation. The split engine
+  // arms the page observer, so this operation may be polled and reconciled.
+  rememberOperation({ correlationId, token, tabId, source: 'submit' });
+  clearSendFields();
+  setHold('Submitted to tab ' + tabId + '. Outcome unknown until the worker reports.', 'unknown');
+  setResult('result-submit', 'Submitted. Waiting for the worker...', 'known');
+  updateOperatorGate();
+
+  const reply = await sendOperatorMessage(
+    {
+      type: 'aion/chatgpt-submit',
+      tabId,
+      command: {
+        text: text.trim(),
+        correlation_id: correlationId,
+        expected_reply_token: token,
+        approved_scope_ref: scopeRef,
+        user_gesture: true,
+        // The split engine keys the operation on a stable identity and refuses
+        // a correlation marker alone. The operator's correlation id names it.
+        task_id: correlationId,
+        operation_key: correlationId
+      }
+    },
+    SUBMIT_TIMEOUT_MS
+  );
+
+  probeInFlight = false;
+  probePhase = 'settled';
+
+  const shown = describeSplitReply(reply, [
+    ['Correlation id', 'correlation_id'],
+    ['Observer', 'observer'],
+    ['Detail', 'detail']
+  ]);
+
+  if (replyOk(reply)) {
+    setHold('Submitted and reported. Still not independently verified.', 'settled');
+    setResult('result-submit', 'SUBMITTED — not independently verified.\n' + shown.text, 'captured');
+    updateOperatorGate();
+    return;
+  }
+
+  // Past this point the request could have reached the page, so the panel must
+  // not claim NOT SENT. A definite `submitted: false` from the worker is the
+  // only evidence-backed NOT SENT: it refused before anything was sent.
+  const submittedByWorker = pick(reply, 'submitted');
+  // `shown` already carries the worker's own reason, the worker's code and the
+  // right UNCERTAIN/FAILED word, so it is used as it is rather than re-worded.
+  const uncertain = shown.state === 'warn';
+
+  if (submittedByWorker === false) {
+    setHold('Worker refused the submission before anything was sent. Locked until reconciled.', 'settled');
+    setResult('result-submit', 'NOT SENT — the worker refused this before dispatch.\n' + shown.text, 'warn');
+  } else {
+    setHold(
+      uncertain
+        ? 'Submitted, no definite outcome. May still be running. Locked until reconciled.'
+        : 'Submitted and refused. Locked until reconciled.',
+      'settled'
+    );
+    setResult(
+      'result-submit',
+      shown.text + '\nA submission was dispatched. Whether a message was sent is not known here.',
+      shown.state
+    );
+  }
+
+  updateOperatorGate();
+}
+
+/* ---- Step 4: the split engine's read-only side ---- */
+
+/** Bounded reply text: control characters out, line breaks kept, length capped. */
+function safeReplyText(value, max = 4000) {
+  if (typeof value !== 'string') return '';
+  const cleaned = value
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u001F\u007F]/g, (ch) => (ch === '\n' ? '\n' : ' '))
+    .trim();
+  return cleaned.length > max ? cleaned.slice(0, max) + '…' : cleaned;
+}
+
+/**
+ * Poll the armed observer once.
+ *
+ * One click is one poll. There is no loop, no timer and no automatic
+ * resend: the operator decides when to ask again. The poll names the
+ * operation this panel dispatched and carries nothing that could send — no
+ * text, no gesture, no approval, and no timeout the page could act on. The
+ * page's own observation deadline was set when the task was armed, and a
+ * poll cannot move it.
+ */
+async function observeOnce() {
+  const operation = addressedOperation;
+  if (!operation) {
+    setResult('result-observe', 'NOT OBSERVED — there is no operation to address. Send a turn first.', 'warn');
+    return;
+  }
+  if (!observerAvailable()) {
+    // The legacy run path arms no observer, so a poll could only ever answer
+    // `observer_identity_required`. The panel says so instead of pretending
+    // there is something to poll.
+    setResult(
+      'result-observe',
+      'NOT OBSERVED — this turn has no armed observer. Only a submitted turn has one.',
+      'warn'
+    );
+    return;
+  }
+  if (observeInFlight) {
+    setResult('result-observe', 'A poll is already in flight. Wait for its answer.', 'warn');
+    return;
+  }
+  observeInFlight = true;
+  setResult('result-observe', 'Polling the observer once...', 'known');
+  // The gate is recomputed HERE, so the control is visibly closed while this
+  // one poll is in flight.
+  updateOperatorGate();
+
+  const reply = await sendOperatorMessage(
+    {
+      type: 'aion/chatgpt-observe',
+      tabId: operation.tabId,
+      command: {
+        correlation_id: operation.correlationId,
+        expected_reply_token: operation.token
+      }
+    },
+    OBSERVE_TIMEOUT_MS
+  );
+
+  observeInFlight = false;
+  const shown = describeSplitReply(reply, [
+    ['Correlation id', 'correlation_id'],
+    ['Observer', 'observer'],
+    ['Reason', 'reason']
+  ]);
+  setResult('result-observe', 'Read-only poll of one operation. Nothing was sent.\n' + shown.text, shown.state);
+  updateOperatorGate();
+}
+
+/**
+ * Read the final reply back for the operation this panel dispatched.
+ *
+ * Read-only, like the poll: it composes nothing, clicks nothing and needs
+ * no gesture. It names the operation by its correlation id, which the panel
+ * kept from the moment of dispatch, so it still works after this panel's own
+ * deadline has expired.
+ *
+ * It carries NO TEXT. The prompt is not re-transmitted with the read: the
+ * read-back is a question about the operation, and a control that is read-only
+ * must not carry anything that could be composed into a session.
+ */
+async function readFinalReply() {
+  const operation = addressedOperation;
+  if (!operation) {
+    setResult('result-read', 'NOT READ — there is no operation to address. Send a turn first.', 'warn');
+    return;
+  }
+  if (readInFlight) {
+    setResult('result-read', 'A read is already in flight. Wait for its answer.', 'warn');
+    return;
+  }
+  readInFlight = true;
+  setResult('result-read', 'Reading the final reply...', 'known');
+  // The gate is recomputed HERE, so the control is visibly closed while this
+  // one read is in flight.
+  updateOperatorGate();
+
+  const reply = await sendOperatorMessage(
+    {
+      type: 'aion/chatgpt-read',
+      tabId: operation.tabId,
+      command: {
+        correlation_id: operation.correlationId,
+        expected_reply_token: operation.token
+      }
+    },
+    READ_TIMEOUT_MS
+  );
+
+  readInFlight = false;
+
+  if (!replyOk(reply)) {
+    const shown = describeSplitReply(reply, [
+      ['Correlation id', 'correlation_id'],
+      ['Reason', 'reason']
+    ]);
+    setResult('result-read', 'Read-only read-back. Nothing was sent.\n' + shown.text, shown.state);
+    updateOperatorGate();
+    return;
+  }
+
+  const verdict = pick(reply, 'verdict');
+  const verdictRecord = verdict && typeof verdict === 'object' && !Array.isArray(verdict) ? verdict : null;
+  const lines = ['Read-only read-back. Nothing was sent.'];
+  const correlation = pick(reply, 'correlation_id');
+  lines.push('Correlation id: ' + (typeof correlation === 'string' && correlation !== '' ? correlation : UNKNOWN));
+  const verdictReason = verdictRecord && typeof verdictRecord.reason === 'string' ? verdictRecord.reason : '';
+  if (verdictReason !== '') lines.push('Verdict reason: ' + safePingLine(verdictReason, 200));
+  const replyText = verdictRecord ? safeReplyText(verdictRecord.reply) : '';
+  if (replyText !== '') lines.push('Reply:\n' + replyText);
+  else lines.push('Reply: ' + UNKNOWN);
+  setResult('result-read', lines.join('\n'), 'ok');
+  updateOperatorGate();
+}
+
+/**
+ * Render the worker's reconciliation report.
+ *
+ * The report is DATA, never an instruction, and it is shown whatever the
+ * verdict is: the durable facts it carries — the phase, the lock, whether the
+ * operation settled — are what the operation actually holds, and they are the
+ * answer the operator asked for. A refusal keeps the worker's own reason and
+ * code, so "the lock is still held" and "the page could not be reached" stay
+ * distinguishable instead of collapsing into one vague failure.
+ */
+function describeReconcileReply(reply) {
+  const fields = [
+    ['Phase', 'phase'],
+    ['Lock active', 'lock_active'],
+    ['Settlement', 'settled'],
+    ['Reason', 'reason']
+  ];
+  if (replyOk(reply)) {
+    return describeReply(reply, fields);
+  }
+  const reason =
+    safePingLine(pick(reply, 'error'), 200) ||
+    safePingLine(pick(reply, 'reason'), 200) ||
+    'No reason reported by the worker.';
+  const uncertain = pick(reply, 'uncertain') === true;
+  const lines = [(uncertain ? 'UNCERTAIN — ' : 'FAILED — ') + reason];
+  const code = safePingLine(pick(reply, 'code'), 64);
+  if (code !== '') lines.push('Code: ' + code);
+  for (const [label, key] of fields) {
+    if (key === 'reason') continue;
+    const value = pick(reply, key);
+    lines.push(
+      label + ': ' + (value === undefined || value === null || value === '' ? UNKNOWN : String(value))
+    );
+  }
+  return { text: lines.join('\n'), state: uncertain ? 'warn' : 'error' };
+}
+
+/**
+ * Reconcile ONE addressed operation, read-only.
+ *
+ * The worker's reconciliation path is the answer to an operation that cannot
+ * settle on its own: a terminal refusal, a lost observer, a submission that
+ * never settled. It names the operation by the correlation id the panel kept
+ * from the moment of dispatch, and it reports what the durable record holds.
+ *
+ * ONE CLICK IS ONE COMMAND. There is no loop, no timer, no auto-poll and no
+ * resend. The control carries NO text, NO gesture and NO approval, because
+ * nothing is composed and nothing is sent: it has no send authority at all, so
+ * there is nothing for an approval to authorise.
+ *
+ * It also changes NOTHING here. It does not clear the address, does not settle
+ * the panel's own lock and does not re-arm the run or submit buttons. Dropping
+ * the address is the explicit new-run reset's job; this one only reports.
+ */
+async function reconcileOperation() {
+  const operation = addressedOperation;
+  if (!operation) {
+    setResult(
+      'result-reconcile',
+      'NOT RECONCILED — there is no operation to address. Send a turn first.',
+      'warn'
+    );
+    return;
+  }
+  if (reconcileInFlight) {
+    setResult('result-reconcile', 'A reconciliation is already in flight. Wait for its answer.', 'warn');
+    return;
+  }
+  reconcileInFlight = true;
+  setResult('result-reconcile', 'Reconciling one operation...', 'known');
+  // The gate is recomputed HERE, so the door is visibly closed while this one
+  // command is in flight: one click is one command, and the second click
+  // finds it closed.
+  updateOperatorGate();
+
+  const reply = await sendOperatorMessage(
+    {
+      type: 'aion/chatgpt-reconcile',
+      tabId: operation.tabId,
+      command: {
+        correlation_id: operation.correlationId,
+        expected_reply_token: operation.token
+      }
+    },
+    RECONCILE_TIMEOUT_MS
+  );
+
+  reconcileInFlight = false;
+  const shown = describeReconcileReply(reply);
+  setResult(
+    'result-reconcile',
+    'Read-only reconciliation. Nothing was sent and nothing was changed here.\n' + shown.text,
+    shown.state
+  );
+  updateOperatorGate();
+}
+
+/**
+ * Clear the message and the confirmation, and nothing else.
+ *
+ * Used the moment a request is dispatched. The correlation id and the reply
+ * token are deliberately left in place: they are the address of the operation
+ * that was just dispatched, and a read-only poll needs them long after this
+ * panel's own deadline has expired.
+ */
+function clearSendFields() {
+  const text = el('probe-text');
+  const confirmNode = el('probe-confirm');
+  if (text) {
+    text.value = '';
+    text.removeAttribute('aria-invalid');
+  }
+  if (confirmNode) confirmNode.checked = false;
+}
+
 function blankProbeFields() {
   const text = el('probe-text');
   const correlation = el('probe-correlation');
@@ -1139,6 +1655,13 @@ function blankProbeFields() {
     token.removeAttribute('aria-invalid');
   }
   if (confirmNode) confirmNode.checked = false;
+}
+
+/** The approval reference the operator typed, trimmed, or '' when there is none. */
+function scopeRefValue() {
+  const node = el('probe-scope-ref');
+  const raw = (node && node.value) || '';
+  return typeof raw === 'string' ? raw.trim() : '';
 }
 
 function selectedTabId() {
@@ -1165,19 +1688,32 @@ function renderBlockers(list) {
  * Single source of truth for which buttons may be used.
  *
  * Diagnostics are always available once there is a runtime; they are read-only
- * and cannot strand a probe. The run button additionally requires the probe to
- * be in the idle phase, and the reconcile button requires it to be held and
- * no longer in flight — an in-flight request cannot yet be declared over.
+ * and cannot strand a probe. The run and submit buttons additionally require
+ * the probe to be in the idle phase, and the reconcile button requires it to
+ * be held and no longer in flight — an in-flight request cannot yet be
+ * declared over.
+ *
+ * The three read-only controls have their own rule, and it is deliberately a
+ * different one: they need an operation to address, and nothing else. They
+ * are NOT gated on the send lock, because a timed-out send is exactly when
+ * the operator most needs to ask about the operation, and they never change
+ * the send state themselves. The poll has one extra requirement of its own —
+ * a durable observer — because only a submitted turn has one.
  */
 function updateOperatorGate() {
   const select = el('tab-select');
   const pingButton = el('btn-chatgpt-ping');
   const runButton = el('btn-chatgpt-run');
-  const reconcileButton = el('btn-probe-reconcile');
+  const submitButton = el('btn-chatgpt-submit');
+  const observeButton = el('btn-chatgpt-observe');
+  const readButton = el('btn-chatgpt-read');
+  const reconcileButton = el('btn-chatgpt-reconcile');
+  const probeReconcileButton = el('btn-probe-reconcile');
   const confirmNode = el('probe-confirm');
   const text = (el('probe-text') && el('probe-text').value) || '';
   const correlationId = (el('probe-correlation') && el('probe-correlation').value) || '';
   const token = (el('probe-token') && el('probe-token').value) || '';
+  const scopeRef = scopeRefValue();
 
   const tabId = selectedTabId();
 
@@ -1191,15 +1727,18 @@ function updateOperatorGate() {
     correlationId,
     token,
     tabId,
-    confirmed: !!confirmNode && confirmNode.checked === true
+    confirmed: !!confirmNode && confirmNode.checked === true,
+    scopeRef
   });
 
   const textNode = el('probe-text');
   const correlationNode = el('probe-correlation');
   const tokenNode = el('probe-token');
+  const scopeNode = el('probe-scope-ref');
   if (textNode) markInvalid(textNode, text.trim() === '' || text.length > MAX_PROMPT_LENGTH);
   if (correlationNode) markInvalid(correlationNode, !IDENTIFIER_PATTERN.test(correlationId.trim()));
   if (tokenNode) markInvalid(tokenNode, !IDENTIFIER_PATTERN.test(token.trim()));
+  if (scopeNode) markInvalid(scopeNode, scopeRefProblem(scopeRef) !== null);
 
   const locked = probePhase !== 'idle';
   if (runButton) {
@@ -1207,13 +1746,44 @@ function updateOperatorGate() {
     runButton.disabled = !armed;
     runButton.setAttribute('aria-disabled', String(!armed));
   }
+  if (submitButton) {
+    // The same lock as the run button: one send at a time, whichever path
+    // sends it.
+    const armed = problems.length === 0 && !locked && !probeInFlight;
+    submitButton.disabled = !armed;
+    submitButton.setAttribute('aria-disabled', String(!armed));
+  }
+  if (observeButton) {
+    // An observer exists ONLY for a submitted turn: the split engine arms it
+    // and records its identity. A legacy run arms none, so the poll is not
+    // offered — a control whose only possible answer is a refusal is not a
+    // control an operator should be given.
+    const addressable = observerAvailable() && !probeInFlight && !observeInFlight;
+    observeButton.disabled = !addressable;
+    observeButton.setAttribute('aria-disabled', String(!addressable));
+  }
+  if (readButton) {
+    // The read-back may scan the page for a reply, so it needs no durable
+    // observer: it is available for any addressed operation.
+    const addressable = addressedOperation !== null && !probeInFlight && !readInFlight;
+    readButton.disabled = !addressable;
+    readButton.setAttribute('aria-disabled', String(!addressable));
+  }
   if (reconcileButton) {
+    // The read-only reconciliation door. It needs an operation to name and no
+    // second reconciliation in flight; it is never closed by the send lock,
+    // because it does not send and it does not touch the send state.
+    const reconcilable = addressedOperation !== null && !reconcileInFlight;
+    reconcileButton.disabled = !reconcilable;
+    reconcileButton.setAttribute('aria-disabled', String(!reconcilable));
+  }
+  if (probeReconcileButton) {
     // Reconciling means "the previous probe is no longer running". While the
     // request is still in flight that is not yet true, so reconcile stays
     // closed and only a settled outcome re-opens it.
     const reconcilable = locked && !probeInFlight;
-    reconcileButton.disabled = !reconcilable;
-    reconcileButton.setAttribute('aria-disabled', String(!reconcilable));
+    probeReconcileButton.disabled = !reconcilable;
+    probeReconcileButton.setAttribute('aria-disabled', String(!reconcilable));
   }
 
   if (locked) {
@@ -1258,6 +1828,18 @@ function wireOperatorControls() {
   bind('btn-chatgpt-run', () => {
     runProbe();
   });
+  bind('btn-chatgpt-submit', () => {
+    submitTurn();
+  });
+  bind('btn-chatgpt-observe', () => {
+    observeOnce();
+  });
+  bind('btn-chatgpt-read', () => {
+    readFinalReply();
+  });
+  bind('btn-chatgpt-reconcile', () => {
+    reconcileOperation();
+  });
   bind('btn-probe-reconcile', () => {
     reconcileProbe();
   });
@@ -1265,7 +1847,7 @@ function wireOperatorControls() {
   const select = el('tab-select');
   if (select) select.addEventListener('change', updateOperatorGate);
 
-  for (const id of ['probe-text', 'probe-correlation', 'probe-token']) {
+  for (const id of ['probe-text', 'probe-correlation', 'probe-token', 'probe-scope-ref']) {
     const node = el(id);
     if (node) node.addEventListener('input', updateOperatorGate);
   }

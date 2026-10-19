@@ -44,6 +44,36 @@ function exact(value, fields) {
   plain(value);
   if (Object.keys(value).length !== fields.length || fields.some((key) => !own(value, key))) refuse('reservation_failed', 'invalid task fields');
 }
+
+/**
+ * The durable task record's fields.
+ *
+ * `expected_reply_token` is OPTIONAL in the sense that a record written before
+ * it existed simply does not carry it: an absent field and an explicit null
+ * both mean "this operation has no stored token". Every other field is
+ * required, and NO other field is tolerated — an unexpected key is refused,
+ * because a record that can carry arbitrary extra keys is a record that can
+ * carry a prompt or a credential.
+ */
+const TASK_FIELDS = ['task_id', 'operation_key', 'correlation_id', 'payload_hash', 'payload_chars', 'conversation_key',
+  'target', 'approved_scope_ref', 'created_at', 'updated_at', 'phase', 'lock_active', 'observer', 'facts'];
+
+/**
+ * The task record's field set: every required field present, the one optional
+ * field allowed, and NOTHING else.
+ *
+ * `exact()` is the wrong tool for a record that gained one optional field: it
+ * would refuse every record written before that field existed. This is the
+ * same strictness with one named exception — an unexpected key is still
+ * refused, so the record can never carry a prompt, a reply or a credential.
+ */
+function exactTaskFields(value) {
+  plain(value);
+  for (const key of Object.keys(value)) {
+    if (!TASK_FIELDS.includes(key) && key !== 'expected_reply_token') refuse('reservation_failed', 'invalid task fields');
+  }
+  for (const key of TASK_FIELDS) if (!own(value, key)) refuse('reservation_failed', 'invalid task fields');
+}
 function id(value, nullable = false) {
   if (nullable && value === null) return null;
   if (typeof value !== 'string' || !value.trim() || value !== value.trim() || value.length > 128 || dangerous.has(value)) refuse('bad_argument', 'invalid task identifier');
@@ -54,6 +84,28 @@ function utc(value) {
     || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString() !== value) refuse('reservation_failed', 'invalid task timestamp');
 }
 function hash(value) { if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) refuse('reservation_failed', 'invalid payload digest'); }
+
+/**
+ * The token a record carries, or null. Absent and null are the same fact.
+ */
+export function storedReplyToken(record) {
+  return typeof record?.expected_reply_token === 'string' ? record.expected_reply_token : null;
+}
+
+/**
+ * The record as a MACHINE VIEW sees it.
+ *
+ * The expected reply token is NOT part of it. The token is a correlation
+ * marker, not a credential, but it is also not a fact any listing needs: it
+ * is held for one operation, it is checked against the page's own verdict, and
+ * it is dropped the moment the operation resolves. A general view of the store
+ * therefore does not carry it.
+ */
+function redactTask(record) {
+  if (!record || typeof record !== 'object') return record;
+  const { expected_reply_token, ...rest } = record;
+  return rest;
+}
 
 export function canonicalConversation(url) {
   if (typeof url !== 'string' || url.length > 2048) refuse('bad_argument', 'invalid target');
@@ -102,8 +154,7 @@ function validateObserver(record) {
 }
 
 function validateTask(record, key) {
-  exact(record, ['task_id', 'operation_key', 'correlation_id', 'payload_hash', 'payload_chars', 'conversation_key',
-    'target', 'approved_scope_ref', 'created_at', 'updated_at', 'phase', 'lock_active', 'observer', 'facts']);
+  exactTaskFields(record);
   for (const field of ['task_id', 'operation_key', 'correlation_id', 'approved_scope_ref']) id(record[field]);
   if (record.operation_key !== key) refuse('reservation_failed', 'operation index mismatch');
   hash(record.payload_hash);
@@ -116,6 +167,11 @@ function validateTask(record, key) {
   id(record.target.role_id, true); id(record.target.binding_revision, true);
   utc(record.created_at); utc(record.updated_at);
   if (!phases.includes(record.phase) || typeof record.lock_active !== 'boolean') refuse('reservation_failed', 'invalid task phase');
+  // The expected reply token is EITHER absent/null or a bounded identifier. It
+  // is stored so that a later worker can check the page's own verdict against
+  // the token this operation was actually sent with; it is not a credential and
+  // it is never written to the legacy dispatch record.
+  if (record.expected_reply_token !== undefined && record.expected_reply_token !== null) id(record.expected_reply_token);
   validateObserver(record.observer);
   exact(record.facts, ['activation_possible', 'click_attempted', 'submission_observed', 'generation_started', 'generation_complete', 'reply_checked', 'no_submit', 'consumed']);
   const f = record.facts;
@@ -128,6 +184,9 @@ function validateTask(record, key) {
   const resolved = record.phase === 'REFUSED_NO_SUBMIT' || record.phase === 'REPLY_CHECKED' || record.phase === 'OWNER_DISPOSED';
   if (record.lock_active === resolved || f.no_submit !== (record.phase === 'REFUSED_NO_SUBMIT')
     || f.reply_checked !== (record.phase === 'REPLY_CHECKED') || f.activation_possible === f.no_submit) refuse('reservation_failed', 'inconsistent task facts');
+  // A RESOLVED operation keeps no token: the outcome is already durably
+  // recorded, and the marker is retained only while the outcome is open.
+  if (resolved && record.expected_reply_token) refuse('reservation_failed', 'resolved task keeps a reply token');
 }
 
 function validateLegacy(raw) {
@@ -206,6 +265,13 @@ export async function prepareTask(command, tab, lifecycle, digest = (bytes) => g
     payload_chars: command.text.length, conversation_key: conversation, target,
     approved_scope_ref: id(command.approved_scope_ref.trim()), created_at: timestamp, updated_at: timestamp,
     phase: 'SUBMIT_RESERVED', lock_active: true, observer: null,
+    // The expected reply token is stored HERE, before the record is written and
+    // therefore before anything can be sent, so a later worker can check the
+    // page's own verdict against the token this operation was actually sent
+    // with. It is a correlation marker, not a credential: it is never written
+    // to the legacy dispatch record, never logged, never returned in a machine
+    // view, and it is dropped when the operation resolves.
+    expected_reply_token: replyToken(command.expected_reply_token),
     facts: { activation_possible: true, click_attempted: null, submission_observed: null,
       generation_started: null, generation_complete: null, reply_checked: false, no_submit: false, consumed: false },
   };
@@ -213,6 +279,29 @@ export async function prepareTask(command, tab, lifecycle, digest = (bytes) => g
   return record;
 }
 
+/**
+ * The caller's expected reply token, normalized for storage.
+ *
+ * Absent, null and blank all mean "this operation expects no token" and are
+ * stored as null. Anything else must be a bounded identifier: the same rule
+ * every other stored identifier obeys.
+ */
+function replyToken(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') refuse('bad_argument', 'invalid expected reply token');
+  const trimmed = value.trim();
+  return trimmed === '' ? null : id(trimmed);
+}
+
+/**
+ * Is this the SAME operation?
+ *
+ * The expected reply token is deliberately NOT part of this comparison. It is
+ * held only while the operation is open and is dropped when it resolves, so
+ * it is not a stable identity — and it does not need to be: the operation
+ * itself can only be sent once, whatever marker it carries, and a read that
+ * is handed the wrong marker is refused where the marker matters.
+ */
 function sameOperation(a, b) {
   return a.task_id === b.task_id && a.payload_hash === b.payload_hash && a.payload_chars === b.payload_chars
     && a.conversation_key === b.conversation_key && a.target.url === b.target.url
@@ -250,6 +339,49 @@ function checkAvailable(record, legacy, tasks, archive = { operations: {}, task_
     }
   }
   if (Object.keys(tasks).length >= MAX_TASKS || Object.keys(legacy).length >= 10000) refuse('reservation_failed', 'guard store full');
+}
+
+/**
+ * Rebuild the missing rich record from the legacy dispatch record.
+ *
+ * The legacy record is written FIRST and carries the whole identity of the
+ * reservation, so a reservation whose rich write never landed can be
+ * reconstructed exactly. Nothing is invented: every field comes from the
+ * dispatch record, and a record that does not carry the fields a task needs is
+ * REFUSED rather than guessed at — a guessed task is a lock that can be
+ * released for an operation nobody can name.
+ */
+function rebuildTask(dispatch) {
+  const required = ['task_id', 'operation_key', 'correlation_id', 'payload_hash', 'payload_chars',
+    'conversation_key', 'url', 'tab_id', 'approved_scope_ref', 'started_at'];
+  for (const field of required) {
+    if (!own(dispatch, field) || dispatch[field] === undefined || dispatch[field] === null) {
+      refuse('reservation_failed', 'the dispatch record cannot be rebuilt into a task record');
+    }
+  }
+  return {
+    task_id: dispatch.task_id,
+    operation_key: dispatch.operation_key,
+    correlation_id: dispatch.correlation_id,
+    payload_hash: dispatch.payload_hash,
+    payload_chars: dispatch.payload_chars,
+    conversation_key: dispatch.conversation_key,
+    // The dispatch record carries the URL and the tab, never the page's
+    // role/binding metadata: those are null on a rebuilt record, which is the
+    // same fact as "the reservation never named them".
+    target: { url: dispatch.url, tab_id: dispatch.tab_id, role_id: null, binding_revision: null },
+    approved_scope_ref: dispatch.approved_scope_ref,
+    created_at: dispatch.started_at,
+    updated_at: new Date().toISOString(),
+    phase: 'REFUSED_NO_SUBMIT',
+    lock_active: false,
+    observer: null,
+    // A rebuilt reservation never carried a marker: the rich record that would
+    // have held it was never written.
+    expected_reply_token: null,
+    facts: { activation_possible: false, click_attempted: null, submission_observed: null,
+      generation_started: null, generation_complete: null, reply_checked: false, no_submit: true, consumed: false },
+  };
 }
 
 export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {}) {
@@ -294,11 +426,16 @@ export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {})
     async get(correlation, life) { const { legacy } = await observe(life); return own(legacy, correlation) ? structuredClone(legacy[correlation]) : null; },
     async getTask(taskId, life) {
       id(taskId); const { tasks } = await observe(life);
-      return structuredClone(Object.values(tasks).find((task) => task.task_id === taskId) ?? null);
+      return redactTask(structuredClone(Object.values(tasks).find((task) => task.task_id === taskId) ?? null));
     },
     // The read-only lookup a poll needs: an operation is addressed by the
     // correlation the page was given, and every identity used afterwards must
     // come from THIS record rather than from the caller.
+    //
+    // This is the ONE accessor that returns the stored expected reply token:
+    // the driver needs it to check the page's own verdict against the token
+    // this operation was sent with. Every general view of the store redacts
+    // it.
     async getTaskByCorrelation(correlation, life) {
       id(correlation); const { tasks } = await observe(life);
       return structuredClone(Object.values(tasks).find((task) => task.correlation_id === correlation) ?? null);
@@ -337,7 +474,7 @@ export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {})
         return next;
       });
     },
-    async listTasks(life) { return structuredClone(Object.values((await observe(life)).tasks)); },
+    async listTasks(life) { return structuredClone(Object.values((await observe(life)).tasks)).map(redactTask); },
     async reserveOperation(record, life) {
       plain(record);
       validateTask(record, record.operation_key);
@@ -372,6 +509,11 @@ export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {})
         const next = { ...prior, updated_at: new Date().toISOString(),
           phase: noSubmit ? 'REFUSED_NO_SUBMIT' : checked ? 'REPLY_CHECKED' : 'NEEDS_RECONCILIATION',
           lock_active: !(noSubmit || checked),
+          // BOUNDED RETENTION. The token is held only while the outcome is
+          // open. Once the operation is resolved its marker is no longer
+          // needed — the outcome is durably recorded — and the record stops
+          // carrying it.
+          expected_reply_token: (noSubmit || checked) ? null : prior.expected_reply_token ?? null,
           facts: { ...prior.facts, activation_possible: !noSubmit, no_submit: noSubmit, reply_checked: checked } };
         validateTask(next, next.operation_key);
         // Legacy completion alone never unlocks. If the second write fails, the
@@ -398,6 +540,9 @@ export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {})
         if (!prior) refuse('operation_not_reserved', 'no operation with this correlation');
         if (!prior.lock_active) refuse('task_already_resolved', `operation is already ${prior.phase}`);
         const next = { ...prior, updated_at: new Date().toISOString(), phase: 'OWNER_DISPOSED', lock_active: false,
+          // A RESOLVED operation keeps no reply token: the marker is held only
+          // while the outcome is open, and a disposal resolves the operation.
+          expected_reply_token: null,
           facts: { ...prior.facts, activation_possible: true, no_submit: false, reply_checked: false } };
         validateTask(next, next.operation_key);
         await write(DISPATCH_KEY, { schema: DISPATCH_SCHEMA, reservations: { ...legacy,
@@ -432,6 +577,110 @@ export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {})
         for (const c of new Set([...move.map((t) => t.correlation_id), ...staleLegacy])) delete keptLegacy[c];
         await write(DISPATCH_KEY, { schema: DISPATCH_SCHEMA, reservations: keptLegacy }, life);
         return { archived: move.length, kept: Object.keys(keptTasks).length, archive_size: Object.keys(next.operations).length };
+      });
+    },
+    /**
+     * Settle a reservation whose OWN WRITE FAILED, when nothing was sent.
+     *
+     * WHY IT EXISTS. `reserveOperation` writes the legacy dispatch record and
+     * then the richer task record, and BOTH of them land before any page
+     * exchange. So a reservation whose write failed can only be in one of two
+     * shapes:
+     *
+     *   (a) both records landed and the lifecycle expired AFTER the write, so
+     *       a SUBMIT_RESERVED task holds the conversation lock with no
+     *       observer and no outcome — nothing can ever observe it and nothing
+     *       can ever resolve it;
+     *   (b) only the legacy IN_FLIGHT landed, so there is no task at all and
+     *       the conversation is locked by an orphan tombstone forever.
+     *
+     * Neither shape can have sent anything: the send happens only after the
+     * reservation is durable. So the honest outcome is available — a positive
+     * no-submit, the lock released — and leaving either shape unresolved is
+     * what wedges the conversation.
+     *
+     * WHAT IT REFUSES. A shape that does not match either of the two above
+     * (a task with no matching legacy record, a legacy record that is already
+     * COMPLETED, a dispatch record that cannot be rebuilt) is NOT settled and
+     * NOT released: it is reported as not recorded. Inventing a release for an
+     * operation nobody can name is exactly the failure this exists to stop.
+     *
+     * IT REFUSES AN OBSERVED TASK TOO. A rich record that already carries an
+     * observer, or that has moved past SUBMIT_RESERVED, is evidence that the
+     * page WAS reached — so a positive no-submit may not be written over it
+     * and its lock may not be released on that basis. The record is left
+     * exactly as it is and the refusal says so.
+     *
+     * RETURNS. The settled task record on success; `{ok:false,
+     * settlement:'not_recorded', phase:null, lock_active:null, reason}` when
+     * nothing could honestly be written.
+     */
+    async settleIncompleteReservation(correlation, options, life) {
+      id(correlation);
+      exact(options, ['noSend']);
+      // A settlement here is only ever justified by a PROVEN no-send: the
+      // reservation never reached a page, so nothing was activated.
+      if (options.noSend !== true) refuse('reservation_failed', 'an incomplete reservation is only settled on proven no-send');
+      return mutation(local, async () => {
+        const { legacy, tasks } = await read(life);
+        assert(life);
+        const dispatch = own(legacy, correlation) ? legacy[correlation] : null;
+        if (!dispatch) {
+          return { ok: false, settlement: 'not_recorded', phase: null, lock_active: null,
+            reason: 'no dispatch reservation exists for this correlation' };
+        }
+        if (dispatch.state !== 'IN_FLIGHT') {
+          return { ok: false, settlement: 'not_recorded', phase: null, lock_active: null,
+            reason: 'the dispatch reservation is not in flight; it was already settled' };
+        }
+        const task = Object.values(tasks).find((entry) => entry.correlation_id === correlation) ?? null;
+        if (task) {
+          // The two records must describe the SAME operation before one of
+          // them is released: a task that does not match its dispatch record
+          // is not this reservation's record.
+          if (dispatch.task_id !== task.task_id || dispatch.operation_key !== task.operation_key
+            || dispatch.payload_hash !== task.payload_hash) {
+            return { ok: false, settlement: 'not_recorded', phase: null, lock_active: null,
+              reason: 'the task record and the dispatch record describe different operations' };
+          }
+          // AN UNOBSERVED RESERVATION ONLY. This settlement exists for one
+          // shape: a reservation that never reached a page, so nothing was
+          // activated. A task that already carries an observer, or that has
+          // moved past SUBMIT_RESERVED, is evidence that the page WAS reached
+          // — so a positive no-submit may not be written over it, and the lock
+          // may not be released on that basis. Defence in depth: the caller
+          // only reaches here from the pre-exchange reservation write, but the
+          // store is where the truth is, so the store refuses.
+          if (task.phase !== 'SUBMIT_RESERVED' || task.observer !== null
+            || task.facts.submission_observed !== null) {
+            return { ok: false, settlement: 'not_recorded', phase: task.phase, lock_active: task.lock_active,
+              reason: 'the task is not an unobserved reservation' };
+          }
+          const next = { ...task, updated_at: new Date().toISOString(), phase: 'REFUSED_NO_SUBMIT',
+            lock_active: false, expected_reply_token: null,
+            facts: { ...task.facts, activation_possible: false, no_submit: true, reply_checked: false } };
+          validateTask(next, next.operation_key);
+          await write(DISPATCH_KEY, { schema: DISPATCH_SCHEMA, reservations: { ...legacy,
+            [correlation]: { ...dispatch, state: 'COMPLETED', finished_at: next.updated_at, captured: false } } }, life);
+          await write(TASKS_KEY, { schema: TASKS_SCHEMA, operations: { ...tasks, [next.operation_key]: next } }, life);
+          return next;
+        }
+        // No rich record: rebuild it from the dispatch record, which carries
+        // the whole identity of the reservation.
+        let rebuilt;
+        try {
+          rebuilt = rebuildTask(dispatch);
+          validateTask(rebuilt, rebuilt.operation_key);
+        } catch (error) {
+          // A dispatch record that cannot be rebuilt is not settled and not
+          // released: the shape is not one this store can speak about.
+          return { ok: false, settlement: 'not_recorded', phase: null, lock_active: null,
+            reason: String((error && error.message) || error) };
+        }
+        await write(DISPATCH_KEY, { schema: DISPATCH_SCHEMA, reservations: { ...legacy,
+          [correlation]: { ...dispatch, state: 'COMPLETED', finished_at: rebuilt.updated_at, captured: false } } }, life);
+        await write(TASKS_KEY, { schema: TASKS_SCHEMA, operations: { ...tasks, [rebuilt.operation_key]: rebuilt } }, life);
+        return rebuilt;
       });
     },
     // Compatibility writer retained for internal/tests, never an alternate send
