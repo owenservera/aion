@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {parseCommand} from '../src/commands.mjs';
 import {parseEngineSetup} from '../src/setup-args.mjs';
 import {openLocal,engineProbe} from '../src/local-runtime.mjs';
-import {probeAcpBinary} from '../src/engines/acp.mjs';
+import {probeAcpBinary,verifyAcpCwd} from '../src/engines/acp.mjs';
 import {runLocalSelftest} from '../src/selftest.mjs';
 
 const token=prefix=>prefix+randomBytes(12).toString('hex');
@@ -40,6 +40,10 @@ export async function main(argv=process.argv.slice(2),{
    const cwd=resolve(args.cwd);
    try{if(!statSync(cwd).isDirectory())throw new Error('not a directory');}
    catch{return done(print,{ok:false,code:'INVALID_GRANT_CWD',delivery:'NOT_SENT'},2);}
+   if(args.engine==='acp'){
+     const check=verifyAcpCwd(cwd);
+     if(!check.ok)return done(print,{ok:false,code:check.code,delivery:'NOT_SENT'},3);
+   }
    const engine=args.engine==='acp'?await acpProbe():await probe();
    if(!engine?.ok)return done(print,{ok:false,code:'ENGINE_NOT_CONNECTED',opencode:safe(engine)},3);
    let rt;
