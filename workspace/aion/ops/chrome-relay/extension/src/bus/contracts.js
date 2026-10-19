@@ -220,7 +220,7 @@ export const DEFAULT_CONFIG = Object.freeze({
 
 const DANGEROUS = new Set(['__proto__', 'prototype', 'constructor']);
 export const AGENT_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
-export const NONCE = /^[A-Za-z0-9_-]{6,64}$/;
+export const NONCE = /^(?!(?:__proto__|prototype|constructor)$)[A-Za-z0-9_-]{6,64}$/;
 export const GRANT_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 /** C0 controls except TAB/LF/CR, DEL, C1 controls and bidi overrides. */
 export const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/;
