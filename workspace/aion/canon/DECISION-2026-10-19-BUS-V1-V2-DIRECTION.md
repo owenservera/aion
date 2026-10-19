@@ -126,4 +126,4 @@ Detailed design: [BUS-V1-V2-DESIGN](../ops/chrome-relay/BUS-V1-V2-DESIGN.md).
 
 ## 10. Non-claims
 
-No code for Bus V1/V2 exists. No SYNC-0 result exists. Mobile behavior is unobserved. This record is not a grant, not an M1 claim, and not evidence that any agent, tunnel or conversation is bound.
+Update 2026-10-19: Bus V1/V2 code exists and passes OFFLINE only ([bus/README.md](../ops/chrome-relay/bus/README.md)); the labels, defaults (arm token `AION>`, max hops 3) and grant model there are implementation defaults pending the owner decisions in §8. No SYNC-0 result exists. Mobile behavior is unobserved. This record is not a grant, not an M1 claim, and not evidence that any agent, tunnel or conversation is bound.
