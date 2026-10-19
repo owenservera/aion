@@ -79,3 +79,15 @@ test('connect refuses to change grants while target has an active operation',asy
  assert.equal(status,3);assert.equal(revokes,0);assert.equal(grants,0);
  assert.equal(JSON.parse(lines[0]).code,'TARGET_BUSY');
 });
+
+test('connections distinguish available ACP binary from a live OpenCode service',async()=>{
+ const messages=[];
+ const rc=await main(['connections'],{probe:async()=>({ok:false,status:'UNAVAILABLE'}),
+   acpProbe:()=>({ok:true,engine:'acp',status:'BINARY_PRESENT'}),
+   print:x=>messages.push(x)});
+ assert.equal(rc,0);
+ const v=JSON.parse(messages[0]);
+ assert.equal(v.acp.state,'BINARY_PRESENT');
+ assert.equal(v.opencode_v2.state,'UNAVAILABLE');
+ assert.equal(v.chrome.state,'NOT_CONNECTED');
+});
