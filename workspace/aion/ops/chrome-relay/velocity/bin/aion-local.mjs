@@ -7,17 +7,18 @@ import {fileURLToPath} from 'node:url';
 import {parseCommand} from '../src/commands.mjs';
 import {parseEngineSetup} from '../src/setup-args.mjs';
 import {openLocal,engineProbe} from '../src/local-runtime.mjs';
+import {probeAcpBinary} from '../src/engines/acp.mjs';
 import {runLocalSelftest} from '../src/selftest.mjs';
 
 const token=prefix=>prefix+randomBytes(12).toString('hex');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const safe=engine=>({engine:'opencode-v2',state:engine?.ok?'CONNECTED':'UNAVAILABLE',
+const safe=engine=>({engine:engine?.engine??'opencode-v2',state:engine?.status??'UNAVAILABLE',
   endpoint:engine?.ok?engine.endpoint:null,reason:engine?.reason??null});
 const done=(print,r,exit)=>{print(JSON.stringify(r));return exit;};
 
 export async function main(argv=process.argv.slice(2),{
   print=line=>process.stdout.write(line+'\n'),open=openLocal,probe=engineProbe,
-  tests=runLocalSelftest,delegate=null,pause=sleep,now=()=>Date.now()
+  tests=runLocalSelftest,acpProbe=probeAcpBinary,delegate=null,pause=sleep,now=()=>Date.now()
 }={}){
  const cmd=argv[0]??'status';
  if(cmd==='selftest'){
@@ -26,8 +27,8 @@ export async function main(argv=process.argv.slice(2),{
  }
  if(cmd==='connections'){
    if(argv.length>1)return done(print,{ok:false,code:'BAD_COMMAND'},2);
-   const engine=await probe();
-   return done(print,{schema:'aion.connections/1',opencode:safe(engine),chrome:{state:'NOT_CONNECTED'}},0);
+   const [engine,acp]=await Promise.all([probe(),acpProbe()]);
+   return done(print,{schema:'aion.connections/1',opencode_v2:safe(engine),acp:safe(acp),chrome:{state:'NOT_CONNECTED'}},0);
  }
  if(process.env.AION_DEV_SOCKET && cmd!=='connect'){
    const invoke=delegate??(await import('./aion.mjs')).main;
@@ -39,21 +40,25 @@ export async function main(argv=process.argv.slice(2),{
    const cwd=resolve(args.cwd);
    try{if(!statSync(cwd).isDirectory())throw new Error('not a directory');}
    catch{return done(print,{ok:false,code:'INVALID_GRANT_CWD',delivery:'NOT_SENT'},2);}
-   const engine=await probe();
+   const engine=args.engine==='acp'?await acpProbe():await probe();
    if(!engine?.ok)return done(print,{ok:false,code:'ENGINE_NOT_CONNECTED',opencode:safe(engine)},3);
-   const rt=await open({withEngine:true});
+   const rt=await open({withEngine:true,engineChoice:args.engine==='acp'?'acp':'opencode-v2'});
    try{
      if(!rt.engine?.ok)return done(print,{ok:false,code:'ENGINE_NOT_CONNECTED',delivery:'NOT_SENT'},3);
      const state=await rt.bus.store.read();
      const existing=state.agents?.opencode;
      if(!existing)return done(print,{ok:false,code:'EXECUTOR_MISSING'},3);
-     if(existing.binding && (existing.binding.adapter!=='opencode-v2'||existing.binding.ref!=='opencode'))
-       return done(print,{ok:false,code:'EXISTING_BINDING_MISMATCH'},3);
+     // An explicit engine choice may replace another binding, but only after
+     // checking the target has no pending/uncertain command (below).
      if(Object.values(state.commands??{}).some(c=>c.to==='opencode'&&
        ['RESERVED','DISPATCHED','SUBMISSION_OBSERVED','UNRESOLVED'].includes(c.state)))
        return done(print,{ok:false,code:'TARGET_BUSY',delivery:'NOT_SENT'},3);
-     if(!existing.binding){await rt.bus.bind('opencode',{
-       adapter:'opencode-v2',ref:'opencode',confirmed_by:'explicit-local-operator-connect'});}
+     const requiredAdapter=args.engine==='acp'?'acp':'opencode-v2';
+     if(existing.binding?.adapter!==requiredAdapter){
+       if(existing.binding)await rt.bus.unbind('opencode');
+       await rt.bus.bind('opencode',{adapter:requiredAdapter,
+         ref:'opencode',confirmed_by:'explicit-local-operator-connect'});
+     }
      // Reconnecting replaces older send grants so no task runs in a stale cwd.
      for(const prior of Object.values(state.grants??{})){
        if(!prior.revoked && prior.agents?.includes('opencode') && prior.ops?.includes('send'))
@@ -63,7 +68,7 @@ export async function main(argv=process.argv.slice(2),{
      await rt.bus.grant({grant_id:grantId,ref:'explicit-local-operator-connect',
        agents:['opencode'],ops:['send'],max_count:args.max,rate_per_hour:Math.min(args.max,100),
        expires_utc:new Date(now()+args.hours*3600000).toISOString(),cwd});
-     return done(print,{ok:true,code:'ENGINE_BOUND_AND_GRANTED',engine:'opencode-v2',
+     return done(print,{ok:true,code:'ENGINE_BOUND_AND_GRANTED',engine:requiredAdapter,
        grant_id:grantId,max_sends:args.max,expires_hours:args.hours,local_only:true},0);
    }finally{await rt.close();}
  }
@@ -77,14 +82,14 @@ export async function main(argv=process.argv.slice(2),{
  const rt=await open({withEngine:needsEngine});
  try{
    if(parsed.command==='doctor'){
-     const engine=await probe();
+     const [engine,acp]=await Promise.all([probe(),acpProbe()]);
      return done(print,{schema:'aion.doctor/1',ok:true,mode:'DIRECT_LOCAL',
-       state_path:rt.statePath,engines:[safe(engine)],chrome:'NOT_CONNECTED',actions:'OWNER_GRANTED_ONLY'},0);
+       state_path:rt.statePath,engines:[safe(engine),safe(acp)],chrome:'NOT_CONNECTED',actions:'OWNER_GRANTED_ONLY'},0);
    }
    if(parsed.command==='capabilities'){
      const ready=await rt.refresh();
      return done(print,{schema:'aion.capabilities/1',engine:safe(rt.engine),
-       opencode_submit:ready?'READY':'BLOCKED',chrome_submit:'NOT_CONNECTED'},0);
+       opencode_submit:ready?'READY_TO_ATTEMPT':'BLOCKED',chrome_submit:'NOT_CONNECTED'},0);
    }
    if(parsed.command==='status'){
      const s=await rt.bus.status();
