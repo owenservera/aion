@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // B development broker. Explicit Linux/macOS private UNIX socket only.
 // NOT a Windows service, Chrome host, installer or live ChatGPT executor.
-import {readFileSync,mkdirSync} from 'node:fs';
+import {readFileSync,mkdirSync,lstatSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createBus} from '../../extension/src/bus/bus.js';
@@ -20,6 +20,12 @@ export async function serve({socketPath=process.env.AION_DEV_SOCKET,
  if(state===resolve(process.env.HOME??'', '.aion','bus','state.json'))
    throw new Error('stable bus state path forbidden');
  mkdirSync(dirname(state),{recursive:true,mode:0o700});
+ const parent=lstatSync(dirname(state));
+ if(!parent.isDirectory()||parent.isSymbolicLink()||(parent.mode&0o077)!==0
+    ||(typeof process.getuid==='function'&&parent.uid!==process.getuid())){
+   throw Object.assign(new Error('dev ledger directory must be private and owned by caller'),
+     {code:'UNSAFE_LEDGER_DIRECTORY'});
+ }
  const storage=createFileStorage(state);
  const bus=createBus({storage,adapters:[]});
  const events=createEventStream();
