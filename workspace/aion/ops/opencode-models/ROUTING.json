@@ -1,0 +1,157 @@
+{
+  "schema": "aion.opencode.models.routing.v1",
+  "scope": "OWNER_WINDOWS_MASTER / global OpenCode sessions",
+  "updated_at": "2026-10-19T13:05:00Z",
+  "opencode_version_observed": "v2.0.32",
+  "precedence": [
+    "1. in-session model switch (POST /api/session/{id}/model; affects subsequent turns of that session only)",
+    "2. dispatch-time per-subagent model override (that lane only, nothing persists)",
+    "3. agent-specific config: project-level beats global for the same key",
+    "4. preset default: oh-my-opencode-slim presets.<active> (active: zen-free) at session start",
+    "5. failover supervisor (staged, INACTIVE) when its host contract is validated"
+  ],
+  "lanes": [
+    {
+      "lane": "orchestrator",
+      "task": "planning, task briefs, synthesis, review triage",
+      "model": "opencode/deepseek-v4.1-flash-free",
+      "variant": "high",
+      "tier": "free",
+      "smoke": "agent-verified: live preset routing answerable lanes 2026-10-19"
+    },
+    {
+      "lane": "implement",
+      "task": "agentic implementation, multi-file fixer lanes",
+      "model": "opencode/minimax-m3.1-flash-free",
+      "variant": "high",
+      "tier": "free",
+      "smoke": "CLI smoke OPENCODE_OK exit 0 at 2026-10-19T12:52:38Z",
+      "catalog_note": "ABSENT from catalog at 2026-10-19T13:01Z and 13:09Z probes (possible replacement: opencode/minimax-m3, no variants). Do not retarget without a fresh snapshot AND an agent-type smoke; catalog≠access also means an unlisted-but-smoked ID needs re-verification."
+    },
+    {
+      "lane": "mechanical",
+      "task": "unambiguous mechanical edits, summaries, bounded chores",
+      "model": "opencode/mimo-v2.6-flash-free",
+      "variant": null,
+      "tier": "free",
+      "smoke": "not smoked this day; no variants exist"
+    },
+    {
+      "lane": "explore_readonly",
+      "task": "explorer/research/local-librarian read-only search lanes",
+      "model": "opencode/deepseek-v4.1-flash-free",
+      "variant": "low",
+      "tier": "free",
+      "smoke": "agent-verified: live preset routing 2026-10-19"
+    },
+    {
+      "lane": "designer",
+      "task": "UI/UX design, review and implementation",
+      "model": "opencode/deepseek-v4.1-flash-free",
+      "variant": "high",
+      "tier": "free",
+      "smoke": "agent-verified: live preset routing 2026-10-19"
+    },
+    {
+      "lane": "council",
+      "task": "council seats alpha/beta/gamma/delta + council synthesis",
+      "model": "opencode/deepseek-v4.1-flash-free",
+      "variant": "high",
+      "tier": "free",
+      "smoke": "KNOWN HAZARD: council synthesis agent returned 403 FreeTierError on 2026-10-19 with a catalogued free model; always smoke the council synthesis agent before routing a long lane"
+    },
+    {
+      "lane": "acceptance_high_stakes",
+      "task": "M1 acceptance, architecture decisions, security boundaries",
+      "model": "openai/gpt-6.1-sol",
+      "variant": "medium",
+      "tier": "paid",
+      "smoke": "unverified on this host (paid tier; do not rely without an agent smoke)"
+    },
+    {
+      "lane": "fallback_general",
+      "task": "general degradation when a preferred lane is exhausted",
+      "model": "opencode/glm-5.3-flash-free",
+      "variant": "high",
+      "tier": "free",
+      "smoke": "not smoked this day"
+    }
+  ],
+  "variant_exemptions": [
+    "slim:council.gamma"
+  ],
+  "variant_exemptions_note": "council seat gamma is intentionally allowed without a variant (seat diversity in the live preset).",
+  "slim_agent_lane_map": {
+    "orchestrator": "orchestrator",
+    "oracle": "orchestrator",
+    "explorer": "explore_readonly",
+    "librarian": "explore_readonly",
+    "designer": "designer",
+    "council": "council",
+    "fixer": "implement"
+  },
+  "escalation_rule": "if a free lane needs more than ~2 rounds of self-correction, escalate to acceptance_high_stakes instead of looping a free model",
+  "failover": {
+    "supervisor_dir": "workspace/aion/ops/model-failover",
+    "status": "staged-inactive",
+    "primary": "openai/gpt-6.1-sol#medium",
+    "fallback": "opencode/minimax-m3.1-flash-free",
+    "activation_gate": "host contract validation evidence per model-failover/COMPATIBILITY.md; keep inactive until then"
+  },
+  "catalog_snapshot": {
+    "observed_at": "2026-10-19T13:01:29Z",
+    "source": "tools.opencode.models({query:'free',limit:60})",
+    "total_free_entries": 22,
+    "supplements": {
+      "observed_at": "2026-10-19T13:09:26Z",
+      "source": "tools.opencode.models({query:'minimax',limit:60}); tools.opencode.models({query:'gpt-6.1-sol',limit:60})",
+      "models": [
+        { "id": "opencode/minimax-m3", "variants": [], "status": "active" },
+        { "id": "free/free/minimax-m2.5-free", "variants": [], "status": "active" },
+        { "id": "huggingface/MiniMaxAI/MiniMax-M3", "variants": [], "status": "active" },
+        { "id": "openrouter/minimax/minimax-m3", "variants": ["none", "thinking"], "status": "active" },
+        { "id": "the-grid-ai/minimax-latest", "variants": ["low", "medium", "high"], "status": "active" },
+        { "id": "openai/gpt-6.1-sol", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
+        { "id": "opencode/gpt-6.1-sol", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
+        { "id": "openrouter/openai/gpt-6.1-sol", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
+        { "id": "openrouter/openai/gpt-6.1-sol-pro", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" }
+      ],
+      "note": "supplements verify lane-targeted models beyond the free-only snapshot; absence of opencode/minimax-m3.1-flash-free in both the snapshot and the targeted minimax probe is a confirmed catalog exit"
+    },    "providers": {
+      "opencode": [
+        { "id": "opencode/nemotron-3.5-super-vl-free", "variants": ["none", "minimal", "low", "medium", "high", "xhigh"], "status": "active" },
+        { "id": "opencode/beam-free", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
+        { "id": "opencode/longcat-2.5-preview-free", "variants": [], "status": "active" },
+        { "id": "opencode/space-bunny-free", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
+        { "id": "opencode/mimo-v2.6-flash-free", "variants": [], "status": "active" },
+        { "id": "opencode/deepseek-v4.1-flash-free", "variants": ["low", "high", "max"], "status": "active" },
+        { "id": "opencode/glm-5.3-flash-free", "variants": ["low", "high", "max"], "status": "active" }
+      ],
+      "free": [
+        { "id": "free/free/deepseek-v4-flash-free", "variants": [], "status": "active" },
+        { "id": "free/free/big-pickle", "variants": [], "status": "active" },
+        { "id": "free/free/minimax-m2.5-free", "variants": [], "status": "active" },
+        { "id": "free/free/nemotron-3-super-free", "variants": [], "status": "active" },
+        { "id": "free/free/qwen3.6-plus-free", "variants": [], "status": "active" }
+      ],
+      "openrouter": [
+        { "variants": ["none", "thinking"], "id": "openrouter/xingchen-agi/xing4.0-29b-a4b:free", "status": "active" },
+        { "variants": ["none", "thinking"], "id": "openrouter/nvidia/nemotron-3.5-super-vl:free", "status": "active" },
+        { "variants": ["none", "thinking"], "id": "openrouter/dots-studio/dots-3-note-preview:free", "status": "active" },
+        { "variants": [], "id": "openrouter/liquid/lfm-2.5-2.6b:free", "status": "active" },
+        { "variants": ["none", "minimal", "low", "medium", "high", "max"], "id": "openrouter/thinkingmachines/inkling-small:free", "status": "active" },
+        { "variants": ["none", "thinking"], "id": "openrouter/poolside/laguna-s-2.1:free", "status": "active" },
+        { "variants": ["none", "thinking"], "id": "openrouter/poolside/laguna-xs-2.1:free", "status": "active" },
+        { "variants": ["none", "thinking"], "id": "openrouter/cohere/north-mini-code:free", "status": "active" },
+        { "variants": ["none", "thinking"], "id": "openrouter/google/gemma-4-26b-a4b-it:free", "status": "active" },
+        { "variants": [], "id": "openrouter/openrouter/free", "status": "active" }
+      ]
+    }
+  },
+  "catalog_hazards": [
+    "catalog churn is bidirectional: space-bunny-free returned 0 results at 2026-10-19T12:29Z and reappeared active at 2026-10-19T13:01Z same day",
+    "exact provider-prefixed IDs only; a bare minimax-m3.1-flash-free is not a model reference",
+    "free-tier access is entrypoint-dependent: smoke the exact agent type, not just the model",
+    "variant sets differ per model: mimo has none, minimax reaches xhigh, deepseek stops at max"
+  ]
+}

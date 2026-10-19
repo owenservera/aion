@@ -1,14 +1,15 @@
 # OpenCode 2.0 — AION research and adoption dossier
 
 **Research date:** 2026-10-17 (Europe/Madrid)  
+**Update:** 2026-10-19 — the Windows master now runs **OpenCode v2.0.32** live (`opencode --version`; receipts in `../model-failover/COMPATIBILITY.md` and `[windows-master/ENVIRONMENT.md](../../agents/windows-master/ENVIRONMENT.md)`). Stage progression is **observed receipts only**; gates G0–G5 are not all claimed — plugin-contract and host-port seams remain unresolved per COMPATIBILITY.md.  
 **Repository:** `owenservera/aion` / `main`  
-**Status:** RESEARCHED_AND_DOCUMENTED — **NOT INSTALLED, MIGRATED, BENCHMARKED OR HOST-TESTED** by this dossier.  
+**Status:** RESEARCHED_AND_DOCUMENTED — **NOT INSTALLED, MIGRATED, BENCHMARKED OR HOST-TESTED** by this dossier's original lane.  
 **Scope:** OpenCode V2 capability research and AION-specific adoption strategy. This is *not* a new orchestration service or execution authorization.
 
 ## Purpose and ownership
 OpenCode is AION's current **Windows local code execution agent**, by owner decision of 2026-10-17, while ZCode execution on Windows is deferred. This supersedes older generalized ZCode-first execution statements for **this Windows host**, not ZCode's separate ACP/transport role. Source: `workspace/aion/agents/windows-master/BLOCKERS.md`, D1.
 
-- Windows master: **OpenCode 1.18.35** last verified at `C:\ProgramData\chocolatey\bin\opencode.exe`.
+- Windows master: **OpenCode 1.18.35** last verified at `C:\ProgramData\chocolatey\bin\opencode.exe`. **Superseded 2026-10-19:** the npm shim executes `@opencode/cli` **v2.0.32** (`opencode --version`, `model-failover/COMPATIBILITY.md`).
 - Linux box: **OpenCode 1.19.1** last reported in `workspace/aion/ops/BOX-READINESS.md` on 2026-10-16.
 - Both are *historical repo observations*, not current interactive probes.
 - Host disk pressure is handled by **PC HQ**, not by an AION migration command; Windows C: had **1.10 GB free** in the Windows master blocker record.
@@ -21,6 +22,8 @@ OpenCode is AION's current **Windows local code execution agent**, by owner deci
 3. [AION-INTEGRATION.md](./AION-INTEGRATION.md) — existing system boundaries, proposed high-leverage integration points, acceptance receipts.
 4. [ACP-AND-SERVICE-PROTOCOL.md](./ACP-AND-SERVICE-PROTOCOL.md) — native ACP v1 private-server mode versus shared V2 HTTP service.
 5. [RISKS-AND-SOURCES.md](./RISKS-AND-SOURCES.md) — regressions, disputed/unknown claims, upstream primary documentation and issue trackers.
+6. [MODELS-AND-ROUTING.md](./MODELS-AND-ROUTING.md) — V2 model layer: per-agent model config, `provider/model#variant`, per-session/model switch contract set, live routing state and rollback-free churn hazards.
+7. Global routing system (live): [`../opencode-models/README.md`](../opencode-models/README.md) — ROUTING.json + read-only audit + receipts; user-facing playbook: [`../OPENCODE-FREE-MODEL-PLAYBOOK.md`](../OPENCODE-FREE-MODEL-PLAYBOOK.md).
 
 ## Operating decision
 **Recommended: controlled V2 pilot, not an in-place bulk upgrade.** Verify versions and disk headroom; inventory API consumers/plugins; preserve V1 configuration and a recoverable state backup; exercise a standalone, mock-repository V2 evaluation where possible; only then change the production Windows/Linus runtime with an approved rollback. The V2 server API and plugin API are genuinely incompatible with V1.
