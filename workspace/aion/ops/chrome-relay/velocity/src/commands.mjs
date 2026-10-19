@@ -22,7 +22,7 @@ export function parseCommand(argv) {
     }else if(arg==='--context'){
       if(context!==null)throw new Error('duplicate --context');
       const value=argv[++i];
-      if(!['bootstrap','sitrep','both'].includes(value))throw new Error('invalid --context scope');
+      if(!['bootstrap','sitrep','both','brief'].includes(value))throw new Error('invalid --context scope');
       context=value;
     }else if(arg==='--wait-ms'){
       if(waitMs!==null)throw new Error('duplicate --wait-ms');
