@@ -1,6 +1,6 @@
 # AION — Standing Independent Chat Sessions
 
-**Eight designed standing roles — not one chat per task.** The first five were previously reported established; Roles 06, 07 and 08 need owner-launched conversations and genuine acknowledgments. Open a role's `BOOTSTRAP.md`, paste it into a new ChatGPT chat, then add that real chat URL to its `SITREP.md` after creation. These are simple operational folders in the existing `main` branch, not branches, new repos or automatic ChatGPT conversation links.
+**Nine designed standing roles — not one chat per task. Role 09 is the global research function; its role folder does not create a second chat or worker.** The first five were previously reported established; Roles 06, 07 and 08 need owner-launched conversations and genuine acknowledgments. Open a role's `BOOTSTRAP.md`, paste it into a new ChatGPT chat, then add that real chat URL to its `SITREP.md` after creation. These are simple operational folders in the existing `main` branch, not branches, new repos or automatic ChatGPT conversation links.
 
 | Standing chat | Launch prompt | SITREP | Owns |
 |---|---|---|---|
@@ -13,6 +13,13 @@
 | 06 TOOLSMITH — Tooling & Integration Engineer (pending launch) | [BOOTSTRAP](./roles/06-tooling-integration-engineer/BOOTSTRAP.md) | [SITREP](./roles/06-tooling-integration-engineer/SITREP.md) | Tool inventory, skills, environment readiness, ACP/UAH interoperability, Chrome relay integration and recovery |
 | 07 INTAKE — Proposal Commons Custodian (pending launch) | [BOOTSTRAP](./roles/07-proposal-intake-commons/BOOTSTRAP.md) | [SITREP](./roles/07-proposal-intake-commons/SITREP.md) | Raw inbound technical proposals, source provenance, neutral first pass, shared proposal pool, derived scoring/indexing |
 | 08 Z-FORGE — Z.ai Web Agent Sandbox Strategist (pending launch) | [BOOTSTRAP](./roles/08-zai-sandbox-strategist/BOOTSTRAP.md) | [SITREP](./roles/08-zai-sandbox-strategist/SITREP.md) | Z.ai web Full-Stack Agent turn research, high-output mission design, sandbox experimentation, artifact recovery and AION knowledge transfer |
+
+| 09 AION RESEARCH — global research function (owner designated 2026-10-19) | [BOOTSTRAP](./roles/09-global-research/BOOTSTRAP.md) | [SITREP](./roles/09-global-research/SITREP.md) | Single research intake, scientific inquiry, docs intelligence, media, evidence assessment, cross-portfolio transfer and delivery; SOFTWARE_HQ owns applicable documentation storage |
+
+## Role 09 launch (existing conversation may serve as designated role)
+- [One-message fresh-session prompt](./roles/09-global-research/LAUNCH-PROMPT.md), [skill registry](./roles/09-global-research/skills/README.md), [tools](./roles/09-global-research/TOOLS.json), [schedules](./roles/09-global-research/SCHEDULES.md).
+- Existing Role 07 continues original technical proposal source custody. It must hand research questions to Role 09, not run a second research queue. Native project owners still implement; GPM governs execution tracking; SOFTWARE_HQ retains docs authority.
+- Role 09 is **not yet configured in the Chrome role-launcher registry** and must not be advertised as automatic. A new thread does not exist merely because this folder exists; the owner has designated the active research function in conversation, with no independently captured chat URL.
 
 ## Role 06 launch instructions
 - Create a dedicated ChatGPT conversation named **AION — 06 TOOLSMITH** and paste its BOOTSTRAP.md.
@@ -32,7 +39,7 @@
 - Send real capability evidence to TOOLSMITH, measured output to Efficiency, conceptual agent proposals to INTAKE, approved deliverables to CoS, and final acceptance to Chief.
 
 ## Keyword-based role launches (RL-001, design only)
-- [Role launcher canonical registry](../ops/chrome-relay/role-launcher/ROLES.json): all eight identifiers, aliases, titles and bootstrap paths.
+- [Role launcher canonical registry](../ops/chrome-relay/role-launcher/ROLES.json): eight launcher-registered identifiers (01–08); Role 09 is manually launchable only until launcher compatibility is implemented and tested.
 - [Quickstart](../ops/chrome-relay/role-launcher/KEYWORD-QUICKSTART.md): `aion 08` from Chrome omnibox **after** extension installation, or `AION:08` in manually created new chat with project router instructions installed. Neither mechanism is installed/verified by publishing repo files.
 - [ChatGPT Project instructions snippet](../ops/chrome-relay/role-launcher/PROJECT-ROUTER-INSTRUCTIONS.md) must be added manually to designated Project settings for zero-code first-message recognition.
 - Native ChatGPT conversation renaming is a separate observed UI action; role title suggestion alone is not a rename. [Implementation issue #22](https://github.com/owenservera/aion/issues/22).
