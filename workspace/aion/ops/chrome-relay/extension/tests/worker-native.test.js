@@ -15,6 +15,7 @@
 //   7. the chatgpt endpoints are extension-only, one-shot, and gesture-gated
 import { test as baseTest } from 'node:test';
 import assert from 'node:assert/strict';
+import { acceptedAdapterReply } from './fixtures/chatgpt-accepted.js';
 
 /** Hard per-test deadline: a regression must fail, not stall the suite. */
 const TEST_TIMEOUT_MS = 5_000;
@@ -692,18 +693,7 @@ test('aion/chatgpt-run submits exactly one turn on an explicit gesture', async (
     contentActions: {
       'run-turn': (port, msg) => {
         captured.push(msg);
-        return {
-          action: msg.action,
-          ok: true,
-          verdict: { schema: 'aion.chatgpt-verdict/0.1', accepted: true, reason: 'accepted', correlation_id: 'task-1' },
-          envelope: createEnvelope({
-            producer_node: 'node-ext-chatgpt',
-            event_type: 'proof.submitted',
-            task_state: 'PROOF_SUBMITTED',
-            correlation_id: 'task-1',
-            payload: { accepted: true }
-          })
-        };
+        return acceptedAdapterReply({ correlationId: msg.correlation_id, token: msg.expected_reply_token });
       }
     }
   }, async () => {
@@ -730,6 +720,24 @@ test('aion/chatgpt-run submits exactly one turn on an explicit gesture', async (
     assert.equal(reply.correlation_id, 'task-1');
     assert.equal(reply.expected_reply_token, 'ACK-1');
     assert.ok(reply.captured_at || reply.finished_at, 'a capture is timestamped');
+  });
+});
+
+test('existing run routing preserves stable task/operation identity without exposing a new endpoint', async () => {
+  let runs = 0;
+  await withChrome({ contentActions: {
+    'run-turn': (_port, message) => {
+      runs++;
+      assert.equal(message.operation_key, undefined, 'local guard metadata is not page authority');
+      return { action: message.action, ok: false, reason: 'generation_incomplete' };
+    }
+  } }, async () => {
+    const command = { text: 'hello', correlation_id: 'first', task_id: 'stable-task', operation_key: 'stable-operation',
+      expected_reply_token: 'ACK', user_gesture: true, approved_scope_ref: 'existing-grant' };
+    const first = await send({ type: 'aion/chatgpt-run', tabId: 7, command });
+    assert.equal(first.task_id, 'stable-task'); assert.equal(first.operation_key, 'stable-operation');
+    const second = await send({ type: 'aion/chatgpt-run', tabId: 7, command: { ...command, correlation_id: 'fresh' } });
+    assert.equal(second.code, 'already_dispatched'); assert.equal(runs, 1);
   });
 });
 
@@ -781,18 +789,7 @@ test('a correlation already dispatched is never submitted twice', async () => {
     contentActions: {
       'run-turn': (port, msg) => {
         captured.push(msg);
-        return {
-          action: msg.action,
-          ok: true,
-          verdict: { accepted: true, reason: 'accepted', correlation_id: 'task-1' },
-          envelope: createEnvelope({
-            producer_node: 'node-ext-chatgpt',
-            event_type: 'proof.submitted',
-            task_state: 'PROOF_SUBMITTED',
-            correlation_id: 'task-1',
-            payload: {}
-          })
-        };
+        return acceptedAdapterReply({ correlationId: msg.correlation_id, token: msg.expected_reply_token });
       }
     }
   }, async () => {

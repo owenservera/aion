@@ -17,6 +17,7 @@
 // UNKNOWN and the knowledge bar says so. It does not invent a plausible state.
 
 import { ROLES, ROLE_COUNT, ownerConfirmationRoles } from '../roles.js';
+import { chatGPTCommandName, resolveCommandDeadline } from '../lib/command-deadlines.js';
 
 const UNKNOWN = 'UNKNOWN';
 
@@ -530,12 +531,14 @@ async function refresh() {
  * so hello alone carries a bounded 20s budget. It stays bounded — this is a
  * widened deadline, not a removed one.
  *
- * LIVE_RUN_TIMEOUT_MS must stay at or above the content-side maximum. That
- * value is owned elsewhere; if it is raised, raise this too.
+ * Every ChatGPT outer wait is calculated by the same pure policy as the worker:
+ * complete command absolute budget (including hydration/preparation/storage)
+ * plus bounded response margin. Native ping/hello retain their existing budgets.
  */
 const DIAGNOSTIC_TIMEOUT_MS = 5000;
 const HELLO_TIMEOUT_MS = 20000;
-const LIVE_RUN_TIMEOUT_MS = 180000;
+const CHATGPT_PING_TIMEOUT_MS = resolveCommandDeadline({ command: 'ping' }).panelMs;
+const LIVE_RUN_TIMEOUT_MS = resolveCommandDeadline({ command: 'run-turn' }).panelMs;
 
 /**
  * The approval every commanded run acts under.
@@ -562,9 +565,20 @@ const MAX_PROMPT_LENGTH = 2000;
  * a failure and not a negative result.
  */
 function sendOperatorMessage(message, deadlineMs) {
-  const budget = typeof deadlineMs === 'number' && Number.isFinite(deadlineMs) && deadlineMs > 0
+  let budget = typeof deadlineMs === 'number' && Number.isFinite(deadlineMs) && deadlineMs > 0
     ? deadlineMs
     : DIAGNOSTIC_TIMEOUT_MS;
+  const command = chatGPTCommandName(message.type);
+  if (command) {
+    try {
+      const source = message.command ?? message;
+      const plan = resolveCommandDeadline({ command, requestedWorkMs: source.timeout_ms });
+      budget = plan.panelMs;
+      message = { ...message, command: { ...source, timeout_ms: plan.workMs } };
+    } catch (error) {
+      return Promise.resolve({ ok: false, dispatched: false, error: String(error.message ?? error) });
+    }
+  }
   if (!canTalkToWorker()) {
     return Promise.resolve({
       ok: false,
@@ -573,21 +587,27 @@ function sendOperatorMessage(message, deadlineMs) {
   }
   return new Promise((resolve) => {
     let settled = false;
+    let timer;
+    let armed = false;
     const finish = (value) => {
       if (settled) return;
       settled = true;
       resolve(value);
+      if (armed) { try { clearTimeout(timer); } catch { /* callback remains token-gated */ } }
     };
-    const timer = setTimeout(() => {
-      finish({
-        ok: false,
-        uncertain: true,
-        error: 'No reply within ' + Math.round(budget / 1000) + 's. Outcome unknown.'
-      });
-    }, budget);
     try {
+      timer = setTimeout(() => {
+        finish({
+          ok: false,
+          uncertain: true,
+          error: 'No reply within ' + Math.round(budget / 1000) + 's. Outcome unknown.'
+        });
+      }, budget);
+      armed = true;
+      if (settled) { try { clearTimeout(timer); } catch { /* already expired */ } return; }
       runtime.sendMessage(message, (reply) => {
-        clearTimeout(timer);
+        if (settled) return;
+        try {
         const lastError = runtime.lastError;
         if (lastError) {
           finish({
@@ -598,9 +618,11 @@ function sendOperatorMessage(message, deadlineMs) {
           return;
         }
         finish(reply && typeof reply === 'object' ? reply : { ok: false, error: 'Worker returned nothing usable.' });
+        } catch (error) {
+          finish({ ok: false, uncertain: true, error: 'Worker callback failed: ' + String(error.message ?? error) });
+        }
       });
     } catch (error) {
-      clearTimeout(timer);
       finish({
         ok: false,
         uncertain: true,
@@ -768,6 +790,90 @@ function describeReply(reply, fields) {
   return { text: lines.join('\n'), state: 'ok' };
 }
 
+/* ---- the ChatGPT tab ping's own reply ---- */
+
+// A note or state value is a string from the content script. It is rendered
+// through textContent, so it cannot add markup; this only flattens it to one
+// bounded line so a pathological value cannot flood the result box.
+const MAX_PING_TEXT = 240;
+
+function safePingLine(value, max = MAX_PING_TEXT) {
+  if (typeof value !== 'string') return '';
+  const oneLine = value
+    .replace(/[\u0000-\u001F\u007F]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (oneLine === '') return '';
+  return oneLine.length > max ? oneLine.slice(0, max) + '…' : oneLine;
+}
+
+/** Render the driver's sanitized composer state without inventing absent keys. */
+function describePingState(state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) return '';
+  const parts = [];
+  for (const key of Object.keys(state).sort()) {
+    const value = state[key];
+    if (value === true || value === false) {
+      parts.push(key + '=' + String(value));
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      parts.push(key + '=' + String(value));
+    } else if (typeof value === 'string' && value !== '') {
+      parts.push(key + '=' + safePingLine(value, 40));
+    }
+  }
+  return parts.join(', ');
+}
+
+/**
+ * Render an `aion/chatgpt-ping` reply from the real driver contract.
+ *
+ * The driver answers `{ ok, tab:{ tab_id, url, ... }, action:'ping', href,
+ * state, note }` and the worker wraps it as `{ ok, code, error, result, ...body }`.
+ * The panel previously read `tab_id`, `status` and `detail`, none of which that
+ * contract carries, so a successful ping displayed three UNKNOWNs. This reads
+ * the fields that are really there and shows nothing that is not.
+ *
+ * A successful ping is TAB REACHABILITY ONLY: the content script answered a
+ * read-only probe, and nothing was composed or sent. It is not ACP initialized,
+ * not an executor session, and not M1 proof. A failed ping keeps the driver's
+ * stable code so the operator can tell a missing content script (`no_content_script`)
+ * from a timed-out page (`content_timeout`) instead of seeing one vague failure.
+ */
+function describeChatgptPing(reply) {
+  if (!replyOk(reply)) {
+    const reason = safePingLine(pick(reply, 'error') || pick(reply, 'reason'))
+      || 'No reason reported by the worker.';
+    const uncertain = pick(reply, 'uncertain') === true;
+    const code = pick(reply, 'code');
+    const lines = [(uncertain ? 'UNCERTAIN — ' : 'FAILED — ') + reason];
+    const codeText = safePingLine(code, 64);
+    if (codeText !== '') lines.push('Code: ' + codeText);
+    return { text: lines.join('\n'), state: uncertain ? 'warn' : 'error' };
+  }
+
+  const tab = pick(reply, 'tab');
+  const tabRecord = tab && typeof tab === 'object' && !Array.isArray(tab) ? tab : null;
+  const tabId = tabRecord ? tabRecord.tab_id : undefined;
+
+  // Never coerce an id: the selector refuses `'7'`, so the report must too.
+  const lines = ['Tab: ' + (Number.isInteger(tabId) && tabId >= 0 ? String(tabId) : UNKNOWN)];
+
+  const url = tabRecord ? sanitizeChatgptUrl(tabRecord.url) : null;
+  if (url !== null) lines.push('URL: ' + url);
+
+  if (pick(reply, 'action') === 'ping') lines.push('Action: ping');
+
+  lines.push('Status: ANSWERED — tab reachability only; not ACP or M1 proof.');
+
+  const state = describePingState(pick(reply, 'state'));
+  if (state !== '') lines.push('State: ' + state);
+
+  const note = safePingLine(pick(reply, 'note'));
+  if (note !== '') lines.push('Note: ' + note);
+
+  return { text: lines.join('\n'), state: 'ok' };
+}
+
 /* ---- Step 1: host and ACP ---- */
 
 async function checkHost() {
@@ -866,12 +972,8 @@ async function pingSelectedTab() {
     return;
   }
   setResult('result-chatgpt', 'Checking selected tab...', 'known');
-  const reply = await sendOperatorMessage({ type: 'aion/chatgpt-ping', tabId }, DIAGNOSTIC_TIMEOUT_MS);
-  const shown = describeReply(reply, [
-    ['Tab', 'tab_id'],
-    ['Status', 'status'],
-    ['Detail', 'detail']
-  ]);
+  const reply = await sendOperatorMessage({ type: 'aion/chatgpt-ping', tabId }, CHATGPT_PING_TIMEOUT_MS);
+  const shown = describeChatgptPing(reply);
   setResult('result-chatgpt', shown.text, shown.state);
 }
 

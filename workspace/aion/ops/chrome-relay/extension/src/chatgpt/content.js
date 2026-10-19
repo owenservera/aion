@@ -41,27 +41,74 @@ import {
   correlateReply,
   extractFinalReply,
   normalizeText,
-  waitForGenerationEnd,
 } from './correlate.js';
 
 const PORT_NAME = 'aion-chatgpt';
 
-/** Selectors, ported from the proven adapter and the M0.5 capture adapter. */
-const COMPOSER_SELECTOR = '#prompt-textarea';
+/**
+ * Selectors that can identify the ChatGPT composer.
+ *
+ * `#prompt-textarea` is the legacy composer id. The current page renders a
+ * ProseMirror contenteditable editor (UI Automation reports class `ProseMirror`
+ * and accessible name `Ask ChatGPT`) and did not expose the legacy id in the
+ * 2026-10-18 live run, so a second, equally narrow selector is allowed.
+ *
+ * DEVIATION (deliberate): this is NOT a generic `textarea` or
+ * `[contenteditable]` query. Any editable region elsewhere on the page is not
+ * the composer, and typing a probe into it would land in the wrong surface. The
+ * fallback is scoped to a ProseMirror editor that is explicitly editable, and
+ * every candidate must still pass the visible/exactly-one/editable gate below.
+ */
+const COMPOSER_SELECTORS = [
+  '#prompt-textarea',
+  '.ProseMirror[contenteditable="true"]',
+];
 const STOP_BUTTON_SELECTOR = '[data-testid="stop-button"]';
-const SEND_BUTTON_SELECTOR = '[data-testid="send-button"]';
+/**
+ * Candidate selectors for the submit control.
+ *
+ * `[data-testid="send-button"]` is the legacy marker. The control the live page
+ * reports through UI Automation has class tokens including
+ * `size-token-button-composer` / `bg-composer-primary` and accessible name
+ * `Send`, with no `data-testid` exposed, so the exact accessible name is also
+ * accepted. The named form is deliberately exact and `button`-scoped; a bare
+ * first button or arbitrary page text is never used.
+ */
+const SEND_BUTTON_SELECTORS = [
+  '[data-testid="send-button"]',
+  'button[aria-label="Send"]',
+];
+const SEND_BUTTON_NAME = 'send';
 const USER_SELECTOR = '[data-message-author-role="user"]';
 const ASSISTANT_SELECTOR = '[data-message-author-role="assistant"]';
 const USER_FALLBACK_SELECTOR = '[class*="user-message"]';
 const ASSISTANT_FALLBACK_SELECTORS = ['[class*="MarkdownRoot-"]', '.markdown'];
 const TEXT_SELECTORS = ['.markdown', '[class*="MarkdownRoot-"]'];
 
-/** Bound on a single turn, whatever a command asks for. */
+/**
+ * Bound on a single turn, whatever a command asks for.
+ *
+ * This is the LAST clamp in the chain: `Math.min(MAX_TIMEOUT_MS, timeout_ms)`
+ * below means a page can never wait longer than this even if a caller asks for
+ * more. It must therefore be AT LEAST the worker's own run ceiling
+ * (`MAX_RUN_TIMEOUT_MS` in background/chatgpt-port.js, also 300s) — if it were
+ * lower, the worker's budget would be silently truncated here and a slow turn
+ * would again be read mid-generation, which is the 2026-10-18
+ * `generation_incomplete` failure. Equality is correct: both numbers express the
+ * same finite ceiling, so the worker's budget survives to the page unchanged.
+ *
+ * This is a bound, not a relaxed check. Exceeding it still yields
+ * GENERATION_TIMEOUT / GENERATION_NEVER_STARTED, which correlate.js refuses; a
+ * reply that arrives past this bound is still never accepted.
+ */
 const MAX_TIMEOUT_MS = 300000;
 /** Captured reply length kept in the envelope payload. Correlation sees it all. */
 const MAX_STORED_REPLY_CHARS = 8000;
-/** One turn at a time. A second command while one is in flight is refused. */
-let activeTurn = false;
+const MAX_PAGE_TASKS = 64;
+const MAX_BASELINE_TURNS = 256;
+const MAX_MUTATION_RECORDS = 2048;
+const SUBMISSION_CONFIRM_MS = 5000;
+const COMPOSER_SETUP_MS = 400;
 
 /**
  * Machine-readable "nothing was sent" reasons.
@@ -79,7 +126,12 @@ export const NO_SEND = Object.freeze({
   // The composer exists and counts as visible, but its contents could not be
   // read. Refusing is the only safe reading: "I cannot see your draft" is not
   // "you have no draft".
-  COMPOSER_STATE_UNKNOWN: 'composer_state_unknown'
+  COMPOSER_STATE_UNKNOWN: 'composer_state_unknown',
+  // The submit control is not resolvable as exactly one visible control. Both
+  // are refused BEFORE any text is typed, so a missing/ambiguous send cannot
+  // leave a probe in the composer.
+  SEND_MISSING: 'send_missing',
+  SEND_AMBIGUOUS: 'send_ambiguous'
 });
 
 /** Exactly one visible composer, or nothing is typed. */
@@ -162,25 +214,179 @@ function isVisible(node) {
   }
 }
 
-/** Every visible composer in the document, in document order. */
-function visibleComposers() {
-  let nodes = [];
+/**
+ * Is this candidate actually editable?
+ *
+ * Attribute evidence only, and fail closed: a node we cannot prove editable is
+ * not a composer. This is what stops a disabled/read-only/aria-disabled decoy
+ * from being typed into even when it matches a composer selector.
+ */
+function isEditableComposer(node) {
+  if (!node) return false;
   try {
-    nodes = Array.prototype.slice.call(document.querySelectorAll(COMPOSER_SELECTOR));
+    if (node.disabled === true) return false;
+    if (node.readOnly === true) return false;
+    if (node.getAttribute) {
+      if (node.getAttribute('aria-disabled') === 'true') return false;
+      if (node.getAttribute('contenteditable') === 'false') return false;
+      if (typeof node.hasAttribute === 'function' && node.hasAttribute('inert')) return false;
+    }
+    if (node.contentEditable === 'false') return false;
+    return true;
   } catch (err) {
-    return [];
+    return false;
   }
-  return nodes.filter(isVisible);
 }
 
-/** Composer state: generating indicator, submit reachability, composer count. */
+/**
+ * Every composer-shaped node, deduped by identity.
+ *
+ * One node can match BOTH selectors (a legacy id on a ProseMirror editor).
+ * Counting it twice would turn a single composer into an "ambiguous" refusal,
+ * so a node is considered exactly once.
+ */
+function composerCandidates() {
+  const found = [];
+  const seen = new Set();
+  for (const selector of COMPOSER_SELECTORS) {
+    let nodes = [];
+    try {
+      nodes = Array.prototype.slice.call(document.querySelectorAll(selector));
+    } catch (err) {
+      nodes = [];
+    }
+    for (const node of nodes) {
+      if (!node || seen.has(node)) continue;
+      seen.add(node);
+      if (isEditableComposer(node)) found.push(node);
+    }
+  }
+  return found;
+}
+
+/** Every visible composer, deduped by node identity. */
+function visibleComposers() {
+  return composerCandidates().filter(isVisible);
+}
+
+/**
+ * Normalised accessible name, from `aria-label`/`title` first, then rendered
+ * text. Only used to recognise a control whose name is exactly "Send"; it is
+ * never used to take arbitrary page text as a command.
+ */
+function accessibleName(node) {
+  if (!node) return '';
+  try {
+    if (node.getAttribute) {
+      for (const attr of ['aria-label', 'title']) {
+        const value = node.getAttribute(attr);
+        if (typeof value === 'string' && value.trim() !== '') {
+          return value.replace(/\s+/g, ' ').trim();
+        }
+      }
+    }
+    const text = typeof node.innerText === 'string' && node.innerText.trim() !== ''
+      ? node.innerText
+      : node.textContent;
+    if (typeof text === 'string') return text.replace(/\s+/g, ' ').trim();
+  } catch (err) {
+    return '';
+  }
+  return '';
+}
+
+/** Is this node a submit control we are allowed to consider? */
+function isSendControl(node) {
+  if (!node) return false;
+  try {
+    // The legacy marker is authoritative even when the control has no name.
+    if (node.getAttribute && node.getAttribute('data-testid') === 'send-button') return true;
+    return accessibleName(node).toLowerCase() === SEND_BUTTON_NAME;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * The narrowest root that can contain the submit control.
+ *
+ * Scoping to the composer's own `form` keeps a same-named button elsewhere on
+ * the page out of the candidate set. When there is no form (or no composer),
+ * the document is the only root available, and the exactly-one rule still
+ * applies to what is found there.
+ */
+function sendScopeRoot() {
+  const editor = visibleComposers()[0];
+  if (editor && typeof editor.closest === 'function') {
+    try {
+      const form = editor.closest('form');
+      if (form) return form;
+    } catch (err) {
+      /* fall through to document */
+    }
+  }
+  return document;
+}
+
+/**
+ * Every visible submit control, deduped by node identity.
+ *
+ * A disabled control still COUNTS as present: an empty composer legitimately
+ * renders Send disabled, and the enablement re-check happens after the fill.
+ * Ambiguity is a refusal, never a guess.
+ */
+function sendControls() {
+  const root = sendScopeRoot();
+  const found = [];
+  const seen = new Set();
+  const add = (node) => {
+    if (!node || seen.has(node)) return;
+    seen.add(node);
+    if (isSendControl(node)) found.push(node);
+  };
+  for (const selector of SEND_BUTTON_SELECTORS) {
+    let nodes = [];
+    try {
+      nodes = Array.prototype.slice.call(root.querySelectorAll(selector));
+    } catch (err) {
+      nodes = [];
+    }
+    for (const node of nodes) add(node);
+  }
+  // Exact accessible-name match, for a control whose "Send" name is rendered as
+  // nested text rather than an aria-label.
+  let buttons = [];
+  try {
+    buttons = Array.prototype.slice.call(root.querySelectorAll('button'));
+  } catch (err) {
+    buttons = [];
+  }
+  for (const node of buttons) add(node);
+  return found.filter(isVisible);
+}
+
+/** True when the control is disabled by property or ARIA. */
+function isSendDisabled(node) {
+  if (!node) return true;
+  try {
+    if (node.disabled === true) return true;
+    if (node.getAttribute && node.getAttribute('aria-disabled') === 'true') return true;
+  } catch (err) {
+    return true;
+  }
+  return false;
+}
+
+/** Composer state: generating indicator, submit presence/enablement/count, composer count. */
 function sendState() {
   const stop = document.querySelector(STOP_BUTTON_SELECTOR);
-  const send = document.querySelector(SEND_BUTTON_SELECTOR);
+  const sends = sendControls();
+  const send = sends.length === 1 ? sends[0] : null;
   return {
     generating: !!stop,
-    sendPresent: !!send,
-    sendDisabled: send ? !!send.disabled : true,
+    sendPresent: sends.length >= 1,
+    sendDisabled: send ? isSendDisabled(send) : true,
+    sendControlCount: sends.length,
     // A COUNT, not a boolean: the difference between "one composer" and "two
     // composers" is the difference between typing and guessing.
     composer_visible_count: visibleComposers().length,
@@ -209,15 +415,16 @@ function composerDraft(editor) {
 /**
  * The gate every composing path passes BEFORE any text is touched.
  *
- * Four refusals, each of which leaves the page exactly as it was:
+ * Refusals, each of which leaves the page exactly as it was:
  *   - no visible composer            (nothing to type into)
  *   - more than one visible composer (which one is the operator's? unknown)
  *   - a generation already running   (typing now would land mid-turn)
  *   - a non-empty draft              (an operator's own unsent text; the old
  *                                     fill emptied the box and took it with it)
+ *   - no / ambiguous Send control    (nothing that could submit the text)
  *
- * The last one is a deliberate behaviour change: this adapter used to clear the
- * composer unconditionally so a reused tab could not leak a half-written
+ * The draft refusal is a deliberate behaviour change: this adapter used to clear
+ * the composer unconditionally so a reused tab could not leak a half-written
  * prompt into the probe. Overwriting is a worse failure than refusing.
  */
 function preflightComposer() {
@@ -227,7 +434,7 @@ function preflightComposer() {
     return {
       ok: false,
       code: NO_SEND.COMPOSER_MISSING,
-      error: 'no visible #prompt-textarea was found; nothing was typed or sent',
+      error: 'no visible editable composer was found; nothing was typed or sent',
       composer_visible_count: 0
     };
   }
@@ -265,7 +472,35 @@ function preflightComposer() {
       draft_chars: draft.length
     };
   }
-  return { ok: true, editor: visible[0], composer_visible_count: visible.length };
+  // The submit control must be resolvable BEFORE any text is typed. It may be
+  // disabled here: an empty composer legitimately renders Send disabled, and the
+  // enablement re-check happens after the fill in runTurn.
+  const sends = sendControls();
+  if (sends.length === 0) {
+    return {
+      ok: false,
+      code: NO_SEND.SEND_MISSING,
+      error: 'no visible Send control was found; nothing was typed or sent',
+      composer_visible_count: visible.length,
+      send_control_count: 0
+    };
+  }
+  if (sends.length !== 1) {
+    return {
+      ok: false,
+      code: NO_SEND.SEND_AMBIGUOUS,
+      error: `${sends.length} visible Send controls were found; refusing to guess which one submits`,
+      composer_visible_count: visible.length,
+      send_control_count: sends.length
+    };
+  }
+  return {
+    ok: true,
+    editor: visible[0],
+    send: sends[0],
+    composer_visible_count: visible.length,
+    send_control_count: sends.length
+  };
 }
 
 /** The generating probe handed to the DOM-free wait. */
@@ -328,12 +563,6 @@ function composerFill(text) {
     }
   }
   return { ok: true };
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => {
-    globalThis.setTimeout(resolve, ms);
-  });
 }
 
 /** Origin + path only. Query strings and fragments are dropped: data minimisation. */
@@ -489,152 +718,306 @@ function buildEnvelope(kind, messageId, correlationId, payload) {
 
 /* --------------------------------------------------------------------- turns */
 
-async function runTurn(command, respond) {
-  if (activeTurn) {
-    respond({ ok: false, reason: 'turn_in_flight', error: 'a turn is already in progress in this tab' });
-    return;
-  }
-  if (command.user_gesture !== true) {
-    respond({
-      ok: false,
-      reason: 'gesture_required',
-      error: 'this adapter composes only on an explicit commanded gesture; nothing was typed or sent',
-    });
-    return;
-  }
-
-  const text = typeof command.text === 'string' ? command.text : '';
-  const correlationId = typeof command.correlation_id === 'string' ? command.correlation_id.trim() : '';
-  const expectedToken = typeof command.expected_reply_token === 'string' ? command.expected_reply_token.trim() : '';
-
-  // Preflight BEFORE the turn lock: a refusal must not occupy the single turn
-  // slot, and it must not have touched the page at all.
-  const pre = preflightComposer();
-  if (!pre.ok) {
-    respond({
-      ok: false,
-      code: pre.code,
-      reason: REASON.BAD_INPUT,
-      error: pre.error,
-      no_send: true,
-      submitted: false,
-      composer_visible_count: pre.composer_visible_count,
-      state: sendState()
-    });
-    return;
-  }
-
-  activeTurn = true;
-  const startedAt = new Date().toISOString();
-  try {
-    const fill = composerFill(text);
-    if (!fill.ok) {
-      respond({
-        ok: false,
-        code: fill.code || null,
-        reason: REASON.BAD_INPUT,
-        error: fill.error,
-        no_send: true,
-        submitted: false,
-        state: sendState()
-      });
-      return;
-    }
-
-    // One tick for React to register the inserted text, as the proven adapter does.
-    await sleep(400);
-    const beforeSend = sendState();
-    if (beforeSend.sendDisabled) {
-      respond({
-        ok: false,
-        reason: 'send_button_disabled',
-        error: 'the send control stayed disabled after the composer was filled; nothing was submitted',
-        state: beforeSend,
-      });
-      return;
-    }
-    if (!fireClick(document.querySelector(SEND_BUTTON_SELECTOR))) {
-      respond({ ok: false, reason: 'send_button_missing', error: 'the send control could not be activated' });
-      return;
-    }
-
-    // `mustHaveStarted` is what stops a pre-generation read from passing off the
-    // previous turn's answer as this turn's; see correlate.js.
-    const wait = await waitForGenerationEnd({
-      isGenerating,
-      timeoutMs: Math.min(MAX_TIMEOUT_MS, Number(command.timeout_ms) > 0 ? Number(command.timeout_ms) : DEFAULT_TIMEOUT_MS),
-      pollMs: DEFAULT_POLL_MS,
-      settleMs: DEFAULT_SETTLE_MS,
-      mustHaveStarted: true,
-      sleep,
-    });
-
-    const captured = readFinalReplyAfterLastUserTurn();
-    const extracted = captured.ok ? extractFinalReply(captured.blocks, { source: 'dom-assistant-turn' }) : null;
-
-    const verdict = correlateReply({
-      reply: extracted && extracted.ok ? extracted.text : null,
-      expected: { correlation_id: correlationId, reply_token: expectedToken },
-      outbound_text: text,
-      role: 'assistant',
-      channel: 'final',
-      source: 'dom-assistant-turn',
-      model: extracted ? extracted.model : null,
-      generation_complete: wait.ok === true,
-      generation_started: wait.started === true,
-    });
-
-    const payload = {
-      schema: verdict.schema,
-      correlation_id: correlationId || null,
-      accepted: verdict.accepted,
-      reason: verdict.reason,
-      detail: verdict.detail,
-      reply_text: verdict.accepted ? verdict.reply.slice(0, MAX_STORED_REPLY_CHARS) : null,
-      expected_reply: verdict.expected_reply,
-      model: extracted ? extracted.model : null,
-      generation: { started: wait.started === true, complete: wait.ok === true, reason: wait.reason, elapsed_ms: wait.elapsed_ms },
-      extraction: extracted
-        ? { ok: extracted.ok, reason: extracted.reason, detail: extracted.detail }
-        : { ok: false, reason: REASON.BAD_INPUT, detail: captured.error },
-      observed: verdict.observed,
-      source_url: safeUrl(),
-      started_at: startedAt,
-      captured_at: new Date().toISOString(),
-    };
-
-    respond({
-      ok: verdict.accepted,
-      verdict,
-      envelope: buildEnvelope(verdict.accepted ? 'accepted' : 'rejected', verdict.correlation_id || null, correlationId, payload),
-      state: sendState(),
-    });
-  } finally {
-    activeTurn = false;
-  }
+// No transcript snapshots: baseline signatures only detect continuity changes;
+// node identity and full outbound equality are independently required for pairing.
+function turnSignature(block) {
+  const text = normalizeText(block.text);
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+  return `${block.role}:${text.length}:${hash >>> 0}`;
 }
 
-function readFinal(command, respond) {
-  const correlationId = typeof command.correlation_id === 'string' ? command.correlation_id.trim() : '';
-  const expectedToken = typeof command.expected_reply_token === 'string' ? command.expected_reply_token.trim() : '';
-  const captured = readFinalReplyAfterLastUserTurn();
-  const extracted = captured.ok ? extractFinalReply(captured.blocks, { source: 'dom-assistant-turn' }) : null;
-  const verdict = correlateReply({
-    reply: extracted && extracted.ok ? extracted.text : null,
-    expected: { correlation_id: correlationId, reply_token: expectedToken },
-    outbound_text: typeof command.outbound_text === 'string' ? command.outbound_text : null,
-    role: 'assistant',
-    channel: 'final',
-    source: 'dom-assistant-turn',
-    generation_complete: command.generation_complete === true,
-    generation_started: null,
-  });
-  respond({
-    ok: verdict.accepted,
-    verdict,
-    generation: { complete: command.generation_complete === true, asserted_by_caller: true },
-  });
+function containsCorrelation(text, id) {
+  const source = normalizeText(text).toLowerCase(), wanted = id.toLowerCase();
+  for (let at = source.indexOf(wanted); at >= 0; at = source.indexOf(wanted, at + 1)) {
+    if (!/[a-z0-9_-]/.test(source[at - 1] || '') && !/[a-z0-9_-]/.test(source[at + wanted.length] || '')) return true;
+  }
+  return false;
 }
+
+function createTurnEngine(options = {}) {
+  const now = options.now ?? (() => performance.now());
+  const setTimer = options.setTimeout ?? ((fn, ms) => globalThis.setTimeout(fn, ms));
+  const clearTimer = options.clearTimeout ?? ((timer) => globalThis.clearTimeout(timer));
+  const Observer = options.MutationObserver ?? globalThis.MutationObserver;
+  const randomId = options.randomId ?? (() => globalThis.crypto.randomUUID());
+  let pageId;
+  try { pageId = randomId(); } catch { pageId = null; }
+  const tasks = new Map();
+  let active = null;
+  const validId = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && value.length <= 128;
+  const currentState = () => { try { return sendState(); } catch { return null; } };
+  const refuse = (reason, extra = {}) => ({ ok: false, reason, submitted: false, no_send: true, ...extra });
+  const identity = (entry) => ({ task_id: entry.taskId, operation_key: entry.operationKey,
+    correlation_id: entry.correlationId, observer_id: entry.observerId, page_instance_id: pageId });
+  function meta(entry) {
+    return { ...identity(entry), phase: entry.phase, click_attempted: entry.clickAttempted,
+      submission_observed: entry.submissionObserved, generation_started: entry.started,
+      generation_complete: entry.complete, continuity: entry.continuity, method: entry.method,
+      remaining_ms: Math.max(0, entry.deadline - now()), reason: entry.reason };
+  }
+  function receipt(entry) {
+    return structuredClone({ ok: !entry.terminal || entry.complete, ...identity(entry), observation: meta(entry),
+      click_attempted: entry.clickAttempted, submission_observed: entry.submissionObserved,
+      submitted: entry.submissionObserved ? true : entry.noSubmit ? false : undefined,
+      uncertain: !entry.complete && !entry.noSubmit, pending: !entry.terminal,
+      ...(entry.terminal ? entry.result : {}), generation: { started: entry.started, complete: entry.complete, asserted_by_caller: false } });
+  }
+  function notifySubmit(entry) {
+    if (entry.resolveSubmit) { const resolve = entry.resolveSubmit; entry.resolveSubmit = null; resolve(receipt(entry)); }
+  }
+  function cleanup(entry) {
+    for (const timer of entry.timers) { try { clearTimer(timer); } catch { /* token still gates late callbacks */ } }
+    entry.timers.clear();
+    try { entry.observer?.disconnect(); } catch { /* never resume a disconnected observer */ }
+  }
+  function finish(entry, reason, complete = false, candidate = null, noSubmit = false) {
+    if (entry.terminal) return;
+    entry.terminal = true; entry.reason = reason; entry.complete = complete; entry.noSubmit = noSubmit;
+    entry.phase = noSubmit ? 'REFUSED_NO_SUBMIT' : 'NEEDS_RECONCILIATION';
+    cleanup(entry);
+    try {
+    if (noSubmit) entry.result = { ...refuse(reason), state: currentState() };
+    else {
+      const extracted = candidate ? extractFinalReply([{ kind: 'final', role: 'assistant', channel: 'final', text: candidate.text }], { source: 'dom-assistant-turn' }) : null;
+      const verdict = correlateReply({ reply: extracted?.ok ? extracted.text : null,
+        expected: { correlation_id: entry.correlationId, reply_token: entry.token }, outbound_text: entry.text,
+        role: 'assistant', channel: 'final', source: 'dom-assistant-turn', model: extracted?.model ?? null,
+        generation_started: entry.started, generation_complete: complete });
+      const payload = { schema: verdict.schema, correlation_id: entry.correlationId, accepted: verdict.accepted,
+        reason: verdict.reason, detail: verdict.detail, reply_text: verdict.accepted ? verdict.reply.slice(0, MAX_STORED_REPLY_CHARS) : null,
+        expected_reply: verdict.expected_reply, model: extracted?.model ?? null,
+        generation: { started: entry.started, complete, reason: complete ? REASON.ACCEPTED : reason, elapsed_ms: now() - entry.created },
+        extraction: extracted ? { ok: extracted.ok, reason: extracted.reason, detail: extracted.detail } : { ok: false, reason: REASON.NO_FINAL_BLOCK, detail: 'no task-paired final candidate' },
+        observed: verdict.observed, source_url: safeUrl(), started_at: entry.startedAt, captured_at: new Date().toISOString() };
+      entry.result = { ok: verdict.accepted, verdict,
+        envelope: buildEnvelope(verdict.accepted ? 'accepted' : 'rejected', entry.correlationId, entry.correlationId, payload), state: currentState() };
+      if (complete) entry.phase = verdict.accepted ? 'REPLY_CHECKED' : 'REPLY_REJECTED';
+    }
+    } catch {
+      entry.complete = false; entry.phase = 'NEEDS_RECONCILIATION'; entry.reason = 'observer_result_error';
+      entry.result = { ok: false, reason: entry.reason, uncertain: !noSubmit,
+        ...(noSubmit ? { submitted: false, no_send: true } : {}) };
+    }
+    if (noSubmit || entry.result.ok) active = null;
+    entry.text = null; entry.baseline = null; entry.userNode = null; entry.editor = null;
+    notifySubmit(entry);
+    for (const resolve of entry.waiters) resolve(receipt(entry));
+    entry.waiters.clear();
+  }
+  function unknown(entry, reason) { entry.continuity = false; finish(entry, reason); }
+  function timer(entry, delay, operation) {
+    let handle, fired = false, armed = false;
+    try {
+      handle = setTimer(() => {
+        fired = true; entry.timers.delete(handle);
+        if (entry.terminal) return;
+        if (!armed) { unknown(entry, 'observer_timer_error'); return; }
+        try { operation(); } catch { unknown(entry, 'observer_error'); }
+      }, Math.max(1, delay));
+      armed = true;
+      if (!fired && !entry.terminal) entry.timers.add(handle);
+      else { try { clearTimer(handle); } catch {} }
+    } catch { unknown(entry, 'observer_timer_error'); }
+  }
+  function expire(entry) { finish(entry, entry.started ? REASON.GENERATION_TIMEOUT : REASON.GENERATION_NEVER_STARTED); }
+  function edge(entry, generating) {
+    if (generating) { entry.started = true; entry.generating = true; entry.endedAt = null; }
+    else if (entry.started && entry.generating) { entry.generating = false; entry.endedAt = now(); }
+  }
+  function hasStop(node) {
+    return matches(node, STOP_BUTTON_SELECTOR) || !!node?.querySelector?.(STOP_BUTTON_SELECTOR);
+  }
+  function mutationEdges(entry, records) {
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      if (record.type === 'childList') {
+        for (const node of record.removedNodes || []) if (hasStop(node)) edge(entry, false);
+        for (const node of record.addedNodes || []) if (hasStop(node)) edge(entry, true);
+      } else if (record.type === 'attributes' && record.attributeName === 'data-testid') {
+        const next = records.slice(i + 1).find((item) => item.type === 'attributes' && item.target === record.target && item.attributeName === record.attributeName);
+        const value = next ? next.oldValue : record.target.getAttribute('data-testid');
+        if (record.oldValue !== 'stop-button' && value === 'stop-button') edge(entry, true);
+        if (record.oldValue === 'stop-button' && value !== 'stop-button') edge(entry, false);
+      }
+    }
+  }
+  function pairedTurns(entry) {
+    const scan = readOrderedTurns();
+    if (!scan.ok || scan.blocks.length > MAX_BASELINE_TURNS + 8 || scan.blocks.length < entry.baseline.length) throw new Error('turn continuity unavailable');
+    for (let i = 0; i < entry.baseline.length; i++) {
+      if (scan.blocks[i].node !== entry.baseline[i].node || turnSignature(scan.blocks[i]) !== entry.baseline[i].signature) throw new Error('baseline changed');
+    }
+    const tail = scan.blocks.slice(entry.baseline.length);
+    if (!tail.length) { if (entry.submissionObserved) throw new Error('user turn disappeared'); return null; }
+    const user = tail[0];
+    if (user.role !== 'user' || normalizeText(user.text) !== normalizeText(entry.text) || !containsCorrelation(user.text, entry.correlationId)
+      || (entry.userNode && entry.userNode !== user.node) || tail.slice(1).some((block) => block.role !== 'assistant') || tail.length > 2) throw new Error('foreign or ambiguous turn');
+    entry.userNode = user.node; entry.submissionObserved = true;
+    return tail[1] ?? null;
+  }
+  function sample(entry, records = []) {
+    if (entry.terminal || !entry.clickAttempted) return;
+    if (now() >= entry.deadline) { expire(entry); return; }
+    try {
+      if (!Array.isArray(records) || records.length > MAX_MUTATION_RECORDS) throw new Error('mutation evidence overflow');
+      const url = safeUrl();
+      if (url !== entry.url) {
+        if (!entry.urlBound && entry.url === 'https://chatgpt.com/' && /^https:\/\/chatgpt\.com\/c\/[^/?#]+$/.test(url || '')) { entry.url = url; entry.urlBound = true; }
+        else throw new Error('conversation changed');
+      }
+      const candidate = pairedTurns(entry);
+      mutationEdges(entry, records);
+      edge(entry, isGenerating());
+      if (now() >= entry.deadline) { expire(entry); return; }
+      if (entry.submissionObserved) { entry.phase = entry.started ? 'OBSERVING' : 'SUBMISSION_OBSERVED'; notifySubmit(entry); }
+      if (candidate) {
+        const signature = turnSignature(candidate);
+        if (entry.candidateSignature !== signature) { entry.candidateSignature = signature; entry.quietSince = now(); }
+      }
+      if (candidate && entry.submissionObserved && entry.started && !entry.generating && entry.endedAt !== null
+        && now() - Math.max(entry.endedAt, entry.quietSince) >= DEFAULT_SETTLE_MS) finish(entry, REASON.ACCEPTED, true, candidate);
+    } catch { unknown(entry, 'observation_continuity_lost'); }
+  }
+  function poll(entry) {
+    timer(entry, Math.min(DEFAULT_POLL_MS, entry.deadline - now()), () => {
+      // Drain queued mutation evidence before a read-only sample; a fast start
+      // and end in one JS task must not collapse into an idle snapshot.
+      sample(entry, entry.observer?.takeRecords?.() ?? []);
+      if (!entry.terminal) poll(entry);
+    });
+  }
+  function activate(entry) {
+    if (now() >= entry.deadline) { expire(entry); return; }
+    try {
+      const scan = readOrderedTurns();
+      if (!scan.ok || scan.blocks.length !== entry.baseline.length || scan.blocks.some((block, i) => block.node !== entry.baseline[i].node || turnSignature(block) !== entry.baseline[i].signature)) {
+        unknown(entry, 'pre_activation_baseline_changed'); return;
+      }
+      const composers = visibleComposers(), controls = sendControls();
+      if (composers.length !== 1 || composers[0] !== entry.editor || normalizeText(composerDraft(entry.editor)) !== normalizeText(entry.text)
+        || isGenerating() || safeUrl() !== entry.url) {
+        unknown(entry, 'pre_activation_state_changed'); return;
+      }
+      if (controls.length !== 1 || isSendDisabled(controls[0])) {
+        finish(entry, 'pre_activation_refused', false, null, true); return;
+      }
+      if (Observer) {
+        entry.observer = new Observer((records) => sample(entry, records));
+        entry.observer.observe(document.documentElement || document, { subtree: true, childList: true, characterData: true,
+          attributes: true, attributeFilter: ['data-testid'], attributeOldValue: true });
+        entry.method = 'mutation-observer+poll';
+      }
+      // Observer installed and baseline idle BEFORE the sole activation path.
+      if (entry.terminal || now() >= entry.deadline) { if (!entry.terminal) expire(entry); return; }
+      entry.clickAttempted = true; entry.phase = 'ACTIVATION_POSSIBLE';
+      if (!fireClick(controls[0])) { unknown(entry, 'activation_uncertain'); return; }
+      sample(entry, entry.observer?.takeRecords?.() ?? []);
+      if (!entry.terminal) {
+        timer(entry, Math.min(SUBMISSION_CONFIRM_MS, entry.deadline - now()), () => { sample(entry, entry.observer?.takeRecords?.() ?? []); notifySubmit(entry); });
+        poll(entry);
+      }
+    } catch { unknown(entry, 'activation_error'); }
+  }
+  function submit(command) {
+    command = { ...command };
+    if (command.user_gesture !== true) return refuse('gesture_required');
+    const work = command.timeout_ms === undefined ? DEFAULT_TIMEOUT_MS : command.timeout_ms;
+    if (typeof work !== 'number' || !Number.isSafeInteger(work) || work <= 0) return refuse('invalid_work_budget');
+    const correlationId = typeof command.correlation_id === 'string' ? command.correlation_id.trim() : '';
+    const taskId = command.task_id === undefined ? correlationId : command.task_id;
+    const operationKey = command.operation_key === undefined ? correlationId : command.operation_key;
+    const prior = tasks.get(operationKey);
+    if (prior) return { ...receipt(prior), ok: false, reason: 'operation_already_seen', no_new_submit: true };
+    if (active) return refuse('turn_in_flight');
+    const pre = preflightComposer();
+    if (!pre.ok) return refuse(REASON.BAD_INPUT, { code: pre.code, error: pre.error, composer_visible_count: pre.composer_visible_count, state: sendState() });
+    const token = typeof command.expected_reply_token === 'string' ? command.expected_reply_token.trim() : '';
+    if (!validId(correlationId) || !validId(token) || !validId(taskId) || !validId(operationKey)
+      || typeof command.text !== 'string' || !command.text.trim() || command.text.length > 8000) return refuse('invalid_turn_request');
+    if (!containsCorrelation(command.text, correlationId)) return refuse('outbound_correlation_required');
+    if (!validId(pageId) || (command.page_instance_id !== undefined && command.page_instance_id !== pageId)) return refuse('page_instance_mismatch');
+    if ([...tasks.values()].some((item) => item.taskId === taskId || item.correlationId === correlationId)) return refuse('identity_already_seen');
+    if (tasks.size >= MAX_PAGE_TASKS) return refuse('page_task_store_full');
+    const baseline = readOrderedTurns();
+    if (!baseline.ok || baseline.blocks.length > MAX_BASELINE_TURNS) return refuse('baseline_unavailable');
+    let observerId;
+    try { observerId = randomId(); } catch { return refuse('observer_identity_unavailable'); }
+    if (!validId(observerId) || [...tasks.values()].some((item) => item.observerId === observerId)) return refuse('observer_identity_unavailable');
+    const created = now();
+    const entry = { taskId, operationKey, observerId, correlationId, token, text: command.text,
+      editor: pre.editor, baseline: baseline.blocks.map((block) => ({ node: block.node, signature: turnSignature(block) })),
+      url: safeUrl(), urlBound: false, created, startedAt: new Date().toISOString(), deadline: created + COMPOSER_SETUP_MS + Math.min(MAX_TIMEOUT_MS, work),
+      phase: 'SUBMIT_RESERVED', clickAttempted: false, submissionObserved: false, started: false, complete: false, generating: false,
+      endedAt: null, quietSince: created, continuity: true, noSubmit: false, terminal: false, reason: null,
+      method: 'poll', timers: new Set(), waiters: new Set() };
+    tasks.set(operationKey, entry); active = entry;
+    const pending = new Promise((resolve) => { entry.resolveSubmit = resolve; });
+    try {
+      const fill = composerFill(entry.text);
+      if (!fill.ok) finish(entry, fill.code || 'composer_insert_failed', false, null, true);
+      else {
+        timer(entry, entry.deadline - now(), () => expire(entry));
+        if (!entry.terminal) timer(entry, COMPOSER_SETUP_MS, () => activate(entry));
+      }
+    } catch { unknown(entry, 'preparation_error'); }
+    return pending;
+  }
+  function lookup(command) {
+    if (!command || typeof command !== 'object' || command.page_instance_id !== pageId) return null;
+    const entry = tasks.get(command.operation_key);
+    return entry && command.task_id === entry.taskId && command.correlation_id === entry.correlationId
+      && command.observer_id === entry.observerId ? entry : null;
+  }
+  function observe(command) {
+    const entry = lookup(command);
+    if (!entry) return { ok: false, reason: 'observer_identity_mismatch', read_only: true, uncertain: true };
+    sample(entry, entry.observer?.takeRecords?.() ?? []);
+    return structuredClone({ ...receipt(entry), read_only: true });
+  }
+  function run(command, respond) {
+    const submission = submit(command);
+    if (!submission || typeof submission.then !== 'function') { respond(submission); return; }
+    return submission.then((value) => {
+      const entry = lookup(value);
+      if (!entry || entry.terminal) { respond(entry ? receipt(entry) : value); return; }
+      return new Promise((resolve) => { entry.waiters.add((result) => {
+        try { respond(result); } catch { /* a closed port cannot cancel/replay the task */ }
+        resolve();
+      }); });
+    });
+  }
+  function readFinal(command) {
+    const request = command && typeof command === 'object' ? command : {};
+    const entry = lookup(request);
+    if (entry && request.expected_reply_token === entry.token) {
+      sample(entry, entry.observer?.takeRecords?.() ?? []);
+      const value = structuredClone(receipt(entry));
+      if (!entry.terminal) value.verdict = correlateReply({ reply: null,
+        expected: { correlation_id: entry.correlationId, reply_token: entry.token }, generation_complete: false, generation_started: entry.started });
+      return { ...value, ok: entry.complete && entry.result?.ok === true, read_only: true };
+    }
+    // Never scan an idle page and replace missing observer evidence with a
+    // caller boolean. A fresh document has no observation history to recover.
+    // EVERY refusal below carries the same machine-readable verdict: a caller
+    // whose identity does not match this page's observer is refused, but it is
+    // refused HONESTLY — a bare `{ok:false}` with no reason would leave the
+    // worker/panel holding no machine-readable answer at all, which is how a
+    // missing verdict quietly becomes "unknown reason" instead of a stated
+    // "not observed here". It never consults the caller's `generation_complete`.
+    const known = tasks.get(typeof request.operation_key === 'string' ? request.operation_key : '');
+    const verdict = correlateReply({ reply: null, expected: { correlation_id: request.correlation_id,
+      reply_token: request.expected_reply_token }, generation_complete: false, generation_started: null });
+    return { ok: false, verdict, reason: known ? 'observer_identity_mismatch' : 'observer_evidence_required', read_only: true,
+      generation: { started: false, complete: false, asserted_by_caller: false } };
+  }
+  return { submit, observe, run, readFinal, pageInstanceId: pageId,
+    dispose() { for (const entry of tasks.values()) if (!entry.terminal) unknown(entry, 'observer_disposed'); } };
+}
+
+const turnEngine = createTurnEngine();
+function runTurn(command, respond) { return turnEngine.run(command, respond); }
+function readFinal(command) { return turnEngine.readFinal(command); }
 
 /* ------------------------------------------------------------------ plumbing */
 
@@ -646,6 +1029,8 @@ const ACTIONS = {
     return { ok: true, state: sendState() };
   },
   'run-turn': runTurn,
+  'submit-turn': (command) => turnEngine.submit(command),
+  'observe-turn': (command) => turnEngine.observe(command),
   'read-final': readFinal,
   stop() {
     const button = document.querySelector(STOP_BUTTON_SELECTOR);
@@ -667,7 +1052,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onConnect)
       const respond = (result) => {
         if (answered) return;
         answered = true;
-        port.postMessage(Object.assign({ action }, result));
+        try { port.postMessage(Object.assign({ action }, result)); } catch { /* retain observer independently of this port */ }
       };
       const fail = (err) =>
         respond({ ok: false, reason: 'adapter_error', error: String(err && err.message ? err.message : err) });
@@ -694,14 +1079,20 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onConnect)
 // directly. Kept behind the same guard as the port listener so importing this
 // file under Node is a no-op.
 export const __testing = {
+  createTurnEngine,
+  turnEngine,
   readOrderedTurns,
   readFinalReplyAfterLastUserTurn,
   normalizeText,
   // The composing seam, exposed so the preflight can be regression-tested
   // without a browser: sendState, the gate itself, and the fill that uses it.
   sendState,
+  sendControls,
   preflightComposer,
   composerFill,
   visibleComposers,
-  isVisible
+  isVisible,
+  // The page-side turn ceiling, so the cross-module budget ordering (page clamp
+  // >= worker run ceiling) can be asserted rather than assumed.
+  MAX_TIMEOUT_MS
 };

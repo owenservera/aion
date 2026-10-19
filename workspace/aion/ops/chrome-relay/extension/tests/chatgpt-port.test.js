@@ -24,12 +24,16 @@ import assert from 'node:assert/strict';
 const TEST_TIMEOUT_MS = 5_000;
 const test = (name, fn) => baseTest(name, { timeout: TEST_TIMEOUT_MS }, fn);
 
-import { createEnvelope } from '../src/lib/envelope.js';
+import { acceptedAdapterReply, verdictForEnvelope } from './fixtures/chatgpt-accepted.js';
 import {
   CHATGPT_ACTION,
   CHATGPT_ERROR,
   CHATGPT_PORT_NAME,
   CHATGPT_TAB_PATTERN,
+  DEFAULT_CHATGPT_GRACE_MS,
+  DEFAULT_CHATGPT_TIMEOUTS,
+  MAX_PORT_GUARD_MS,
+  MAX_RUN_TIMEOUT_MS,
   createChatGPTPortDriver,
   isChatGptUrl,
   sanitizeTab,
@@ -48,6 +52,7 @@ const OTHER_TAB = { id: 9, windowId: 3, active: false, status: 'complete', url: 
 function fakeTabs(behaviour = {}) {
   const opened = [];
   const api = {
+    storage: memoryStorage(),
     queries: [],
     tabs: {
       async query(info) {
@@ -108,6 +113,14 @@ function fakeTabs(behaviour = {}) {
   return { api, opened };
 }
 
+function memoryStorage() {
+  const bag = {};
+  return { local: {
+    async get(key) { return Object.hasOwn(bag, key) ? { [key]: structuredClone(bag[key]) } : {}; },
+    async set(value) { Object.assign(bag, structuredClone(value)); },
+  } };
+}
+
 /**
  * Budgets, deliberately split in two.
  *
@@ -147,6 +160,7 @@ const GATE = {
   user_gesture: true,
   approved_scope_ref: 'grant-1',
   correlation_id: 'task-1',
+  expected_reply_token: 'ACK-1',
   text: 'hello'
 };
 
@@ -154,7 +168,7 @@ function driver(behaviour = {}, extra = {}) {
   const fake = fakeTabs(behaviour);
   return {
     ...fake,
-    driver: createChatGPTPortDriver({ chrome: { tabs: fake.api.tabs }, timeouts: ROOMY, ...NO_GRACE, ...extra })
+    driver: createChatGPTPortDriver({ chrome: fake.api, timeouts: ROOMY, ...NO_GRACE, ...extra })
   };
 }
 
@@ -163,19 +177,13 @@ function impatientDriver(behaviour = {}, extra = {}) {
   const fake = fakeTabs(behaviour);
   return {
     ...fake,
-    driver: createChatGPTPortDriver({ chrome: { tabs: fake.api.tabs }, timeouts: FAST, ...NO_GRACE, ...extra })
+    driver: createChatGPTPortDriver({ chrome: fake.api, timeouts: FAST, ...NO_GRACE, ...extra })
   };
 }
 
 /** A valid content-script envelope for an accepted turn. */
 function acceptedEnvelope() {
-  return createEnvelope({
-    producer_node: 'node-ext-chatgpt',
-    event_type: 'proof.submitted',
-    task_state: 'PROOF_SUBMITTED',
-    correlation_id: 'task-1',
-    payload: { accepted: true }
-  });
+  return acceptedAdapterReply().envelope;
 }
 
 /**
@@ -295,11 +303,37 @@ test('ping connects with the content-script port name and returns sanitized fact
     send_disabled: false,
     // The count is preserved end to end: the preflight cannot distinguish one
     // composer from two if this field is dropped in transit.
-    composer_visible_count: 1
+    composer_visible_count: 1,
+    // This fixture predates `sendControlCount`; absence must stay visible as
+    // null rather than being invented as zero.
+    send_control_count: null
   });
   // The page title is conversation content: it must not come back.
   assert.equal(JSON.stringify(result).includes('private conversation title'), false);
   assert.equal(opened[0].disconnected, true, 'the one-shot port is released');
+});
+
+test('sanitizeState carries sendControlCount only as a validated nonnegative integer', async () => {
+  const cases = [
+    [1, 1],
+    [0, 0],
+    ['1', null],
+    [-1, null],
+    [1.5, null],
+    [undefined, null]
+  ];
+  for (const [raw, expected] of cases) {
+    const { driver: d } = driver({
+      answer: (port, msg) => ({
+        action: msg.action,
+        ok: true,
+        href: 'https://chatgpt.com/c/abc',
+        state: { generating: false, sendPresent: true, sendDisabled: false, sendControlCount: raw, composer_visible_count: 1 }
+      })
+    });
+    const result = await d.ping({});
+    assert.equal(result.state.send_control_count, expected, `sendControlCount ${JSON.stringify(raw)}`);
+  }
 });
 
 test('ping without an answer reports content_timeout and does not hang', async () => {
@@ -401,15 +435,7 @@ test('runTurn submits exactly one gesture-flagged turn and returns a validated e
     answer: withPing((port, msg) => ({
       action: msg.action,
       ok: true,
-      verdict: {
-        schema: 'aion.chatgpt-verdict/0.1',
-        accepted: true,
-        reason: 'accepted',
-        correlation_id: 'task-1',
-        expected_reply: 'ACK-1',
-        reply_text: 'the answer body, which must not be echoed by default',
-        detail: { generation_started: true, generation_complete: true, observed: 'final' }
-      },
+      verdict: { ...verdictForEnvelope(expected), private_test_field: 'must not be echoed by default' },
       envelope: expected,
       // content.js's runTurn reply carries sendState(), which now includes the
       // composer count, so it must survive the trip back.
@@ -439,7 +465,8 @@ test('runTurn submits exactly one gesture-flagged turn and returns a validated e
     generating: false,
     send_present: true,
     send_disabled: false,
-    composer_visible_count: 1
+    composer_visible_count: 1,
+    send_control_count: null
   });
   assert.equal(result.envelope.message_id, expected.message_id);
   assert.equal(JSON.stringify(result).includes('must not be echoed by default'), false);
@@ -450,7 +477,7 @@ test('runTurn refuses an accepted turn whose envelope is invalid', async () => {
   const broken = acceptedEnvelope();
   delete broken.event_type;
   const { driver: d } = driver({
-    answer: withPing((port, msg) => ({ action: msg.action, ok: true, verdict: { accepted: true }, envelope: broken }))
+    answer: withPing((port, msg) => ({ action: msg.action, ok: true, verdict: verdictForEnvelope(broken), envelope: broken }))
   });
   const result = await d.runTurn(GATE);
   assert.equal(result.ok, false);
@@ -472,6 +499,74 @@ test('runTurn reports a non-correlated turn as a refusal, never a success', asyn
   assert.equal(result.code, CHATGPT_ERROR.TURN_REFUSED);
   assert.equal(result.submitted, true, 'it did submit; that is reported honestly');
   assert.equal(result.envelope, null);
+});
+
+test('an early named refusal keeps the content reason instead of no_reason', async () => {
+  // content.js answers the send_button_disabled branch with `reason` and no
+  // `verdict`. Absence of a verdict is not "no reason", and absence of a
+  // `submitted` field is not proof that nothing was sent.
+  const { driver: d } = driver({
+    answer: withPing((port, msg) => ({
+      action: msg.action,
+      ok: false,
+      reason: 'send_button_disabled',
+      error: 'the send control stayed disabled after the composer was filled; nothing was submitted',
+      state: { generating: false, sendPresent: true, sendDisabled: true, sendControlCount: 1, composer_visible_count: 1 }
+    }))
+  });
+  const result = await d.runTurn(GATE);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, CHATGPT_ERROR.TURN_REFUSED);
+  assert.equal(result.error, 'turn_refused: send_button_disabled');
+  assert.equal(result.verdict.reason, 'send_button_disabled');
+  assert.equal(result.captured, false);
+  assert.equal(result.submitted, true, 'an absent submitted field is not an explicit no-send');
+  assert.notEqual(result.uncertain, false, 'only an explicit no-send may settle the uncertainty');
+});
+
+test('an explicit submitted:false is propagated but still consumes the correlation', async () => {
+  const written = [];
+  const memory = {};
+  const storage = {
+    local: {
+      async get(key) { return Object.prototype.hasOwnProperty.call(memory, key) ? { [key]: memory[key] } : {}; },
+      async set(entry) {
+        written.push(entry);
+        Object.assign(memory, entry);
+      }
+    }
+  };
+  const fake = fakeTabs({
+    answer: withPing((port, msg) => ({
+      action: msg.action,
+      ok: false,
+      reason: 'send_button_disabled',
+      error: 'the send control stayed disabled; nothing was submitted',
+      no_send: true,
+      submitted: false,
+      state: { generating: false, sendPresent: true, sendDisabled: true, sendControlCount: 1, composer_visible_count: 1 }
+    }))
+  });
+  const d = createChatGPTPortDriver({ chrome: { tabs: fake.api.tabs, storage }, timeouts: ROOMY, ...NO_GRACE });
+
+  const result = await d.runTurn(GATE);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, CHATGPT_ERROR.TURN_REFUSED);
+  assert.equal(result.submitted, false, 'an explicit content-script field is the only proof of no-send');
+  assert.equal(result.uncertain, false, 'a proven no-send is a definite outcome');
+  assert.equal(result.captured, false);
+  assert.equal(result.verdict.reason, 'send_button_disabled');
+
+  // A proven no-send is still not a free retry: the reservation was written
+  // before the page was touched and remains consumed.
+  assert.ok(written.length > 0, 'the dispatch was recorded');
+  const again = await d.runTurn(GATE);
+  assert.equal(again.code, CHATGPT_ERROR.ALREADY_DISPATCHED);
+  assert.equal(
+    fake.opened.flatMap((p) => p.posted).filter((m) => m.action === CHATGPT_ACTION.RUN_TURN).length,
+    1,
+    'the page was asked to run exactly once'
+  );
 });
 
 test('a silent page makes runTurn time out rather than retrying', async () => {
@@ -496,6 +591,7 @@ test('a second turn while one is in flight is refused without opening a port', a
   const opened = [];
   const d = createChatGPTPortDriver({
     chrome: {
+      storage: memoryStorage(),
       tabs: {
         query: async () => [CHAT_TAB],
         connect: () => {
@@ -511,7 +607,7 @@ test('a second turn while one is in flight is refused without opening a port', a
                   href: 'https://chatgpt.com/c/abc',
                   state: { generating: false, sendPresent: true, sendDisabled: false, composer_visible_count: 1 }
                 }
-                : { action: msg.action, ok: true, verdict: { accepted: true }, envelope: acceptedEnvelope() };
+                : acceptedAdapterReply({ correlationId: msg.correlation_id, token: msg.expected_reply_token });
               // The preflight probe answers immediately; only the TURN is held
               // open, or the gate would block the probe that precedes it.
               if (msg.action === CHATGPT_ACTION.PING) {
@@ -591,7 +687,7 @@ test('a dispatch reservation survives a restart and blocks a duplicate submissio
   let submitted = 0;
   const answer = withPing((p, m) => {
     submitted += 1;
-    return { action: m.action, ok: true, verdict: { accepted: true }, envelope: acceptedEnvelope() };
+    return acceptedAdapterReply({ correlationId: m.correlation_id, token: m.expected_reply_token });
   });
 
   const first = createChatGPTPortDriver({ chrome: { tabs: fakeTabs({ answer }).api.tabs, storage }, timeouts: ROOMY, ...NO_GRACE });
@@ -606,7 +702,8 @@ test('a dispatch reservation survives a restart and blocks a duplicate submissio
   assert.equal(two.code, CHATGPT_ERROR.ALREADY_DISPATCHED);
   assert.equal(submitted, 1, 'the page was touched exactly once, across a restart');
 
-  // A different correlation is unaffected: the guard is per correlation.
+  // A distinct operation is allowed after a fully checked prior reply; it is
+  // not a replay of the original correlation or stable operation.
   const other = await second.runTurn({ ...GATE, correlation_id: 'task-2' });
   assert.equal(other.ok, true);
   assert.equal(submitted, 2);
@@ -623,7 +720,7 @@ test('a reservation is written BEFORE the page is touched', async () => {
   };
   const fake = fakeTabs({ answer: withPing((p, m) => {
     opened += 1;
-    return { action: m.action, ok: true, verdict: { accepted: true }, envelope: acceptedEnvelope() };
+    return acceptedAdapterReply({ correlationId: m.correlation_id, token: m.expected_reply_token });
   }) });
   const d = createChatGPTPortDriver({ chrome: { tabs: fake.api.tabs, storage }, timeouts: ROOMY, ...NO_GRACE });
   await d.runTurn(GATE);
@@ -637,11 +734,13 @@ test('a reservation is written BEFORE the page is touched', async () => {
 /* -------------------------------------------------------------- read final */
 
 test('readFinal needs no gesture, sends only read-final, and returns the verdict', async () => {
+  // The capture is a REAL one, envelope and all: a claimed accepted read with
+  // nothing to check it against is a contract mismatch, not a correlated final
+  // reply (tests/chatgpt-submit-observe.test.js holds that boundary).
   const { driver: d, opened } = driver({
     answer: (port, msg) => ({
+      ...acceptedAdapterReply({ correlationId: msg.correlation_id, token: msg.expected_reply_token }),
       action: msg.action,
-      ok: true,
-      verdict: { schema: 'aion.chatgpt-verdict/0.1', accepted: true, reason: 'accepted', correlation_id: 'task-1', reply_text: 'body' },
       generation: { complete: true, asserted_by_caller: true }
     })
   });
@@ -828,7 +927,7 @@ test('the driver accepts a run reply derived from a class-only fixture', async (
       action: msg.action,
       ok: true,
       verdict,
-      envelope: acceptedEnvelope(),
+      envelope: acceptedAdapterReply({ replyText: verdict.reply }).envelope,
       state: { generating: false, sendPresent: true, sendDisabled: false }
     }))
   });
@@ -929,6 +1028,111 @@ test('runTurn refuses when the page reports no composer count at all', async () 
   assert.deepEqual(opened.flatMap((p) => p.posted.map((m) => m.action)), ['ping']);
 });
 
+test('runTurn refuses before reserving or running when the page reports no send control', async () => {
+  const written = [];
+  const storage = {
+    local: {
+      async get() { return {}; },
+      async set(entry) { written.push(entry); }
+    }
+  };
+  const actions = [];
+  const fake = fakeTabs({
+    answer: (port, msg) => {
+      actions.push(msg.action);
+      if (msg.action === CHATGPT_ACTION.PING) {
+        return pingWith({
+          generating: false,
+          sendPresent: false,
+          sendDisabled: true,
+          sendControlCount: 0,
+          composer_visible_count: 1
+        })(port, msg);
+      }
+      return acceptedAdapterReply({ correlationId: msg.correlation_id, token: msg.expected_reply_token });
+    }
+  });
+  const d = createChatGPTPortDriver({ chrome: { tabs: fake.api.tabs, storage }, timeouts: ROOMY, ...NO_GRACE });
+  const result = await d.runTurn(GATE);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, CHATGPT_ERROR.PREFLIGHT_REFUSED);
+  assert.equal(result.reason, 'send_missing');
+  assert.equal(result.send_control_count, 0);
+  assert.equal(result.submitted, false);
+  assert.deepEqual(actions, ['ping'], 'only the read-only probe reached the page');
+  assert.equal(written.length, 0, 'a missing send control must not burn a reservation');
+});
+
+test('runTurn refuses when two send controls make the target ambiguous', async () => {
+  const fake = fakeTabs({
+    answer: (port, msg) => {
+      if (msg.action === CHATGPT_ACTION.PING) {
+        return pingWith({
+          generating: false,
+          sendPresent: true,
+          sendDisabled: false,
+          sendControlCount: 2,
+          composer_visible_count: 1
+        })(port, msg);
+      }
+      return acceptedAdapterReply({ correlationId: msg.correlation_id, token: msg.expected_reply_token });
+    }
+  });
+  const d = createChatGPTPortDriver({ chrome: { tabs: fake.api.tabs }, timeouts: ROOMY, ...NO_GRACE });
+  const result = await d.runTurn(GATE);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, CHATGPT_ERROR.PREFLIGHT_REFUSED);
+  assert.equal(result.reason, 'send_ambiguous');
+  assert.equal(result.send_control_count, 2);
+  assert.equal(result.submitted, false);
+  assert.deepEqual(
+    fake.opened.flatMap((p) => p.posted.map((m) => m.action)),
+    ['ping'],
+    'nothing may be typed or run when the submit control is ambiguous'
+  );
+});
+
+test('a validated send count of one but sendPresent:false is refused as missing', async () => {
+  const fake = fakeTabs({
+    answer: (port, msg) => {
+      if (msg.action === CHATGPT_ACTION.PING) {
+        return pingWith({
+          generating: false,
+          sendPresent: false,
+          sendDisabled: true,
+          sendControlCount: 1,
+          composer_visible_count: 1
+        })(port, msg);
+      }
+      return acceptedAdapterReply({ correlationId: msg.correlation_id, token: msg.expected_reply_token });
+    }
+  });
+  const d = createChatGPTPortDriver({ chrome: { tabs: fake.api.tabs }, timeouts: ROOMY, ...NO_GRACE });
+  const result = await d.runTurn(GATE);
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'send_missing');
+  assert.deepEqual(fake.opened.flatMap((p) => p.posted.map((m) => m.action)), ['ping']);
+});
+
+test('a validated send count of one with sendPresent:true proceeds', async () => {
+  const expected = acceptedEnvelope();
+  const { driver: d, opened } = driver({
+    answer: withPing((port, msg) => ({
+      action: msg.action,
+      ok: true,
+      verdict: verdictForEnvelope(expected),
+      envelope: expected,
+      state: { generating: false, sendPresent: true, sendDisabled: false, sendControlCount: 1, composer_visible_count: 1 }
+    }), { sendControlCount: 1 })
+  });
+  const result = await d.runTurn(GATE);
+  assert.equal(result.ok, true);
+  assert.equal(result.state.send_control_count, 1);
+  assert.equal(opened.flatMap((p) => p.posted).filter((m) => m.action === CHATGPT_ACTION.RUN_TURN).length, 1);
+});
+
 test('a refused preflight leaves no dispatch reservation behind', async () => {
   const written = [];
   const storage = {
@@ -955,7 +1159,7 @@ test('an unreadable reservation store refuses the dispatch and never runs it', a
   };
   const fake = fakeTabs({ answer: (p, m) => (m.action === 'ping'
     ? pingWith({ generating: false, sendPresent: true, sendDisabled: false, composer_visible_count: 1 })(p, m)
-    : { action: m.action, ok: true, verdict: { accepted: true }, envelope: acceptedEnvelope() }) });
+    : acceptedAdapterReply({ correlationId: m.correlation_id, token: m.expected_reply_token })) });
   const d = createChatGPTPortDriver({ chrome: { tabs: fake.api.tabs, storage }, timeouts: ROOMY, ...NO_GRACE });
   const result = await d.runTurn(GATE);
   assert.equal(result.ok, false, 'an unreadable store must not read as "nothing dispatched"');
@@ -992,4 +1196,116 @@ test('no credential access appears anywhere in the driver', async () => {
   }
   // The only host surface it touches is tabs.query / tabs.connect.
   assert.deepEqual([...code.matchAll(/api\.tabs\.(\w+)/g)].map((m) => m[1]), ['query', 'connect']);
+});
+
+/* ============================================ bounded budgets (M1 live fix) */
+
+test('the run ceiling outlasts the latency that was actually observed', () => {
+  // The 2026-10-18 dispatch was refused `generation_incomplete` because a real
+  // turn outlived a 120s page budget and the candidate was read mid-generation.
+  // This is the exact regression: the budget must be well above that, and it must
+  // still be a finite number — "wait longer" is not the same as "wait forever".
+  assert.ok(MAX_RUN_TIMEOUT_MS > 120_000,
+    `the run ceiling must exceed the observed >120s turn latency, got ${MAX_RUN_TIMEOUT_MS}ms`);
+  assert.ok(Number.isFinite(MAX_RUN_TIMEOUT_MS) && Number.isFinite(MAX_PORT_GUARD_MS),
+    'both ceilings are finite numbers');
+});
+
+test('the port guard outlives the run budget, and the default run budget IS the ceiling', () => {
+  // The worker's own wait is the page's budget plus a grace, capped. It must
+  // exceed the page's budget, or the worker gives up while the page is still
+  // allowed to be working — the panel would then see the worker's timeout
+  // instead of the page's real refusal.
+  assert.ok(MAX_PORT_GUARD_MS > MAX_RUN_TIMEOUT_MS,
+    'the port guard must outlast the page budget it guards');
+  assert.ok(MAX_PORT_GUARD_MS >= MAX_RUN_TIMEOUT_MS + DEFAULT_CHATGPT_GRACE_MS,
+    'the grace the worker adds must still fit inside the port-guard ceiling');
+  // The DEFAULT is the ceiling, so a caller that asks for nothing gets the same
+  // budget the ceiling allows. A lower default would leave the ceiling to be
+  // reached only by explicitly asking for it.
+  assert.equal(DEFAULT_CHATGPT_TIMEOUTS.run, MAX_RUN_TIMEOUT_MS);
+});
+
+test('valid work budgets clamp; malformed budgets refuse before touching the page', async () => {
+  // Three shapes, one clamp. These exercise `boundedTimeout()` through the real
+  // public path against PRODUCTION budgets — the value that reaches the page is
+  // what is asserted, not the helper's return value. The page answers at once, so
+  // the 300s budgets are never waited out; the per-test deadline catches a hang.
+  const cases = [
+    { label: 'absent', timeout_ms: undefined, expected: MAX_RUN_TIMEOUT_MS },
+    { label: 'far above the ceiling', timeout_ms: MAX_RUN_TIMEOUT_MS * 1000, expected: MAX_RUN_TIMEOUT_MS },
+    { label: 'negative', timeout_ms: -5000 },
+    { label: 'not a number', timeout_ms: 'forever' },
+    { label: 'infinite', timeout_ms: Infinity },
+    { label: 'zero', timeout_ms: 0 },
+    { label: 'a genuine smaller ask is honoured, not raised', timeout_ms: 45_000, expected: 45_000 }
+  ];
+  for (const { label, timeout_ms, expected } of cases) {
+    const fake = fakeTabs({
+      answer: withPing((port, msg) => ({
+        action: msg.action,
+        ok: false,
+        verdict: { accepted: false, reason: 'correlation_mismatch' },
+        envelope: null
+      }))
+    });
+    // No `timeouts` override: this is the budget the extension actually runs with.
+    const d = createChatGPTPortDriver({ chrome: fake.api });
+    const command = { ...GATE, text: 'probe', correlation_id: `c-${label}` };
+    if (timeout_ms !== undefined) command.timeout_ms = timeout_ms;
+    const result = await d.runTurn(command);
+
+    assert.equal(result.ok, false, label);
+    const submitted = fake.opened.flatMap((p) => p.posted).filter((m) => m.action === CHATGPT_ACTION.RUN_TURN);
+    if (expected === undefined) {
+      assert.equal(result.code, CHATGPT_ERROR.BAD_ARGUMENT);
+      assert.equal(fake.opened.length, 0);
+      continue;
+    }
+    assert.equal(submitted.length, 1, `${label}: exactly one turn reached the page`);
+    assert.equal(submitted[0].timeout_ms, expected,
+      `${label}: the page must be handed exactly ${expected}ms, got ${submitted[0].timeout_ms}ms`);
+    assert.ok(Number.isFinite(submitted[0].timeout_ms), `${label}: the bound stays finite`);
+    assert.ok(submitted[0].timeout_ms <= MAX_RUN_TIMEOUT_MS, `${label}: nothing exceeds the ceiling`);
+  }
+});
+
+test('the clamp is against the ceiling, not a rewrite to it', async () => {
+  // A caller that asks for a smaller budget than the ceiling keeps it: a turn
+  // deliberately given a short bound must be reported short, not padded out to
+  // the ceiling. The clamp only ever shortens.
+  const { driver: d, opened } = driver({
+    answer: withPing((port, msg) => ({
+      action: msg.action,
+      ok: false,
+      verdict: { accepted: false, reason: 'correlation_mismatch' },
+      envelope: null
+    }))
+  });
+  await d.runTurn({ ...GATE, text: 'probe', correlation_id: 'c-small' });
+  const submitted = opened.flatMap((p) => p.posted).filter((m) => m.action === CHATGPT_ACTION.RUN_TURN);
+  assert.equal(submitted.length, 1);
+  assert.equal(submitted[0].timeout_ms, ROOMY.run,
+    'a configured run budget below the ceiling is handed through unchanged');
+  assert.ok(ROOMY.run < MAX_RUN_TIMEOUT_MS, 'this fixture is only meaningful while ROOMY.run is below the ceiling');
+});
+
+test('the port guard outlasts the page budget it guards, in the wiring itself', async () => {
+  // The nesting, not just the constants: a page that stays silent until the
+  // worker's own budget has run out must produce a driver TIMEOUT, not a hang
+  // and not a second attempt. The guard is `min(guard, timeout + grace)`, so a
+  // tiny run budget with the production guard ceiling still resolves.
+  const { driver: d, opened } = impatientDriver({
+    answer: (port, msg) => (msg.action === CHATGPT_ACTION.PING
+      ? pingWith({ generating: false, sendPresent: true, sendDisabled: false, composer_visible_count: 1 })(port, msg)
+      : null)
+  });
+  const result = await d.runTurn(GATE);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, CHATGPT_ERROR.TIMEOUT);
+  assert.equal(
+    opened.flatMap((p) => p.posted).filter((m) => m.action === CHATGPT_ACTION.RUN_TURN).length,
+    1,
+    'an exhausted guard must never retry the turn'
+  );
 });

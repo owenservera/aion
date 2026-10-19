@@ -42,6 +42,8 @@
 
 import { createEventStore, createTransport, isExpired, TASK_STATES, validateEnvelope } from '../lib/index.js';
 import { CHATGPT_ERROR, createChatGPTPortDriver } from './chatgpt-port.js';
+import { chatGPTCommandName, resolveCommandDeadline } from '../lib/command-deadlines.js';
+import { createBoundedLifecycle } from '../lib/bounded-lifecycle.js';
 
 const STORAGE_KEY = 'aion.relay.state.v1';
 const EVENTS_KEY = 'aion.relay.events.v1';
@@ -768,22 +770,20 @@ function chatgptCommand(message, allowed) {
   return command;
 }
 
-async function handleChatGptTabs() {
-  await ensureReady();
+async function handleChatGptTabs(message, lifecycle) {
   const driver = cachedChatGPT;
   if (!driver) {
     return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable`, tabs: [] };
   }
-  return driver.listTabs();
+  return driver.listTabs({}, lifecycle);
 }
 
-async function handleChatGptPing(message) {
-  await ensureReady();
+async function handleChatGptPing(message, lifecycle) {
   const driver = cachedChatGPT;
   if (!driver) {
     return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable` };
   }
-  return driver.ping(chatgptCommand(message, ['tab_id']));
+  return driver.ping(chatgptCommand(message, ['tab_id']), lifecycle);
 }
 
 /**
@@ -805,16 +805,78 @@ async function handleChatGptPing(message) {
  * never expires on its own, so neither a worker restart nor an expired port
  * guard can cause an automatic duplicate submission.
  */
-async function handleChatGptRun(message) {
-  await ensureReady();
+async function handleChatGptRun(message, lifecycle) {
   const driver = cachedChatGPT;
   if (!driver) {
     return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable` };
   }
+  const refused = refuseUnauthorisedSend(message);
+  if (refused) return refused;
+  return driver.runTurn(chatgptCommand(message, [
+    // user_gesture is re-checked inside the driver, so it is forwarded rather
+    // than assumed: one gate per process is not two gates.
+    'tab_id', 'text', 'correlation_id', 'expected_reply_token', 'timeout_ms', 'approved_scope_ref', 'user_gesture',
+    'task_id', 'operation_key', 'role_id', 'binding_revision', 'conversation_key'
+  ]), lifecycle);
+}
+
+/**
+ * `aion/chatgpt-submit` — the split engine's single guarded activation.
+ *
+ * SAME gates as `aion/chatgpt-run`, checked here again before the driver is
+ * reached: an explicit gesture AND the approval reference it acts under. The
+ * worker never invents either. It posts `submit-turn`, which reserves durably,
+ * arms the page observer, activates once and returns the first receipt; the
+ * operator observes afterwards through `aion/chatgpt-observe`, never by
+ * re-submitting.
+ */
+async function handleChatGptSubmit(message, lifecycle) {
+  const driver = cachedChatGPT;
+  if (!driver) {
+    return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable` };
+  }
+  const refused = refuseUnauthorisedSend(message);
+  if (refused) return refused;
+  return driver.submitTurn(chatgptCommand(message, [
+    'tab_id', 'text', 'correlation_id', 'expected_reply_token', 'timeout_ms', 'approved_scope_ref', 'user_gesture',
+    'task_id', 'operation_key', 'role_id', 'binding_revision', 'conversation_key'
+  ]), lifecycle);
+}
+
+/**
+ * `aion/chatgpt-observe` — read-only poll of an already-armed observer.
+ *
+ * No gesture and no approval: it composes nothing, clicks nothing and holds no
+ * send authority. The identity it polls is the durable record's, so the only
+ * keys read here are the ones that SELECT the operation.
+ */
+async function handleChatGptObserve(message, lifecycle) {
+  const driver = cachedChatGPT;
+  if (!driver) {
+    return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable` };
+  }
+  return driver.observeTurn(chatgptCommand(message, [
+    // Only what SELECTS the operation. task_id/operation_key/observer_id/
+    // page_instance_id are deliberately absent: the poll presents the identity
+    // the durable record holds, so a caller cannot name its own.
+    'tab_id', 'correlation_id', 'expected_reply_token', 'timeout_ms'
+  ]), lifecycle);
+}
+
+/**
+ * The two gates every send-capable endpoint shares, before the driver runs.
+ *
+ * Extracted so `aion/chatgpt-run` and `aion/chatgpt-submit` cannot drift into
+ * disagreeing about what a submission requires. A boolean gesture is not
+ * authorisation: the contract states the extension cannot grant its own
+ * permissions, so the approval reference is required and is recorded durably
+ * with the dispatch. Both are checked BEFORE any port is opened, so a mis-wired
+ * caller cannot produce a send.
+ */
+function refuseUnauthorisedSend(message) {
   const nested = message && typeof message.command === 'object' && message.command !== null;
   const source = nested ? message.command : message;
-  const gesture = source.user_gesture;
-  if (gesture !== true) {
+  if (source.user_gesture !== true) {
     return {
       ok: false,
       code: CHATGPT_ERROR.EXPLICIT_COMMAND_REQUIRED,
@@ -833,22 +895,47 @@ async function handleChatGptRun(message) {
       captured: false
     };
   }
-  return driver.runTurn(chatgptCommand(message, [
-    // user_gesture is re-checked inside the driver, so it is forwarded rather
-    // than assumed: one gate per process is not two gates.
-    'tab_id', 'text', 'correlation_id', 'expected_reply_token', 'timeout_ms', 'approved_scope_ref', 'user_gesture'
-  ]));
+  return null;
 }
 
-async function handleChatGptRead(message) {
-  await ensureReady();
+async function handleChatGptRead(message, lifecycle) {
   const driver = cachedChatGPT;
   if (!driver) {
     return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable` };
   }
   return driver.readFinal(chatgptCommand(message, [
     'tab_id', 'correlation_id', 'expected_reply_token', 'outbound_text', 'generation_complete'
-  ]));
+  ]), lifecycle);
+}
+
+async function runChatGPTCommand(message, options = {}) {
+  let lifecycle;
+  try {
+    const command = chatGPTCommandName(message.type);
+    const source = chatgptCommand(message, ['timeout_ms']);
+    const plan = resolveCommandDeadline({ command, requestedWorkMs: source.timeout_ms }, options.policy);
+    lifecycle = createBoundedLifecycle(plan, options);
+    // Shared hydration is NOT cancelled: only this command stops awaiting it.
+    await lifecycle.wait('hydration', options.hydrate ?? ensureReady);
+    lifecycle.assertActive();
+    const result = await CHATGPT_ENDPOINTS[message.type](message, lifecycle);
+    lifecycle.assertActive();
+    return result;
+  } catch (error) {
+    // A READ-ONLY command that failed learned nothing about the operation, so it
+    // must not claim `submitted:false` about it — that is a no-send statement
+    // about the operation, not about this poll. The driver's read-only results
+    // carry `read_only:true, uncertain:true` and make no `submitted` claim.
+    const readOnly = lifecycle?.readOnly === true;
+    return { ok: false, code: error.code ?? CHATGPT_ERROR.BAD_ARGUMENT,
+      error: String(error.message ?? error), stage: error.stage ?? null,
+      timeout_ms: error.timeout_ms ?? null, absolute_ms: error.absolute_ms ?? null, elapsed_ms: error.elapsed_ms ?? null,
+      ...(readOnly
+        ? { read_only: true, uncertain: true, captured: false }
+        : lifecycle?.possibleSend
+          ? { submitted: true, uncertain: true, captured: false }
+          : { submitted: false, captured: false }) };
+  } finally { lifecycle?.finish(); }
 }
 
 /* ------------------------------------------------------------------ *
@@ -1119,6 +1206,8 @@ const CHATGPT_ENDPOINTS = Object.freeze({
   'aion/chatgpt-tabs': handleChatGptTabs,
   'aion/chatgpt-ping': handleChatGptPing,
   'aion/chatgpt-run': handleChatGptRun,
+  'aion/chatgpt-submit': handleChatGptSubmit,
+  'aion/chatgpt-observe': handleChatGptObserve,
   'aion/chatgpt-read': handleChatGptRead
 });
 
@@ -1182,8 +1271,7 @@ export function handleMessage(message, sender, sendResponse) {
     return true;
   }
 
-  const chatgpt = CHATGPT_ENDPOINTS[type];
-  chatgpt(message).then((result) => sendResponse(actionReply(result, type)), fail2);
+  runChatGPTCommand(message).then((result) => sendResponse(actionReply(result, type)), fail2);
   return true;
 }
 
@@ -1287,6 +1375,7 @@ schedulePresence();
  * ------------------------------------------------------------------ */
 
 export const __testing = {
+  runChatGPTCommand,
   ensureReady,
   rehydrate,
   handleStatus,
