@@ -1,0 +1,138 @@
+{
+  "schema": "aion.research.tools.v1",
+  "updated_date": "2026-10-19",
+  "verification_rule": "session-specific access is tested, never assumed",
+  "connected_observed": [
+    {
+      "id": "github",
+      "tool": "GitHub connector",
+      "observed": "2026-10-19",
+      "ops": [
+        "repo read",
+        "issue read/write",
+        "file and PR operations"
+      ],
+      "limits": "first list page=100; offset pagination returned 0; check total via alternate discovery"
+    },
+    {
+      "id": "google-drive",
+      "tool": "Google Drive / Docs / Sheets / Slides",
+      "observed": "2026-10-19",
+      "ops": [
+        "scoped file search/read"
+      ],
+      "limits": "one connection observed; do not infer all Google accounts"
+    },
+    {
+      "id": "web",
+      "tool": "Web discovery",
+      "observed": "2026-10-19",
+      "ops": [
+        "search current primary sources",
+        "research papers",
+        "video/article links"
+      ],
+      "limits": "source access and transcripts not guaranteed"
+    }
+  ],
+  "available_but_revalidate": [
+    {
+      "id": "gmail",
+      "purpose": "research newsletter and relevant source intake",
+      "rule": "search narrow topic/label/date, never bulk-export mail"
+    },
+    {
+      "id": "google-calendar",
+      "purpose": "relevant event/release/meeting timing",
+      "rule": "no event write without scoped request"
+    },
+    {
+      "id": "google-contacts",
+      "purpose": "subject experts only if task specifically warrants",
+      "rule": "privacy/minimization"
+    },
+    {
+      "id": "context7",
+      "purpose": "versioned library docs",
+      "rule": "save suitable raw pulls in SOFTWARE_HQ per existing canon"
+    },
+    {
+      "id": "files",
+      "purpose": "authorized uploaded or Library evidence",
+      "rule": "do not invent access to unmounted files"
+    },
+    {
+      "id": "github-actions",
+      "purpose": "read CI and downstream receipts",
+      "rule": "host execution and approvals remain project-owned"
+    },
+    {
+      "id": "vercel",
+      "purpose": "product/deployment applicability evidence",
+      "rule": "observe unless implementation authorized"
+    },
+    {
+      "id": "chatgpt-automations",
+      "purpose": "daily/weekly research heartbeat",
+      "rule": "tool call and task readback required"
+    }
+  ],
+  "external_or_not_yet_connected": [
+    {
+      "id": "notebooklm-consumer",
+      "availability": "NO CONNECTED CHATGPT PLUGIN FOUND 2026-10-19",
+      "use": "optional human-mediated source analysis; never canonical store"
+    },
+    {
+      "id": "notebooklm-enterprise-api",
+      "availability": "DOCUMENTED PREVIEW; licensing and Google Cloud auth not verified",
+      "use": "optional future API adapter after owner approves account/license/access"
+    },
+    {
+      "id": "scientific-scite",
+      "availability": "OPTIONAL PLUGIN NOT INSTALLED",
+      "use": "citation-context checks; install requires owner action"
+    },
+    {
+      "id": "youtube",
+      "availability": "PUBLIC WEB LINKS",
+      "use": "consume real accessible transcripts or metadata; don't claim universal transcript access"
+    },
+    {
+      "id": "podcasts",
+      "availability": "PUBLIC WEB/USER SUBMISSIONS",
+      "use": "episode page/transcript if accessible, otherwise explicitly partial"
+    }
+  ],
+  "owner_environment_reference": {
+    "source": "workspace/aion/agents/windows-master/ENVIRONMENT.md",
+    "observed": "2026-10-17",
+    "os": "Windows 11 master",
+    "shell": "PowerShell",
+    "tools": [
+      "Git",
+      "GitHub CLI",
+      "Bun",
+      "Node",
+      "OpenCode",
+      "Claude Code",
+      "Codex",
+      "ZCode",
+      "Chrome",
+      "Vercel (account existence not verified in this session)"
+    ],
+    "phones": [
+      "Android/PWA intake aspirations"
+    ],
+    "runtime_status": "STALE_UNTIL_VERIFIED",
+    "conflict": "STATE.json lists OpenCode 1.18.35, ENVIRONMENT.md later notes 2.0.32"
+  },
+  "prohibited": [
+    "Playwright",
+    "Puppeteer",
+    "unapproved account/browser automation",
+    "unnecessary Slack",
+    "shadow research database",
+    "private data replication into public repos"
+  ]
+}
