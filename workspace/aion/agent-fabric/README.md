@@ -33,11 +33,31 @@ All [fixtures](fixtures/) are **synthetic, offline-only** examples. Their sample
 5. Track B is a development branch. Design PR #35 is based on AION main; implementation starts from **origin/track-b/implementation-rounds-20261019**. Do not merge this design branch into Track B blindly or touch stable Chrome Track A.
 6. The previous round's source-level fixtures or Opus's earlier full test count are **not** a passing current-head Windows or live Chrome receipt.
 
+## Cross-repo draft integrations
+
+| Repository | Draft PR | Scope |
+|---|---|---|
+| AION | [#35](https://github.com/owenservera/aion/pull/35) | contracts, architecture and single local-agent handoff |
+| ZCode Setup | [#2](https://github.com/owenservera/zcode-setup/pull/2) | native agent compiler ownership |
+| Projects PM | [#21](https://github.com/owenservera/001.PROJECTS.PM/pull/21) | strictly read-only source observation |
+| Software HQ | [#6](https://github.com/owenservera/SOFTWARE_HQ/pull/6) | versioned documentation and Context7 provenance |
+| ZCode Bots | [#2](https://github.com/owenservera/zcode-bots/pull/2) | native bot/task/memory references |
+
+[Machine-readable integration map](integration-map.v1.json) has ten associated repository owners and the intended non-overlapping boundaries. All are **proposed integration references**, not installed connections or automatically updated cross-repo truth.
+
+## Zero-install bootstrap probe
+
+From the design source checkout:
+
+    node workspace/aion/agent-fabric/bin/preflight.mjs
+
+This READ-ONLY probe reports local Git/engine executable versions and 8-versus-9 AION role-file discrepancies. Binary version presence is NOT an authenticated/authorized live session; no Browser Send or provider call occurs. Tests are in test/preflight.test.mjs.
+
 ## Offline verification
 
 From an AION checkout containing this design directory:
 
-    node --test workspace/aion/agent-fabric/test/contracts.test.mjs
+    node --test workspace/aion/agent-fabric/test/*.test.mjs
 
 This uses Node 22 built-in test facilities only. It checks fixture semantics and basic structural contract invariants. It does NOT fully implement JSON Schema validation, compile OpenCode agents, run native models, or prove Windows behavior. A production runtime must add a real Draft 2020-12 validator and integration tests.
 
