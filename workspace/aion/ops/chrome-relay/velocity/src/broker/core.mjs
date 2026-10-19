@@ -41,7 +41,8 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     // retrieves its prior ID without admitting, dispatching or spending a grant.
     // The Bus stores only a non-cryptographic text signature after dispatch,
     // so do NOT claim the repeated payload matches; refuse as a replay.
-    const priorId=state.nonces?.[nonce];
+    const priorId=state.nonces && Object.hasOwn(state.nonces,nonce)
+      ? state.nonces[nonce] : null;
     if(priorId){
       return response(false,'NONCE_REPLAYED',{
         operation_id:priorId,delivery:'NOT_RESENT',recovery:'observe_existing_operation'
