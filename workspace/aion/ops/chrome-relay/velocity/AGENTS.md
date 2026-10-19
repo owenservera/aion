@@ -1,6 +1,9 @@
 # AION Track B — Agent Optimization Contract
 **Scope:** This directory and Track B implementation branches. Read root `AGENTS.md` first; this file adds Track B-specific priorities. Updated 2026-10-19.
 
+## 0. Runtime ownership — no GitHub Actions
+**The executable lives entirely on the local machine.** Use bundled Node 22 scripts (`aion selftest`, `aion connections`, `aion connect`, `aion send`, `aion observe`, `aion stop`, `aion resume`) and the existing Bus/adapters. No GitHub Actions, hosted runners, Slack, cloud orchestration, or GitHub polling in the command-to-result execution path. GitHub is only version control, issues, evidence and review. When Windows is paused, stage/test source here but do not claim installation.
+
 ## 1. The optimization target (one sentence)
 **Minimize time, code, dependencies, machine resources and owner intervention per VERIFIED useful operation, while keeping wrong-target sends and duplicate sends at zero.**
 
@@ -50,7 +53,7 @@ Track A frozen source/Chrome Profile 3/extension ID `kgjfielmhcdlggjppmliabpiljn
 - **On blocked external dependencies:** implement an interface + fake and mark real integration BLOCKED; do not fill gaps with invented readiness or silently switch accounts/models.
 - **On uncertain dispatch:** retain immutable operation ID; reconcile read-only; never retry.
 - **Before writing to shared branch:** check latest head/PR, avoid blind overwrites, commit focused source/test pairs.
-- **No success theater:** GitHub Actions `startup_failure` is UNRUN, mock tests are not M1, Chrome port CONNECTED is not prompt SENT.
+- **No success theater:** A local runner failure is a failure (never bypass tests); mock tests are not M1, Chrome port CONNECTED is not prompt SENT.
 - **Handoff/receipt:** concise commit SHA, files, commands and exact test results, remaining blocker, next direct coding action. No long SITREP or extra coordination artifacts unless they remove actual work.
 
 ## 7. Completion scorecard (minimum useful numbers)
