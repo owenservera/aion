@@ -55,19 +55,31 @@ test('apply builds an isolated dev extension + host; Track A untouched; uninstal
   assert.equal(u.track_a_touched,false);
 });
 
-test('Windows plan registers exactly the dev host key under HKCU',()=>{
-  const calls=[];const stateDir=join(tmp(),'track-b');
+test('Windows plan registers exactly the dev host key under HKCU, then removes only that key',()=>{
+  const calls=[],stateDir=join(tmp(),'track-b');
   const plan=planBrowserSetup({stateDir,platform:'win32',nodeExe:'C:\\Program Files\\nodejs\\node.exe'});
   assert.equal(plan.registration.key,'HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.aion.relay.dev');
-  // Host manifest path must be absolute in the Windows form; apply on this POSIX runner only checks the reg call.
-  plan.launcher=join(stateDir,'aion-host-dev.cmd');
-  try{applyBrowserSetup(plan,{run:okRun(calls)});}catch(e){assert.fail(e.message);}
-  assert.deepEqual(calls[0].slice(0,3),['reg','add',REGISTRY_KEY]);
-  assert.ok(!calls.some(c=>c.some(a=>/NativeMessagingHosts\\com\.aion\.relay$/.test(a))),'never the Track A key');
+  const reg=new Map();
+  const run=(cmd,args)=>{
+    calls.push([cmd,...args]);
+    if(cmd!=='reg')throw Error('unexpected process');
+    if(args[0]==='query'){
+      if(!reg.has(args[1]))return {status:1,stdout:'',stderr:'not found'};
+      return {status:0,stdout:'    (Default)    REG_SZ    '+reg.get(args[1])+'\\n'};
+    }
+    if(args[0]==='add'){reg.set(args[1],args[args.indexOf('/d')+1]);return {status:0};}
+    if(args[0]==='delete'){reg.delete(args[1]);return {status:0};}
+    throw Error('unexpected reg command');
+  };
+  const receipt=applyBrowserSetup(plan,{run});
+  assert.equal(receipt.host,'com.aion.relay.dev');
+  assert.ok(calls.some(c=>c[1]==='add'&&c[2]===REGISTRY_KEY));
+  assert.ok(!calls.some(c=>c.some(a=>/NativeMessagingHosts\\\\com\\.aion\\.relay$/.test(a))),'never Track A');
   const cmd=readFileSync(plan.launcher,'utf8');
-  assert.match(cmd,/aion-host-dev\.mjs" --config ".*host-dev\.config\.json" %\*/);
-  uninstallBrowserSetup(plan,{run:okRun(calls)});
-  assert.deepEqual(calls.at(-1),['reg','delete',REGISTRY_KEY,'/f']);
+  assert.match(cmd,/aion-host-dev\\.mjs" --config ".*host-dev\\.config\\.json" %\\*/);
+  uninstallBrowserSetup(plan,{run});
+  assert.equal(reg.has(REGISTRY_KEY),false);
+  assert.ok(calls.some(c=>c[1]==='delete'&&c[2]===REGISTRY_KEY));
 });
 
 test('built dev worker module graph loads and opens the dev port with a hello',async()=>{
