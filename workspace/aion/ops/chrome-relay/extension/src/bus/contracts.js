@@ -159,6 +159,7 @@ export const REASON = Object.freeze({
   // delivery outcomes
   BINDING_TARGET_MISSING: 'binding_target_missing',
   BINDING_AMBIGUOUS: 'binding_ambiguous',
+  BINDING_CHANGED: 'binding_changed_since_preflight',
   WRONG_CONVERSATION: 'wrong_conversation',
   TARGET_REFUSED: 'target_refused_no_send',
   OUTCOME_UNKNOWN: 'outcome_unknown',
