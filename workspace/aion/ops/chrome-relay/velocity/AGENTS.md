@@ -62,3 +62,10 @@ Record where observed: external human actions per completed task (target 1), con
 **Tie-breaker:** prefer a 150-line tested vertical slice that actually gets one correlated result over a 1,500-line framework with twenty speculative adapters.
 
 Primary work: [#32](https://github.com/owenservera/aion/issues/32). Isolated work PR: [#33](https://github.com/owenservera/aion/pull/33). Independent verification: [#31](https://github.com/owenservera/aion/issues/31).
+
+## Round 8 pre-live safety gates (mandatory, not extra project scope)
+Before requesting a real Chrome Send, require the locally executed `aion selftest` receipt from the **current Git head** and `aion preflight browser` reporting `READY_FOR_OWNER_LIVE_TEST`. This preflight is READ-ONLY and NEVER proves live Send, real click actuation, or a real reply. A stale dev build after Git head changes requires `aion setup browser --apply` to refresh it.
+
+Native-host registration belongs only to Track B if registry path, host manifest, pinned development extension key and original setup receipt match. Never overwrite or delete a foreign, unreadable or ambiguously owned native host registration. A non-private session-token directory, mismatched host session ID/endpoint, wrong extension ID or silent worker must fail closed. Do not silently retry after any forwarded submit whose outcome may be unknown.
+
+Use the existing Chrome task observer's precise `click_attempted` / `submission_observed` evidence to investigate B3-01 after a REAL dev-profile failure. Do not add CDP, UIA, alternate click paths, or a second send without observing the actual failure first. No GitHub Actions or hosted execution.
