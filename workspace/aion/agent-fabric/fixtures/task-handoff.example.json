@@ -1,0 +1,37 @@
+{
+  "schema": "aion.task-handoff/1",
+  "handoff_id": "handoff_demo0001",
+  "work_ref": "repo://owenservera/aion/issues/32",
+  "project_id": "aion",
+  "parent_work_ref": null,
+  "objective": "Review the isolated Track B diff for correctness without editing files",
+  "acceptance": [
+    "Findings must include file and line evidence or explicitly state no findings",
+    "No tool with edit or shell capability succeeds"
+  ],
+  "from_principal": "owner",
+  "target_agent": {
+    "agent_definition_ref": "aion-reviewer@0.1.0",
+    "deployment_id": "aion.opencode-dev.unknown",
+    "binding_revision": 1
+  },
+  "context_pack_ref": "ctx_demo_0001",
+  "permissions": {
+    "allowed_capabilities": [
+      "read",
+      "grep",
+      "glob"
+    ],
+    "allowed_resources": [
+      "repo://owenservera/aion"
+    ],
+    "approval_ref": null
+  },
+  "attempt_policy": {
+    "idempotency_key": "demo-review-0001",
+    "max_attempts": 1,
+    "retry_after_unknown_effect": false
+  },
+  "deadline_utc": null,
+  "created_utc": "2026-10-20T00:00:00Z"
+}
