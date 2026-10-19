@@ -4,11 +4,20 @@
   "private": true,
   "type": "module",
   "description": "Isolated, offline-safe Track B command client groundwork. No native host or browser integration yet.",
-  "engines": { "node": ">=22.0.0" },
-  "bin": { "aion-velocity": "./bin/aion-velocity.mjs" },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "bin": {
+    "aion": "./bin/aion.mjs",
+    "aiond-dev": "./bin/aiond-dev.mjs",
+    "aion-velocity": "./bin/aion-velocity.mjs"
+  },
   "scripts": {
     "test": "node --test",
-    "doctor": "node bin/aion-velocity.mjs doctor --json",
-    "status": "node bin/aion-velocity.mjs status --json"
+    "doctor": "node bin/aion.mjs doctor --json",
+    "status": "node bin/aion.mjs status --json",
+    "test:bus": "node --test test/round6-real-bus.integration.test.mjs test/round6-binding-drift.test.mjs",
+    "test:ipc": "node --test test/round6-ipc-to-bus.integration.test.mjs",
+    "bootstrap:doctor": "node bin/aion-velocity.mjs doctor --json"
   }
 }
