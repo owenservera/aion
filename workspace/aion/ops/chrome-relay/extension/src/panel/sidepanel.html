@@ -167,6 +167,16 @@
                 Never a password or key.
               </p>
 
+              <div class="field">
+                <label for="probe-scope-ref">Approval reference</label>
+                <input type="text" id="probe-scope-ref" autocomplete="off" spellcheck="false" aria-describedby="probe-scope-ref-note" />
+              </div>
+              <p class="footnote" id="probe-scope-ref-note">
+                Required to send. Names the approval this turn acts under, exactly as your own
+                authorization record names it. A click is not authorisation, so this panel holds no
+                grant of its own and will not send without one. Up to 128 characters.
+              </p>
+
               <dl class="review" id="review" aria-label="Check before you send">
                 <div class="review__row">
                   <dt>Goes to</dt>
@@ -195,14 +205,24 @@
 
               <div class="btnrow">
                 <button type="button" class="btn btn--armed" id="btn-chatgpt-run" disabled>Run one probe</button>
+                <button type="button" class="btn btn--armed" id="btn-chatgpt-submit" disabled
+                        aria-describedby="probe-submit-note">
+                  Submit one turn
+                </button>
                 <button type="button" class="btn" id="btn-probe-reconcile" disabled
                         aria-describedby="probe-reconcile-note">
                   Reconcile probe state
                 </button>
               </div>
+              <p class="footnote" id="probe-submit-note">
+                Submit uses the split engine: it reserves the turn durably, arms the page observer
+                and activates the tab once, then hands you a receipt. Run one probe is the older
+                blocking path. They share one lock, so only one of them can send at a time.
+              </p>
               <p class="footnote" id="probe-reconcile-note">
                 Reconcile sends nothing. It only re-arms the run button so you can type
-                and confirm a new probe.
+                and confirm a new probe. It also drops the turn you were addressing, so
+                follow it before you reconcile.
               </p>
               <p class="hold" id="probe-hold" data-hold="clear" role="status" aria-live="polite">
                 Probe not sent. Nothing has been dispatched.
@@ -210,11 +230,49 @@
               <p class="gate__list gate__list--inline" id="probe-blockers"></p>
               <p class="result" id="result-run" role="status" aria-live="polite">Not run.</p>
               <button type="button" class="btn btn--quiet" data-copy-target="result-run">Copy result</button>
+              <p class="result" id="result-submit" role="status" aria-live="polite">Not run.</p>
               <p class="footnote" id="copy-status" role="status" aria-live="polite"></p>
               <p class="footnote">
                 Anything captured from a tab is a capture, not a verified result. It is
                 not a proof receipt and does not change any task on this page.
               </p>
+            </div>
+          </li>
+
+          <li class="step" aria-labelledby="step-follow">
+            <span class="step__node" aria-hidden="true">4</span>
+            <div class="step__body">
+              <h3 class="step__title" id="step-follow">Follow the turn you sent</h3>
+              <p class="step__hint">
+                Three read-only controls. They use the correlation id and the reply token
+                of the turn you just sent, so they still work after this panel has given
+                up waiting for it.
+              </p>
+              <div class="btnrow">
+                <button type="button" class="btn" id="btn-chatgpt-observe" disabled
+                        aria-describedby="follow-note">
+                  Observe once (read-only)
+                </button>
+                <button type="button" class="btn" id="btn-chatgpt-read" disabled
+                        aria-describedby="follow-note">
+                  Read final reply (read-only)
+                </button>
+                <button type="button" class="btn" id="btn-chatgpt-reconcile" disabled
+                        aria-describedby="follow-note">
+                  Reconcile operation (read-only)
+                </button>
+              </div>
+              <p class="footnote" id="follow-note">
+                Observe is one poll of the armed observer, so it is only offered after a
+                submitted turn: only the submit path arms an observer. Read final reads
+                the reply back. Reconcile asks the worker what the durable record holds
+                about a turn that cannot settle on its own. None of them composes,
+                clicks, stops or re-sends anything, and none can move the turn's
+                deadline. One click is one request; nothing repeats on its own.
+              </p>
+              <p class="result" id="result-observe" role="status" aria-live="polite">Not run.</p>
+              <p class="result" id="result-read" role="status" aria-live="polite">Not run.</p>
+              <p class="result" id="result-reconcile" role="status" aria-live="polite">Not run.</p>
             </div>
           </li>
         </ol>

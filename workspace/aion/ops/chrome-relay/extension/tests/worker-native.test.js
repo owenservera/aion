@@ -718,7 +718,12 @@ test('aion/chatgpt-run submits exactly one turn on an explicit gesture', async (
     // Panel-facing flattened shape.
     assert.equal(reply.captured, true);
     assert.equal(reply.correlation_id, 'task-1');
-    assert.equal(reply.expected_reply_token, 'ACK-1');
+    // The expected reply token is NOT echoed back by the machine reply: it is
+    // a marker the operation was sent with, not an outcome, and the reply
+    // carries the validated envelope instead. (The envelope's own payload
+    // still names the expected reply, because that is the page's proof.)
+    assert.equal(reply.expected_reply_token, undefined);
+    assert.equal(reply.result.expected_reply_token, undefined);
     assert.ok(reply.captured_at || reply.finished_at, 'a capture is timestamped');
   });
 });

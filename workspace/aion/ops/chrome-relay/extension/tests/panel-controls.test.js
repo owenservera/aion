@@ -24,18 +24,28 @@ const OPERATOR_TYPES = [
   'aion/native-hello',
   'aion/chatgpt-tabs',
   'aion/chatgpt-ping',
-  'aion/chatgpt-run'
+  'aion/chatgpt-run',
+  'aion/chatgpt-submit',
+  'aion/chatgpt-observe',
+  'aion/chatgpt-read',
+  'aion/chatgpt-reconcile'
 ];
+
+// The approval reference is OPERATOR-SUPPLIED. The panel holds no grant of its
+// own, so every test that sends one has to name the approval it acts under.
+const SCOPE_REF = 'workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md';
 
 const CONTROL_IDS = [
   'role-grid', 'refresh-btn', 'knowledge-bar', 'knowledge-text', 'mode-chip', 'fallback-reason',
   'relay-transport', 'relay-adapter', 'relay-detail', 'relay-boots', 'relay-started',
   'proof-status', 'proof-timestamp', 'proof-staleness', 'proof-verifier', 'proof-note',
   'queue-count', 'queue-oldest', 'queue-cursor', 'gate-panel', 'gate-count', 'gate-list',
-  'gate-note', 'result-native', 'result-chatgpt', 'result-run', 'probe-hold', 'probe-blockers',
-  'tab-select', 'probe-text', 'probe-correlation', 'probe-token', 'probe-confirm',
+  'gate-note', 'result-native', 'result-chatgpt', 'result-run', 'result-submit',
+  'result-observe', 'result-read', 'result-reconcile', 'probe-hold', 'probe-blockers',
+  'tab-select', 'probe-text', 'probe-correlation', 'probe-token', 'probe-scope-ref', 'probe-confirm',
   'btn-native-ping', 'btn-native-hello', 'btn-chatgpt-tabs', 'btn-chatgpt-ping',
-  'btn-chatgpt-run', 'btn-probe-reconcile'
+  'btn-chatgpt-run', 'btn-chatgpt-submit', 'btn-chatgpt-observe', 'btn-chatgpt-read',
+  'btn-chatgpt-reconcile', 'btn-probe-reconcile'
 ];
 
 /* ------------------------------------------------------------------ *
@@ -178,7 +188,8 @@ async function loadPanel(options = {}) {
     change(id) { ids.get(id).listeners.change({}); },
     blockers: () => ids.get('probe-blockers').children.map((li) => li.textContent),
     settle: () => new Promise((resolve) => realSetTimeout(resolve, 5)),
-    runs: () => sent.filter((m) => m.type === 'aion/chatgpt-run')
+    runs: () => sent.filter((m) => m.type === 'aion/chatgpt-run'),
+    of: (type) => sent.filter((m) => m.type === type)
   };
   await env.settle();
   return env;
@@ -191,9 +202,11 @@ async function armProbe(env, tabId = '7') {
   env.get('probe-text').value = 'hello';
   env.get('probe-correlation').value = 'corr-1';
   env.get('probe-token').value = 'tok-1';
+  env.get('probe-scope-ref').value = SCOPE_REF;
   env.input('probe-text');
   env.input('probe-correlation');
   env.input('probe-token');
+  env.input('probe-scope-ref');
   env.get('probe-confirm').checked = true;
   env.change('probe-confirm');
 }
@@ -560,14 +573,14 @@ test('sends exactly one message with exactly the agreed command shape', async ()
       text: 'hello',
       correlation_id: 'corr-1',
       expected_reply_token: 'tok-1',
-      approved_scope_ref: 'workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md',
+      approved_scope_ref: SCOPE_REF,
       timeout_ms: 300000,
       user_gesture: true
     }
   });
 });
 
-test('every commanded run names the approval it acts under', async () => {
+test('every commanded run names the approval the operator supplied', async () => {
   const env = await loadPanel({ reply: () => ({ ok: true }) });
   await selectOneTab(env);
   await armProbe(env);
@@ -584,10 +597,12 @@ test('every commanded run names the approval it acts under', async () => {
   for (const run of env.runs()) {
     // The worker refuses a run with no approval reference: a gesture is not
     // authorisation, and the panel must not be able to invent or widen one.
+    // The reference is the operator's own, typed into the panel — never one
+    // the panel carries for them.
     assert.equal(
       run.command.approved_scope_ref,
-      'workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md',
-      'the run must carry the fixed owner authorization reference'
+      SCOPE_REF,
+      'the run must carry the approval reference the operator supplied'
     );
   }
 });
@@ -604,7 +619,7 @@ test('a capture is never presented as verified', async () => {
   assert.match(env.get('probe-hold').textContent, /not independently verified/);
 });
 
-test('inputs are cleared the moment the request is dispatched', async () => {
+test('the message and the confirmation are cleared the moment the request is dispatched', async () => {
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const env = await loadPanel({
@@ -620,9 +635,12 @@ test('inputs are cleared the moment the request is dispatched', async () => {
   // Dispatch has happened but the worker has not answered yet.
   assert.equal(env.runs().length, 1);
   assert.equal(env.get('probe-text').value, '');
-  assert.equal(env.get('probe-correlation').value, '');
-  assert.equal(env.get('probe-token').value, '');
   assert.equal(env.get('probe-confirm').checked, false);
+  // The correlation id and the reply token are NOT blanked: they are the
+  // address of the operation, and a read-only poll needs them long after
+  // this panel has given up waiting.
+  assert.equal(env.get('probe-correlation').value, 'corr-1');
+  assert.equal(env.get('probe-token').value, 'tok-1');
   assert.equal(env.get('btn-chatgpt-run').disabled, true, 'locked while in flight');
   assert.equal(env.get('btn-probe-reconcile').disabled, true,
     'an in-flight probe cannot be reconciled away yet');
@@ -777,6 +795,512 @@ test('reconcile re-arms without resending anything', async () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * The split engine, from the panel
+ * ------------------------------------------------------------------ */
+
+test('the submit control posts exactly one submission with the fields the worker requires', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true, correlation_id: 'corr-1', observer: { observer_id: 'obs-1' } }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  assert.equal(env.get('btn-chatgpt-submit').disabled, false);
+
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  const submits = env.of('aion/chatgpt-submit');
+  assert.equal(submits.length, 1, 'one click is one submission');
+  assert.deepEqual(submits[0], {
+    type: 'aion/chatgpt-submit',
+    tabId: 7,
+    command: {
+      text: 'hello',
+      correlation_id: 'corr-1',
+      expected_reply_token: 'tok-1',
+      approved_scope_ref: SCOPE_REF,
+      user_gesture: true,
+      // The split engine keys the operation on a stable identity and refuses
+      // a correlation marker alone.
+      task_id: 'corr-1',
+      operation_key: 'corr-1',
+      timeout_ms: resolveCommandDeadline({ command: 'submit-turn' }).workMs
+    }
+  });
+
+  // The submit shares the run's lock: only one send at a time, whichever
+  // path sends it.
+  assert.equal(env.get('btn-chatgpt-run').disabled, true);
+  assert.equal(env.get('btn-chatgpt-submit').disabled, true);
+  assert.equal(env.runs().length, 0, 'the submit is not the legacy run path');
+});
+
+test('one observe click is one read-only command, and it moves no deadline', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true, read_only: true, observer: { observer_id: 'obs-1' } }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  // The split engine's submit is what arms the observer, so the poll follows a
+  // submit and not a legacy run.
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  const before = env.sent.length;
+  env.click('btn-chatgpt-observe');
+  await env.settle();
+
+  assert.equal(env.sent.length, before + 1, 'one click is one command, and nothing repeats');
+  const polls = env.of('aion/chatgpt-observe');
+  assert.equal(polls.length, 1);
+
+  const observePlan = resolveCommandDeadline({ command: 'observe-turn' });
+  const runPlan = resolveCommandDeadline({ command: 'run-turn' });
+
+  // Exactly the read-only identity fields. No text, no gesture, no approval,
+  // and no page action: a poll cannot fill, click, stop or send.
+  assert.deepEqual(polls[0], {
+    type: 'aion/chatgpt-observe',
+    tabId: 7,
+    command: {
+      correlation_id: 'corr-1',
+      expected_reply_token: 'tok-1',
+      timeout_ms: observePlan.workMs
+    }
+  });
+  assert.equal('action' in polls[0], false, 'the panel never names a page action');
+  assert.equal('text' in polls[0].command, false);
+  assert.equal('user_gesture' in polls[0].command, false);
+  assert.equal('approved_scope_ref' in polls[0].command, false);
+
+  // The poll carries the observe budget, which is far below the generation
+  // budget: a poll can never outlast — let alone move — the operation.
+  assert.equal(polls[0].command.timeout_ms, observePlan.workMs);
+  assert.ok(polls[0].command.timeout_ms < runPlan.workMs);
+
+  // And it says what it is.
+  assert.match(env.get('result-observe').textContent, /Read-only poll/);
+  assert.match(env.get('result-observe').textContent, /Nothing was sent/);
+});
+
+test('the read-final control reads the addressed operation back, and only that one', async () => {
+  const env = await loadPanel({
+    reply: () => ({ ok: true, correlation_id: 'corr-1', verdict: { accepted: true, reason: 'matched', reply: 'Hello from the page.' } })
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  env.click('btn-chatgpt-read');
+  await env.settle();
+
+  const reads = env.of('aion/chatgpt-read');
+  assert.equal(reads.length, 1, 'one click is one command');
+  assert.deepEqual(reads[0], {
+    type: 'aion/chatgpt-read',
+    tabId: 7,
+    command: {
+      correlation_id: 'corr-1',
+      expected_reply_token: 'tok-1',
+      timeout_ms: resolveCommandDeadline({ command: 'read-final' }).workMs
+    }
+  });
+  assert.match(env.get('result-read').textContent, /Hello from the page\./);
+  assert.match(env.get('result-read').textContent, /Nothing was sent/);
+});
+
+test('the read-back carries no text: the prompt is never re-transmitted', async () => {
+  // The read control is read-only. It re-transmitted the whole prompt on every
+  // read, which contradicted its own text-free contract and re-put the message
+  // into the tab on a control that is supposed to change nothing.
+  const env = await loadPanel({ reply: () => ({ ok: true, correlation_id: 'corr-1' }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  env.click('btn-chatgpt-read');
+  await env.settle();
+
+  const reads = env.of('aion/chatgpt-read');
+  assert.equal(reads.length, 1);
+  assert.equal('outbound_text' in reads[0].command, false, 'the read must not re-send the prompt');
+  assert.equal('text' in reads[0].command, false);
+  assert.doesNotMatch(JSON.stringify(reads[0]), /hello/, 'the prompt text does not travel with the read');
+});
+
+test('a read-only control changes no send state and sends nothing', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true, read_only: true }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  const holdBefore = env.get('probe-hold').textContent;
+  const runDisabled = env.get('btn-chatgpt-run').disabled;
+
+  env.click('btn-chatgpt-observe');
+  env.click('btn-chatgpt-read');
+  await env.settle();
+
+  assert.equal(env.get('probe-hold').textContent, holdBefore, 'a poll changes no hold state');
+  assert.equal(env.get('btn-chatgpt-run').disabled, runDisabled, 'a poll re-arms nothing');
+  assert.equal(env.runs().length, 1, 'a read-only control never sends');
+  assert.equal(env.of('aion/chatgpt-submit').length, 0);
+  assert.equal(env.of('aion/chatgpt-run').length, 1);
+  assert.equal(env.of('aion/chatgpt-read').length, 1, 'the read-back ran');
+  // A legacy run arms no observer, so the poll is not offered and is not sent
+  // even when a click reaches the handler.
+  assert.equal(env.of('aion/chatgpt-observe').length, 0, 'a poll without an observer sends nothing');
+});
+
+test('the identity survives a panel timeout, so the operation stays addressable', async () => {
+  const env = await loadPanel({ reply: () => undefined }); // never answers
+  await selectOneTab(env);
+  await armProbe(env);
+  const clock = installFakeClock();
+  try {
+    env.click('btn-chatgpt-submit');
+    assert.equal(env.of('aion/chatgpt-submit').length, 1);
+    await clock.advance(resolveCommandDeadline({ command: 'submit-turn' }).panelMs);
+    assert.match(env.get('result-submit').textContent, /UNCERTAIN/);
+
+    // The panel gave up on the answer, but the operation it dispatched is
+    // still addressable: the correlation id and the token survived.
+    assert.equal(env.get('probe-correlation').value, 'corr-1');
+    assert.equal(env.get('probe-token').value, 'tok-1');
+    assert.equal(env.get('btn-chatgpt-observe').disabled, false);
+    assert.equal(env.get('btn-chatgpt-read').disabled, false);
+    assert.equal(env.get('btn-chatgpt-reconcile').disabled, false);
+
+    env.click('btn-chatgpt-observe');
+    await clock.advance(0);
+    const polls = env.of('aion/chatgpt-observe');
+    assert.equal(polls.length, 1);
+    assert.equal(polls[0].command.correlation_id, 'corr-1');
+    assert.equal(polls[0].command.expected_reply_token, 'tok-1');
+  } finally {
+    clock.restore();
+  }
+});
+
+test('an explicit new run drops the addressable operation', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  assert.equal(env.get('btn-chatgpt-observe').disabled, false);
+  assert.equal(env.get('btn-chatgpt-read').disabled, false);
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, false);
+
+  env.click('btn-probe-reconcile');
+  await env.settle();
+
+  // Reconciling is the explicit new run: the operation is done with, and its
+  // address goes with it.
+  assert.equal(env.get('probe-correlation').value, '');
+  assert.equal(env.get('probe-token').value, '');
+  assert.equal(env.get('btn-chatgpt-observe').disabled, true);
+  assert.equal(env.get('btn-chatgpt-read').disabled, true);
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, true);
+  assert.equal(env.of('aion/chatgpt-observe').length, 0, 'reconcile polls nothing');
+  assert.equal(env.of('aion/chatgpt-reconcile').length, 0, 'the local reset sends nothing');
+});
+
+test('the reply token never appears in human-facing text', async () => {
+  const env = await loadPanel({
+    reply: () => ({
+      ok: true,
+      expected_reply_token: 'tok-1',
+      correlation_id: 'corr-1',
+      captured: 'partial text',
+      observer: { observer_id: 'obs-1' },
+      verdict: { accepted: true, reason: 'matched', reply: 'the page said hello' }
+    })
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+  env.click('btn-chatgpt-observe');
+  await env.settle();
+  env.click('btn-chatgpt-read');
+  await env.settle();
+
+  for (const id of ['result-run', 'result-submit', 'result-observe', 'result-read', 'probe-hold']) {
+    assert.doesNotMatch(env.get(id).textContent, /tok-1/, id + ' must not echo the reply token');
+  }
+  // The correlation id is not a secret and may be shown.
+  assert.match(env.get('result-submit').textContent, /corr-1/);
+});
+
+/* ------------------------------------------------------------------ *
+ * Observe needs an observer; a legacy run has none
+ * ------------------------------------------------------------------ */
+
+test('observe is offered only for a submitted turn; a legacy run offers only the read-back', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true }) });
+  await selectOneTab(env);
+  await armProbe(env);
+
+  // Nothing is addressed yet, so no follow-up is offered.
+  assert.equal(env.get('btn-chatgpt-observe').disabled, true);
+  assert.equal(env.get('btn-chatgpt-read').disabled, true);
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, true);
+
+  env.click('btn-chatgpt-run');
+  await env.settle();
+
+  // The legacy run arms no observer, so Observe is not offered: a poll against
+  // it could only ever answer `observer_identity_required`.
+  assert.equal(env.get('btn-chatgpt-observe').disabled, true, 'a legacy run has no observer to poll');
+  // The read-back is, because it can scan the page without a durable observer.
+  assert.equal(env.get('btn-chatgpt-read').disabled, false, 'the read-back needs no observer');
+  // And the operation is addressable, so the reconciliation door is open.
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, false, 'the operation is addressable');
+
+  // Even a click that reaches the handler sends no poll and says why.
+  env.click('btn-chatgpt-observe');
+  await env.settle();
+  assert.equal(env.of('aion/chatgpt-observe').length, 0, 'no observer means no poll is sent');
+  assert.match(env.get('result-observe').textContent, /no armed observer/);
+});
+
+test('a submitted turn can be polled and read back', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true, observer: { observer_id: 'obs-1' } }) });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  assert.equal(env.get('btn-chatgpt-observe').disabled, false, 'a submitted turn has an observer');
+  assert.equal(env.get('btn-chatgpt-read').disabled, false);
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, false);
+
+  env.click('btn-chatgpt-observe');
+  await env.settle();
+  assert.equal(env.of('aion/chatgpt-observe').length, 1, 'the poll ran');
+  assert.equal(env.of('aion/chatgpt-run').length, 0, 'a poll never sends');
+});
+
+test('a timed-out legacy run keeps its address and still offers no poll', async () => {
+  const env = await loadPanel({ reply: () => undefined }); // never answers
+  await selectOneTab(env);
+  await armProbe(env);
+  const clock = installFakeClock();
+  try {
+    env.click('btn-chatgpt-run');
+    assert.equal(env.runs().length, 1);
+    await clock.advance(resolveCommandDeadline({ command: 'run-turn' }).panelMs);
+    assert.match(env.get('result-run').textContent, /UNCERTAIN/);
+
+    // The panel gave up on the answer, but the operation it dispatched is
+    // still addressable — a timeout is exactly when the operator most needs
+    // to ask about it.
+    assert.equal(env.get('probe-correlation').value, 'corr-1', 'the address survives the timeout');
+    assert.equal(env.get('probe-token').value, 'tok-1');
+    assert.equal(env.get('btn-chatgpt-observe').disabled, true, 'a legacy run still has no observer');
+    assert.equal(env.get('btn-chatgpt-read').disabled, false, 'the read-back is still offered');
+    assert.equal(env.get('btn-chatgpt-reconcile').disabled, false, 'the operation is still addressable');
+  } finally {
+    clock.restore();
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * The read-only reconciliation door
+ * ------------------------------------------------------------------ */
+
+test('the reconcile door is one read-only command, and it changes nothing here', async () => {
+  const env = await loadPanel({
+    reply: (message) => (message.type === 'aion/chatgpt-reconcile'
+      ? {
+          ok: true,
+          correlation_id: 'corr-1',
+          phase: 'NEEDS_RECONCILIATION',
+          lock_active: true,
+          settled: false,
+          resolved: false,
+          reason: 'observation_pending'
+        }
+      : { ok: true })
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  const holdBefore = env.get('probe-hold').textContent;
+  const before = env.sent.length;
+
+  env.click('btn-chatgpt-reconcile');
+  await env.settle();
+
+  const reconciles = env.of('aion/chatgpt-reconcile');
+  assert.equal(reconciles.length, 1, 'one click is one command');
+  assert.equal(env.sent.length, before + 1, 'nothing repeats on its own');
+  assert.deepEqual(reconciles[0], {
+    type: 'aion/chatgpt-reconcile',
+    tabId: 7,
+    command: {
+      correlation_id: 'corr-1',
+      expected_reply_token: 'tok-1',
+      timeout_ms: resolveCommandDeadline({ command: 'reconcile-turn' }).workMs
+    }
+  });
+
+  // It has no send authority at all: no gesture, no approval, no text.
+  assert.equal('user_gesture' in reconciles[0].command, false);
+  assert.equal('approved_scope_ref' in reconciles[0].command, false);
+  assert.equal('text' in reconciles[0].command, false);
+  assert.equal('outbound_text' in reconciles[0].command, false);
+  assert.equal('action' in reconciles[0], false, 'the panel never names a page action');
+
+  // It reports the worker's answer and nothing else.
+  const shown = env.get('result-reconcile').textContent;
+  assert.match(shown, /Read-only reconciliation/);
+  assert.match(shown, /Nothing was sent/);
+  assert.match(shown, /Phase: NEEDS_RECONCILIATION/);
+  assert.match(shown, /Lock active: true/);
+  assert.match(shown, /Settlement: false/);
+  assert.match(shown, /Reason: observation_pending/);
+
+  // And it changes NOTHING here: no state cleared, nothing re-armed.
+  assert.equal(env.get('probe-hold').textContent, holdBefore, 'a reconcile changes no hold state');
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'a reconcile re-arms nothing');
+  assert.equal(env.get('btn-chatgpt-submit').disabled, true, 'a reconcile re-arms nothing');
+  assert.equal(env.get('probe-correlation').value, 'corr-1', 'the address survives');
+  assert.equal(env.get('probe-token').value, 'tok-1');
+  assert.equal(env.get('btn-chatgpt-observe').disabled, false, 'the operation stays addressable');
+  assert.equal(env.get('btn-chatgpt-read').disabled, false);
+  assert.equal(env.of('aion/chatgpt-run').length, 0, 'a reconcile never sends');
+  assert.equal(env.of('aion/chatgpt-submit').length, 1, 'a reconcile never re-sends');
+});
+
+test('the reconcile door is closed with no address and holds one command at a time', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const env = await loadPanel({
+    reply: async (message) => {
+      if (message.type !== 'aion/chatgpt-reconcile') return { ok: true };
+      await gate;
+      return { ok: true, phase: 'NEEDS_RECONCILIATION', lock_active: true, settled: false, reason: 'observation_pending' };
+    }
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+
+  // No address: the door is closed, and a click that reaches the handler
+  // sends nothing.
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, true);
+  env.click('btn-chatgpt-reconcile');
+  await env.settle();
+  assert.equal(env.of('aion/chatgpt-reconcile').length, 0);
+  assert.match(env.get('result-reconcile').textContent, /no operation to address/);
+
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, false);
+
+  env.click('btn-chatgpt-reconcile');
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, true, 'one command at a time');
+  env.click('btn-chatgpt-reconcile');
+  await env.settle();
+  assert.equal(env.of('aion/chatgpt-reconcile').length, 1, 'a second click queues nothing');
+  assert.match(env.get('result-reconcile').textContent, /already in flight/);
+
+  release();
+  await env.settle();
+  assert.equal(env.get('btn-chatgpt-reconcile').disabled, false, 'the door re-opens for the next question');
+});
+
+test('a refused reconciliation keeps the worker code and the durable facts', async () => {
+  const env = await loadPanel({
+    reply: (message) => (message.type === 'aion/chatgpt-reconcile'
+      ? {
+          ok: false,
+          code: 'observer_not_armed',
+          error: 'observer_not_armed: no observer is armed for this operation',
+          reason: 'observer_not_armed',
+          phase: 'NEEDS_RECONCILIATION',
+          lock_active: true,
+          settled: false,
+          uncertain: true
+        }
+      : { ok: true })
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  env.click('btn-chatgpt-reconcile');
+  await env.settle();
+
+  const shown = env.get('result-reconcile').textContent;
+  assert.match(shown, /UNCERTAIN — /);
+  assert.match(shown, /Code: observer_not_armed/);
+  assert.match(shown, /Lock active: true/, 'the durable facts are shown even on a refusal');
+  assert.match(shown, /Phase: NEEDS_RECONCILIATION/);
+  assert.equal(env.get('result-reconcile').dataset.state, 'warn');
+});
+
+test('a pending submission is uncertain and carries the worker code, never a bare failure', async () => {
+  const env = await loadPanel({
+    reply: (message) => (message.type === 'aion/chatgpt-tabs'
+      ? { ok: true, tabs: [{ id: 7, url: 'https://chatgpt.com/c/abc' }] }
+      : {
+          ok: false,
+          code: 'submit_pending',
+          error: 'submit_pending: activation attempted; submission_observed=false',
+          submitted: true,
+          uncertain: true,
+          observer: { observer_id: 'obs-1' }
+        })
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  const text = env.get('result-submit').textContent;
+  assert.match(text, /^UNCERTAIN — /);
+  assert.doesNotMatch(text, /UNCERTAIN — UNCERTAIN/, 'the outcome is worded once, not twice');
+  assert.match(text, /Code: submit_pending/);
+  assert.match(text, /not known here/);
+  assert.doesNotMatch(text, /NOT SENT/, 'a dispatched submission is never reported as not sent');
+  assert.equal(env.get('result-submit').dataset.state, 'warn');
+});
+
+test('a refused submission is the only evidence-backed NOT SENT', async () => {
+  const env = await loadPanel({
+    reply: (message) => (message.type === 'aion/chatgpt-tabs'
+      ? { ok: true, tabs: [{ id: 7, url: 'https://chatgpt.com/c/abc' }] }
+      : { ok: false, code: 'turn_refused', error: 'turn_refused: no_submit', submitted: false, uncertain: false })
+  });
+  await selectOneTab(env);
+  await armProbe(env);
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  const text = env.get('result-submit').textContent;
+  assert.match(text, /NOT SENT — the worker refused this before dispatch/);
+  assert.match(text, /Code: turn_refused/);
+  assert.equal(env.get('result-submit').dataset.state, 'warn');
+});
+
+test('every operator action the panel can send is in the shared catalog', async () => {
+  const { ACTION_CATALOG } = await import('../src/panel/view-model.js');
+  const catalog = new Set(ACTION_CATALOG.map((action) => action.type));
+  for (const type of OPERATOR_TYPES) {
+    assert.ok(catalog.has(type), type + ' must be in the shared catalog');
+  }
+  // Nothing that sends is ever machine-callable.
+  for (const action of ACTION_CATALOG.filter((a) => a.kind === 'send')) {
+    assert.equal(action.machine_view, false, action.type + ' must not be machine-callable');
+  }
+});
+
+/* ------------------------------------------------------------------ *
  * Deadlines
  * ------------------------------------------------------------------ */
 
@@ -855,10 +1379,12 @@ test('the live probe is still waiting well past the diagnostic deadline', async 
     env.get('probe-text').value = 'hello';
     env.get('probe-correlation').value = 'corr-1';
     env.get('probe-token').value = 'tok-1';
+    env.get('probe-scope-ref').value = SCOPE_REF;
     env.get('probe-confirm').checked = true;
     env.input('probe-text');
     env.input('probe-correlation');
     env.input('probe-token');
+    env.input('probe-scope-ref');
     env.change('probe-confirm');
 
     env.click('btn-chatgpt-run');
@@ -1023,7 +1549,7 @@ test('without a runtime every action degrades and nothing is sent', async () => 
 
 test('validateProbeInput rejects each missing or malformed field', async () => {
   const { validateProbeInput } = (await loadPanel()).mod;
-  const base = { text: 'a', correlationId: 'c', token: 't', tabId: 1, confirmed: true };
+  const base = { text: 'a', correlationId: 'c', token: 't', tabId: 1, confirmed: true, scopeRef: SCOPE_REF };
 
   assert.deepEqual(validateProbeInput(base), []);
   assert.equal(validateProbeInput({ ...base, text: '   ' }).length, 1);
@@ -1037,6 +1563,63 @@ test('validateProbeInput rejects each missing or malformed field', async () => {
   assert.equal(validateProbeInput({ ...base, confirmed: false }).length, 1);
   assert.equal(validateProbeInput({ ...base, confirmed: 'true' }).length, 1,
     'only a real boolean true is a confirmation');
+});
+
+test('the approval reference is required, bounded and free of a hardcoded grant', async () => {
+  const { scopeRefProblem, validateProbeInput } = (await loadPanel()).mod;
+  const base = { text: 'a', correlationId: 'c', token: 't', tabId: 1, confirmed: true };
+
+  // Absent or blank is a refusal, not a default.
+  assert.match(scopeRefProblem(''), /required/);
+  assert.match(scopeRefProblem('   '), /required/);
+  assert.match(scopeRefProblem(undefined), /required/);
+  assert.match(scopeRefProblem(null), /required/);
+  assert.equal(scopeRefProblem(SCOPE_REF), null);
+  assert.equal(scopeRefProblem('  ' + SCOPE_REF + '  '), null, 'a trimmed reference is usable');
+  assert.equal(validateProbeInput({ ...base }).length, 1, 'no reference means no send');
+
+  // The worker's own bound: 1-128 characters, a conservative charset.
+  assert.match(scopeRefProblem('x'.repeat(129)), /1-128/);
+  assert.equal(scopeRefProblem('x'.repeat(128)), null);
+  assert.match(scopeRefProblem('has space'), /1-128 characters of/);
+  assert.match(scopeRefProblem('quote"inside'), /1-128 characters of/);
+  assert.match(scopeRefProblem('__proto__'), /1-128 characters of/);
+
+  // The panel holds NO grant of its own. A hardcoded authorization record
+  // would be the panel granting itself permission, which the contract forbids.
+  assert.equal(
+    /AUTHORIZATION-\d{4}-\d{2}-\d{2}/.test(panelSource),
+    false,
+    'the panel must not carry a hardcoded approval record'
+  );
+});
+
+test('a send without an approval reference is refused before anything is dispatched', async () => {
+  const env = await loadPanel({ reply: () => ({ ok: true }) });
+  await selectOneTab(env);
+  // Everything except the approval reference.
+  env.get('probe-text').value = 'hello';
+  env.get('probe-correlation').value = 'corr-1';
+  env.get('probe-token').value = 'tok-1';
+  env.get('probe-confirm').checked = true;
+  env.input('probe-text');
+  env.input('probe-correlation');
+  env.input('probe-token');
+  env.change('probe-confirm');
+
+  assert.equal(env.get('btn-chatgpt-run').disabled, true, 'no approval, no armed run');
+  assert.equal(env.get('btn-chatgpt-submit').disabled, true, 'no approval, no armed submit');
+  assert.ok(env.blockers().some((line) => /Approval reference is required/.test(line)));
+
+  // Even a direct click sends nothing.
+  env.click('btn-chatgpt-run');
+  env.click('btn-chatgpt-submit');
+  await env.settle();
+
+  assert.equal(env.runs().length, 0);
+  assert.equal(env.of('aion/chatgpt-submit').length, 0);
+  assert.match(env.get('result-run').textContent, /NOT SENT — Approval reference is required/);
+  assert.match(env.get('result-submit').textContent, /NOT SENT — Approval reference is required/);
 });
 
 /* ------------------------------------------------------------------ *
