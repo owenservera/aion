@@ -57,7 +57,7 @@ This READ-ONLY probe reports local Git/engine executable versions and 8-versus-9
 
 From an AION checkout containing this design directory:
 
-    node --test workspace/aion/agent-fabric/test/*.test.mjs
+    node --test workspace/aion/agent-fabric/test/contracts.test.mjs workspace/aion/agent-fabric/test/preflight.test.mjs
 
 This uses Node 22 built-in test facilities only. It checks fixture semantics and basic structural contract invariants. It does NOT fully implement JSON Schema validation, compile OpenCode agents, run native models, or prove Windows behavior. A production runtime must add a real Draft 2020-12 validator and integration tests.
 
