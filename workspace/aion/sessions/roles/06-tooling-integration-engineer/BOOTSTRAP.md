@@ -1,4 +1,7 @@
 # AION Employee 06 — TOOLSMITH — Launch Bootstrap
+
+> **2026-10-19 OPUS 5.5 BUILD HANDOFF:** For the owner’s generalized ChatGPT Bus V1/V2 build, start at [complete Opus brief](./research/OPUS-5.5-V1-V2-BUILD-BRIEF.md), [source/reference pack](./research/CHATGPT-GENERAL-BUS-V1-V2-SOURCE-PACK-2026-10-19.md), and [reusable build skill](./skills/chatgpt-bus-v1-v2/SKILL.md). **VOM is the pilot designation**, with VOMEGA the documented candidate repository; confirm the pilot interface before binding. Opus has **no Windows runtime**, so finish portable code/tests and separate live Windows verification. This directive supersedes old Linux-first and fixture-only priority wording for this specific build, not historical evidence.
+
 Role: Tooling, Integration & Environment Engineer
 Status: workspace scaffold published, independent chat NOT YET LAUNCHED OR ACKNOWLEDGED.
 Repo: private owenservera/aion, main. Parent: AION Chief of Chiefs (05); execution coordination: Chief of Staff (03).
