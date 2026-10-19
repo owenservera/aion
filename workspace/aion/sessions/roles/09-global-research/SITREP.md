@@ -27,3 +27,12 @@ next_3_actions_and_decision_request_if_any:
 ```
 
 **Never:** invent an ACK, claim all private chats synced, equate a Drive link with NotebookLM ingest, create a second research queue, or replay stale findings as new discoveries.
+
+## Operational bootstrap continuation — 2026-10-19 16:00 UTC
+
+- **Role workspace merged:** AION [PR #29](https://github.com/owenservera/aion/pull/29), squash commit `7fc54ccb2e08d35873739edbe35558546a32690a`, 18 changed files including 9 SKILL.md runbooks. GitHub branch readbacks and PR merge observed, not local host work.
+- **One canonical research intake:** [GitHub issue #30](https://github.com/owenservera/aion/issues/30), accepts original sources/questions/media without a form; Role 07 original proposal custody unchanged.
+- **Research schedule 1 active:** AION Research Intake, daily morning ~08:00 Europe/Madrid (flexible). Schedule confirmed via automation create action on 2026-10-19. First run pending; no research execution outcome claimed.
+- **Research schedule 2 active:** AION Research Frontier, Thursdays ~09:00 Europe/Madrid (flexible). Schedule confirmed via automation create/update action on 2026-10-19. First run pending.
+- **Five-active-task limit:** two overlapping existing GPM tasks disabled to free slots: Portfolio Change Intake (4/day) and Weekly Improvement Review (Fri); preserve historic definitions, do not reinterpret as deleted. Remaining active GPM: Executive Operator (twice daily), GitHub Coverage Audit (weekly), Critical Portfolio Alerts (hourly).
+- **Unresolved:** Google NotebookLM direct connector absent from discovery; use Drive/web and prepare bounded source manifests until a supported integration is verified. Account-wide repo completeness still unverified; do not claim page offset zero proves no additional sources.
