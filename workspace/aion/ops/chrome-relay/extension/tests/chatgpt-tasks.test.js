@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { createChatGPTPortDriver } from '../src/background/chatgpt-port.js';
 import { validateEnvelope } from '../src/lib/envelope.js';
 import { acceptedAdapterReply } from './fixtures/chatgpt-accepted.js';
-import { canonicalConversation, createChatGPTTaskStore, DISPATCH_KEY, DISPATCH_SCHEMA, TASKS_KEY, TASKS_SCHEMA, MAX_TASKS } from '../src/lib/chatgpt-tasks.js';
+import { canonicalConversation, createChatGPTTaskStore, DISPATCH_KEY, DISPATCH_SCHEMA, TASKS_KEY, TASKS_SCHEMA, MAX_TASKS, prepareTask } from '../src/lib/chatgpt-tasks.js';
 
 const instruction = { user_gesture: true, approved_scope_ref: 'owner-existing-scope', text: 'bounded owner instruction 🌌',
   correlation_id: 'attempt-one', expected_reply_token: 'ACK-1', task_id: 'task-one', operation_key: 'operation-one', tab_id: 7, timeout_ms: 20 };
@@ -202,16 +202,128 @@ test('legacy same-tab and unmappable orphan locks fail closed, including absent 
   }
 });
 
-test('failed richer reservation leaves legacy guard and never dispatches, even with fresh IDs', async () => {
-  const f = fixture({ set: async (value) => { if (Object.hasOwn(value, TASKS_KEY)) throw new Error('write failed'); } });
+test('a failed richer reservation is SETTLED, never a wedge, and never dispatches', async () => {
+  // THE WEDGE THIS CLOSES. The legacy dispatch record is written FIRST, so a
+  // failed rich write leaves an IN_FLIGHT tombstone with no task at all — and
+  // `checkAvailable` locks the conversation behind that orphan forever.
+  const f = fixture({ set: async (value, count) => {
+    // Only the RESERVATION's rich write fails. The settlement that follows
+    // it must be able to write, or nothing could ever be settled.
+    if (count === 2) throw new Error('write failed');
+  } });
   const first = await f.driver.runTurn(instruction);
   assert.equal(first.code, 'reservation_failed'); assert.equal(first.submitted, false);
-  assert.equal(f.sends.length, 0); assert.equal(f.bag[TASKS_KEY], undefined);
-  assert.equal(f.bag[DISPATCH_KEY].reservations[instruction.correlation_id].state, 'IN_FLIGHT');
+  assert.equal(first.captured, false);
+  assert.equal(f.sends.length, 0, 'nothing was ever typed or sent');
+  // The operation stays ADDRESSABLE: the caller can find it and see that the
+  // lock is gone.
+  assert.equal(first.correlation_id, instruction.correlation_id);
+  assert.equal(first.task_id, instruction.task_id);
+  assert.equal(first.operation_key, instruction.operation_key);
+  assert.equal(first.settlement, 'recorded');
+  assert.equal(first.phase, 'REFUSED_NO_SUBMIT');
+  assert.equal(first.lock_active, false);
+
+  // THE RECORD IS SETTLED, not left IN_FLIGHT: the tombstone is COMPLETED and
+  // the missing task is reconstructed from it, so the lock is released and
+  // nothing is invented.
+  assert.equal(f.bag[DISPATCH_KEY].reservations[instruction.correlation_id].state, 'COMPLETED');
+  const rebuilt = task(f);
+  assert.equal(rebuilt.phase, 'REFUSED_NO_SUBMIT');
+  assert.equal(rebuilt.lock_active, false);
+  assert.equal(rebuilt.correlation_id, instruction.correlation_id);
+  assert.equal(rebuilt.task_id, instruction.task_id);
+  assert.equal(rebuilt.operation_key, instruction.operation_key);
+  assert.equal(rebuilt.facts.no_submit, true);
+  assert.equal(rebuilt.facts.activation_possible, false);
+  assert.equal(rebuilt.facts.reply_checked, false);
+  assert.equal(rebuilt.facts.consumed, false);
+  assert.equal(rebuilt.expected_reply_token, null, 'a rebuilt reservation never carried a marker');
+  assert.equal(rebuilt.observer, null);
+
+  // NO SECOND DISPATCH for the same operation, and the same correlation is
+  // still refused: the no-resend guarantee is untouched by the settlement.
   const sameOp = await f.make().runTurn({ ...instruction, correlation_id: 'fresh' });
-  assert.equal(sameOp.code, 'dispatch_in_flight');
-  assert.equal((await f.make().runTurn(repeat())).code, 'conversation_locked');
-  assert.equal(f.sends.length, 0);
+  assert.equal(sameOp.code, 'already_dispatched');
+  const sameCorrelation = await f.make().runTurn(instruction);
+  assert.equal(sameCorrelation.code, 'already_dispatched');
+
+  // THE CONVERSATION IS FREE AGAIN: a new operation on the same conversation
+  // is accepted, and it produces exactly ONE send.
+  const next = await f.make().runTurn(repeat({ tab_id: 7 }));
+  assert.equal(next.ok, false, 'the fixture page refuses the turn');
+  assert.notEqual(next.code, 'conversation_locked');
+  assert.notEqual(next.code, 'dispatch_in_flight');
+  assert.equal(f.sends.length, 1, 'exactly one activation, never a replay');
+});
+
+test('a reservation whose rich write landed but whose acknowledgement was lost is settled too', async () => {
+  // SHAPE (a). BOTH records land and the write then fails — here the storage
+  // persists the data and loses the acknowledgement. The rich record is
+  // therefore on disk in SUBMIT_RESERVED with the conversation lock held, and
+  // nothing about it can ever be observed or resolved.
+  const f = fixture({ set: async (value, count) => {
+    if (count === 2) { f.bag[TASKS_KEY] = structuredClone(value[TASKS_KEY]); throw new Error('acknowledgement lost'); }
+  } });
+  const first = await f.driver.runTurn(instruction);
+  assert.equal(first.code, 'reservation_failed');
+  assert.equal(first.submitted, false);
+  assert.equal(f.sends.length, 0, 'nothing was typed or sent');
+
+  // The landed record is SETTLED, not left holding the lock.
+  assert.equal(first.settlement, 'recorded');
+  assert.equal(first.phase, 'REFUSED_NO_SUBMIT');
+  assert.equal(first.lock_active, false);
+  assert.equal(first.correlation_id, instruction.correlation_id);
+  assert.equal(task(f).phase, 'REFUSED_NO_SUBMIT');
+  assert.equal(task(f).lock_active, false);
+  assert.equal(f.bag[DISPATCH_KEY].reservations[instruction.correlation_id].state, 'COMPLETED');
+
+  // NO SECOND DISPATCH for the same operation.
+  const sameOp = await f.make().runTurn({ ...instruction, correlation_id: 'fresh' });
+  assert.equal(sameOp.code, 'already_dispatched');
+
+  // THE CONVERSATION IS FREE AGAIN.
+  const next = await f.make().runTurn(repeat({ tab_id: 7 }));
+  assert.notEqual(next.code, 'conversation_locked');
+  assert.equal(f.sends.length, 1, 'exactly one activation, never a replay');
+});
+
+test('an OBSERVED task is never settled as an incomplete reservation', async () => {
+  // DEFENCE IN DEPTH. The incomplete-reservation settlement exists for ONE
+  // shape: a reservation that never reached a page, so nothing was activated.
+  // A task that already carries an observer is evidence that the page WAS
+  // reached, so a positive no-submit may not be written over it and its lock
+  // may not be released on that basis.
+  const f = fixture();
+  const life = { assertActive() {} };
+  const record = await prepareTask(instruction, { url: 'https://chatgpt.com/c/one', tab_id: 7 }, life,
+    async (bytes) => createHash('sha256').update(bytes).digest());
+  await f.store.reserveOperation(record, life);
+  const armedAt = new Date().toISOString();
+  await f.store.recordObserver(record, {
+    page_instance_id: 'page-instance-1', observer_id: 'observer-1',
+    armed_at: armedAt, recorded_at: armedAt, phase: 'OBSERVING', method: 'poll',
+    click_attempted: true, submission_observed: true, generation_started: true,
+    generation_complete: false, continuity: true, terminal: false, reason: null
+  }, life);
+  assert.equal(task(f).observer.submission_observed, true, 'the observer really did see a submission');
+
+  const before = structuredClone(f.bag);
+  const result = await f.store.settleIncompleteReservation(instruction.correlation_id, { noSend: true }, life);
+  // IT REFUSES, and it says why.
+  assert.equal(result.ok, false);
+  assert.equal(result.settlement, 'not_recorded');
+  assert.equal(result.reason, 'the task is not an unobserved reservation');
+  assert.equal(result.phase, 'SUBMIT_RESERVED');
+  assert.equal(result.lock_active, true);
+  // NOTHING WAS WRITTEN: the durable record is exactly as it was, and the
+  // conversation is still locked behind it.
+  assert.deepEqual(f.bag, before);
+  assert.equal(task(f).phase, 'SUBMIT_RESERVED');
+  assert.equal(task(f).lock_active, true);
+  assert.equal(task(f).facts.no_submit, false);
+  assert.equal(f.bag[DISPATCH_KEY].reservations[instruction.correlation_id].state, 'IN_FLIGHT');
 });
 
 test('rich settlement failure after legacy COMPLETED keeps reservation locked and returns uncertainty', async () => {
@@ -219,7 +331,10 @@ test('rich settlement failure after legacy COMPLETED keeps reservation locked an
   const result = await f.driver.runTurn(instruction);
   assert.equal(result.code, 'reservation_failed'); assert.equal(result.uncertain, true);
   assert.equal(f.bag[DISPATCH_KEY].reservations[instruction.correlation_id].state, 'COMPLETED');
-  assert.equal(task(f).phase, 'SUBMIT_RESERVED'); assert.equal(task(f).lock_active, true);
+  // The record does not stay in SUBMIT_RESERVED: the failed settlement is
+  // retried once on its own bounded budget, and the honest outcome for an
+  // operation whose outcome could not be written is "unknown, still locked".
+  assert.equal(task(f).phase, 'NEEDS_RECONCILIATION'); assert.equal(task(f).lock_active, true);
   assert.equal(task(f).facts.reply_checked, false);
   assert.equal((await f.make().runTurn(repeat({ tab_id: 8 }))).code, 'conversation_locked');
   assert.equal(f.sends.length, 1);
@@ -323,7 +438,10 @@ test('timeout retains durable uncertainty; a fresh correlation does not resend',
   const f = fixture({ mode: 'silent' });
   const result = await f.driver.runTurn(instruction);
   assert.equal(result.code, 'content_timeout'); assert.equal(result.uncertain, true);
-  assert.equal(task(f).phase, 'SUBMIT_RESERVED'); assert.equal(task(f).lock_active, true);
+  // The timeout is SETTLED: the record leaves SUBMIT_RESERVED — a phase with
+  // no observer and no outcome, which nothing can ever observe or resolve —
+  // and becomes NEEDS_RECONCILIATION with the lock held.
+  assert.equal(task(f).phase, 'NEEDS_RECONCILIATION'); assert.equal(task(f).lock_active, true);
   assert.equal((await f.make().runTurn(repeat())).code, 'conversation_locked'); assert.equal(f.sends.length, 1);
 });
 
