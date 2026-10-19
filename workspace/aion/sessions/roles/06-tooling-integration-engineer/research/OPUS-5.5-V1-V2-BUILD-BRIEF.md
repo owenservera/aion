@@ -54,7 +54,7 @@ Do not treat mobile as automatically syncing to PC. Implement SYNC-0 no-send ope
 - No artificial restriction against writing implementation. If source code in this repo is incomplete, construct the missing portion. Take reasonably reversible engineering decisions yourself; record only meaningful architecture deviations.
 
 ## Execution workflow, in order
-1. Inspect current repo HEAD, branches, relevant files/tests, plus VOMEGA pilot contract; produce a concise file-level reuse map, then implement.
+1. Inspect current repo HEAD, branches, existing ChatGPT.com browser adapter/DOM fixtures and canonical M1 contract; produce a concise file-level reuse map, then implement.
 2. Run baseline suites and keep regression tests passing.
 3. Build complete V1 incrementally in existing source tree, tests adjacent to code. Run full portable V1 battery.
 4. Build complete V2 adapters and conformance suite; test against fake ACP/OpenCode/MCP.
