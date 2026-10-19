@@ -15,6 +15,8 @@ import {probeAcpBinary,verifyAcpCwd} from '../src/engines/acp.mjs';
 import {runLocalSelftest} from '../src/selftest.mjs';
 import {planBrowserSetup,applyBrowserSetup,uninstallBrowserSetup} from '../src/browser/setup.mjs';
 import {runBrowserPreflight} from '../src/browser/preflight.mjs';
+import {listAgents,loadAgentContext,composeAgentPrompt} from '../src/agents-context.mjs';
+import {readRoleCatalog} from '../src/local-runtime.mjs';
 import {localStatePath} from '../src/local-runtime.mjs';
 import {assertPrivateStateDir} from '../src/security.mjs';
 import {dirname} from 'node:path';
@@ -31,6 +33,26 @@ export async function main(argv=process.argv.slice(2),{
   chromeProbe=async()=>{const b=await browserProbe();b.link?.close();return b;}
 }={}){
  const cmd=argv[0]??'status';
+ if(cmd==='agents'){
+   if(argv.length!==1)return done(print,{ok:false,code:'BAD_COMMAND'},2);
+   let rt;
+   try{
+     rt=await open();
+     const state=await rt.bus.store.read();
+     const agents=listAgents(rt.roleCatalog,state.agents);
+     return done(print,{schema:'aion.agents/1',count:agents.length,agents},0);
+   }catch(error){return done(print,{ok:false,code:error.code??'AGENT_LIST_UNAVAILABLE'},3);}
+   finally{if(rt)await rt.close();}
+ }
+ if(cmd==='context'){
+   if(argv.length<2||argv.length>4||argv.length===3||
+     (argv.length===4&&(argv[2]!=='--scope'||!['bootstrap','sitrep','both'].includes(argv[3]))))
+     return done(print,{ok:false,code:'BAD_COMMAND',usage:'aion context <agent> [--scope bootstrap|sitrep|both]'},2);
+   try{
+     const context=loadAgentContext(readRoleCatalog(),argv[1],{scope:argv[3]??'both'});
+     return done(print,context,0);
+   }catch(error){return done(print,{ok:false,code:error.code??'CONTEXT_UNAVAILABLE'},3);}
+ }
  if(cmd==='selftest'){
    if(argv.length!==1)return done(print,{ok:false,code:'BAD_COMMAND'},2);
    const report=tests();return done(print,report,report.all_pass?0:1);
@@ -117,6 +139,10 @@ export async function main(argv=process.argv.slice(2),{
  if(parsed.command==='send'&&parsed.detach)
    return done(print,{ok:false,code:'DETACH_REQUIRES_BROKER',delivery:'NOT_SENT'},2);
  const browserSend=parsed.command==='send'&&parsed.alias!=='opencode';
+ // --context is a deliberate, reviewable attachment for AION conversation
+ // agents only. Never quietly attach workspace instructions to an executor.
+ if(parsed.command==='send'&&parsed.context&&!browserSend)
+   return done(print,{ok:false,code:'CONTEXT_REQUIRES_CONVERSATION_AGENT',delivery:'NOT_SENT'},2);
  const needsEngine=['observe','capabilities'].includes(parsed.command)||(parsed.command==='send'&&!browserSend);
  const needsBrowser=browserSend||['observe','capabilities','doctor'].includes(parsed.command);
  let rt;
@@ -156,7 +182,15 @@ export async function main(argv=process.argv.slice(2),{
      if(role.adapter!==CHATGPT_ADAPTER)return done(print,{ok:false,code:'ROLE_NOT_A_CHATGPT_BINDING',delivery:'NOT_SENT'},3);
      if(!await rt.readyFor(role.target))return done(print,{ok:false,code:'OWNER_BINDING_OR_GRANT_REQUIRED',delivery:'NOT_SENT',
        hint:`aion connect ${parsed.alias} --conversation https://chatgpt.com/c/<id>`},3);
-     const admit=await rt.plane.sendAlias({alias:parsed.alias,text:parsed.text,nonce:token('nonce-')});
+     let outgoing=parsed.text;
+     if(parsed.context){
+       try{outgoing=composeAgentPrompt(parsed.text,
+         loadAgentContext(rt.roleCatalog,parsed.alias,{scope:parsed.context}));}
+       catch(error){return done(print,{ok:false,code:error.code??'CONTEXT_UNAVAILABLE',
+         delivery:'NOT_SENT',required_chars:error.required_chars??null,
+         limit:error.limit??null,reason:error.reason??null},3);}
+     }
+     const admit=await rt.plane.sendAlias({alias:parsed.alias,text:outgoing,nonce:token('nonce-')});
      if(!admit.ok)return done(print,admit,3);
      await rt.plane.waitForIdle();
      return await follow(rt,admit.operation_id,parsed.wait_ms??120000,{print,pause,now});
