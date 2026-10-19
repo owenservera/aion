@@ -6,7 +6,7 @@ All skills are repository-owned instructions (not automatically installed tools)
 
 | Skill | Use when | Artifact |
 |---|---|---|
-| [chatgpt-bus-v1-v2](./chatgpt-bus-v1-v2/SKILL.md) | Building a generalizable ChatGPT commander bus V1 + Windows/local executors V2, with VOM/VOMEGA as pilot | [Opus 5.5 build brief](../research/OPUS-5.5-V1-V2-BUILD-BRIEF.md) + [source pack](../research/CHATGPT-GENERAL-BUS-V1-V2-SOURCE-PACK-2026-10-19.md) + tests and host handoff |
+| [chatgpt-bus-v1-v2](./chatgpt-bus-v1-v2/SKILL.md) | Building a generalizable ChatGPT commander bus V1 + Windows/local executors V2, with ChatGPT.com as pilot | [Opus 5.5 build brief](../research/OPUS-5.5-V1-V2-BUILD-BRIEF.md) + [source pack](../research/CHATGPT-GENERAL-BUS-V1-V2-SOURCE-PACK-2026-10-19.md) + tests and host handoff |
 | [tool-discovery](./tool-discovery/SKILL.md) | Identifying installed tools, ownership, versions and capability gaps | Qualified tool-inventory record |
 | [environment-bootstrap](./environment-bootstrap/SKILL.md) | Preparing Windows/Linux runtimes and reproducible setups | Authorized install/test/rollback plan + receipt |
 | [acp-interop](./acp-interop/SKILL.md) | Connecting UAH to OpenCode/ZCode or evaluating ACP protocols | Capability matrix and safe handshake |
