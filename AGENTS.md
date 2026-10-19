@@ -17,7 +17,7 @@ You are working on AION. Current operating model: **Windows-driven development**
 - **Do not add new design documents** if an existing one can be edited. Archive, do not delete, superseded material.
 - **Prefer ACPX reuse:** inspect existing ACPX before duplicating effort when available; do not block a smaller live-path experiment merely because a separate review role has not ACKed.
 - Playwright/Puppeteer: currently disallowed for new AION work (rationale is being written down; see the architecture proposal, section 5).
-- GitHub issues and commits do **not** wake ChatGPT or any agent. If you need another actor, say so in an `AION_HANDOFF_V1`.
+- GitHub issues and commits do **not** wake ChatGPT or any agent. If you need another actor, say so in an `AION_HANDOFF_V1`. (Sole proposed exception, not adopted: the owner-armed commander channel in [DECISION-2026-10-19-BUS-V1-V2-DIRECTION](workspace/aion/canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md); until the owner adopts it, this rule stands unchanged.)
 - The Grok Bot rule "never write code" applies to Grok only.
 
 ## Running things (PowerShell, on the Windows machine)

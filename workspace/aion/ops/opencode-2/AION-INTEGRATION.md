@@ -72,3 +72,6 @@ AION owner instruction -> GitHub issue/handoff [published]
 
 ## Success criteria
 PILOT_ACCEPTED only when: exact V2 runtime is observed on a named authorized host; baseline V1 workflows still pass; permission and plugin negatives pass; ZCode/ACP/AION protocol boundaries preserved; session telemetry matches server state; restart, loss, timeout and duplication cases have receipts; no secret entered repo; review independently reproduced. Until then: RESEARCH ONLY.
+
+## Bus V2 write scope (PROPOSED, 2026-10-19)
+Beyond the read-only scope above, [Bus V2](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md) would stage: V2-0 read-only OpenCode session inventory; V2-1 one owner-approved scoped prompt to one ACP session with correlation and receipt; V2-2 executor ids in the command grammar with per-executor scope and worktree limits. Each needs its own owner grant. `opencode acp` (private ACP v1) is the route; `@opencode/client` HTTP is not interchangeable. Not built.

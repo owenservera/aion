@@ -66,3 +66,5 @@ Source docs: https://help.openai.com/en/articles/12584461-connecting-custom-mcp-
 ## Complete local release checks
 
 From the AION checkout, run `pwsh -NoProfile -File .\workspace\aion\ops\aion-mcp\windows\Complete-AionBus.ps1`. The complete pack and separate browser/plugin finish-line evidence are documented in [`FINISH-LINE.md`](./FINISH-LINE.md). The new `npm run verify` checks an actual local subprocess with the real checkout; this is read-only and never launches Chrome or an agent. `windows/Connect-AionTunnel.ps1` takes a real owner-provisioned tunnel ID and asks for a local secret without logging it.
+
+> **Direction note, 2026-10-19:** this is the possible Option B channel for [Bus V1](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md) (phone → ChatGPT → connector → PC). Plus and mobile availability are UNVERIFIED; no write tools exist; nothing here is claimed to work for Bus V1.

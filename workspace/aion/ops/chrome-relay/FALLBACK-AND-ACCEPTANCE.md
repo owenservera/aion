@@ -41,3 +41,14 @@ AION PASS only when T0-T9 have reproducible receipts. 'Extension installed' alon
 Chrome extension service worker lifecycle: https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle
 Chrome native messaging: https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging
 Chrome WS lifetime: https://developer.chrome.com/docs/extensions/how-to/web-platform/websockets
+
+## Bus V1/V2 tests and failure modes (PROPOSED, 2026-10-19)
+Context: [decision record](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md). Not run; none promotes M1.
+- B0 SYNC-0 (no-send): record whether an open PC commander tab shows a phone-sent message with and without reload. Result decides Option A vs B.
+- B1 Injection: hostile text in agent reports/page content never yields a dispatched command.
+- B2 Loop: a report that re-triggers a command halts at `max_hops` with `HALTED`.
+- B3 Kill switch: engaged state refuses all dispatch until owner re-enable.
+- B4 Tab discard/reload: commander watcher resumes read-only; no command is replayed; nonce reuse is rejected.
+- B5 Arm/grant: unarmed turn, unregistered `to`, exhausted count or expired grant each produce a visible rejection and no send.
+- B6 (extends T5) Bus V2: executor session absent, ACP version mismatch or prompt timeout leaves an unresolved record, never a resend.
+- Failure modes: PC asleep, Chrome closed or commander tab not open means phone commands do not execute; report them as undelivered, never queue-and-replay silently.

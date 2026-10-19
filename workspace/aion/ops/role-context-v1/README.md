@@ -1,7 +1,7 @@
 # AION V1 Mobile Role Context Strategy
 **Owner:** Role 06 TOOLSMITH. Partner Role 02 Planning; coordinator Role 03 CoS; independent acceptance Role 05 Chief.
 **Status:** SPECIFICATION + RESEARCH STARTING POINT, not verified mobile behavior on the user's device.
-**Purpose:** Manual/mobile-only conversation workflows before any extension exists. This is **V1**. [Chrome ACP role launcher RL-001](../chrome-relay/role-launcher/README.md) and [issue #22](https://github.com/owenservera/aion/issues/22) are **V2**. Do not conflate them.
+**Purpose:** Manual/mobile-only conversation workflows before any extension exists. This is **RC-1** (formerly called "V1" in these docs). [Chrome ACP role launcher RL-001](../chrome-relay/role-launcher/README.md) and [issue #22](https://github.com/owenservera/aion/issues/22) (formerly called "V2") are **RL-001**. Do not conflate them with **Bus V1 (commander loop)** or **Bus V2 (local executors)**, the 2026-10-19 direction in [DECISION-2026-10-19-BUS-V1-V2-DIRECTION](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md). Naming note: below, "V1"/"V2" mean RC-1/RL-001.
 
 ## Read first
 1. [RESEARCH-BRIEF.md](./RESEARCH-BRIEF.md) — product mechanics, four use cases, research questions, V1 acceptance and ownership.
@@ -27,5 +27,5 @@
 5. Role 06 posts findings, failures, additional tested options and V1 acceptance to AION repo and recommends the default app workflow.
 No Chrome/Playwright/Puppeteer or external automation. No new role/extra full program needed: Role 06 already owns integration and tool behaviors.
 
-## Handoff to V2
-V2 is extension-based Chrome keyword -> new chat tab -> bootstrap -> optional tested native title UI. It can reduce mobile taps once available on supported browser, but V1 should stand alone. V2 cannot itself promise perfect context isolation either.
+## Handoff to V2 (RL-001)
+RL-001 is extension-based Chrome keyword -> new chat tab -> bootstrap -> optional tested native title UI. It can reduce mobile taps once available on supported browser, but V1 should stand alone. V2 cannot itself promise perfect context isolation either.

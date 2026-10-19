@@ -18,6 +18,7 @@
 - [Canonical M1 introspection contract](workspace/aion/canon/AION-MILESTONE-1-INTROSPECTION.md)
 - [Historical BFF Linux M0.5 design — no longer current execution host](workspace/aion/canon/AION-MILESTONE-0.5-BFF-LINUX-INTROSPECTION.md)
 - [Chrome Relay design (not installed)](workspace/aion/ops/chrome-relay/ARCHITECTURE.md)
+- [Bus V1/V2 direction (PROPOSED): phone → ChatGPT → PC extension → agents and local executors (OpenCode first)](workspace/aion/canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md)
 
 ## Active work and evidence
 - [#25 ACPX Chrome MV3/Bun kit — source review and reuse](https://github.com/owenservera/aion/issues/25)
@@ -33,7 +34,7 @@
 - Public branch is `main` only; agents use local-only worktrees. No new mock-only cycles; mocks are regression fixtures.
 - Do not create another competing Chrome extension before reviewing ACPX.
 - No Playwright or Puppeteer. No credentials/cookies in repo. No unapproved browser/host actions.
-- A GitHub issue, a new chat tab or a written role assignment does **not** autonomously wake a ChatGPT agent.
+- A GitHub issue, a new chat tab or a written role assignment does **not** autonomously wake a ChatGPT agent. (Sole proposed exception, not adopted: the owner-armed commander channel in the [Bus V1/V2 decision](workspace/aion/canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md).)
 - This URL and JSON are **persistently accessible state**, not an installed watcher/daemon. For fresh status, fetch the current commit and latest linked issue receipts; update state only on actual evidence.
 
 ---

@@ -6,7 +6,8 @@ Date: 2026-10-16.
 **Coordinator:** Role 03 Chief of Staff (activation and acknowledgment).
 **Executive acceptance:** Role 05 Chief of Chiefs.
 **Dashboard:** Role 01 optional status display; NOT a gate.
-**Separate V2:** [Chrome ACP Role Launcher RL-001](../chrome-relay/role-launcher/README.md), [issue #22](https://github.com/owenservera/aion/issues/22).
+**Naming note (2026-10-19):** "V1" in this brief means **RC-1**, "V2" means **RL-001**; neither is Bus V1/V2 ([decision](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md)).
+**Separate RL-001 (formerly "V2"):** [Chrome ACP Role Launcher RL-001](../chrome-relay/role-launcher/README.md), [issue #22](https://github.com/owenservera/aion/issues/22).
 Scope: The user and ChatGPT **mobile app only**. No Chrome extension, developer tooling, shell, automation, new platform or hidden API required to test V1. GitHub workspace is the role canon, accessed through connected tools when present or explicit text/file when not.
 
 ## Core research question

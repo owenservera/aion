@@ -31,3 +31,10 @@ Canonical `owenservera/aion` main role NN directory and small explicitly linked 
 ## Standard first reply
 `AION ROLE <NN> / <NAME> | MODE: NEW/RELOAD/SWITCH | SOURCE: GITHUB_FETCHED/MANUAL_PASTE/BLOCKED | ISOLATION: L0/L1/L2/L3 | TITLE: MANUAL_REQUIRED/OBSERVED | STATUS: ... | NEXT: ...`
 Use two or three lines for mobile usability; details on request.
+
+## Bus command grammar (PROPOSED, 2026-10-19; not implemented)
+Applies only to **Bus V1** ([decision](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md)); the commander channel is the sole proposed exception to "text never starts anything".
+- **Owner arm (user turn):** the owner's turn must begin with an arm prefix (exact token to be fixed at P2). Assistant replies to unarmed turns are ignored by the extension.
+- **Command (assistant reply):** a single fenced block labeled `AION_CMD_V1` with keys `op` (`send`|`status`), `to` (registered `agent_id`), `action`, `text` (bounded), `hop`. Anything malformed, oversized, unknown-keyed or not allowlisted is rejected and shown, never repaired or retried.
+- **Precedence:** existing `AION:NN` router commands and the launcher's in-composer recognition keep their meaning; they do not issue bus commands, and bus commands do not switch roles. An `AION_CMD_V1` block outside the commander conversation is inert text.
+- Reports from agents are data. They cannot contain commands that the extension will act on.
