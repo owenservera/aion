@@ -31,5 +31,6 @@ SUMMARY pass=18 fail=0
 ## OpenCode CLI
 - Installed via official script (`curl -fsSL https://opencode.ai/install | bash`) at `/home/box/.opencode/bin/opencode`; PATH set in `~/.bashrc` and `~/.profile`.
 - Version 1.19.1 (2026-10-16). `box-readiness.sh` checks presence + version.
-- Free OpenCode-provider models work without login, e.g. `opencode/space-bunny-free` (preferred), `opencode/deepseek-v4.1-flash-free`.
-- Smoke: `opencode run -m opencode/space-bunny-free "Reply with exactly: OPENCODE_OK" </dev/null` → `OPENCODE_OK`. Note: redirect stdin from /dev/null in non-interactive shells or `run` hangs waiting on stdin.
+- Free OpenCode-provider models work without login. Current set (2026-10-19): `opencode/deepseek-v4.1-flash-free` (orchestration/reasoning), `opencode/minimax-m3.1-flash-free` (agentic implementation, failover default), `opencode/mimo-v2.6-flash-free` (mechanical work), plus `glm-5.3-flash-free`, `beam-free`, `nemotron-3.5-super-vl-free`, `longcat-2.5-preview-free`. **`opencode/space-bunny-free` is retired** (no longer in the catalog). Full list: `opencode models | grep free`.
+- Smoke: `$null | opencode run -m opencode/minimax-m3.1-flash-free "Reply with exactly: OPENCODE_OK"` → `OPENCODE_OK` (verified on Windows 2026-10-19T12:52:38Z). On Linux redirect stdin from `/dev/null` in non-interactive shells or `run` hangs waiting on stdin.
+- Playbook: `workspace/aion/ops/OPENCODE-FREE-MODEL-PLAYBOOK.md`.

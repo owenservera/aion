@@ -1,22 +1,22 @@
 {
   "schema": "aion.entry-state.v1",
-  "updated_utc": "2026-10-18T12:16:55Z",
-  "update_basis": "Coordinator independently verified extension 273/273 and bridge 119/119 with zero failed/cancelled tests and reloaded the installed extension through its exact Chrome Extensions control. Actual Chrome-to-host handshake and ChatGPT round trip remain unverified. Owner goals and Chief 05 model request published at 306ff81; no Chief acknowledgment observed.",
+  "updated_utc": "2026-10-19T12:45:00Z",
+  "update_basis": "Coordinator independently verified the chrome-relay extension suite 528/528 (exit 0, 2026-10-19T12:39:11Z) at commit cbb67e7, which adds command-derived deadlines, the durable no-resend task store, the page-side submit/observe turn engine and its worker hookup. Corrects two stale claims: the single authorized benign send was consumed by M1 live attempt 2 on 2026-10-18 (receipt workspace/aion/agents/windows-master/M1-LIVE-ATTEMPT-2026-10-18.md), and m1_verified remains false. No live send, accepted live envelope, consumer readback or reload since. Offline work remains unproven against a real MV3 restart or real Chrome; durability is tested only against storage fakes.",
   "canonical_entry": "https://github.com/owenservera/aion",
   "machine_authority": "OWNER_WINDOWS_MASTER",
   "target_browser_host": "OWNER_WINDOWS_MASTER",
   "dev_model": "WINDOWS_DRIVEN_LOCAL_AGENTS",
   "decision_ref": "workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md",
   "architecture_proposal_ref": "workspace/aion/canon/ARCHITECTURE-WINDOWS-DEV-v0.2-PROPOSAL.md",
-  "live_execution_authorized": true,
-  "authorization_basis": "Owner override for full introspection and issue https://github.com/owenservera/aion/issues/27 authorize FLOW steps 1-4 including one benign real ChatGPT send on Windows. No credential export, bulk history, login automation, Playwright, Puppeteer or Orca. See workspace/aion/ops/chrome-relay/AUTHORIZATION-2026-10-17.md. Consent is not execution proof.",
+  "live_execution_authorized": false,
+  "authorization_basis": "The one benign real ChatGPT send authorized by owner override (issue #27 / AUTHORIZATION-2026-10-17.md) was CONSUMED by M1 live attempt 2 on 2026-10-18T21:32:45Z, which sent and received a correct reply but ended `turn_refused: generation_incomplete` (receipt workspace/aion/agents/windows-master/M1-LIVE-ATTEMPT-2026-10-18.md). No live send authorization is outstanding. A further live send requires a fresh explicit owner grant naming the outbound text, the deadline policy and the no-resend/reconcile rule. No credential export, bulk history, login automation, Playwright, Puppeteer or Orca.",
   "m1_verified": false,
   "chrome_relay_mvp": {
-    "status": "INSTALLED_RELOADED_PRELIVE",
-    "observed_utc": "2026-10-18T12:16:55Z",
+    "status": "OFFLINE_VERIFIED_LIVE_PENDING",
+    "observed_utc": "2026-10-19T12:39:11Z",
     "path": "workspace/aion/ops/chrome-relay/extension/",
     "issue": "https://github.com/owenservera/aion/issues/18",
-    "tests": "273/273 PASS; failed 0, cancelled 0, skipped 0; bun run test -- --test-timeout=60000; coordinator independent run 2026-10-18. Bridge independently 119/119.",
+    "tests": "528/528 PASS; failed 0, cancelled 0, skipped 0; bun run test -- --test-timeout=60000; coordinator independent run 2026-10-19T12:39:11Z at commit cbb67e7. Bridge suite remains 119/119 from 2026-10-18.",
     "role_count": 8,
     "permissions": ["sidePanel", "storage", "alarms", "nativeMessaging"],
     "host_permissions": "https://chatgpt.com/*",
@@ -29,11 +29,27 @@
     "installation_evidence": "Owner loaded unpacked; coordinator read Profile 3 Secure Preferences and observed extension card via native Windows UI Automation at 2026-10-18T11:32:23Z. No Orca. Installation is not handshake proof.",
     "touched_signed_in_session": false,
     "acpx_decision": "Owner declared ACPX unavailable 2026-10-17; issue #25 remains open as an unanswered comparison",
-    "live_test_status": "AUTHORIZED - live side-panel ping verified, ACP initialize reported (OpenCode 2.0.32, protocol 1) and tab id/field normalization defects fixed and re-verified. Content script fails to load in chatgpt.com because manifest use_dynamic_url breaks the fixed-path dynamic import; manifest fix assigned. Existing ChatGPT draft preserved; no ChatGPT send yet. Ordinary extension tabs correctly refused as sender_is_a_tab.",
+    "live_test_status": "M1 live attempt 2 on 2026-10-18T21:32:45Z made the single authorized send and received a correct reply (48 normalized chars, sha256 48fcf8af...; 53+29=82 verified), but the adapter returned turn_refused: generation_incomplete (worker 120s vs panel 180s). The single-send budget is consumed; nothing was retried and no second send is authorized. Since then the extension gained command-derived deadlines, the durable no-resend task store, the page-side submit/observe engine and worker hookup (528/528 offline). Not yet proven in live Chrome: extension reload, real MV3 restart/page reload durability, consumer readback, accepted live envelope.",
     "notes": "Built to the existing design in ops/chrome-relay/; spec role-count drift (5 vs 8) resolved to 8 per ROLES.json and corrected in ARCHITECTURE.md, FALLBACK-AND-ACCEPTANCE.md and OPENCODE-BUILD-ORDER.md."
   },
   "local_execution_agent": "opencode",
   "local_execution_agent_basis": "Owner decision 2026-10-17: OpenCode is the local Windows execution agent; ZCode deferred as an execution agent. OpenCode 1.18.35 verified present and functional on OWNER_WINDOWS_MASTER, and this bootstrap was executed through it. See workspace/aion/agents/windows-master/BLOCKERS.md decision D1.",
+  "model_routing": {
+    "policy_utc": "2026-10-19T13:05:00Z",
+    "primary_paid": "openai/gpt-6.1-sol#medium — thinking/design and M1 acceptance review",
+    "free_tier_available": [
+      { "id": "opencode/deepseek-v4.1-flash-free", "variants": ["low", "high", "max"], "use": "orchestration, review triage, reasoning" },
+      { "id": "opencode/minimax-m3.1-flash-free", "variants": ["low", "medium", "high", "xhigh", "max"], "use": "agentic implementation, fixer lanes; failover default" },
+      { "id": "opencode/mimo-v2.6-flash-free", "variants": [], "use": "mechanical edits, summaries, bounded chores" }
+    ],
+    "catalog_basis": "tools.opencode.models({query:'free'}) returned 23 free entries on 2026-10-19; the opencode-provider subset is listed above. Full list: opencode models | Select-String free. See workspace/aion/ops/OPENCODE-FREE-MODEL-PLAYBOOK.md.",
+    "fallback": "opencode/minimax-m3.1-flash-free (workspace/aion/ops/model-failover/supervisor.js FALLBACK)",
+    "known_limit": "Free-tier access is entrypoint-dependent: the council synthesis agent returned 403 FreeTierError on 2026-10-19 even though the model was catalogued. Verify per agent type before routing a lane.",
+    "config_refs": [
+      "C:/Users/VIVIM.inc/.config/opencode/opencode.json (agent.<name>.model)",
+      "C:/Users/VIVIM.inc/.config/opencode/oh-my-opencode-slim.json (presets.zen-free.<agent>.model and council.presets.default.<seat>.model)"
+    ]
+  },
   "windows_bootstrap": {
     "status": "VERIFIED",
     "observed_utc": "2026-10-17T11:35Z",
@@ -51,8 +67,8 @@
     "notes": "Unattended operation proven on the real repository: the scheduler committed and pushed 1c07f6d and 60a5220 without prompting; git ls-remote main matched local HEAD."
   },
   "current_goal": "AION-originated real authenticated ChatGPT web app prompt on Windows -> real reply -> independently consumed by AION with matching ID and negative-case verification",
-  "current_phase": "LIVE_TEST_AUTHORIZED",
-  "next_action": "Open the actual AION side panel in the existing Chrome window, prove host/ACP and read-only ChatGPT ping, then run the single already-authorized correlated send and retain minimized evidence. Chief 05 separately owns defining the agent model on the existing roster. Keep m1_verified false until independent acceptance. Execution: OpenCode; infrastructure: PC HQ; no Orca.",
+  "current_phase": "OFFLINE_BUILD_528_GREEN_LIVE_AUTH_CONSUMED",
+  "next_action": "Complete the bounded recovery lanes identified by council: (1) reconcile endpoint covering refusal/timeout-no-settlement/lost-observer plus runTurn settle-on-every-exit; (2) durable expected_reply_token with a worker-kill test, free re-observation and a minimal panel door; (3) operator-supplied approved_scope_ref. Then a no-send real-Chrome bring-up under a fresh explicit owner authorization, and only afterwards request one benign send. Keep m1_verified false until independent acceptance with consumer readback and a negative case.",
   "proposals_pending_owner": [
     {
       "id": "M1_SPLIT",
