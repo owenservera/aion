@@ -42,7 +42,7 @@
 
 import { createEventStore, createTransport, isExpired, TASK_STATES, validateEnvelope } from '../lib/index.js';
 import { CHATGPT_ERROR, createChatGPTPortDriver } from './chatgpt-port.js';
-import { chatGPTCommandName, resolveCommandDeadline } from '../lib/command-deadlines.js';
+import { chatGPTCommandName, commandIsSendCapable, resolveCommandDeadline } from '../lib/command-deadlines.js';
 import { createBoundedLifecycle } from '../lib/bounded-lifecycle.js';
 import { BUS_ALARM, BUS_ENDPOINTS, createWorkerBus } from './bus.js';
 import { createAcpExecutorAdapter } from '../bus/adapters/acp-executor.js';
@@ -763,6 +763,13 @@ async function handleNativeHello() {
  *                                                    expected_reply_token,
  *                                                    user_gesture:true } }
  *
+ * The READ-ONLY endpoints follow the same shape and the same discipline:
+ *   { type:'aion/chatgpt-observe',    tabId, correlation_id }
+ *   { type:'aion/chatgpt-reconcile',  tabId, correlation_id | task_id }
+ *   { type:'aion/chatgpt-read',       tabId, correlation_id }
+ * None of them carries a gesture, an approval or a text: they read, they never
+ * compose and they never send.
+ *
  * `tab_id` is accepted as an alias of `tabId`, and the nested `command` object
  * is flattened into the driver's own arguments. Only the keys named below are
  * read: the incoming message is NEVER spread, so a caller cannot smuggle an
@@ -922,6 +929,43 @@ async function handleChatGptCommanderScan(message, lifecycle) {
   return driver.commanderScan(chatgptCommand(message, ['tab_id', 'baseline_sig', 'arm_token']), lifecycle);
 }
 
+/**
+ * `aion/chatgpt-reconcile` — the READ-ONLY resolution path for an operation
+ * that cannot settle on its own.
+ *
+ * THE AUTHORITY RULE, and it is the same rule the read path follows:
+ *
+ *   - The sender must be this extension's own page. A web page, another
+ *     extension and a content script are all refused by `authorizeSender`
+ *     before this handler runs.
+ *   - There is NO gesture and NO approval reference, because nothing is
+ *     composed and nothing is sent. A reconcile has no send authority at all,
+ *     so there is nothing for an approval to authorise.
+ *   - The only keys read are the ones that SELECT an operation and the
+ *     optional token to check it against. The operation's identity — task,
+ *     operation, correlation, observer, page — comes from the durable record,
+ *     never from the caller, so a caller cannot redirect the reconciliation
+ *     at another tab, another observer or another operation.
+ *   - The reply is DATA. It is validated and reported, never obeyed.
+ *
+ * What it may do to the durable state is exactly what the poll may do: record
+ * what the page observed, and settle a POSITIVE no-submit or a FULLY VALIDATED
+ * accepted reply. It never releases a lock because it ran, and it never posts
+ * a send-capable action.
+ */
+async function handleChatGptReconcile(message, lifecycle) {
+  const driver = cachedChatGPT;
+  if (!driver) {
+    return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable` };
+  }
+  return driver.reconcileTurn(chatgptCommand(message, [
+    // Only what SELECTS the operation. task_id/operation_key/observer_id/
+    // page_instance_id are deliberately absent: the reconciliation presents the
+    // identity the durable record holds, so a caller cannot name its own.
+    'tab_id', 'correlation_id', 'task_id', 'expected_reply_token', 'timeout_ms'
+  ]), lifecycle);
+}
+
 async function handleChatGptRead(message, lifecycle) {
   const driver = cachedChatGPT;
   if (!driver) {
@@ -934,31 +978,61 @@ async function handleChatGptRead(message, lifecycle) {
 
 async function runChatGPTCommand(message, options = {}) {
   let lifecycle;
+  let command = null;
+  let result = null;
   try {
-    const command = chatGPTCommandName(message.type);
+    command = chatGPTCommandName(message.type);
     const source = chatgptCommand(message, ['timeout_ms']);
     const plan = resolveCommandDeadline({ command, requestedWorkMs: source.timeout_ms }, options.policy);
     lifecycle = createBoundedLifecycle(plan, options);
     // Shared hydration is NOT cancelled: only this command stops awaiting it.
     await lifecycle.wait('hydration', options.hydrate ?? ensureReady);
     lifecycle.assertActive();
-    const result = await CHATGPT_ENDPOINTS[message.type](message, lifecycle);
+    result = await CHATGPT_ENDPOINTS[message.type](message, lifecycle);
     lifecycle.assertActive();
     return result;
   } catch (error) {
-    // A READ-ONLY command that failed learned nothing about the operation, so it
-    // must not claim `submitted:false` about it — that is a no-send statement
-    // about the operation, not about this poll. The driver's read-only results
-    // carry `read_only:true, uncertain:true` and make no `submitted` claim.
-    const readOnly = lifecycle?.readOnly === true;
+    // THE ENDPOINT'S OWN ANSWER SURVIVES THE EXPIRY.
+    //
+    // A command that produced a durable answer and then ran out of budget
+    // must not lose its addressable facts: the correlation, the task, the
+    // operation, the phase, the lock and the settlement are exactly what a
+    // caller needs to find and reconcile the operation afterwards. Only the
+    // diagnostic fields — ok, code, error, stage and the timeout facts —
+    // are the expiry's to set, because the expiry is what they describe.
+    const facts = result && typeof result === 'object'
+      ? Object.fromEntries(Object.entries(result).filter(([key]) =>
+        !['ok', 'code', 'error', 'stage', 'timeout_ms', 'absolute_ms', 'elapsed_ms'].includes(key)))
+      : {};
+    // `read_only` IS A PROPERTY OF THE COMMAND, not of what the command
+    // managed to do before it failed. A read-only command that failed learned
+    // NOTHING about the operation it was asked about, so it must not claim
+    // `submitted:false` about it: that is a no-send statement about the
+    // OPERATION, and a poll is not entitled to make it. The command's own
+    // nature therefore decides the field, and the endpoint's own `read_only`
+    // is not allowed to overrule it.
+    const sendCapable = commandIsSendCapable(command);
+    delete facts.read_only;
+    const outcome = sendCapable
+      ? (Object.hasOwn(facts, 'submitted')
+        // The endpoint already said whether the activation happened. That
+        // answer is the operation's truth and it is kept.
+        ? { submitted: facts.submitted === true,
+          // A submission whose outcome was never established is uncertain,
+          // even when the endpoint did not say so in as many words.
+          ...(facts.submitted === true ? { uncertain: true } : {}),
+          ...(Object.hasOwn(facts, 'uncertain') ? { uncertain: facts.uncertain === true } : {}),
+          ...(Object.hasOwn(facts, 'captured') ? { captured: facts.captured === true } : { captured: false }) }
+        : (lifecycle?.possibleSend === true
+          ? { submitted: true, uncertain: true, captured: false }
+          : { submitted: false, captured: false }))
+      : { read_only: true, uncertain: true, captured: false };
     return { ok: false, code: error.code ?? CHATGPT_ERROR.BAD_ARGUMENT,
       error: String(error.message ?? error), stage: error.stage ?? null,
       timeout_ms: error.timeout_ms ?? null, absolute_ms: error.absolute_ms ?? null, elapsed_ms: error.elapsed_ms ?? null,
-      ...(readOnly
-        ? { read_only: true, uncertain: true, captured: false }
-        : lifecycle?.possibleSend
-          ? { submitted: true, uncertain: true, captured: false }
-          : { submitted: false, captured: false }) };
+      ...facts,
+      ...lifecycle?.taskIdentity,
+      ...outcome };
   } finally { lifecycle?.finish(); }
 }
 
@@ -1232,6 +1306,7 @@ const CHATGPT_ENDPOINTS = Object.freeze({
   'aion/chatgpt-run': handleChatGptRun,
   'aion/chatgpt-submit': handleChatGptSubmit,
   'aion/chatgpt-observe': handleChatGptObserve,
+  'aion/chatgpt-reconcile': handleChatGptReconcile,
   'aion/chatgpt-read': handleChatGptRead,
   'aion/chatgpt-commander-scan': handleChatGptCommanderScan
 });

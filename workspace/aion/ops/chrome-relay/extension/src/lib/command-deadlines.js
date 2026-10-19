@@ -18,6 +18,13 @@ export const COMMAND_WORK = Object.freeze({
   'observe-turn': 5_000,
   // Bus commander watcher: read-only scan of the commander conversation.
   'commander-scan': 5_000,
+  // The READ-ONLY reconciliation path for an operation that cannot settle on
+  // its own (a terminal refusal, a lost observer, a submission that never
+  // settled). It reads the durable record and, where the observer identity is
+  // known, asks the PAGE about that observer — the same read-only action the
+  // poll uses. It has no path to a fill, a click, a stop, a re-arm, a resubmit
+  // or a new deadline, so its budget is a read budget.
+  'reconcile-turn': 5_000,
 });
 
 /**
@@ -43,10 +50,33 @@ const COMMAND_STAGES = Object.freeze({
   'submit-turn': Object.freeze(['preflight', 'reservationRead', 'reservationWrite', 'observerArm', 'settlement']),
   'run-turn': Object.freeze(['preflight', 'reservationRead', 'reservationWrite', 'settlement']),
   'commander-scan': Object.freeze([]),
+  // Read-only reconciliation: read the durable record, re-record what the
+  // page reports about the SAME observer, and settle only a terminal outcome.
+  // It never reserves, never writes a reservation and never sends.
+  'reconcile-turn': Object.freeze(['reservationRead', 'observerArm', 'settlement']),
 });
 
 /** Commands whose exchange may put text into a signed-in session. */
 const MUTATING_COMMANDS = new Set(['run-turn', 'submit-turn']);
+
+/**
+ * Is this command SEND-CAPABLE?
+ *
+ * A send-capable command may put text into a signed-in session, so a failure
+ * in one is a statement about the operation: it may or may not have activated.
+ * EVERY OTHER command is read-only, and a read-only command that failed
+ * learned NOTHING about the operation it was asked about — so it must never
+ * claim `submitted:false` about that operation. That claim is a no-send
+ * statement about the OPERATION, and a poll is not entitled to make it.
+ *
+ * The command's own nature decides this, never what the command managed to do
+ * before it failed: a send-capable command that failed BEFORE it opened a
+ * port still did not send anything, and a read-only command that failed after
+ * it asked the page still says nothing about the operation.
+ */
+export function commandIsSendCapable(command) {
+  return MUTATING_COMMANDS.has(command);
+}
 
 function positive(value, name) {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
@@ -90,5 +120,37 @@ export function chatGPTCommandName(type) {
   return ({ 'aion/chatgpt-tabs': 'tabs', 'aion/chatgpt-ping': 'ping',
     'aion/chatgpt-run': 'run-turn', 'aion/chatgpt-read': 'read-final',
     'aion/chatgpt-submit': 'submit-turn', 'aion/chatgpt-observe': 'observe-turn',
+    'aion/chatgpt-reconcile': 'reconcile-turn',
     'aion/chatgpt-commander-scan': 'commander-scan' })[type] ?? null;
+}
+
+/**
+ * The budget for a settlement that has to happen AFTER the command's own
+ * lifecycle has already ended.
+ *
+ * WHY THIS EXISTS. A command that runs out of budget mid-exchange throws out
+ * of the exchange, and the record it had already reserved would then sit in
+ * SUBMIT_RESERVED with no observer and no outcome — a reservation nobody can
+ * ever resolve. The settlement that fixes that must NOT be governed by the
+ * budget that just expired, so it gets its own small, finite, policy-derived
+ * budget instead of a hardcoded timer.
+ *
+ * It is derived from the same shared policy as every other stage, it is finite,
+ * and it is strictly smaller than the command budget it replaces. It is not a
+ * global guard: it exists only while one settlement is being written.
+ */
+export function resolveSettlementDeadline(overrides = {}) {
+  const policy = validateCommandPolicy(overrides);
+  const stages = Object.freeze({ settlement: policy.settlement });
+  const absoluteMs = policy.settlement;
+  return Object.freeze({
+    command: 'settlement',
+    workMs: 0,
+    stages,
+    absoluteMs,
+    // The panel margin is kept for shape: this plan is never shown to a panel,
+    // but every plan in this module carries one and the rule is uniform.
+    panelMs: absoluteMs + policy.responseMargin,
+    inactivity: null
+  });
 }

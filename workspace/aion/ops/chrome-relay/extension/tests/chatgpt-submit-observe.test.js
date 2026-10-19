@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 import { CHATGPT_ACTION, CHATGPT_ERROR, MAX_ANNOTATION_CHARS, createChatGPTPortDriver } from '../src/background/chatgpt-port.js';
-import { COMMAND_POLICY, COMMAND_WORK, chatGPTCommandName, resolveCommandDeadline } from '../src/lib/command-deadlines.js';
+import { COMMAND_POLICY, COMMAND_WORK, chatGPTCommandName, commandIsSendCapable, resolveCommandDeadline } from '../src/lib/command-deadlines.js';
 import { DISPATCH_KEY, TASKS_KEY } from '../src/lib/chatgpt-tasks.js';
 import { createEnvelope } from '../src/lib/envelope.js';
 import { REASON, VERDICT_SCHEMA, correlateReply } from '../src/chatgpt/correlate.js';
@@ -222,8 +222,10 @@ function world(page = {}, options = {}) {
     chrome: api,
     // Small but real budgets: nothing here waits on a production-sized timer
     // and every command still goes through resolveCommandDeadline.
-    timeouts: { ping: 2000, state: 2000, read: 2000, run: 2000, stop: 2000, submit: 2000, observe: 2000 },
+    timeouts: { ping: 2000, state: 2000, read: 2000, run: 2000, stop: 2000, submit: 2000, observe: 2000,
+      ...options.timeouts },
     graceMs: 50,
+    ...(options.policy ? { policy: options.policy } : {}),
     digest: async (bytes) => createHash('sha256').update(bytes).digest()
   });
 
@@ -416,12 +418,17 @@ test('an unrecordable observer identity is never turned into an outcome', async 
   assert.equal(result.submitted, true);
   assert.equal(result.captured, false);
   assert.equal(result.uncertain, true);
-  assert.equal(f.task().phase, 'SUBMIT_RESERVED');
+  // The record does NOT stay in SUBMIT_RESERVED with no observer: that state
+  // can never be observed and never resolved. The activation was attempted, so
+  // the only honest outcome is "uncertain, still locked" — and the record says
+  // so, instead of sitting in a phase nothing can move it out of.
+  assert.equal(f.task().phase, 'NEEDS_RECONCILIATION');
   assert.equal(f.task().lock_active, true, 'the conversation stays locked');
   assert.equal(f.task().observer, null);
-  // And it is never re-sent. The same correlation is still IN_FLIGHT in the
-  // legacy record; a fresh correlation still hits the operation tombstone.
-  assert.equal((await f.make().submitTurn(GATE)).code, CHATGPT_ERROR.DISPATCH_IN_FLIGHT);
+  // And it is never re-sent. The record was settled, so the legacy tombstone
+  // says the dispatch is finished (with nothing captured), and a fresh
+  // correlation still hits the operation tombstone. Both refuse the resend.
+  assert.equal((await f.make().submitTurn(GATE)).code, CHATGPT_ERROR.ALREADY_DISPATCHED);
   assert.equal((await f.make().submitTurn({ ...GATE, correlation_id: 'fresh' })).code, CHATGPT_ERROR.ALREADY_DISPATCHED);
   assert.equal(f.sends().length, 1);
 });
@@ -489,9 +496,14 @@ test('an ambiguous submission keeps the lock and forbids a fresh correlation', a
   assert.equal(result.submitted, true);
   assert.equal(result.uncertain, true);
   assert.equal(result.captured, false);
-  assert.equal(f.task().phase, 'SUBMIT_RESERVED');
+  // The timeout is SETTLED, not left hanging: the record leaves SUBMIT_RESERVED
+  // (a phase with no observer and no outcome, which nothing can ever resolve)
+  // and becomes NEEDS_RECONCILIATION with every known fact kept.
+  assert.equal(f.task().phase, 'NEEDS_RECONCILIATION');
   assert.equal(f.task().lock_active, true);
   assert.equal(f.task().facts.consumed, false);
+  assert.equal(result.phase, 'NEEDS_RECONCILIATION', 'the caller is told which phase was recorded');
+  assert.equal(result.lock_active, true);
 
   // A fresh correlation is not a fresh operation, and another tab on the same
   // conversation is not a different conversation.
@@ -726,22 +738,40 @@ test('a terminal REJECTED observe receipt is reported with the page\'s verdict r
   assert.equal(f.task().lock_active, true);
 });
 
-test('a durable-backed poll that cannot satisfy the token contract fails closed and keeps the lock', async () => {
-  // P2-6 is deferred BY DESIGN: the token is not stored durably, so the caller
-  // must supply it. Until that lands this path must fail CLOSED with a
-  // machine-readable reason rather than accept, or silently unlock.
+test('a durable-backed poll satisfies the token contract from the STORED marker', async () => {
+  // The token is durable now, so a poll does not need the original caller to
+  // supply it: the marker this operation was actually sent with is on the
+  // record, and the acceptance contract is checked against it.
   const f = world({
     observe: (message, identity) => acceptedReceipt({ action: CHATGPT_ACTION.OBSERVE_TURN, identity,
       correlationId: message.correlation_id, token: GATE.expected_reply_token })
   });
   await f.driver.submitTurn(GATE);
   const result = await f.driver.observeTurn({ correlation_id: GATE.correlation_id });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.captured, true);
+  assert.equal(f.task().phase, 'REPLY_CHECKED');
+  assert.equal(f.task().lock_active, false, 'a validated reply releases the lock');
+});
+
+test('a caller token that contradicts the stored marker is refused and keeps the lock', async () => {
+  const f = world({
+    observe: (message, identity) => acceptedReceipt({ action: CHATGPT_ACTION.OBSERVE_TURN, identity,
+      correlationId: message.correlation_id, token: GATE.expected_reply_token })
+  });
+  await f.driver.submitTurn(GATE);
+  const before = f.posted.length;
+  const result = await f.driver.observeTurn({ correlation_id: GATE.correlation_id,
+    expected_reply_token: 'A-DIFFERENT-MARKER' });
   assert.equal(result.ok, false);
-  assert.equal(result.code, CHATGPT_ERROR.ADAPTER_CONTRACT);
+  assert.equal(result.code, CHATGPT_ERROR.TOKEN_MISMATCH);
+  assert.equal(result.reason, 'expected_reply_token_mismatch');
   assert.equal(result.captured, false);
-  assert.equal(result.uncertain, true);
+  assert.equal(result.read_only, true);
+  assert.equal(f.posted.length, before, 'the wrong marker is not even put to the page');
   assert.equal(f.task().phase, 'NEEDS_RECONCILIATION');
-  assert.equal(f.task().lock_active, true, 'an unverifiable capture never releases the lock');
+  assert.equal(f.task().lock_active, true, 'a refused read never releases the lock');
+  assert.ok(!JSON.stringify(result).includes('A-DIFFERENT-MARKER'), 'the marker itself is never echoed');
 });
 
 test('a contradictory observe result keeps the lock and is never accepted', async () => {
@@ -876,6 +906,47 @@ test('a read with no durable operation invents no identity', async () => {
   }
 });
 
+test('a read that fails claims NOTHING about the operation it was asked about', async () => {
+  // NOTHING WAS SUBMITTED BY THIS READ, but the operation may have been
+  // submitted EARLIER. A read that failed therefore makes no `submitted`
+  // claim at all: the field is ABSENT, not false. `submitted:false` is a
+  // no-send statement about the OPERATION, and a read is not entitled to
+  // make it — the read-only flag is what the caller gets instead.
+  const busy = world();
+  await busy.driver.submitTurn(GATE);
+  // The durable store is busy/refused while the submit is still in flight.
+  busy.api.storage.local.get = async () => { throw new Error('reservation_store_busy'); };
+  const unreadable = await busy.driver.readFinal({ correlation_id: GATE.correlation_id,
+    expected_reply_token: GATE.expected_reply_token });
+  assert.equal(unreadable.ok, false);
+  assert.equal('submitted' in unreadable, false, JSON.stringify(unreadable));
+  assert.equal(unreadable.read_only, true);
+  assert.equal(unreadable.captured, false);
+  assert.equal(busy.task().lock_active, true, 'a read that learned nothing changes nothing');
+
+  // A read aimed at a different tab is refused the same way.
+  const foreign = world();
+  await foreign.driver.submitTurn(GATE);
+  const otherTab = await foreign.driver.readFinal({ correlation_id: GATE.correlation_id, tab_id: 9 });
+  assert.equal(otherTab.ok, false);
+  assert.equal(otherTab.code, CHATGPT_ERROR.NOT_A_CHATGPT_TAB);
+  assert.equal('submitted' in otherTab, false, JSON.stringify(otherTab));
+  assert.equal(otherTab.read_only, true);
+  assert.equal(otherTab.captured, false);
+
+  // And a read with a contradictory marker is refused the same way.
+  const wrongToken = world();
+  await wrongToken.driver.submitTurn(GATE);
+  const mismatch = await wrongToken.driver.readFinal({ correlation_id: GATE.correlation_id,
+    expected_reply_token: 'OTHER-MARKER' });
+  assert.equal(mismatch.ok, false);
+  assert.equal(mismatch.code, CHATGPT_ERROR.TOKEN_MISMATCH);
+  assert.equal('submitted' in mismatch, false, JSON.stringify(mismatch));
+  assert.equal(mismatch.read_only, true);
+  assert.equal(mismatch.captured, false);
+  assert.equal(wrongToken.task().lock_active, true, 'a refused read never releases the lock');
+});
+
 /* ----------------------------------------------------------- submission gates */
 
 test('submit-turn requires the gesture, the approval and a stable identity, before any port', async () => {
@@ -969,7 +1040,7 @@ test('the new commands have finite, validated and ordered budgets', () => {
 
 test('the panel deadline outlasts the worker budget for EVERY supported command', () => {
   assert.deepEqual(Object.keys(COMMAND_WORK).sort(),
-    ['commander-scan', 'observe-turn', 'ping', 'read-final', 'run-turn', 'state', 'stop', 'submit-turn', 'tabs']);
+    ['commander-scan', 'observe-turn', 'ping', 'read-final', 'reconcile-turn', 'run-turn', 'state', 'stop', 'submit-turn', 'tabs']);
   for (const command of Object.keys(COMMAND_WORK)) {
     const plan = resolveCommandDeadline({ command });
     assert.ok(plan.panelMs > plan.absoluteMs, `${command}: panel ${plan.panelMs} > worker ${plan.absoluteMs}`);
@@ -1048,12 +1119,159 @@ test('legacy runTurn still settles a positive no-send and an accepted reply', as
 
 /* ------------------------------------------------------- worker routing */
 
+test('the worker keeps the driver\'s honest answer when the command expires after it', async () => {
+  // The submit times out, the driver settles the record and answers
+  // HONESTLY, and only then does the worker's own budget expire. The expiry
+  // must not throw that answer away: the correlation, the task, the
+  // operation, the phase, the lock and the settlement are what a caller
+  // needs to find and reconcile the operation afterwards.
+  const f = world({ silentSubmit: true }, {
+    set: async (value) => {
+      const tasks = value[TASKS_KEY];
+      // The settlement's rich write is SLOW: the command's own budget expires
+      // while it is still landing.
+      if (tasks && Object.values(tasks.operations).some((task) => task.phase === 'NEEDS_RECONCILIATION')) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+    }
+  });
+  const previous = globalThis.chrome;
+  globalThis.chrome = f.api;
+  worker.reset();
+  try {
+    // The worker's driver hashes the payload with the platform digest, and
+    // the first call on a fresh process is the slow one. It is warmed up here
+    // so this test measures the WORKER's budget, not the JIT.
+    await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode('warm-up'));
+    const result = await worker.runChatGPTCommand(
+      { type: 'aion/chatgpt-submit', tabId: 7, command: { ...GATE, timeout_ms: 5 } },
+      { hydrate: () => worker.rehydrate(),
+        // A budget that expires WHILE the driver is still settling.
+        policy: { hydration: 150, resolveTab: 20, preflight: 20, reservationRead: 100,
+          reservationWrite: 50, observerArm: 20, settlement: 20, setup: 5, grace: 5 } });
+    assert.equal(result.ok, false);
+    // THE ADDRESSABLE FACTS SURVIVE THE EXPIRY.
+    assert.equal(result.correlation_id, GATE.correlation_id, JSON.stringify(result));
+    assert.equal(result.task_id, GATE.task_id);
+    assert.equal(result.operation_key, GATE.operation_key);
+    assert.equal(result.phase, 'NEEDS_RECONCILIATION');
+    assert.equal(result.lock_active, true);
+    assert.equal(result.settlement, 'recorded');
+    // AND IT IS NOT LABELLED READ-ONLY: a submit that may have activated is
+    // not a read-only poll, whatever the preflight did.
+    assert.notEqual(result.read_only, true, JSON.stringify(result));
+    assert.equal(result.submitted, true);
+    assert.equal(result.uncertain, true);
+    assert.equal(f.task().phase, 'NEEDS_RECONCILIATION');
+    assert.equal(f.task().lock_active, true);
+  } finally {
+    worker.reset();
+    if (previous === undefined) delete globalThis.chrome; else globalThis.chrome = previous;
+  }
+});
+
+test('a read-only command that dies before opening a port claims nothing about the operation', async () => {
+  const f = world();
+  const previous = globalThis.chrome;
+  globalThis.chrome = f.api;
+  worker.reset();
+  try {
+    const result = await worker.runChatGPTCommand(
+      { type: 'aion/chatgpt-reconcile', tabId: 7, correlation_id: GATE.correlation_id },
+      { hydrate: () => { throw new Error('durable storage is unavailable'); } });
+    assert.equal(result.ok, false);
+    // THE COMMAND IS READ-ONLY, so the failure says so — and it makes NO
+    // `submitted` claim: it learned nothing about the operation it was asked
+    // about, and `submitted:false` would be a no-send statement about the
+    // OPERATION, which a poll is not entitled to make.
+    assert.equal(result.read_only, true);
+    assert.equal('submitted' in result, false, JSON.stringify(result));
+    assert.equal(result.uncertain, true);
+    assert.equal(result.captured, false);
+    assert.equal(f.posted.length, 0, 'no page was contacted at all');
+  } finally {
+    worker.reset();
+    if (previous === undefined) delete globalThis.chrome; else globalThis.chrome = previous;
+  }
+});
+
+test('a settlement whose acknowledgement was lost reports the record that DID land', async () => {
+  // The write landed and the acknowledgement did not. Reporting
+  // `not_recorded` over a durable NEEDS_RECONCILIATION would under-report a
+  // capture that really happened, so the record is read again and reported
+  // as it is.
+  const f = world({ silentSubmit: true }, {
+    timeouts: { submit: 40 },
+    policy: { setup: 5, grace: 5 },
+    set: async (value) => {
+      const tasks = value[TASKS_KEY];
+      if (tasks && Object.values(tasks.operations).some((task) => task.phase === 'NEEDS_RECONCILIATION')) {
+        f.bag[TASKS_KEY] = structuredClone(value[TASKS_KEY]);
+        throw new Error('acknowledgement lost');
+      }
+    }
+  });
+  const result = await f.driver.submitTurn(GATE);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, CHATGPT_ERROR.TIMEOUT, JSON.stringify(result));
+  // THE DURABLE TRUTH, as it really is.
+  assert.equal(result.phase, 'NEEDS_RECONCILIATION');
+  assert.equal(result.lock_active, true);
+  assert.equal(result.settlement, 'not_recorded', 'the acknowledgement really was lost');
+  assert.equal(result.submitted, true);
+  assert.equal(result.uncertain, true);
+  assert.equal(f.task().phase, 'NEEDS_RECONCILIATION');
+  assert.equal(f.task().lock_active, true);
+});
+
+test('a checked reply whose settlement landed but lost its acknowledgement is reported as CAPTURED', async () => {
+  // THE WRITE LANDED; THE ACKNOWLEDGEMENT DID NOT. The record on disk is a
+  // checked reply with the lock released, so the reply says so: a hardcoded
+  // `captured:false` would under-report a capture that really happened, and
+  // would report a released operation as still open.
+  const f = world({
+    submit: (message, identity) => acceptedReceipt({ action: CHATGPT_ACTION.SUBMIT_TURN, identity,
+      correlationId: message.correlation_id, token: message.expected_reply_token })
+  }, {
+    set: async (value) => {
+      const tasks = value[TASKS_KEY];
+      const record = tasks && tasks.operations[GATE.operation_key];
+      if (record && record.phase === 'REPLY_CHECKED') {
+        f.bag[TASKS_KEY] = structuredClone(tasks);
+        throw new Error('acknowledgement lost');
+      }
+    }
+  });
+  const result = await f.driver.submitTurn(GATE);
+  assert.equal(result.ok, false, 'the settlement was never acknowledged');
+  // THE DURABLE TRUTH, as it really is.
+  assert.equal(result.phase, 'REPLY_CHECKED');
+  assert.equal(result.lock_active, false);
+  assert.equal(result.captured, true, 'a checked reply is a checked reply, acknowledged or not');
+  assert.equal(result.resolved, true, 'and the operation is resolved, because the lock is not held');
+  assert.equal(result.settlement, 'not_recorded', 'the acknowledgement really was lost');
+  assert.equal(result.submitted, true);
+  assert.equal(result.uncertain, true);
+  assert.equal(f.task().phase, 'REPLY_CHECKED');
+  assert.equal(f.task().lock_active, false);
+});
+
 test('the worker maps only its own message types onto the two new commands', () => {
   assert.equal(chatGPTCommandName('aion/chatgpt-submit'), 'submit-turn');
   assert.equal(chatGPTCommandName('aion/chatgpt-observe'), 'observe-turn');
   assert.equal(chatGPTCommandName('aion/chatgpt-run'), 'run-turn');
   for (const type of ['aion/chatgpt-submit-turn', 'unknown', 'aion/chatgpt-send', '', undefined]) {
     assert.equal(chatGPTCommandName(type), null, JSON.stringify(type));
+  }
+  // ONLY the two commands that may put text into a signed-in session are
+  // send-capable. Every other command is read-only, and a read-only command
+  // that fails must never claim `submitted:false` about the operation it was
+  // asked about.
+  assert.equal(commandIsSendCapable('run-turn'), true);
+  assert.equal(commandIsSendCapable('submit-turn'), true);
+  for (const command of ['observe-turn', 'reconcile-turn', 'read-final', 'ping', 'tabs', 'state', 'stop',
+    'unknown', '', undefined, null]) {
+    assert.equal(commandIsSendCapable(command), false, JSON.stringify(command));
   }
 });
 
