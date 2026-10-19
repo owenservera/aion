@@ -39,6 +39,6 @@ Local authorized executor must inspect exact Windows branch/worktree, Chrome pro
 
 See also [DUAL-TRACK-COMMAND-PLANE-2026-10-19.md](../DUAL-TRACK-COMMAND-PLANE-2026-10-19.md).
 
-## CI verification at bootstrap
+## Local verification only
 
-A GitHub Actions workflow is committed at `.github/workflows/aion-track-b-velocity.yml`, but its initial runs returned `startup_failure` with no jobs. Treat CI as **NOT VERIFIED**, not as passing or a source failure. Investigate Actions availability/permissions/billing or use an authorized independent Node 22 runner; keep the draft PR unmerged until reproducible tests pass.
+GitHub Actions were removed from both Track B branches. Local Node 22 test execution is the only supported verification path: run node --test from velocity and the parent Bus/extension/bridge directories. The full bundled local selftest runner, direct OpenCode path and Windows launchers are developed in draft PR #34; bootstrap PR #33 does not include them until reviewed/merged. No remote test runner or GitHub wake-up dependency is permitted.
