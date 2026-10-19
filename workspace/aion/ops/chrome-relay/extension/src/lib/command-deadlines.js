@@ -16,6 +16,8 @@ export const COMMAND_WORK = Object.freeze({
   // A short, repeatable READ-ONLY poll of an already-armed observer. It can
   // never extend the page's own deadline, so it needs no generation budget.
   'observe-turn': 5_000,
+  // Bus commander watcher: read-only scan of the commander conversation.
+  'commander-scan': 5_000,
 });
 
 /**
@@ -40,6 +42,7 @@ const COMMAND_STAGES = Object.freeze({
   'observe-turn': Object.freeze(['reservationRead', 'observerArm', 'settlement']),
   'submit-turn': Object.freeze(['preflight', 'reservationRead', 'reservationWrite', 'observerArm', 'settlement']),
   'run-turn': Object.freeze(['preflight', 'reservationRead', 'reservationWrite', 'settlement']),
+  'commander-scan': Object.freeze([]),
 });
 
 /** Commands whose exchange may put text into a signed-in session. */
@@ -86,5 +89,6 @@ export function resolveCommandDeadline({ command, requestedWorkMs } = {}, overri
 export function chatGPTCommandName(type) {
   return ({ 'aion/chatgpt-tabs': 'tabs', 'aion/chatgpt-ping': 'ping',
     'aion/chatgpt-run': 'run-turn', 'aion/chatgpt-read': 'read-final',
-    'aion/chatgpt-submit': 'submit-turn', 'aion/chatgpt-observe': 'observe-turn' })[type] ?? null;
+    'aion/chatgpt-submit': 'submit-turn', 'aion/chatgpt-observe': 'observe-turn',
+    'aion/chatgpt-commander-scan': 'commander-scan' })[type] ?? null;
 }

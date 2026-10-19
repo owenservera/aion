@@ -30,7 +30,10 @@
       "resources": [
         "src/chatgpt/content.js",
         "src/chatgpt/correlate.js",
-        "src/lib/envelope.js"
+        "src/lib/envelope.js",
+        "src/chatgpt/commander.js",
+        "src/bus/grammar.js",
+        "src/bus/contracts.js"
       ],
       "matches": [
         "https://chatgpt.com/*"

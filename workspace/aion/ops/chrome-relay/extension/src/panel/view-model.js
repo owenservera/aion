@@ -199,7 +199,8 @@ export const ACTION_CATALOG = Object.freeze([
   { type: 'aion/chatgpt-run', kind: 'send', machine_view: false, summary: 'Send exactly one message into one chosen tab. Cannot be unsent.' },
   { type: 'aion/chatgpt-submit', kind: 'send', machine_view: false, summary: 'Submit one approved task once: reserve durably, arm the page observer, activate, return the first receipt.' },
   { type: 'aion/chatgpt-observe', kind: 'probe', machine_view: false, summary: 'Read-only poll of an already-armed observer for one operation. Never submits, never extends its deadline.' },
-  { type: 'aion/chatgpt-read', kind: 'probe', machine_view: false, summary: 'Read back the final reply for one correlation id.' }
+  { type: 'aion/chatgpt-read', kind: 'probe', machine_view: false, summary: 'Read back the final reply for one correlation id.' },
+  { type: 'aion/chatgpt-commander-scan', kind: 'probe', machine_view: false, summary: 'Bus watcher: read-only scan of the commander conversation for new owner-armed AION_CMD_V1 blocks after the baseline. Never composes or sends.' }
 ]);
 
 /** Rules a reader (agent or person) needs to interpret every field correctly. */
