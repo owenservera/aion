@@ -42,7 +42,9 @@ export async function main(argv=process.argv.slice(2),{
    catch{return done(print,{ok:false,code:'INVALID_GRANT_CWD',delivery:'NOT_SENT'},2);}
    const engine=args.engine==='acp'?await acpProbe():await probe();
    if(!engine?.ok)return done(print,{ok:false,code:'ENGINE_NOT_CONNECTED',opencode:safe(engine)},3);
-   const rt=await open({withEngine:true,engineChoice:args.engine==='acp'?'acp':'opencode-v2'});
+   let rt;
+   try{rt=await open({withEngine:true,engineChoice:args.engine==='acp'?'acp':'opencode-v2'});}
+   catch(error){return done(print,{ok:false,code:error.code??'ENGINE_OPEN_FAILED',delivery:'NOT_SENT'},3);}
    try{
      if(!rt.engine?.ok)return done(print,{ok:false,code:'ENGINE_NOT_CONNECTED',delivery:'NOT_SENT'},3);
      const state=await rt.bus.store.read();
@@ -79,7 +81,9 @@ export async function main(argv=process.argv.slice(2),{
  if(parsed.command==='send'&&parsed.detach)
    return done(print,{ok:false,code:'DETACH_REQUIRES_BROKER',delivery:'NOT_SENT'},2);
  const needsEngine=['send','observe','capabilities'].includes(parsed.command);
- const rt=await open({withEngine:needsEngine});
+ let rt;
+ try{rt=await open({withEngine:needsEngine});}
+ catch(error){return done(print,{ok:false,code:error.code??'LOCAL_STATE_UNAVAILABLE',delivery:'NOT_SENT'},3);}
  try{
    if(parsed.command==='doctor'){
      const [engine,acp]=await Promise.all([probe(),acpProbe()]);
