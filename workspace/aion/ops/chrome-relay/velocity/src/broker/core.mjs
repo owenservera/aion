@@ -47,7 +47,8 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     let accepted;
     try{
       accepted=await bus.ingestStructured({op:'send',to,text,nonce,
-        origin_kind:'operator_cli',origin_ref:'track-b-dev'});
+        origin_kind:'operator_cli',origin_ref:'track-b-dev',
+        target_guard:{revision:agent.revision,adapter:agent.binding.adapter,ref:agent.binding.ref}});
     }catch{
       return response(false,'ADMISSION_FAILED',{delivery:'UNKNOWN'});
     }
