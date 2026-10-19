@@ -21,7 +21,7 @@ OpenCode is AION's current **Windows local code execution agent**, by owner deci
 ## Contents
 1. [RESEARCH-2026-10-17.md](./RESEARCH-2026-10-17.md) — released feature inventory, architecture, compatibility and provenance.
 2. [MIGRATION-AND-VALIDATION.md](./MIGRATION-AND-VALIDATION.md) — read-only discovery, staged migration, test matrix and rollback.
-3. [AION-INTEGRATION.md](./AION-INTEGRATION.md) — existing system boundaries, proposed high-leverage integration points, acceptance receipts.
+3. [AION-INTEGRATION.md](./AION-INTEGRATION.md) — existing system boundaries, proposed high-leverage integration points, acceptance receipts, and the **2026-10-19 design proposal: V2 read-only observer (outside the bus delivery adapters) + future owner-bound HTTP control** — proposal only, not implemented, not authorized.
 4. [ACP-AND-SERVICE-PROTOCOL.md](./ACP-AND-SERVICE-PROTOCOL.md) — native ACP v1 private-server mode versus shared V2 HTTP service.
 5. [RISKS-AND-SOURCES.md](./RISKS-AND-SOURCES.md) — regressions, disputed/unknown claims, upstream primary documentation and issue trackers.
 6. [MODELS-AND-ROUTING.md](./MODELS-AND-ROUTING.md) — V2 model layer: per-agent model config, `provider/model#variant`, per-session/model switch contract set, live routing state and rollback-free churn hazards.
@@ -43,3 +43,5 @@ Only **RESEARCHED** is established by these files. Repo publication is not proof
 - [AION project ownership](../../pm/OWNERS.md)
 
 **Important:** The V2 `@opencode/client` and OpenCode HTTP API are *not* ACP JSON-RPC, and neither is the AION relay envelope. A bridge must map these explicitly; do not blend their contracts.
+
+**2026-10-19 addition.** The optional loopback HTTP adapter (`../chrome-relay/extension/src/bus/adapters/opencode-v2.js`) is **offline-built and not host-proven** (8 fake-service tests, independent pass 2026-10-19T15:55:24Z); the read-only observer, its hardening and any production integration are **not built**. The design proposal that supersedes the older "not built" wording is the design section at the end of [AION-INTEGRATION.md](./AION-INTEGRATION.md), sourced from the canonical pulls `2026-10-19T15-59-02-*.json`, `2026-10-19T16-01-03-*.json` and `2026-10-19T16-03-06-*.json` in `SOFTWARE_HQ/context7/raw/`. ACP (private per-process server) remains the primary route; the shared service inventory is a different surface. The design's open point: **reliable terminal attribution is a blocking conformance question** — no documented input-ID ↔ idle/terminal correlation (field, cardinality or ordering) exists in the evidence, so per-input outcomes stay `UNKNOWN` until a host run answers it; an isolated single-input session is an observation aid, not a protocol guarantee.
