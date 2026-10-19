@@ -1,31 +1,41 @@
 # AION Windows — master tracker and owner checkpoints
 
-> **LATEST OWNER DIRECTION:** finish this build and test it now. ChatGPT sends and reply readback
-> are explicitly included. Target one correlated benign prompt, not V1/V2 expansion. Earlier no-send-only
-> gates below are historical where they conflict with this newer direction. If a send is uncertain,
-> observe/reconcile that same operation; never automatically resend. M1 remains unverified.
+> **LATEST OWNER DIRECTION: FULL LIVE EXECUTION IS ACTIVE.** `live_execution_authorized=true`.
+> ChatGPT sends and reply readback are included in ongoing authority, not a consumed one-test grant.
+> Earlier no-send-only and per-test grant examples below are historical where they conflict with this
+> direction. Keep this implementation canonical and log its issues; reconcile uncertain operations
+> rather than automatically resending. M1 verification is separate from execution permission.
 
 **What this file is.** One master checklist and six **USER CHECKPOINTS (CP0–CP5)** the owner can
 work through and watch real progress happen, plus the prior tracker preserved underneath for history.
 
-**Status at write time (2026-10-19, integration worktree `AION-integration-20261019`).**
-Merge **committed**: code commit `fd347f22dba24e9282e8a39b01ed5f0c760bee14` (parents `9b07eab` +
-`7ffb434`, 13 code/test paths), source identical to the final test runs. Offline evidence reviewed by
-the integration owner, 2026-10-19T16:24:41Z: extension **736 passed** (16:24:21Z); bridge **126 passed
-/ 1 opt-in skip** (16:24:41Z, targeted re-run also passed 16:24:19Z); bus runner **8 passed / 2 opt-in
-skips**; MCP **10 passed**; adapter **35 passed** (16:24:04–16:24:07Z); bus offline demo **3/3**
-(16:24:18Z, actual output `OFFLINE_PASS D1/D2/D3`). The single bridge change is **test-only** — the
-test now awaits `w.relay.host.ensureSession()` before `HOLD`; the 400 ms prompt timeout is kept and
-**production code is unchanged**. The new `expected_reply_token` regression negative is proven.
-**CP0 functional checks PASS**; final review, the docs commit and publication are still pending.
-Nothing live was done. `live_execution_authorized` is `false`; `m1_verified` is `false`.
+**Status at write time — 2026-10-19T17:05:00Z (live session complete; implementation FROZEN).**
+**Canonical frozen source: `fd347f22dba24e9282e8a39b01ed5f0c760bee14`** (parents `9b07eab` +
+`7ffb434`, 13 code/test paths). Tested offline on that exact source: extension **736 passed**
+(16:24:21Z); bridge **126 passed / 1 opt-in skip** (16:24:41Z, targeted re-run 16:24:19Z); bus runner
+**8 passed / 2 opt-in skips**; MCP **10 passed**; adapter **35 passed** (16:24:04–16:24:07Z); bus
+offline demo **3/3** (16:24:18Z, output `OFFLINE_PASS D1/D2/D3`). The bridge change was **test-only**
+(`w.relay.host.ensureSession()` awaited before `HOLD`; 400 ms prompt timeout kept; production code
+unchanged). Branch HEAD was `fc30efd` at the live session and later advanced to
+`389a928bd7bca1054fd8b2189ef29308a16bde5` (merge of main, carrying the original checkout's two
+research-doc files) — the tested source is unchanged, re-verified byte-identical by
+`git diff --quiet fd347f2 HEAD -- chrome-relay aion-mcp adapter` (exit `0`).
 
-**Original checkout — not touched.** `C:\0-BlackBoxProject-0\AION` main is still `7ffb434` and is now
-**dirty** with only `workspace/aion/ops/opencode-2/AION-INTEGRATION.md` and `README.md` (a new research
-session). **We do not update, switch or clean the original checkout; those edits are preserved.**
-Publication happens from the integration worktree only. The `origin/main` `8448242` research-docs merge
-(role09 research workspace, no source change) is now **committed**: branch HEAD `78dad55`, parents
-`fd347f22` + `8448242`. **The code under test is still `fd347f22`** — `78dad55` adds no source change.
+**A real AION-originated live send happened through native UIA and the service reply was machine-read.**
+`live_execution_authorized` is **true** — the owner explicitly confirmed **full live execution mode**.
+The completed trial does not consume or revoke this ongoing authority. `m1_verified` is **false**:
+this is **not** an
+extension submit-path success, **not** an accepted relay envelope, and there is **no independent
+negative case and no independent review**. Minimized evidence:
+[`LIVE-INTEGRATION-2026-10-19.md`](LIVE-INTEGRATION-2026-10-19.md).
+
+**Implementation is FROZEN — no more code fixes.** Remaining work is publish + issue logging only
+(parent owns Git). See §1b for the live outcome and the bounded issue list.
+
+**Original checkout research is preserved:** its two research documents were committed as `63d4a11`
+and merged into the integration as `389a928`. The role09 research work from remote `8448242` is also
+included. The final publication aligns primary `main` to this integrated history without resets or
+discarding edits. Tested implementation remains byte-identical to source `fd347f22`.
 
 **Source identity — independently verified, read-only.** `git diff --quiet fd347f2 HEAD -- workspace/aion/ops/chrome-relay workspace/aion/ops/aion-mcp workspace/aion/sessions/01-escape-hatch/adapter` exits `0` with **no differing paths**: the tested source is **byte-identical** between `fd347f2` and integration HEAD `78dad55`. The 18 paths that do differ between them are all under `workspace/aion/sessions/roles/09-global-research/` plus `workspace/aion/sessions/README.md` — research docs, no source. The final receipt therefore points at **source commit `fd347f2`** with **integration HEAD `78dad55`**. **Nothing is pushed yet**: `origin/main` is `8448242`; the branch is 3 ahead, 0 behind.
 
@@ -81,15 +91,16 @@ Ordered. `→` means the next row may not start until the previous one has a rec
 
 | # | Action | Owner | Status | Depends on |
 |---|---|---|---|---|
-| 1 | Commit the code merge `fd347f22` (parents `9b07eab` + `7ffb434`, 13 code/test paths) | parent | **DONE** | — |
-| 2 | Offline acceptance on the merged tree — ext **736** / bridge **126+1 opt-in skip** / bus **8+2 opt-in skips** / MCP **10** / adapter **35** / demo **3-3** (16:24:41Z) — **CP0** | parent + fixer | **PASS (functional)** | 1 |
-| 3 | Review and commit this tracker + `STATE.json`, then publish the integration worktree (3 commits ahead of `origin/main`, not pushed) | parent (Git) + docs owner | **IN PROGRESS** | 2 |
-| 4 | Merge `origin/main` `8448242` (role09 research docs; no source change) → HEAD `78dad55` | parent | **DONE** | 3 |
-| 5 | No-send bring-up: path/version checks, align **extension** to the tested build, reload, panel + native-host connection — **CP1** | **parent executes** (owner assists) | **APPROVED — scoped, no-send.** Excludes ChatGPT prompts, commander scanning, grants, executor tasks, ledger resets. Native-host registration changes need a separate ask. | 3, 4 |
-| 6 | Chrome no-send handshake SYNC-0 — **CP2** | owner | TODO — needs grant | 5 |
-| 7 | ONE benign ChatGPT roundtrip + readback + negative + independent M1 acceptance — **CP3** | owner + agent + independent reviewer | TODO — needs grant | 6 |
-| 8 | V1 commander: one target, one command, one report-back — **CP4** | owner + agent | TODO — needs grant | 6 |
-| 9 | V2 executor: one benign OpenCode sandbox task — **CP5** | owner + agent | TODO — needs grant | 3 |
+| 1 | Freeze canonical source `fd347f22` — **no more code fixes** | owner | **DONE** | — |
+| 2 | Commit and push everything on main, keeping `fd347f22` canonical | **parent (Git)** | **IN PROGRESS** | 1 |
+| 3 | Integrate the original checkout's 2 research-doc files | **parent (Git)** | IN PROGRESS | 2 |
+| 4 | Log the bounded issues from §1b in the issue tracker | **parent** | TODO | 2 |
+| 5 | Live native-UIA round trip — one real send, reply machine-read | main agent (native UIA) | **DONE** — reply verified; extension submit path failed (§1b) | 1 |
+| 6 | Independent negative case + independent review (M1 acceptance) | independent reviewer | TODO — needs a fresh live grant | 5 |
+| 7 | Everything else (CP2–CP5, OpenCode 2.0 research) | — | NOT STARTED; not blocking the freeze | — |
+
+**§1b supersedes the recorded statuses in §2.** The checkpoint runbook in §2 stays as the *procedure*
+reference; its statuses predate the live run and are not the current truth.
 
 **Note on the scope of the CP0 approval.** CP0 is offline work: source, tests, suites, the bus demo and
 receipts. It does **not** extend to CP1. CP1 is *no-send* but **not read-only**: it reloads an extension
@@ -145,9 +156,51 @@ Its output is a **proposal for the parent**, not code, not a claim, and not an a
 
 ---
 
+## 1b. Live outcome and bounded issues (authoritative — supersedes §2 statuses)
+
+### What happened — one real send, machine-read
+| Time (UTC) | Actor | Action | Observed |
+|---|---|---|---|
+| pre-16:44 | main agent (native UIA) | extension panel native ping | **CONNECTED**, status **VERIFIED** |
+| 16:44:31Z | extension submit path | submit marker `AION-INTEGRATION-20261019-01` | **refused before dispatch**: `conversation_locked: unmapped legacy reservation` |
+| after 16:44:31Z | owner | authorized archiving the old orphan; the DevTools archive attempt **failed** in `storage.get` keys **before any write** (suspected missing `ARCHIVE_KEY` in the loaded module; source paths **not proven**) | no state written |
+| after that | owner | requested start over: **AION extension removed and reinstalled** (extension only), ChatGPT tab refreshed | — |
+| 16:59:35.797Z | extension split Submit | fresh marker `AION-INTEGRATION-20261019-02`; prompt exactly `Reply with exactly these two lines:` / `AION-INTEGRATION-20261019-02` / `53+29=82`; approval ref `owner:20261019:fresh-live-test` | output **UNCERTAIN** `turn_refused: generation_incomplete` by 17:00:09; read-only **Observe** returned the same |
+| ~17:03 (owner-confirmed; no exact clock claimed) | owner | confirmed the prompt was filled correctly but **not sent** | — |
+| 17:04:16.8683372Z | **main agent (native UIA)** | after an exact composer readback, invoked the **real ChatGPT Send button** via `InvokePattern` — **once** | composer held marker length **73**; Send button enabled |
+| 17:05:00.7053692Z | **main agent (native UIA)** | read the UIA transcript nodes in order | **"You said"** + the exact prompt, then **"ChatGPT said"** + `AION-INTEGRATION-20261019-02` + `53+29=82`, with Copy / Read-aloud controls |
+
+**What this is.** A real AION-originated prompt reached the real ChatGPT service, and the actual
+service reply was read back **directly by the machine, with no owner copy/paste relay**. The send was
+performed by the main agent through native Windows UI Automation on the ChatGPT Send control — **not**
+an owner manual send.
+
+**What this is not.** It is **not** the extension submit path succeeding, **not** an accepted relay
+envelope, and there is **no independent negative case and no independent review**. Therefore
+**`m1_verified` stays false** and M1 is not accepted. Only **one** actual send occurred: nothing was
+retried and no second prompt was sent.
+
+### Bounded issues (practical priorities — not new security tasks)
+| Pri | Issue | Note |
+|---|---|---|
+| **P1** | Extension fills the composer but does not activate Send | the submit path stops short of the real control |
+| **P1** | `generation_incomplete` emitted while the prompt was still unsent | the `submitted` field means *dispatch*, not *proven UI send* |
+| **P2** | A fresh extension install requires a ChatGPT tab refresh, else `port_closed` | install-time step |
+| **P2** | Loaded-build mismatch suspected (missing `ARCHIVE_KEY` vs integrated source) | **not proven** — the actual loaded path was never confirmed |
+| **P2** | Old legacy unmapped reservation locks all sends | blocks every send until cleared through a reviewed path |
+| **UX** | Workflow too cumbersome | explicit owner feedback on the current procedure |
+| V2 | OpenCode 2.0 research proposal | unimplemented; **next**, not blocking the current freeze |
+
+No new security tasks are opened by this run.
+
+---
+
 ## 2. USER CHECKPOINTS
 
 Each checkpoint is a gate. If its pass/fail is not visible, the next one does not start.
+
+> **Status note (2026-10-19T17:05Z):** the statuses recorded below predate the live run and are
+> **superseded by §1b**. Keep this section as the *procedure* reference; treat §1b as the current truth.
 
 ---
 
@@ -329,6 +382,9 @@ Status text. No transcripts, no account content.
 switch engaged, press `Resume` before any later step.
 
 **Status: APPROVED (scoped, no-send) — 2026-10-19.** The owner granted a bounded no-send bring-up.
+**Update (17:05Z):** the extension side of this bring-up was later found to stop short of activating
+Send (§1b) — the extension submit path did **not** carry the live send. The live send ran under the
+separate fresh approval ref `owner:20261019:fresh-live-test`.
 **Granted:** finish the path and version checks; align the **extension** to the tested build if
 needed; reload the pinned extension; open the panel and confirm the native-host connection.
 **Excluded:** ChatGPT prompts of any kind, commander scanning, grants, executor tasks, ledger resets.
@@ -717,6 +773,16 @@ rollback: node <bus>/bin/aion-bus.mjs revoke <grant_id>  (and, for CP5, node <bu
   `48fcf8af3c03816961de150e53d0073f38c12d5bb82e346e9c334f4bb7ead1db`, 48 normalized chars) but the
   adapter's own verdict was `turn_refused: generation_incomplete`. The reply was right; the *proof* was
   not. Do not present the 2026-10-18 evidence as an accepted turn.
+- **The live outcome is a real send, but not an accepted turn.** A real AION-originated prompt reached
+  ChatGPT at 17:04:16.8683372Z (native UIA `InvokePattern` on the real Send control) and the reply was
+  machine-read at 17:05:00.7053692Z. It is **not** the extension submit path, **not** an accepted
+  relay envelope, and it has no independent negative case and no independent review, so
+  **`m1_verified` stays false**.
+- **Full live execution remains active.** `live_execution_authorized=true`; the completed trial does
+  not consume ongoing owner authority. Reconcile uncertainty instead of automatically resending.
+- **The loaded extension path was never confirmed.** The P2 build-mismatch suspicion (missing
+  `ARCHIVE_KEY` vs integrated source) is **unproven** — the actual loaded path is still unknown, and
+  the DevTools archive attempt failed before any write.
 - **Durability is proven only against storage fakes** — not a real MV3 worker restart or page reload.
 - Standing rules: no Playwright, no Puppeteer, no Orca, no credential/cookie/token export, no bulk
   history reads, no force-push, no destructive git.
@@ -753,6 +819,10 @@ rollback: node <bus>/bin/aion-bus.mjs revoke <grant_id>  (and, for CP5, node <bu
     what a CP1 receipt means, so it is the parent's call before CP1 starts. The original checkout is
     now dirty with research-session docs (which do not touch the bridge) and must not be updated,
     switched or cleaned.
+13. **Which path is canonical going forward** — the extension submit path (fills the composer but does
+    not activate Send) or the native-UIA path (works end to end, but bypasses the extension). The owner
+    asked for a freeze, so this is a decision for the next working session, not for now.
+14. **Where the seven bounded issues are logged.** Parent owns Git; §1b is the source list.
 
 ---
 
