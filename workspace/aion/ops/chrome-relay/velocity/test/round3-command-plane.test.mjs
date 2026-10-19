@@ -40,6 +40,8 @@ test('ready, owner-granted explicit send calls actual bus exactly once',async()=
  const h=harness();
  const r=await h.plane.sendAlias({alias:'chief',text:'hello',nonce:'nonce_123456'});
  assert.equal(r.ok,true);assert.equal(r.operation_id,'testop1234');
+ assert.equal(r.state,'RESERVED');
+ await h.plane.waitForIdle();
  assert.deepEqual(h.stats(),{attempts:1,admissions:1});
  assert.equal(h.events.after(0).events.filter(x=>x.type==='operation.admitted').length,1);
 });
