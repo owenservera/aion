@@ -4,6 +4,21 @@ How to list free models, choose one for a task, and retarget agents quickly — 
 
 Scope: owner Windows machine, OpenCode v2.0.32. Model catalog changes silently; every claim below is stamped with the date it was observed. Re-check before trusting an ID.
 
+## 0. Fastest routes — quick card
+
+Machine-readable source of truth: [`opencode-models/ROUTING.json`](./opencode-models/ROUTING.json); observed receipts: [`opencode-models/RECEIPTS.md`](./opencode-models/RECEIPTS.md). This card is the session-facing copy.
+
+| Goal | Route |
+| --- | --- |
+| Know the catalog now | Code Mode `tools.opencode.models({ query:'free', limit:60 })` — exact provider-prefixed IDs, variants, status |
+| Route one subagent lane differently | pass `model` at dispatch time (lane-scoped; nothing persists) |
+| Switch the model of a live session | `POST /api/session/{sessionID}/model` body `{"model":{"providerID","id"}}` → `204` (subsequent turns; public-spec — smoke on v2.0.32 before relying) |
+| Change an agent's default model | §5 recipes → `.bak` backup → read-back → `opencode service restart` (new sessions only) |
+| Detect config/catalog drift | `bun workspace/aion/ops/opencode-models/audit.mjs` (read-only; exit 1 on errors) |
+| Survive a paid-quota wall on a task root | staged failover supervisor — **INACTIVE** until host contract evidence (`model-failover/COMPATIBILITY.md`) |
+
+Churn is bidirectional (2026-10-19): `space-bunny-free` returned 0 results at 12:29Z and was `active` again at 13:01Z. A gone-then-back ID is not a route; only a fresh catalog snapshot plus an agent-type smoke is.
+
 ## 1. List free models in ten seconds
 
 **Fastest (in-agent):** call the catalog through the Code Mode tool.
@@ -44,6 +59,8 @@ Caveat: the CLI prints IDs only — no variants, no status. Use the catalog call
 
 Also present: `free/free/*` (5 entries) and `openrouter/*:free` (11 entries). Those are different providers; their auth and behavior differ from `opencode/*`.
 
+**Delta 2026-10-19T13:01Z** (re-snapshot): **22 free entries** (down from 23 at 12:29Z) and **`space-bunny-free` is back: `active`**, variants low…max. Catalog churn runs in both directions — re-check before every retarget, and log the snapshot in [`opencode-models/RECEIPTS.md`](./opencode-models/RECEIPTS.md).
+
 **Retired:** `opencode/space-bunny-free` returned **0 catalog results** on 2026-10-19. Any config still pointing at it is broken. The owner preset was corrected to `opencode/deepseek-v4.1-flash-free` on 2026-10-19.
 
 ## 3. Which model for what
@@ -73,6 +90,8 @@ Two files, both under `%USERPROFILE%\.config\opencode\`:
    - `council.presets.default.{alpha,beta,gamma,delta}.model` for the four council seats.
 
 Precedence, in practice: agent-specific config beats preset defaults; project-level config beats global config for the same key. When in doubt, check what the running agent reports rather than assuming.
+
+**Live state 2026-10-19:** all seven slim lanes sit on `opencode/deepseek-v4.1-flash-free` (fixer without a variant). The declared best-practice route for the implementation lane (fixer → `opencode/minimax-m3.1-flash-free#high`, §3 above) now lives in [`opencode-models/ROUTING.json`](./opencode-models/ROUTING.json); `bun workspace/aion/ops/opencode-models/audit.mjs` reports this as one WARN with the §5b recipe until the owner applies it. Nothing in the design lane has mutated your config.
 
 ## 5. Retarget recipes
 
@@ -176,3 +195,4 @@ If you change the production fallback, update `FALLBACK` there and run `bun run 
 | 2026-10-19T12:52:38Z | CLI smoke `opencode/minimax-m3.1-flash-free` → `OPENCODE_OK`, exit 0 |
 | 2026-10-19T12:52:57Z | owner preset backup created; orchestrator changed from retired `space-bunny-free` to `deepseek-v4.1-flash-free` |
 | 2026-10-19 | catalog query: 23 free entries; `space-bunny-free` 0 results; council synthesis 403 FreeTierError |
+| 2026-10-19T13:01Z | catalog re-snapshot: 22 free entries; `space-bunny-free` `active` again (bidirectional churn). Global routing system created: [`opencode-models/`](./opencode-models/README.md) (ROUTING.json + audit.mjs + RECEIPTS.md); session quick card injected into global `~/.config/opencode/AGENTS.md` (backup `AGENTS.md.bak-modelcard-20261019-150743`); dossier entry [`opencode-2/MODELS-AND-ROUTING.md`](./opencode-2/MODELS-AND-ROUTING.md) |
