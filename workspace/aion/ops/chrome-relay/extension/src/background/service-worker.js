@@ -922,6 +922,16 @@ async function handleChatGptCommanderScan(message, lifecycle) {
   return driver.commanderScan(chatgptCommand(message, ['tab_id', 'baseline_sig', 'arm_token']), lifecycle);
 }
 
+/** `aion/chatgpt-dispose` / `-archive` — owner storage actions; gesture checked in the driver. */
+async function handleChatGptDispose(message, lifecycle) {
+  if (!cachedChatGPT) return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable` };
+  return cachedChatGPT.disposeTurn(chatgptCommand(message, ['correlation_id', 'disposition', 'user_gesture']), lifecycle);
+}
+async function handleChatGptArchive(message, lifecycle) {
+  if (!cachedChatGPT) return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable` };
+  return cachedChatGPT.archiveResolved(chatgptCommand(message, ['keep_recent', 'user_gesture']), lifecycle);
+}
+
 async function handleChatGptRead(message, lifecycle) {
   const driver = cachedChatGPT;
   if (!driver) {
@@ -1233,7 +1243,9 @@ const CHATGPT_ENDPOINTS = Object.freeze({
   'aion/chatgpt-submit': handleChatGptSubmit,
   'aion/chatgpt-observe': handleChatGptObserve,
   'aion/chatgpt-read': handleChatGptRead,
-  'aion/chatgpt-commander-scan': handleChatGptCommanderScan
+  'aion/chatgpt-commander-scan': handleChatGptCommanderScan,
+  'aion/chatgpt-dispose': handleChatGptDispose,
+  'aion/chatgpt-archive': handleChatGptArchive
 });
 
 /**

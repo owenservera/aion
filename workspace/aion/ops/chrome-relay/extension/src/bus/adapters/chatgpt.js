@@ -26,6 +26,8 @@ import { ADAPTER_MANIFEST_SCHEMA, AGENT_KIND, REASON, refuse } from '../contract
 const DRIVER_METHODS = Object.freeze({
   'aion/chatgpt-tabs': 'listTabs', 'aion/chatgpt-submit': 'submitTurn', 'aion/chatgpt-observe': 'observeTurn',
   'aion/chatgpt-commander-scan': 'commanderScan',
+  'aion/chatgpt-dispose': 'disposeTurn',
+  'aion/chatgpt-archive': 'archiveResolved',
 });
 
 /**
@@ -178,6 +180,10 @@ export function createChatGPTAdapter({ call, maxTextChars = 2000, liveVerified =
         ...(Number.isSafeInteger(submitTimeoutMs) ? { timeout_ms: submitTimeoutMs } : {}),
       });
       return mapDriverResult(result, 'submit');
+    },
+    /** Owner disposal: release this operation's conversation lock. Never sends. */
+    async dispose(req) {
+      return call('aion/chatgpt-dispose', { correlation_id: req.correlation_id, disposition: req.disposition, user_gesture: true });
     },
     async observe(req) {
       const result = await call('aion/chatgpt-observe', { correlation_id: req.correlation_id, expected_reply_token: req.reply_token });

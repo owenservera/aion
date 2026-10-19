@@ -969,7 +969,7 @@ test('the new commands have finite, validated and ordered budgets', () => {
 
 test('the panel deadline outlasts the worker budget for EVERY supported command', () => {
   assert.deepEqual(Object.keys(COMMAND_WORK).sort(),
-    ['commander-scan', 'observe-turn', 'ping', 'read-final', 'run-turn', 'state', 'stop', 'submit-turn', 'tabs']);
+    ['archive', 'commander-scan', 'dispose', 'observe-turn', 'ping', 'read-final', 'run-turn', 'state', 'stop', 'submit-turn', 'tabs']);
   for (const command of Object.keys(COMMAND_WORK)) {
     const plan = resolveCommandDeadline({ command });
     assert.ok(plan.panelMs > plan.absoluteMs, `${command}: panel ${plan.panelMs} > worker ${plan.absoluteMs}`);

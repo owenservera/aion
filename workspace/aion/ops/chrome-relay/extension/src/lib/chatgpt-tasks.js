@@ -6,6 +6,16 @@ export const TASKS_KEY = 'aion.relay.chatgpt.tasks.v1';
 export const TASKS_SCHEMA = 'aion.chatgpt.tasks/1';
 export const MAX_TASKS = 1024;
 /**
+ * Compact tombstone archive. Resolved operations are moved here ONLY by an
+ * explicit owner archival (never by age or size): their identities keep
+ * blocking reuse forever, while the rich record is dropped to free MAX_TASKS.
+ */
+export const ARCHIVE_KEY = 'aion.relay.chatgpt.archive.v1';
+export const ARCHIVE_SCHEMA = 'aion.chatgpt.archive/1';
+export const MAX_ARCHIVED = 20000;
+/** Owner dispositions for an unresolved operation (lock release, never a resend). */
+export const DISPOSITIONS = Object.freeze(['owner_saw_delivered', 'owner_saw_not_delivered', 'owner_abandoned']);
+/**
  * Free-form page annotations one observer record carries: phase, method, reason.
  *
  * Exported so the driver's normalization and this validator cannot drift apart.
@@ -17,7 +27,9 @@ export const MAX_OBSERVER_ANNOTATION = 64;
 const gates = new WeakMap();
 const own = (value, key) => Object.hasOwn(value, key);
 const dangerous = new Set(['__proto__', 'prototype', 'constructor']);
-const phases = ['SUBMIT_RESERVED', 'NEEDS_RECONCILIATION', 'REFUSED_NO_SUBMIT', 'REPLY_CHECKED'];
+// OWNER_DISPOSED: the owner explicitly disposed an unresolved operation
+// (ARCHITECTURE.md §5 rule 5). Lock released; tombstone kept; never resent.
+const phases = ['SUBMIT_RESERVED', 'NEEDS_RECONCILIATION', 'REFUSED_NO_SUBMIT', 'REPLY_CHECKED', 'OWNER_DISPOSED'];
 function refuse(code, message = code) { throw Object.assign(new Error(message), { code }); }
 function plain(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)
@@ -113,7 +125,7 @@ function validateTask(record, key) {
   if (typeof f.activation_possible !== 'boolean' || f.click_attempted !== null || f.submission_observed !== null
     || f.generation_started !== null || f.generation_complete !== null || typeof f.reply_checked !== 'boolean'
     || typeof f.no_submit !== 'boolean' || f.consumed !== false) refuse('reservation_failed', 'invalid task facts');
-  const resolved = record.phase === 'REFUSED_NO_SUBMIT' || record.phase === 'REPLY_CHECKED';
+  const resolved = record.phase === 'REFUSED_NO_SUBMIT' || record.phase === 'REPLY_CHECKED' || record.phase === 'OWNER_DISPOSED';
   if (record.lock_active === resolved || f.no_submit !== (record.phase === 'REFUSED_NO_SUBMIT')
     || f.reply_checked !== (record.phase === 'REPLY_CHECKED') || f.activation_possible === f.no_submit) refuse('reservation_failed', 'inconsistent task facts');
 }
@@ -130,6 +142,19 @@ function validateLegacy(raw) {
   }
   return records;
 }
+function validateArchive(raw) {
+  if (raw === undefined) return { operations: {}, task_ids: {}, correlations: {} };
+  exact(raw, ['schema', 'operations', 'task_ids', 'correlations']);
+  if (raw.schema !== ARCHIVE_SCHEMA) refuse('reservation_failed', 'unknown archive schema');
+  let total = 0;
+  for (const field of ['operations', 'task_ids', 'correlations']) {
+    const map = plain(raw[field]);
+    for (const [key, value] of Object.entries(map)) { id(key); if (value !== 1) refuse('reservation_failed', 'invalid archive entry'); total += 1; }
+  }
+  if (total > MAX_ARCHIVED * 3) refuse('reservation_failed', 'archive over limit');
+  return { operations: raw.operations, task_ids: raw.task_ids, correlations: raw.correlations };
+}
+
 function validateTasks(raw, legacy) {
   if (raw === undefined) return {};
   exact(raw, ['schema', 'operations']);
@@ -194,7 +219,10 @@ function sameOperation(a, b) {
     && a.target.role_id === b.target.role_id && a.target.binding_revision === b.target.binding_revision
     && a.approved_scope_ref === b.approved_scope_ref;
 }
-function checkAvailable(record, legacy, tasks) {
+function checkAvailable(record, legacy, tasks, archive = { operations: {}, task_ids: {}, correlations: {} }) {
+  // Archived tombstones block reuse exactly like live records.
+  if (own(archive.operations, record.operation_key) || own(archive.task_ids, record.task_id)
+    || own(archive.correlations, record.correlation_id)) refuse('already_dispatched', 'operation identity is archived');
   const prior = own(tasks, record.operation_key) ? tasks[record.operation_key] : null;
   if (prior) refuse(sameOperation(prior, record) ? 'already_dispatched' : 'operation_conflict');
   if (Object.values(tasks).some((task) => task.task_id === record.task_id)) refuse('operation_conflict', 'task identity already bound');
@@ -205,6 +233,9 @@ function checkAvailable(record, legacy, tasks) {
   const represented = new Set(Object.values(tasks).map((task) => task.correlation_id));
   for (const entry of Object.values(legacy)) {
     if (represented.has(entry.correlation_id)) continue;
+    // A legacy tombstone whose operation was archived is resolved, not an orphan
+    // (an archival interrupted between its writes leaves exactly this shape).
+    if (own(archive.correlations, entry.correlation_id)) continue;
     if (entry.operation_key === record.operation_key || entry.task_id === record.task_id) refuse('dispatch_in_flight', 'orphan operation reservation');
     // COMPLETED alone is not positive no-submit or completion evidence. All
     // unrepresented legacy tombstones are conservatively unresolved.
@@ -238,7 +269,12 @@ export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {})
     assert(life);
     if (own(taskBag, TASKS_KEY) && taskBag[TASKS_KEY] === undefined) refuse('reservation_failed', 'invalid task storage');
     const tasks = validateTasks(taskBag[TASKS_KEY], legacy);
-    return { legacy, tasks };
+    assert(life);
+    const archiveBag = plain(await local.get(ARCHIVE_KEY));
+    assert(life);
+    if (own(archiveBag, ARCHIVE_KEY) && archiveBag[ARCHIVE_KEY] === undefined) refuse('reservation_failed', 'invalid archive storage');
+    const archive = validateArchive(archiveBag[ARCHIVE_KEY]);
+    return { legacy, tasks, archive };
   }
   async function write(key, value, life) {
     assert(life);
@@ -307,8 +343,8 @@ export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {})
       validateTask(record, record.operation_key);
       record = structuredClone(record);
       return mutation(local, async () => {
-        const { legacy, tasks } = await read(life);
-        assert(life); checkAvailable(record, legacy, tasks);
+        const { legacy, tasks, archive } = await read(life);
+        assert(life); checkAvailable(record, legacy, tasks, archive);
         const dispatch = { correlation_id: record.correlation_id, state: 'IN_FLIGHT', tab_id: record.target.tab_id,
           approved_scope_ref: record.approved_scope_ref, started_at: record.created_at, finished_at: null, captured: null,
           task_id: record.task_id, operation_key: record.operation_key, payload_hash: record.payload_hash,
@@ -345,6 +381,57 @@ export function createChatGPTTaskStore({ chrome: api, key = DISPATCH_KEY } = {})
             finished_at: next.updated_at, captured: outcome.captured ?? null } } }, life);
         await write(TASKS_KEY, { schema: TASKS_SCHEMA, operations: { ...tasks, [record.operation_key]: next } }, life);
         return next;
+      });
+    },
+    /**
+     * Owner disposal of an UNRESOLVED operation: releases its conversation lock
+     * and records why. The operation and correlation tombstones remain, so this
+     * can never enable a resend of the same operation. It is the explicit
+     * disposal ARCHITECTURE.md §5 rule 5 allows; nothing calls it automatically.
+     */
+    async disposeOperation(correlation, disposition, life) {
+      id(correlation);
+      if (!DISPOSITIONS.includes(disposition)) refuse('bad_argument', 'unknown disposition');
+      return mutation(local, async () => {
+        const { legacy, tasks } = await read(life);
+        const prior = Object.values(tasks).find((task) => task.correlation_id === correlation) ?? null;
+        if (!prior) refuse('operation_not_reserved', 'no operation with this correlation');
+        if (!prior.lock_active) refuse('task_already_resolved', `operation is already ${prior.phase}`);
+        const next = { ...prior, updated_at: new Date().toISOString(), phase: 'OWNER_DISPOSED', lock_active: false,
+          facts: { ...prior.facts, activation_possible: true, no_submit: false, reply_checked: false } };
+        validateTask(next, next.operation_key);
+        await write(DISPATCH_KEY, { schema: DISPATCH_SCHEMA, reservations: { ...legacy,
+          [correlation]: { ...legacy[correlation], state: 'COMPLETED', finished_at: next.updated_at, captured: null } } }, life);
+        await write(TASKS_KEY, { schema: TASKS_SCHEMA, operations: { ...tasks, [next.operation_key]: next } }, life);
+        return { ...structuredClone(next), disposition };
+      });
+    },
+    /**
+     * EXPLICIT owner archival (never automatic): move resolved operations,
+     * oldest first, beyond the newest `keepRecent`, into the tombstone archive.
+     * Write order archive -> tasks -> legacy: a crash between writes leaves
+     * archived identities that still block reuse, and a re-run finishes the job.
+     */
+    async archiveResolved(keepRecent = 128, life) {
+      if (!Number.isSafeInteger(keepRecent) || keepRecent < 0 || keepRecent > MAX_TASKS) refuse('bad_argument', 'keepRecent');
+      return mutation(local, async () => {
+        const { legacy, tasks, archive } = await read(life);
+        const resolved = Object.values(tasks).filter((t) => !t.lock_active).sort((a, b) => a.updated_at.localeCompare(b.updated_at));
+        const move = resolved.slice(0, Math.max(0, resolved.length - keepRecent));
+        const next = { operations: { ...archive.operations }, task_ids: { ...archive.task_ids }, correlations: { ...archive.correlations } };
+        for (const t of move) { next.operations[t.operation_key] = 1; next.task_ids[t.task_id] = 1; next.correlations[t.correlation_id] = 1; }
+        if (Object.keys(next.operations).length > MAX_ARCHIVED) refuse('reservation_failed', 'tombstone archive full; an explicit upgrade decision is required');
+        // Also finish any interrupted archival: legacy entries already archived.
+        const staleLegacy = Object.keys(legacy).filter((c) => own(next.correlations, c) && !Object.values(tasks).some((t) => t.correlation_id === c && !move.includes(t)));
+        if (move.length === 0 && staleLegacy.length === 0) return { archived: 0, kept: Object.keys(tasks).length };
+        await write(ARCHIVE_KEY, { schema: ARCHIVE_SCHEMA, ...next }, life);
+        const keptTasks = { ...tasks };
+        for (const t of move) delete keptTasks[t.operation_key];
+        await write(TASKS_KEY, { schema: TASKS_SCHEMA, operations: keptTasks }, life);
+        const keptLegacy = { ...legacy };
+        for (const c of new Set([...move.map((t) => t.correlation_id), ...staleLegacy])) delete keptLegacy[c];
+        await write(DISPATCH_KEY, { schema: DISPATCH_SCHEMA, reservations: keptLegacy }, life);
+        return { archived: move.length, kept: Object.keys(keptTasks).length, archive_size: Object.keys(next.operations).length };
       });
     },
     // Compatibility writer retained for internal/tests, never an alternate send

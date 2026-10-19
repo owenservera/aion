@@ -119,7 +119,7 @@ function Invoke-Verify {
         Invoke-Suite 'extension' $extension @('--test', '--test-timeout=60000')
         Invoke-Suite 'bridge' $bridge @('--test')
         Invoke-Suite 'bus-runner' $bus @('--test')
-        Invoke-Suite 'mcp' $mcp @('--test', 'tests/server.test.mjs', 'tests/bus-tools.test.mjs')
+        Invoke-Suite 'mcp' $mcp @('--test', 'tests/server.test.mjs', 'tests/bus-tools.test.mjs', 'tests/verify-local.test.mjs')
         Invoke-Suite 'adapter' $adapter @('--test', 'send-m05.test.js')
     }
     Push-Location $bus

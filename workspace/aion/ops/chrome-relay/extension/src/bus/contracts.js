@@ -83,10 +83,11 @@ export const TRANSITIONS = Object.freeze({
   VALIDATED: ['RESERVED', 'REJECTED', 'HALTED'],
   RESERVED: ['DISPATCHED', 'HALTED'],
   // DISPATCHED -> REJECTED is a POSITIVE no-send from the adapter only.
-  DISPATCHED: ['SUBMISSION_OBSERVED', 'REPLY_CHECKED', 'UNRESOLVED', 'REJECTED'],
-  SUBMISSION_OBSERVED: ['REPLY_CHECKED', 'UNRESOLVED'],
+  // ... -> HALTED from an attempted state ONLY by explicit owner disposal.
+  DISPATCHED: ['SUBMISSION_OBSERVED', 'REPLY_CHECKED', 'UNRESOLVED', 'REJECTED', 'HALTED'],
+  SUBMISSION_OBSERVED: ['REPLY_CHECKED', 'UNRESOLVED', 'HALTED'],
   // UNRESOLVED -> REJECTED only on a LATER positive no-send from the target.
-  UNRESOLVED: ['SUBMISSION_OBSERVED', 'REPLY_CHECKED', 'REJECTED'],
+  UNRESOLVED: ['SUBMISSION_OBSERVED', 'REPLY_CHECKED', 'REJECTED', 'HALTED'],
   // REPLY_CHECKED -> HALTED when the report back is blocked (hop limit, kill,
   // grant). The reply stays recorded; only the report is withheld.
   REPLY_CHECKED: ['REPORTED', 'HALTED'],
@@ -168,6 +169,8 @@ export const REASON = Object.freeze({
   ADAPTER_ERROR: 'adapter_error',
   STALE_RESERVATION: 'stale_reservation_not_dispatched',
   NOTHING_TO_CANCEL: 'nothing_to_cancel',
+  OWNER_DISPOSED: 'owner_disposed',
+  REPORT_RETRIES_EXHAUSTED: 'report_retries_exhausted',
   // storage
   STORE_CORRUPT: 'bus_store_corrupt',
   STORE_BUSY: 'bus_store_busy',
@@ -186,6 +189,9 @@ export class BusError extends Error {
 export function refuse(code, detail) { throw new BusError(code, detail); }
 
 /* ------------------------------------------------------------------ defaults */
+
+export const DISPOSITIONS = Object.freeze(['owner_saw_delivered', 'owner_saw_not_delivered', 'owner_abandoned']);
+export const MAX_REPORT_ATTEMPTS = 3;
 
 export const DEFAULT_CONFIG = Object.freeze({
   /** Owner arm prefix on the first non-empty line of the user turn (C1). Owner-changeable. */

@@ -18,6 +18,9 @@ export const COMMAND_WORK = Object.freeze({
   'observe-turn': 5_000,
   // Bus commander watcher: read-only scan of the commander conversation.
   'commander-scan': 5_000,
+  // Owner lock disposal and explicit tombstone archival: storage only, no page.
+  dispose: 5_000,
+  archive: 10_000,
 });
 
 /**
@@ -43,6 +46,8 @@ const COMMAND_STAGES = Object.freeze({
   'submit-turn': Object.freeze(['preflight', 'reservationRead', 'reservationWrite', 'observerArm', 'settlement']),
   'run-turn': Object.freeze(['preflight', 'reservationRead', 'reservationWrite', 'settlement']),
   'commander-scan': Object.freeze([]),
+  dispose: Object.freeze([]),
+  archive: Object.freeze([]),
 });
 
 /** Commands whose exchange may put text into a signed-in session. */
@@ -90,5 +95,6 @@ export function chatGPTCommandName(type) {
   return ({ 'aion/chatgpt-tabs': 'tabs', 'aion/chatgpt-ping': 'ping',
     'aion/chatgpt-run': 'run-turn', 'aion/chatgpt-read': 'read-final',
     'aion/chatgpt-submit': 'submit-turn', 'aion/chatgpt-observe': 'observe-turn',
-    'aion/chatgpt-commander-scan': 'commander-scan' })[type] ?? null;
+    'aion/chatgpt-commander-scan': 'commander-scan',
+    'aion/chatgpt-dispose': 'dispose', 'aion/chatgpt-archive': 'archive' })[type] ?? null;
 }

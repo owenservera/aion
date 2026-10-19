@@ -84,6 +84,22 @@
         <p class="bus-line" id="watch-state" role="status"></p>
       </section>
 
+      <section class="bus-card" aria-labelledby="dispose-title">
+        <h2 id="dispose-title">Resolve a stuck command</h2>
+        <p class="bus-note">Use only after you looked at the target conversation yourself. This releases the lock; it never re-sends. Send a new command if needed.</p>
+        <label class="bus-label" for="dispose-id">Command id</label>
+        <input class="bus-input" id="dispose-id" type="text" />
+        <label class="bus-label" for="dispose-what">What you saw</label>
+        <select class="bus-input" id="dispose-what">
+          <option value="owner_saw_delivered">It was delivered</option>
+          <option value="owner_saw_not_delivered">It was not delivered</option>
+          <option value="owner_abandoned">Abandon it</option>
+        </select>
+        <button type="button" class="bus-btn" id="dispose-go">Resolve</button>
+        <button type="button" class="bus-btn" id="archive-go">Archive resolved operations</button>
+        <p class="bus-line" id="dispose-result" role="status"></p>
+      </section>
+
       <section class="bus-card" aria-labelledby="sync-title">
         <h2 id="sync-title">SYNC-0 (no-send test)</h2>
         <p class="bus-note">Start, then send one message to the commander from your phone and touch nothing on the PC. If nothing appears, reload the commander tab by hand and press "I reloaded". Then finish.</p>

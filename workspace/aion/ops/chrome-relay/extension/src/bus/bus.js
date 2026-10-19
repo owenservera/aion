@@ -17,7 +17,7 @@
 // command with no text: there is nothing any code path could send again.
 
 import {
-  AGENT_KIND, ATTEMPTED_STATES, COMMAND_STATE as S, DEFAULT_CONFIG, ORIGIN, REASON, REPORT_HEADER, REPLY_TOKEN,
+  AGENT_KIND, ATTEMPTED_STATES, COMMAND_STATE as S, DEFAULT_CONFIG, DISPOSITIONS, MAX_REPORT_ATTEMPTS, ORIGIN, REASON, REPORT_HEADER, REPLY_TOKEN,
   TERMINAL_STATES, BusError, correlationFor, deliveryState, fnv1a, isAgentId, normalizeOutcome, refuse, validateManifest,
 } from './contracts.js';
 import { isArmed, neutralize, parseCommanderReply } from './grammar.js';
@@ -234,6 +234,16 @@ export function createBus(options = {}) {
         default: break;
       }
       appendEvent(draft, at, observing ? 'command.observed_update' : 'command.dispatched', { command_id: c.command_id, state: c.state, reason: c.reason });
+      // A report is DATA posted into the commander: once its submission is
+      // observed the source is reported, even if the commander model never
+      // acknowledges (its ack only settles the report's own lock).
+      if (c.op === 'report' && c.state === S.SUBMISSION_OBSERVED) {
+        const source = c.report_of && draft.commands[c.report_of];
+        if (source && source.state === S.REPLY_CHECKED) {
+          transition(source, S.REPORTED, at);
+          appendEvent(draft, at, 'report.posted', { command_id: c.report_of, report_command_id: c.command_id, acknowledged: false });
+        }
+      }
       // A report command that got its correlated acknowledgement completes both.
       if (c.op === 'report' && c.state === S.REPLY_CHECKED) {
         transition(c, S.REPORTED, at);
@@ -387,9 +397,62 @@ export function createBus(options = {}) {
     const state = await store.read();
     const out = [];
     for (const c of Object.values(state.commands)) {
-      if (c.state === S.REPLY_CHECKED && c.op !== 'report' && !c.report_command_id) out.push(await reportBack(c.command_id));
+      if (c.state !== S.REPLY_CHECKED || c.op === 'report') continue;
+      const prior = c.report_command_id ? state.commands[c.report_command_id] : null;
+      if (prior) {
+        // Retry ONLY a report that was positively not sent (never an unknown one), bounded.
+        const notSent = prior.state === S.REJECTED && prior.attempted === false;
+        const attempts = Object.values(state.commands).filter((x) => x.op === 'report' && x.report_of === c.command_id).length;
+        if (!notSent) continue;
+        if (attempts >= MAX_REPORT_ATTEMPTS) {
+          await store.mutate((d, { now: at }) => {
+            const src = d.commands[c.command_id];
+            if (src?.state === S.REPLY_CHECKED) transition(src, S.HALTED, at, { reason: REASON.REPORT_RETRIES_EXHAUSTED, detail: `${attempts} report attempts were refused before sending` });
+          });
+          out.push({ command_id: c.command_id, halted: REASON.REPORT_RETRIES_EXHAUSTED });
+          continue;
+        }
+        await store.mutate((d) => { if (d.commands[c.command_id]) d.commands[c.command_id].report_command_id = null; });
+      }
+      out.push(await reportBack(c.command_id));
     }
     return out;
+  }
+
+  /**
+   * OWNER disposal of an unresolved command after looking at the target
+   * conversation. Releases the adapter's lock (ChatGPT task store) and halts
+   * the command. Never re-sends. A disposed report marks its source reported
+   * only if the owner saw it delivered.
+   */
+  async function dispose(commandId, { disposition, by }) {
+    if (!DISPOSITIONS.includes(disposition)) refuse(REASON.BAD_VALUE, `disposition must be one of ${DISPOSITIONS.join('|')}`);
+    if (typeof by !== 'string' || !by.trim()) refuse(REASON.BAD_VALUE, 'disposal needs an owner reference');
+    const state = await store.read();
+    const c = state.commands[commandId];
+    if (!c) refuse(REASON.UNKNOWN_AGENT, `no command ${commandId}`);
+    if (!ACTIVE.includes(c.state)) return { state: c.state, disposed: false, detail: 'not unresolved' };
+    const adapter = adapters[c.adapter];
+    let released = null;
+    if (adapter && typeof adapter.dispose === 'function') {
+      released = await adapter.dispose({ command_id: c.command_id, correlation_id: c.correlation_id, disposition });
+      if (!released?.ok && released?.code !== 'task_already_resolved' && released?.code !== 'operation_not_reserved') {
+        return { state: c.state, disposed: false, detail: `adapter refused disposal: ${released?.code ?? 'unknown'}` };
+      }
+    }
+    const { result } = await store.mutate((d, { now: at }) => {
+      const x = d.commands[commandId];
+      if (!x || !ACTIVE.includes(x.state)) return { state: x?.state, disposed: false };
+      transition(x, S.HALTED, at, { reason: REASON.OWNER_DISPOSED, detail: `${disposition} by ${String(by).slice(0, 80)}` });
+      if (disposition === 'owner_saw_not_delivered') x.attempted = false;
+      if (x.op === 'report' && disposition === 'owner_saw_delivered') {
+        const src = x.report_of && d.commands[x.report_of];
+        if (src?.state === S.REPLY_CHECKED) transition(src, S.REPORTED, at);
+      }
+      appendEvent(d, at, 'command.disposed', { command_id: commandId, disposition });
+      return { state: x.state, disposed: true, lock_released: released ? released.ok === true : null };
+    });
+    return result;
   }
 
   /**
@@ -455,7 +518,7 @@ export function createBus(options = {}) {
   return {
     store,
     adapters: Object.freeze({ ...adapters }),
-    ingest, ingestStructured, dispatch, dispatchPending, observe, reconcile, process, reportBack, flushReports,
+    ingest, ingestStructured, dispatch, dispatchPending, observe, reconcile, process, reportBack, flushReports, dispose,
 
     async status() {
       const state = await store.read();

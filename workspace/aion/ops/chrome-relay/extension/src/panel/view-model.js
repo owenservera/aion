@@ -200,7 +200,9 @@ export const ACTION_CATALOG = Object.freeze([
   { type: 'aion/chatgpt-submit', kind: 'send', machine_view: false, summary: 'Submit one approved task once: reserve durably, arm the page observer, activate, return the first receipt.' },
   { type: 'aion/chatgpt-observe', kind: 'probe', machine_view: false, summary: 'Read-only poll of an already-armed observer for one operation. Never submits, never extends its deadline.' },
   { type: 'aion/chatgpt-read', kind: 'probe', machine_view: false, summary: 'Read back the final reply for one correlation id.' },
-  { type: 'aion/chatgpt-commander-scan', kind: 'probe', machine_view: false, summary: 'Bus watcher: read-only scan of the commander conversation for new owner-armed AION_CMD_V1 blocks after the baseline. Never composes or sends.' }
+  { type: 'aion/chatgpt-commander-scan', kind: 'probe', machine_view: false, summary: 'Bus watcher: read-only scan of the commander conversation for new owner-armed AION_CMD_V1 blocks after the baseline. Never composes or sends.' },
+  { type: 'aion/chatgpt-dispose', kind: 'probe', machine_view: false, summary: 'Owner disposal of one unresolved operation: releases its conversation lock after you checked the conversation yourself. Never re-sends; the operation stays tombstoned.' },
+  { type: 'aion/chatgpt-archive', kind: 'probe', machine_view: false, summary: 'Explicit owner archival of resolved operations into permanent tombstones, to free the bounded task store. Never automatic.' }
 ]);
 
 /** Rules a reader (agent or person) needs to interpret every field correctly. */
