@@ -59,3 +59,12 @@ test('preflight does not submit, admit, bind or create grants',async()=>{
  const r=await runBrowserPreflight(h.opts);
  assert.equal(r.ok,true);assert.equal(h.stats.mutations,0);
 });
+
+test('foreign registered host never prompts the owner to overwrite it',async()=>{
+ const h=harness();h.opts.inspect=()=>({ok:false,code:'FOREIGN_DEV_REGISTRATION'});
+ const result=await runBrowserPreflight(h.opts);
+ assert.equal(result.ok,false);
+ assert.equal(result.stage,'SETUP');
+ assert.match(result.next_action,/do not overwrite/i);
+ assert.equal(h.stats.opened,0);
+});
