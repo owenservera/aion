@@ -3,19 +3,21 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Isolated, offline-safe Track B command client groundwork. No native host or browser integration yet.",
+  "description": "AION Track B self-contained local engine, CLI and connection probes; GitHub is source control only",
   "engines": {
     "node": ">=22.0.0"
   },
   "bin": {
-    "aion": "./bin/aion.mjs",
+    "aion": "./bin/aion-local.mjs",
     "aiond-dev": "./bin/aiond-dev.mjs",
     "aion-velocity": "./bin/aion-velocity.mjs"
   },
   "scripts": {
-    "test": "node --test",
-    "doctor": "node bin/aion.mjs doctor --json",
-    "status": "node bin/aion.mjs status --json",
+    "test": "node --test test",
+    "selftest": "node bin/aion-selftest.mjs",
+    "doctor": "node bin/aion-local.mjs doctor",
+    "connections": "node bin/aion-local.mjs connections",
+    "status": "node bin/aion-local.mjs status",
     "test:bus": "node --test test/round6-real-bus.integration.test.mjs test/round6-binding-drift.test.mjs",
     "test:ipc": "node --test test/round6-ipc-to-bus.integration.test.mjs",
     "bootstrap:doctor": "node bin/aion-velocity.mjs doctor --json"
