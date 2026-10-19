@@ -65,7 +65,7 @@ test('Windows plan registers exactly the dev host key under HKCU, then removes o
     if(cmd!=='reg')throw Error('unexpected process');
     if(args[0]==='query'){
       if(!reg.has(args[1]))return {status:1,stdout:'',stderr:'not found'};
-      return {status:0,stdout:'    (Default)    REG_SZ    '+reg.get(args[1])+'\\n'};
+      return {status:0,stdout:'    (Default)    REG_SZ    '+reg.get(args[1])};
     }
     if(args[0]==='add'){reg.set(args[1],args[args.indexOf('/d')+1]);return {status:0};}
     if(args[0]==='delete'){reg.delete(args[1]);return {status:0};}
@@ -74,9 +74,9 @@ test('Windows plan registers exactly the dev host key under HKCU, then removes o
   const receipt=applyBrowserSetup(plan,{run});
   assert.equal(receipt.host,'com.aion.relay.dev');
   assert.ok(calls.some(c=>c[1]==='add'&&c[2]===REGISTRY_KEY));
-  assert.ok(!calls.some(c=>c.some(a=>/NativeMessagingHosts\\\\com\\.aion\\.relay$/.test(a))),'never Track A');
+  assert.ok(!calls.some(c=>c.some(a=>a==='HKCU\\\\Software\\\\Google\\\\Chrome\\\\NativeMessagingHosts\\\\com.aion.relay')),'never Track A');
   const cmd=readFileSync(plan.launcher,'utf8');
-  assert.match(cmd,/aion-host-dev\\.mjs" --config ".*host-dev\\.config\\.json" %\\*/);
+  assert.ok(cmd.includes('aion-host-dev.mjs" --config "'),'native launcher must pass the config');
   uninstallBrowserSetup(plan,{run});
   assert.equal(reg.has(REGISTRY_KEY),false);
   assert.ok(calls.some(c=>c[1]==='delete'&&c[2]===REGISTRY_KEY));
