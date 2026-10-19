@@ -74,7 +74,7 @@ test('Windows plan registers exactly the dev host key under HKCU, then removes o
   const receipt=applyBrowserSetup(plan,{run});
   assert.equal(receipt.host,'com.aion.relay.dev');
   assert.ok(calls.some(c=>c[1]==='add'&&c[2]===REGISTRY_KEY));
-  assert.ok(!calls.some(c=>c.some(a=>a==='HKCU\\\\Software\\\\Google\\\\Chrome\\\\NativeMessagingHosts\\\\com.aion.relay')),'never Track A');
+  assert.ok(!calls.some(c=>c.includes(REGISTRY_KEY.slice(0,-4))),'never Track A');
   const cmd=readFileSync(plan.launcher,'utf8');
   assert.ok(cmd.includes('aion-host-dev.mjs" --config "'),'native launcher must pass the config');
   uninstallBrowserSetup(plan,{run});
