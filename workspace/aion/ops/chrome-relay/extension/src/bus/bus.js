@@ -168,11 +168,27 @@ export function createBus(options = {}) {
    * CLI). Same validation, same reservation; no arm check because there is no
    * chat turn — the caller must present the owner grant id explicitly.
    */
-  async function ingestStructured({ op, to = null, text = null, nonce, origin_kind = ORIGIN.MCP_INGRESS, origin_ref }) {
+  async function ingestStructured({ op, to = null, text = null, nonce, origin_kind = ORIGIN.MCP_INGRESS, origin_ref, target_guard = null }) {
     const body = [`op: ${op}`, to ? `to: ${to}` : null, text !== null ? `text: <<\n${text}\n>>` : null, `nonce: ${nonce}`].filter(Boolean).join('\n');
     const { result } = await store.mutate((draft, { now: at }) => {
       const parsed = parseCommanderReply(`\`\`\`AION_CMD_V1\n${body}\n\`\`\``, draft.config);
       if (!parsed.ok) return { accepted: false, reason: parsed.reason, detail: parsed.detail };
+      // Track B optional restrictive precondition. Resolved target identity
+      // must remain unchanged THROUGH the durable reservation. The guard
+      // cannot grant permissions or bypass existing Bus validation.
+      if (target_guard !== null) {
+        const current = draft.agents[parsed.command.to];
+        const valid = target_guard && typeof target_guard === 'object' && !Array.isArray(target_guard)
+          && Number.isSafeInteger(target_guard.revision) && target_guard.revision >= 1
+          && typeof target_guard.adapter === 'string' && typeof target_guard.ref === 'string'
+          && parsed.command.op === 'send';
+        if (!valid) return { accepted: false, reason: REASON.BAD_VALUE, detail: 'invalid target guard' };
+        if (!current || current.revision !== target_guard.revision
+          || current.binding?.adapter !== target_guard.adapter
+          || current.binding?.ref !== target_guard.ref) {
+          return { accepted: false, reason: REASON.BINDING_CHANGED, detail: 'target binding changed since preflight' };
+        }
+      }
       const verdict = validateParsed(draft, parsed.command, { adapters, now: at });
       const command = blankCommand({ command_id: newId(), nonce: parsed.command.nonce, origin_kind, origin_ref: origin_ref ?? 'structured',
         op: parsed.command.op, to: parsed.command.op === 'status' ? draft.commander.agent_id : parsed.command.to,
@@ -269,6 +285,17 @@ export function createBus(options = {}) {
         return { skip: true, state: c.state };
       }
       const agent = draft.agents[c.to];
+      // The recipient was fixed by the reserving transaction. Refuse any
+      // retarget between reserve and dispatch; NEVER send to a new binding.
+      // binding_ref is already persisted in the existing Bus schema.
+      if (!agent?.binding || agent.binding.adapter !== c.adapter
+        || agent.binding.ref !== c.binding_ref) {
+        transition(c, S.HALTED, at, { reason: REASON.BINDING_CHANGED,
+          detail: 'target binding differs from the reserved operation' });
+        c.text = null;
+        appendEvent(draft, at, 'command.target_drift', { command_id: c.command_id, to: c.to });
+        return { skip: true, state: c.state };
+      }
       const text = c.text;
       const commander = draft.commander.agent_id ? draft.agents[draft.commander.agent_id] : null;
       const req = {
