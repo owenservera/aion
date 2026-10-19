@@ -111,6 +111,36 @@ export function applyBrowserSetup(plan,{run=spawnSync,now=()=>new Date()}={}){
   return receipt;
 }
 
+/** Read-only identity and registration preflight. Never modifies Chrome or registry. */
+export function inspectBrowserSetup(plan,{run=spawnSync}={}){
+  try{
+    const key=loadOrCreateDevKey(plan.keyPath,{create:false});
+    if(!key)return {ok:false,code:'SETUP_NOT_APPLIED'};
+    validateDevIdentity(key.extensionId);
+    const registration=verifyOwnedRegistration(plan,{run,expectedId:key.extensionId});
+    if(!registration.exists)return {ok:false,code:'DEV_HOST_NOT_REGISTERED',extension_id:key.extensionId};
+    const receipt=JSON.parse(readFileSync(plan.receipt,'utf8'));
+    const config=JSON.parse(readFileSync(plan.configPath,'utf8'));
+    const manifest=JSON.parse(readFileSync(join(plan.extensionDir,'manifest.json'),'utf8'));
+    if(receipt?.schema!=='aion.b.setup-receipt/1'
+      ||receipt.extension_id!==key.extensionId
+      ||receipt.host!==DEV_HOST_NAME
+      ||receipt.host_manifest!==plan.hostManifest
+      ||receipt.extension_dir!==plan.extensionDir
+      ||config?.schema!=='aion.b.host-config/1'
+      ||config.extension_id!==key.extensionId
+      ||config.state_dir!==plan.stateDir
+      ||manifest.key!==key.manifestKey
+      ||manifest.background?.service_worker!=='src/dev/dev-worker.js')
+      return {ok:false,code:'DEV_SETUP_INTEGRITY_FAILED'};
+    return {ok:true,code:'DEV_SETUP_VERIFIED',extension_id:key.extensionId,
+      extension_dir:plan.extensionDir,host:DEV_HOST_NAME,
+      source_sha:receipt.source_sha??null};
+  }catch(error){
+    return {ok:false,code:error?.code??'DEV_SETUP_UNVERIFIED'};
+  }
+}
+
 /** Remove ONLY the B host registration and generated files. Ledger and key are kept. */
 export function uninstallBrowserSetup(plan,{run=spawnSync}={}){
   // Uninstall is not an indiscriminate 'reg delete' or 'rm -rf'. Require the
