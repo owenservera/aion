@@ -19,8 +19,12 @@
 - [Historical BFF Linux M0.5 design — no longer current execution host](workspace/aion/canon/AION-MILESTONE-0.5-BFF-LINUX-INTROSPECTION.md)
 - [Chrome Relay design (not installed)](workspace/aion/ops/chrome-relay/ARCHITECTURE.md)
 - [Bus V1/V2 direction (PROPOSED): phone → ChatGPT → PC extension → agents and local executors (OpenCode first)](workspace/aion/canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md)
+- [Agent Fabric cross-project architecture (DESIGN ONLY; not installed)](workspace/aion/canon/AGENT-FABRIC-ARCHITECTURE-2026-10-20.md)
+- [Agent Fabric ONE-SHOT local Windows implementation handoff (M1–M5)](workspace/aion/handoffs/AGENT-FABRIC-LOCAL-MASTER-START.md)
+- [Agent Fabric strict contracts, fixtures and read-only preflight](workspace/aion/agent-fabric/README.md)
 
 ## Active work and evidence
+- [#36 Agent Fabric local Windows implementation M1–M5 (DRAFT; no live proof)](https://github.com/owenservera/aion/issues/36)
 - [#25 ACPX Chrome MV3/Bun kit — source review and reuse](https://github.com/owenservera/aion/issues/25)
 - [#26 M1-002 mock browser, Z.ai evidence and Windows transition](https://github.com/owenservera/aion/issues/26)
 - [#24 M1-001 mock protocol](https://github.com/owenservera/aion/issues/24)
