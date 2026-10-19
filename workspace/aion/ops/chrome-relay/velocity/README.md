@@ -9,7 +9,8 @@
 - **aion selftest** — runs bundled offline Node test suites for Velocity, Bus, Chrome extension and bridge, plus the existing Bus offline demo. All suites must return zero; no hosted runners.
 - **aion connections** — discovers the local OpenCode 2.x V2 service and checks its loopback /api/info endpoint. Chrome is NOT_CONNECTED unless separately activated.
 - **aion doctor / capabilities / status** — local read-only engine and Bus state, including binding and grant conditions.
-- **aion connect opencode --cwd PATH --max 10 --hours 24** — explicit owner command: bind the existing OpenCode V2 adapter and grant only the specified directory, number of sends and expiration.
+- **aion connect opencode --cwd PATH --max 10 --hours 24** — explicit owner action binding the OpenCode V2 HTTP adapter and a scoped finite grant.
+- **aion connect acp --cwd PATH --max 10 --hours 24** — explicit owner action choosing the existing ACP in-process relay and a scoped finite grant. Executable presence alone is not a confirmed ACP session.
 - **aion send opencode "your task"** — one direct process with the existing Bus: validate → durable reservation → one dispatch → read-only observe → correlated result. A background broker is NOT required.
 - **aion observe OP_ID --follow** — observe the existing operation only. No automatic resend.
 - **aion stop / resume** — locally persisted stop and resume through the same Bus.
@@ -26,15 +27,16 @@ From the AION repository root, using PowerShell 7:
     pwsh -NoProfile -File $Aion connections
     pwsh -NoProfile -File $Aion doctor
 
-When a compatible OpenCode 2.x shared service is genuinely running and discoverable:
+When a compatible OpenCode 2.x shared service is running and discoverable, OR the local ACP executable is present, explicitly select one engine:
 
     pwsh -NoProfile -File $Aion connect opencode --cwd "C:\path\to\authorized\repo" --max 10 --hours 24
+    # Alternative for ACP instead of V2: connect acp with the same scope options.
     pwsh -NoProfile -File $Aion send opencode "Run the focused test suite and report" --wait-ms 120000
     pwsh -NoProfile -File $Aion status
     pwsh -NoProfile -File $Aion stop
     pwsh -NoProfile -File $Aion resume
 
-Another launcher is bin/aion.cmd. No npm install or scheduled tasks are required for direct commands. An already installed Node 22 and compatible OpenCode service are prerequisites. The existing ACP adapter is retained in source; it is not silently substituted for the V2 adapter.
+Another launcher is bin/aion.cmd. No npm install or scheduled tasks are required for direct commands. Node 22 and a compatible configured engine are prerequisites; ACP and OpenCode V2 are alternate explicitly selected local engines. The existing ACP adapter is retained in source; it is not silently substituted for the V2 adapter.
 
 ## Engine / connection status
 
@@ -43,7 +45,7 @@ Another launcher is bin/aion.cmd. No npm install or scheduled tasks are required
 | Node local test runner | Node 22 builtin test runner | 14 portable new-module tests passed; full repo suite unrun |
 | Durable Bus and scoped grants | Existing Bus V1/V2 and file storage | Earlier isolated Bus source tests passed; Windows unrun |
 | OpenCode V2 | Existing client and adapter, loopback-only discovery | Direct CLI wired; actual owner service status unknown |
-| ACP | Existing bridge and ACP adapter | Source exists, not connected to direct CLI |
+| ACP | Existing bridge, config and ACP adapter, chosen by explicit connect acp | Binary presence can be checked; handshake and local live result unverified |
 | ChatGPT Chrome | Existing MV3 extension and observer | Dev browser/host NOT_CONNECTED |
 | Windows UIA/CDP | Optional existing tools | Not activated; no alternate send route |
 
