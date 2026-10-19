@@ -88,8 +88,8 @@ test('actual Bus: admit once, persist text deletion, observe once, restart canno
     assert.equal(h.counter.deliver,1);
     await h.bus.observe(sent.operation_id); // read-only provider observation
     const observed=await h.plane.handle('observe',{operation_id:sent.operation_id});
-    assert.equal(observed.result.result.status,'REPLY_OBSERVED');
-    assert.equal(observed.result.result.delivery,'REPLY_OBSERVED');
+    assert.equal(observed.result.status,'REPLY_OBSERVED');
+    assert.equal(observed.result.delivery,'REPLY_OBSERVED');
     assert.equal(h.counter.deliver,1);
     const restarted=createBus({storage:createFileStorage(join(root,'dev-only-ledger.json')),
       adapters:[h.adapter]});
