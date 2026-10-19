@@ -66,8 +66,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     return response(true,'ADMITTED',{operation_id:id,result:observed});
   }
 
-  return Object.freeze({
-    async sendAlias({alias,text,nonce}){
+  async function sendAlias({alias,text,nonce}){
       const state=await bus.store.read();
       const binding=resolveRole(alias,roleCatalog,state.agents);
       if(!binding.ok) return response(false,binding.reason,{delivery:'NOT_SENT'});
@@ -75,7 +74,9 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
       if(!grant.ok) return response(false,grant.reason,{delivery:'NOT_SENT'});
       return sendTo(binding.target,text,nonce,grant.grant.grant_id,{
         expectedRevision:binding.revision});
-    },
+    }
+  return Object.freeze({
+    sendAlias,
     async handle(method,params={}){
       switch(method){
         case 'doctor': return {schema:'aion.doctor/1',channel:'dev',
@@ -90,6 +91,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
         }
         case 'observe': return inspect(params.operation_id);
         case 'send': return sendTo(params.to,params.text,params.nonce,params.grant_ref);
+        case 'sendAlias': return sendAlias(params);
         case 'stop': {
           const killed=await bus.kill(params.reason);
           events.publish('runtime.stopped',{state:'HALTED'});
