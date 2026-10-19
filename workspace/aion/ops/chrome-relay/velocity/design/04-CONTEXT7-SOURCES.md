@@ -25,8 +25,8 @@
 | P0 | Node.js v22 IPC streams | https://nodejs.org/docs/latest-v22.x/api/net.html | B1 |
 | P0 | Microsoft Windows named-pipe security | https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights | B1 |
 | P0 | Microsoft CreateNamedPipe security attrs | https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea | B1 |
-| P0 | Existing AION Bus contract | `../../extension/src/bus/` + `../bus/README.md` | B1, B4 |
-| P0 | Existing AION task and observer store | `../../extension/src/lib/chatgpt-tasks.js`, `../background/chatgpt-port.js` | B2–B4 |
+| P0 | Existing AION Bus contract | `../../extension/src/bus/` + `../../bus/README.md` | B1, B4 |
+| P0 | Existing AION task and observer store | `../../extension/src/lib/chatgpt-tasks.js`, `../../extension/src/background/chatgpt-port.js` | B2–B4 |
 | P1 | OpenCode versioned JS SDK | https://opencode.ai/docs/sdk/ | B5 |
 | P1 | OpenCode server APIs, auth, SSE | https://opencode.ai/docs/server/ | B5 |
 | P1 | OpenCode ACP bridge | https://opencode.ai/docs/acp/ | B5 |
