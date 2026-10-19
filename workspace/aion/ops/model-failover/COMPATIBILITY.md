@@ -10,6 +10,24 @@ Observed 2026-10-19T10:42:49Z on Windows. **NOT ACTIVE. No plugin entrypoint, au
 
 Final test receipt: **2026-10-19T10:44:34Z**, `bun run test`, Bun 1.4.2, **33 pass / 0 fail, 85 assertions**, 79 ms. Tests demonstrate the core's behavior against its **mock contract**, not installed-host interoperability.
 
+## Free-tier model catalog and routing (2026-10-19)
+
+Catalog query `tools.opencode.models({query:'free'})` returned **23 free entries**; the `opencode` provider subset is:
+
+| Model ID | Variants | Use |
+| --- | --- | --- |
+| `opencode/deepseek-v4.1-flash-free` | low, high, max | orchestration, review triage, reasoning |
+| `opencode/minimax-m3.1-flash-free` | low, medium, high, xhigh, max | agentic implementation, fixer lanes; **failover default** |
+| `opencode/mimo-v2.6-flash-free` | — | mechanical edits, summaries, bounded chores |
+| `opencode/glm-5.3-flash-free` | low, high, max | general fallback |
+| `opencode/beam-free` | low, medium, high, xhigh, max | general fallback |
+| `opencode/nemotron-3.5-super-vl-free` | none…xhigh | multimodal experiments |
+| `opencode/longcat-2.5-preview-free` | — | preview only |
+
+`opencode/space-bunny-free` is **no longer in the catalog** (0 results on 2026-10-19); any config still pointing at it is broken. The owner's global preset was corrected from space-bunny to `opencode/deepseek-v4.1-flash-free` on 2026-10-19.
+
+Fast list: in-agent `tools.opencode.models({query:'free', limit:60})`; CLI `opencode models | Select-String free`. Free-tier access is **entrypoint-dependent** — the council synthesis agent returned `403 FreeTierError` on 2026-10-19 even though the model was catalogued. Smoke the exact agent type before routing a lane. Full recipes: `workspace/aion/ops/OPENCODE-FREE-MODEL-PLAYBOOK.md`.
+
 ## Installed evidence versus public V2 contract
 
 `Get-Command opencode` resolved the npm shim, which executes `@opencode/cli/bin/opencode.exe`. `opencode --version` returned **v2.0.32**. Its installed `package.json` is version 2.0.32 and ships native CLI packages, not the V2 plugin/client declarations. The inspected configuration dependency directory contains **`@opencode-ai/plugin` 1.14.24 and `@opencode-ai/sdk` 1.14.24**. Their legacy declarations are not used as proof of V2 support (even the latter's `./v2` export is not proof of the new `@opencode/client` contract). No `@opencode/plugin` was found in the narrowly inspected package locations. A supplementary Bun-cache search timed out; absence across the whole machine is NOT claimed. No credentials/config contents or transcript were read.
