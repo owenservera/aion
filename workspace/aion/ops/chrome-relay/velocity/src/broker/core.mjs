@@ -18,6 +18,22 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     if(!c) return response(false,'OPERATION_UNKNOWN');
     return response(true,'OBSERVED',{operation_id:c.command_id,result:projectResult(c)});
   }
+  async function observeOperation(id){
+    // Asking for progress may poll an already-attempted adapter ONCE; it can
+    // never reserve or deliver a new command. This dev channel disables Bus
+    // report-back because reporting to a commander would itself send text.
+    const previous=await bus.readCommand(id);
+    if(!previous)return response(false,'OPERATION_UNKNOWN');
+    if(['DISPATCHED','SUBMISSION_OBSERVED','UNRESOLVED'].includes(previous.state)){
+      const state=await bus.store.read();
+      if(state.config.report_back!==false)
+        return response(false,'REPORT_BACK_MUST_BE_DISABLED');
+      try{await bus.observe(id);}catch{
+        // Outcome may be unknown, but never fabricate a response or retry.
+      }
+    }
+    return inspect(id);
+  }
   async function sendTo(to,text,nonce,grantRef,{expectedRevision=null}={}){
     // Preflight is read-only; the REAL Bus validates grants, locks and nonce under mutate().
     const state=await bus.store.read();
@@ -105,7 +121,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
             active_operations:s.commands.filter(c=>ACTIVE.has(c.state))
               .map(c=>({operation_id:c.command_id,to:c.to,state:c.state}))};
         }
-        case 'observe': return inspect(params.operation_id);
+        case 'observe': return observeOperation(params.operation_id);
         case 'send': return sendTo(params.to,params.text,params.nonce,params.grant_ref);
         case 'sendAlias': return sendAlias(params);
         case 'stop': {
