@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AION provenance-carrying bounded context pack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "context_id",
+    "work_ref",
+    "role_id",
+    "audience",
+    "created_utc",
+    "sources",
+    "skills",
+    "budget",
+    "omissions",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aion.context-pack/1"
+    },
+    "context_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "work_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1024
+    },
+    "role_id": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 80
+    },
+    "audience": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal",
+        "project_id",
+        "deployment_id"
+      ],
+      "properties": {
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 160
+        },
+        "deployment_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128
+        }
+      }
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sources": {
+      "type": "array",
+      "maxItems": 96,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uri",
+          "sha256",
+          "classification",
+          "trust",
+          "sensitivity",
+          "freshness",
+          "observed_utc",
+          "included_ranges"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 1024
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "source_commit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "classification": {
+            "enum": [
+              "agent_instruction",
+              "project_instruction",
+              "task_intent",
+              "source_evidence",
+              "historical_memory",
+              "reference"
+            ]
+          },
+          "trust": {
+            "enum": [
+              "configured",
+              "observed",
+              "reported",
+              "inferred",
+              "unknown",
+              "contradicted"
+            ]
+          },
+          "sensitivity": {
+            "enum": [
+              "public",
+              "internal",
+              "private",
+              "secret"
+            ]
+          },
+          "freshness": {
+            "enum": [
+              "version_pinned",
+              "fresh",
+              "stale",
+              "unknown",
+              "contradicted"
+            ]
+          },
+          "observed_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "collected_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "included_ranges": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "pattern": "^L[1-9][0-9]*-L[1-9][0-9]*$"
+            }
+          }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 256
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_input_tokens",
+        "reserve_output_tokens",
+        "estimated_used_tokens"
+      ],
+      "properties": {
+        "max_input_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000000
+        },
+        "reserve_output_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000000
+        },
+        "estimated_used_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000000
+        }
+      }
+    },
+    "omissions": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_ref",
+          "reason"
+        ],
+        "properties": {
+          "source_ref": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1024
+          },
+          "reason": {
+            "enum": [
+              "irrelevant",
+              "budget",
+              "stale",
+              "denied_by_acl",
+              "missing",
+              "secret",
+              "unverified",
+              "other"
+            ]
+          }
+        }
+      }
+    },
+    "manifest_sha256": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
