@@ -1,7 +1,7 @@
 {
   "schema": "aion.tool-registry/0.1",
-  "updated_at": "2026-10-16",
-  "interpretation": "seed from existing AION documentation; not a real-time hardware/software audit",
+  "updated_at": "2026-10-19",
+  "interpretation": "source-reconciled project inventory and protocol docs; NOT a real-time Windows runtime audit",
   "status_legend": {
     "reported": "Documented or owner-reported; requires fresh host verification",
     "designed": "Architecture/work-order only, not deployed",
@@ -261,11 +261,12 @@
       "hosts": [
         "linux"
       ],
-      "status": "reported",
-      "verify": "Approved single test profile/endpoint and real browser receipt",
+      "status": "unverified",
+      "verify": "Use direct Chrome DevTools Protocol reference and allowed native browser tools; no Playwright/Puppeteer.",
       "skills": [
         "chrome-acp-relay"
-      ]
+      ],
+      "note": "Legacy BFF Linux readiness reference only; Playwright and Puppeteer are explicitly disallowed in new AION work. CDP itself remains a separate permitted browser protocol."
     },
     {
       "id": "openrouter-models",
@@ -279,6 +280,36 @@
       "verify": "Authorized models listing and measured task quality/cost receipt",
       "skills": [
         "model-capability-routing"
+      ]
+    },
+    {
+      "id": "chrome-cdp",
+      "category": "browser-debug-protocol",
+      "hosts": [
+        "windows"
+      ],
+      "status": "unverified",
+      "verify": "Read Chrome actual /json/version and /json/protocol when locally permitted; check target discovery, websocket detach/reconnect, concurrent clients",
+      "documentation": "https://chromedevtools.github.io/devtools-protocol/",
+      "skills": [
+        "chrome-acp-relay",
+        "tool-discovery"
+      ]
+    },
+    {
+      "id": "aion-mcp",
+      "category": "mcp-readonly-bridge",
+      "hosts": [
+        "windows",
+        "linux"
+      ],
+      "status": "reported",
+      "verify": "Existing ops/aion-mcp source reports 5/5 sandbox tests; run npm test and read-only MCP Inspector stdio call on actual Windows; ChatGPT connection NOT verified",
+      "documentation": "workspace/aion/ops/aion-mcp/README.md",
+      "skills": [
+        "acp-interop",
+        "context7-harvest",
+        "verification-proof"
       ]
     }
   ]
