@@ -10,7 +10,7 @@
 - **aion connections** — discovers the local OpenCode 2.x V2 service and checks its loopback /api/info endpoint. Chrome is NOT_CONNECTED unless separately activated.
 - **aion doctor / capabilities / status** — local read-only engine and Bus state, including binding and grant conditions.
 - **aion connect opencode --cwd PATH --max 10 --hours 24** — explicit owner action binding the OpenCode V2 HTTP adapter and a scoped finite grant.
-- **aion connect acp --cwd PATH --max 10 --hours 24** — explicit owner action choosing the existing ACP in-process relay and a scoped finite grant. Executable presence alone is not a confirmed ACP session.
+- **aion connect acp --cwd PATH --max 10 --hours 24** — explicit owner action choosing the existing ACP in-process relay and a scoped finite grant. Executable presence alone is not a confirmed ACP session. The cwd must also be in the existing bridge host's allowlist; otherwise the command refuses before changing grants.
 - **aion send opencode "your task"** — one direct process with the existing Bus: validate → durable reservation → one dispatch → read-only observe → correlated result. A background broker is NOT required.
 - **aion observe OP_ID --follow** — observe the existing operation only. No automatic resend.
 - **aion stop / resume** — locally persisted stop and resume through the same Bus.
