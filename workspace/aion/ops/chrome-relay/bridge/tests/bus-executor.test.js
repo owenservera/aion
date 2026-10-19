@@ -90,8 +90,9 @@ test('long turn: native request times out -> OUTCOME_UNKNOWN; second command bus
   const c = await w.say('op: cancel\nto: opencode\nnonce: exec-0006');
   assert.equal(c.ingested.accepted, true, JSON.stringify(c.ingested));
   assert.equal(c.dispatched.state, 'REPLY_CHECKED', 'the cancel REQUEST was delivered');
-  const observed = await until(async () => { const o = await w.bus.observe(r.ingested.command_id); return o.state === 'REPLY_CHECKED' ? o : null; });
-  assert.ok(observed, 'the cancelled terminal arrived after the timeout and was observed');
+  // No manual observe: the late terminal is persisted by the adapter's onSettled hook.
+  const observed = await until(async () => { const c = await w.bus.readCommand(r.ingested.command_id); return ['REPLY_CHECKED', 'REPORTED'].includes(c.state) ? c : null; });
+  assert.ok(observed, 'the cancelled terminal arrived after the timeout and was persisted without a manual observe');
   const inbox = w.chat.rooms.get('example://room/commander').inbox;
   assert.ok(inbox.some((x) => /stop_reason=cancelled/.test(x)));
 });

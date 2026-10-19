@@ -7,11 +7,14 @@
 //   GET  /api/session/{id}/message          projected messages, cursor paging
 //   GET  /api/event                         text/event-stream, VOLATILE: no replay, slow consumers dropped
 //   GET  /api/info                          identity / readiness
-// UNVERIFIED (no live V2 host was available): the exact Session.Info id field
-// name, the projected-message item schema, and the native event names other
-// than `session.idle` (documented for plugins). Those are read TOLERANTLY in
-// extractSession/extractAssistant/eventSession below and are the first things
-// to confirm on a real host (README §V2 conformance).
+// VERIFIED against a real OpenCode 2.0.32 service (sandbox, no credentials,
+// 2026-10-19): auth is HTTP Basic `opencode:<password>` from the service's own
+// state file; create returns `data.id`; prompt returns `data.{id,sessionID,
+// type,payload.text,delivery}`; the message list is NEWEST-FIRST and carries
+// an explicit `idle` item (`outcome`, optional `error`) when the loop stops;
+// assistant items carry `content[]`, `finish`, `time.completed`, `error`.
+// (fixture: tests/fixtures/opencode-v2-real-messages.json). Event names on
+// /api/event other than `session.idle` remain unverified; events are hints.
 //
 // DESIGN
 //   - ACP stays the compatibility path; this adapter is used only when the
@@ -106,14 +109,25 @@ function textOf(item) {
   }
   return out.join('');
 }
-function completed(item) {
-  return item?.completed === true || item?.status === 'completed' || !!item?.time?.completed || !!item?.info?.time?.completed || !!item?.finish;
-}
+function createdAt(item) { const t = item?.time?.created; return Number.isFinite(t) ? t : 0; }
+/**
+ * Read a session's projected messages (real 2.0.32 schema, tolerant of the
+ * older shapes). Completion = an `idle` item newer than the latest `user`
+ * input; its `outcome`/`error` (or the assistant's) is the executor's verdict.
+ */
 export function extractAssistant(body) {
-  const assistant = items(body).filter((i) => roleOf(i) === 'assistant');
+  const list = items(body).slice().sort((a, b) => createdAt(a) - createdAt(b));
+  const lastUser = list.reduce((at, x, i) => (roleOf(x) === 'user' ? i : at), -1);
+  const after = list.slice(lastUser + 1);
+  const assistant = after.filter((i) => roleOf(i) === 'assistant');
+  const idle = after.filter((i) => i?.type === 'idle').pop() ?? null;
   const text = assistant.map(textOf).filter(Boolean).join('\n').slice(0, 16000);
   const last = assistant[assistant.length - 1];
-  return { count: assistant.length, text, complete: !!last && completed(last) };
+  const legacyDone = !!last && (last.completed === true || last.status === 'completed' || (!!last.info?.time?.completed));
+  const error = idle?.error ?? last?.error ?? null;
+  const outcome = idle?.outcome ?? (last?.finish === 'error' ? 'failed' : (idle || legacyDone ? 'completed' : null));
+  return { count: assistant.length, text, complete: !!idle || legacyDone,
+    outcome, error: error ? { type: String(error.type ?? 'error').slice(0, 64), message: String(error.message ?? '').slice(0, 200) } : null };
 }
 export function eventSession(ev) {
   const d = ev?.data ?? {};
@@ -174,7 +188,13 @@ export function createOpenCodeV2Adapter({ client, name = OPENCODE_V2_ADAPTER, ma
         return { outcome: 'pending', reason: REASON.TRANSPORT_LOST, detail: `readback failed: ${error.message}`.slice(0, 200) };
       }
       const seen = extractAssistant(body);
-      if (seen.complete) return finished(seen.text, sessionID, 'server message marked complete');
+      if (seen.complete && seen.error) {
+        // A definitive executor FAILURE, reported as such, never as success.
+        const reason = /auth/i.test(seen.error.type) ? REASON.EXECUTOR_AUTH_REQUIRED : REASON.EXECUTOR_ERROR;
+        const text = `[executor outcome=${seen.outcome ?? 'failed'} error=${seen.error.type}: ${seen.error.message}]${seen.text ? `\n${seen.text}` : ''}`;
+        return { ...finished(text, sessionID, 'idle item with error'), reason };
+      }
+      if (seen.complete) return finished(seen.text, sessionID, `idle item outcome=${seen.outcome ?? 'completed'}`);
       if (idle.get(sessionID) && seen.count > 0) return finished(seen.text, sessionID, 'session.idle event');
       return { outcome: 'pending', detail: gap ? 'event stream had a gap; reconciling from server state' : 'not idle yet', session_ref: sessionID };
     },

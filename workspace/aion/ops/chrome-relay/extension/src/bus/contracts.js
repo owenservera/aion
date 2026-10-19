@@ -170,6 +170,8 @@ export const REASON = Object.freeze({
   STALE_RESERVATION: 'stale_reservation_not_dispatched',
   NOTHING_TO_CANCEL: 'nothing_to_cancel',
   OWNER_DISPOSED: 'owner_disposed',
+  EXECUTOR_AUTH_REQUIRED: 'executor_auth_required',
+  EXECUTOR_ERROR: 'executor_error',
   REPORT_RETRIES_EXHAUSTED: 'report_retries_exhausted',
   // storage
   STORE_CORRUPT: 'bus_store_corrupt',

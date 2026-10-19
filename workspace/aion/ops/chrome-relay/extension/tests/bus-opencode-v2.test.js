@@ -51,14 +51,21 @@ function fakeService() {
         if (faults.prompt === 'net') { s.inputs.push(body.text); return Promise.reject(new TypeError('socket hang up')); }
         if (faults.prompt) return json(faults.prompt, { error: 'x' });
         s.inputs.push(body.text);
-        return json(200, { data: { id: `msg_${s.inputs.length}` } });
+        s.clock = (s.clock ?? 1000) + 1;
+        s.messages.unshift({ id: `msg_u${s.inputs.length}`, time: { created: s.clock }, type: 'user', text: body.text });
+        return json(200, { data: { id: `msg_${s.inputs.length}`, sessionID: s.id, type: 'user', payload: { text: body.text }, delivery: 'queued' } });
       }
       if (m[2] === 'message') return json(200, { data: s.messages, cursor: { next: null } });
       if (m[2] === 'interrupt') { s.interrupted = true; return json(200, { data: { ok: true } }); }
     }
     return json(404, { error: 'not found' });
   }
-  const answer = (id, text, complete = true) => sessions.get(id).messages.push({ role: 'assistant', parts: [{ type: 'text', text }], time: complete ? { completed: 1 } : {} });
+  // Real 2.0.32 shape: newest-first; assistant `content[]`; an `idle` item marks the loop stop.
+  const answer = (id, text, complete = true) => {
+    const s = sessions.get(id); s.clock = (s.clock ?? 1000) + 1;
+    s.messages.unshift({ id: `msg_a${s.clock}`, time: { created: s.clock, completed: s.clock }, type: 'assistant', content: [{ type: 'text', text }], finish: 'stop' });
+    if (complete) { s.clock += 1; s.messages.unshift({ id: `msg_i${s.clock}`, time: { created: s.clock }, type: 'idle', outcome: 'completed' }); }
+  };
   return { fetch, sessions, calls, faults, answer, push: (ev) => pushEvent?.(ev) };
 }
 
@@ -171,10 +178,24 @@ test('cancel interrupts the target session by its persisted reference', async ()
   assert.ok(w.svc.calls.some((x) => x.path === '/api/session/ses_0001/interrupt?resume=false'));
 });
 
+test('real 2.0.32 message shape: newest-first, idle item with provider.auth error is a FAILURE, not an empty success', async () => {
+  const real = JSON.parse((await import('node:fs')).readFileSync(new URL('./fixtures/opencode-v2-real-messages.json', import.meta.url), 'utf8'));
+  const x = extractAssistant(real);
+  assert.deepEqual({ complete: x.complete, outcome: x.outcome, error: x.error?.type, count: x.count }, { complete: true, outcome: 'failed', error: 'provider.auth', count: 1 });
+  const adapter = createOpenCodeV2Adapter({ client: { messages: async () => real } });
+  const o = await adapter.observe({ executor_ref: 'ses_x' });
+  assert.equal(o.outcome, 'reply');
+  assert.equal(o.reason, REASON.EXECUTOR_AUTH_REQUIRED);
+  assert.match(o.reply, /outcome=failed error=provider\.auth/);
+  // Before the idle item exists (loop still running) nothing is concluded.
+  const running = { data: real.data.slice(1).map((i) => (i.type === 'assistant' ? { ...i, finish: undefined, error: undefined, time: { created: i.time.created } } : i)) };
+  assert.equal((await createOpenCodeV2Adapter({ client: { messages: async () => running } }).observe({ executor_ref: 'ses_x' })).outcome, 'pending');
+});
+
 test('tolerant schema readers', () => {
   assert.equal(extractSession({ data: { id: 'ses_1' } }), 'ses_1');
   assert.equal(extractSession({ data: { sessionID: 'ses_2' } }), 'ses_2');
   assert.equal(extractSession({ data: { id: '../evil' } }), null);
   const a = extractAssistant({ data: { items: [{ role: 'user', text: 'q' }, { info: { role: 'assistant', time: { completed: 3 } }, parts: [{ type: 'text', text: 'A' }, { type: 'tool', text: 'no' }] }] } });
-  assert.deepEqual(a, { count: 1, text: 'A', complete: true });
+  assert.deepEqual({ count: a.count, text: a.text, complete: a.complete, error: a.error }, { count: 1, text: 'A', complete: true, error: null });
 });

@@ -17,7 +17,7 @@
 //
 // Options: --state <file> (default ~/.aion/bus/state.json, or AION_BUS_STATE)
 //          --host-config-dir <dir> (bridge dir holding host.config.json; ACP executor)
-//          --opencode-url http://127.0.0.1:4096 (enables the opencode-v2 adapter)
+//          --opencode-url http://127.0.0.1:4096 | auto (enables the opencode-v2 adapter; auto reads the service state file)
 //          --json
 // Starting an executor (spawning `opencode acp`) only happens for `send`,
 // `dispatch-pending`, `observe` or `reconcile`, and only with --live.
@@ -33,6 +33,7 @@ import { ORIGIN } from '../../extension/src/bus/contracts.js';
 import { createAcpExecutorAdapter } from '../../extension/src/bus/adapters/acp-executor.js';
 import { createOpenCodeHttpClient, createOpenCodeV2Adapter } from '../../extension/src/bus/adapters/opencode-v2.js';
 import { createFileStorage } from '../node-storage.js';
+import { discoverOpenCodeService } from '../opencode-service.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BRIDGE = resolve(HERE, '../../bridge');
@@ -81,7 +82,11 @@ export async function openBus(args) {
   let closers = [];
   if (args.live) ({ adapters, closers } = await liveAdapters(args));
   else adapters.push(offlineAcpPlaceholder());
-  if (args['opencode-url']) adapters.push(createOpenCodeV2Adapter({ client: createOpenCodeHttpClient({ baseUrl: args['opencode-url'] }) }));
+  if (args['opencode-url']) {
+    // `--opencode-url auto` discovers the running local service (url + Basic auth) from its state file.
+    const svc = args['opencode-url'] === 'auto' ? discoverOpenCodeService({ stateFile: args['opencode-state'] }) : { url: args['opencode-url'], headers: {} };
+    adapters.push(createOpenCodeV2Adapter({ client: createOpenCodeHttpClient({ baseUrl: svc.url, headers: svc.headers }) }));
+  }
   // A Node runner usually has no commander conversation; reports stay held.
   const bus = createBus({ storage, adapters, initialConfig: { report_back: false, ops_enabled: ['send', 'status', 'cancel'] } });
   return { bus, state, close: async () => { for (const c of closers) await c(); } };
