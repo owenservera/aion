@@ -118,6 +118,8 @@ The reconcile endpoint and the task-store pruning plan (open items from the 2026
 5. Which agents are commandable first, and whether the registry above is correct.
 6. Whether Dots are in scope given regional availability.
 
+Detailed design: [BUS-V1-V2-DESIGN](../ops/chrome-relay/BUS-V1-V2-DESIGN.md).
+
 ## 9. Documents updated by this decision
 
 `ARCHITECTURE.md` (§11), `ENVELOPE-CONTRACT.md` (v0.2 additions), `MOBILE-PROTOCOL.md`, `FALLBACK-AND-ACCEPTANCE.md`, `STATE-PROTOCOL.md`, `STATE.json` (`bus_direction`), `README.md`, `ONBOARDING.md`, `AGENTS.md`, `role-context-v1/` relabel, `role-launcher/` notes, `extension/README.md`, `aion-mcp/` docs, `opencode-2/` docs, `pm/` owners, decisions, rules and risks, `windows-master/TODO.md`, `model-failover/COMPATIBILITY.md`.
