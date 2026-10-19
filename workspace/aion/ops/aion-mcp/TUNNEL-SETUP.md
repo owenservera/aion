@@ -1,5 +1,8 @@
 # AION MCP — controlled operator connection (not yet executed)
 
+> **2026-10-19 CURRENT PLUGINS RESEARCH:** [SOFTWARE_HQ ChatGPT custom plugins / MCP / skills / events study](https://github.com/owenservera/SOFTWARE_HQ/blob/main/context7/research/2026-10-19-chatgpt-custom-plugins-mcp-aion.md). Current OpenAI Help explicitly names Business/Enterprise/Edu for custom MCP connections and write actions on web; older Pro read/fetch wording is **not confirmed by the current article**. Account entitlement and UI must be observed; no Windows tunnel/ChatGPT plugin connection or MCP Events subscription is claimed. Existing `aion-mcp` is the reuse target; a skills-only package can support onboarding without MCP access.
+
+
 **No tunnel, OpenAI API key, custom ChatGPT MCP connection or Windows install was created in this research turn.**
 
 ## Account capability gate
