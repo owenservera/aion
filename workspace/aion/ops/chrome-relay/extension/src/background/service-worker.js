@@ -44,6 +44,8 @@ import { createEventStore, createTransport, isExpired, TASK_STATES, validateEnve
 import { CHATGPT_ERROR, createChatGPTPortDriver } from './chatgpt-port.js';
 import { chatGPTCommandName, resolveCommandDeadline } from '../lib/command-deadlines.js';
 import { createBoundedLifecycle } from '../lib/bounded-lifecycle.js';
+import { BUS_ALARM, BUS_ENDPOINTS, createWorkerBus } from './bus.js';
+import { createAcpExecutorAdapter } from '../bus/adapters/acp-executor.js';
 
 const STORAGE_KEY = 'aion.relay.state.v1';
 const EVENTS_KEY = 'aion.relay.events.v1';
@@ -238,6 +240,7 @@ let cachedState = null;
 let cachedStore = null;
 let cachedTransport = null;
 let cachedChatGPT = null;
+let cachedBus = null;
 
 /**
  * Serialises every inbound relay.event append.
@@ -295,6 +298,18 @@ async function rehydrate() {
   }
 
   cachedChatGPT = hasTabs() ? createChatGPTPortDriver({ chrome: getChrome() }) : null;
+
+  // Bus V1/V2. Its ChatGPT leg calls THIS worker's bounded runner, so every bus
+  // send passes the same gesture/approval gates and the same durable no-resend
+  // task store as a panel send. Its executor leg (V2) uses the same native
+  // transport as aion/native-*. Nothing here scans or sends until asked.
+  const api = getChrome();
+  cachedBus = api?.storage?.local ? createWorkerBus({
+    storage: api.storage.local,
+    call: (type, payload) => runChatGPTCommand({ ...payload, type }, { hydrate: () => Promise.resolve(state) }),
+    extraAdapters: [createAcpExecutorAdapter({ relay: cachedTransport })],
+    alarms: api.alarms ?? null,
+  }) : null;
   return state;
 }
 
@@ -898,6 +913,15 @@ function refuseUnauthorisedSend(message) {
   return null;
 }
 
+/** `aion/chatgpt-commander-scan` — read-only commander watcher scan (Bus V1). */
+async function handleChatGptCommanderScan(message, lifecycle) {
+  const driver = cachedChatGPT;
+  if (!driver) {
+    return { ok: false, code: CHATGPT_ERROR.NO_TABS_API, error: `${CHATGPT_ERROR.NO_TABS_API}: chrome.tabs is unavailable`, read_only: true };
+  }
+  return driver.commanderScan(chatgptCommand(message, ['tab_id', 'baseline_sig', 'arm_token']), lifecycle);
+}
+
 async function handleChatGptRead(message, lifecycle) {
   const driver = cachedChatGPT;
   if (!driver) {
@@ -1208,7 +1232,8 @@ const CHATGPT_ENDPOINTS = Object.freeze({
   'aion/chatgpt-run': handleChatGptRun,
   'aion/chatgpt-submit': handleChatGptSubmit,
   'aion/chatgpt-observe': handleChatGptObserve,
-  'aion/chatgpt-read': handleChatGptRead
+  'aion/chatgpt-read': handleChatGptRead,
+  'aion/chatgpt-commander-scan': handleChatGptCommanderScan
 });
 
 /**
@@ -1226,7 +1251,8 @@ export function handleMessage(message, sender, sendResponse) {
   const isActEndpoint = Object.prototype.hasOwnProperty.call(NATIVE_ENDPOINTS, type)
     || Object.prototype.hasOwnProperty.call(CHATGPT_ENDPOINTS, type);
 
-  if (!isActEndpoint && type !== 'aion/status' && type !== 'aion/refresh') return false;
+  const isBusEndpoint = BUS_ENDPOINTS.includes(type);
+  if (!isActEndpoint && !isBusEndpoint && type !== 'aion/status' && type !== 'aion/refresh') return false;
 
   // Read-only status is still extension-only: a web page must not learn this
   // installation's relay state either.
@@ -1262,6 +1288,13 @@ export function handleMessage(message, sender, sendResponse) {
       .then(() => refreshPresence(typeof message.reason === 'string' ? message.reason : 'manual'))
       .then(() => deriveStatus(cachedState, cachedStore, cachedTransport))
       .then((status) => sendResponse({ ...status, ok: true }), fail2);
+    return true;
+  }
+
+  if (isBusEndpoint) {
+    ensureReady()
+      .then(() => (cachedBus ? cachedBus.handle(message) : { ok: false, code: 'bus_unavailable', error: 'bus_unavailable: no durable storage in this context' }))
+      .then((result) => sendResponse(actionReply(result, type)), fail2);
     return true;
   }
 
@@ -1345,6 +1378,10 @@ export function installRuntimeListeners(api) {
 
     if (api.alarms && api.alarms.onAlarm) {
       api.alarms.onAlarm.addListener((alarm) => {
+        if (alarm && alarm.name === BUS_ALARM) {
+          ensureReady().then(() => cachedBus?.onAlarm(alarm)).catch(() => {});
+          return;
+        }
         if (!alarm || alarm.name !== PRESENCE_ALARM) return;
         refreshPresence('alarm').catch(() => {});
       });
@@ -1393,6 +1430,7 @@ export const __testing = {
     cachedStore = null;
     cachedTransport = null;
     cachedChatGPT = null;
+    cachedBus = null;
     appendChain = Promise.resolve();
     installedFor = null;
   },
@@ -1400,5 +1438,6 @@ export const __testing = {
   get store() { return cachedStore; },
   get transport() { return cachedTransport; },
   get chatgpt() { return cachedChatGPT; },
+  get bus() { return cachedBus; },
   get hydrated() { return hydration; }
 };

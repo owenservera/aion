@@ -65,6 +65,7 @@ export const CHATGPT_ACTION = Object.freeze({
   OBSERVE_TURN: 'observe-turn',
   READ_FINAL: 'read-final',
   STOP: 'stop',
+  COMMANDER_SCAN: 'commander-scan',
 });
 
 /**
@@ -208,7 +209,7 @@ const TIMEOUT_KEY_TO_COMMAND = Object.freeze({
 /** Driver method -> command-deadlines command name (its absolute budget). */
 const METHOD_COMMANDS = Object.freeze({
   listTabs: 'tabs', ping: 'ping', runTurn: 'run-turn', submitTurn: 'submit-turn',
-  observeTurn: 'observe-turn', readFinal: 'read-final',
+  observeTurn: 'observe-turn', readFinal: 'read-final', commanderScan: 'commander-scan',
 });
 
 /** Command name -> `DEFAULT_CHATGPT_TIMEOUTS` key. */
@@ -1010,6 +1011,38 @@ export function createChatGPTPortDriver(options = {}) {
         verdict: sanitizeVerdict(receipt.verdict), envelope: null, observer: fact,
         submitted: true, uncertain: true, captured: false, pending: false, read_only: true,
       });
+    },
+
+    /**
+     * `commander-scan` — Bus commander watcher, READ-ONLY.
+     *
+     * Asks the page for pair signatures after `baseline_sig`, the armed first
+     * line of each user turn (only when armed) and the AION_CMD_V1 blocks of
+     * each answer. Composes nothing, clicks nothing, reserves nothing. Every
+     * field the page returns is re-bounded here: page output is data.
+     */
+    async commanderScan(command = {}, lifecycle) {
+      const resolved = await resolveTab(command.tab_id, lifecycle);
+      if (resolved.error) return { ...resolved.error, read_only: true };
+      const answer = await exchange(resolved.tab.tab_id, CHATGPT_ACTION.COMMANDER_SCAN, {
+        baseline_sig: typeof command.baseline_sig === 'string' ? command.baseline_sig.slice(0, 128) : null,
+        arm_token: typeof command.arm_token === 'string' ? command.arm_token.slice(0, 32) : null,
+      }, lifecycle);
+      if (isTransportFailure(answer)) return { ...answer, tab: resolved.tab, read_only: true };
+      const checked = checkReply(answer, CHATGPT_ACTION.COMMANDER_SCAN, resolved.tab.tab_id);
+      if (checked.error) return { ...checked.error, tab: resolved.tab, read_only: true };
+      const reply = checked.reply;
+      if (reply.ok !== true) return fail(CHATGPT_ERROR.MALFORMED_REPLY, { tab: resolved.tab, read_only: true, message: String(reply.reason ?? 'scan refused').slice(0, 64) });
+      const sig = (value) => typeof value === 'string' && /^cs-[A-Za-z0-9-]{1,80}$/.test(value);
+      const pairs = (Array.isArray(reply.pairs) ? reply.pairs : []).slice(0, 10).filter((p) => p && sig(p.turn_sig)).map((p) => ({
+        turn_sig: p.turn_sig,
+        user_head: typeof p.user_head === 'string' ? p.user_head.slice(0, 200) : '',
+        assistant_text: typeof p.assistant_text === 'string' ? p.assistant_text.slice(0, 16384) : '',
+        block_count: Number.isSafeInteger(p.block_count) ? p.block_count : 0,
+      }));
+      return { ok: true, read_only: true, tab: resolved.tab, href: sanitizeUrl(reply.href),
+        tail_sig: sig(reply.tail_sig) ? reply.tail_sig : null, pair_count: Number.isSafeInteger(reply.pair_count) ? reply.pair_count : null,
+        baseline_found: reply.baseline_found === true, generating: reply.generating === true, pairs };
     },
 
     /**

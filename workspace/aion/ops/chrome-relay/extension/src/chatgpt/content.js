@@ -33,6 +33,7 @@
 //   Deviations are marked "DEVIATION" with the reason.
 
 import { createEnvelope } from '../lib/envelope.js';
+import { scanTurns } from './commander.js';
 import {
   DEFAULT_POLL_MS,
   DEFAULT_SETTLE_MS,
@@ -1032,6 +1033,18 @@ const ACTIONS = {
   'submit-turn': (command) => turnEngine.submit(command),
   'observe-turn': (command) => turnEngine.observe(command),
   'read-final': readFinal,
+  // Bus commander watcher. READ-ONLY: returns pair signatures, an armed first
+  // line and AION_CMD_V1 blocks only (see commander.js). Composes nothing.
+  'commander-scan'(command) {
+    const scan = readOrderedTurns();
+    if (!scan.ok) return { ok: false, reason: 'conversation_unreadable', read_only: true };
+    let generating = false;
+    try { generating = !!document.querySelector(STOP_BUTTON_SELECTOR); } catch { generating = true; }
+    const baseline = typeof command.baseline_sig === 'string' && command.baseline_sig.length <= 128 ? command.baseline_sig : null;
+    const arm = typeof command.arm_token === 'string' && command.arm_token.length >= 2 && command.arm_token.length <= 32 ? command.arm_token : 'AION>';
+    return { ...scanTurns(scan.blocks.map((b) => ({ role: b.role, text: b.text })), { baseline_sig: baseline, arm_token: arm, generating }),
+      href: safeUrl(), read_only: true };
+  },
   stop() {
     const button = document.querySelector(STOP_BUTTON_SELECTOR);
     return { ok: true, what: button && fireClick(button) ? 'stopped' : 'not generating' };
