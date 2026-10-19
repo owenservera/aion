@@ -1,7 +1,7 @@
 {
   "schema": "aion.entry-state.v1",
-  "updated_utc": "2026-10-19T16:30:00Z",
-  "update_basis": "Offline integration acceptance on the merged code commit fd347f22dba24e9282e8a39b01ed5f0c760bee14 (parents 9b07eab + 7ffb434, 13 code/test paths), integration worktree AION-integration-20261019. Integration-owner reviewed runs 2026-10-19T16:24:04-16:24:41Z: extension 736 passed (16:24:21Z); bridge 126 passed / 1 documented opt-in skip (16:24:41Z) with a targeted re-run passing 16:24:19Z, the only bridge change being test-only (await w.relay.host.ensureSession() before HOLD, 400 ms prompt timeout kept, production code unchanged); bus runner 8 passed / 2 opt-in skips; MCP 10 passed; adapter 35 passed; bus offline demo 3/3 at 16:24:18Z (output OFFLINE_PASS D1/D2/D3). The new expected_reply_token regression negative is proven. CP0 functional checks PASS; final independent review, the docs commit and publication are pending. bus_direction reconciled to implemented OFFLINE_CODE with live acceptance false. No live send, no browser action, no extension reload, no accepted live envelope and no consumer readback; live_execution_authorized remains false and m1_verified remains false. The origin/main research-docs merge is committed as branch HEAD 78dad551d633e01197863c4b128f7bb9cd2db8d3 (parents fd347f22 + 8448242, no source change); the code under test remains fd347f22, independently confirmed byte-identical to HEAD across chrome-relay, aion-mcp and adapter (git diff --quiet fd347f2 HEAD exits 0); the 18 differing paths are research docs only. Nothing is pushed: origin/main is 8448242 and the branch is 3 ahead, 0 behind. The original checkout C:/0-BlackBoxProject-0/AION is untouched at 7ffb434 and is dirty only with research-session docs (workspace/aion/ops/opencode-2/AION-INTEGRATION.md and README.md), which are preserved. Offline work remains unproven against a real MV3 restart or real Chrome; durability is tested only against storage fakes.",
+  "updated_utc": "2026-10-19T17:12:35.543Z",
+  "update_basis": "Canonical implementation frozen at source fd347f22, research integrated at 389a928. Offline evidence: extension736, bridge126 plus1opt-in skip, bus8 plus2opt-in skips, MCP10, adapter35, demos3/3. One real native-UIA ChatGPT send at17:04:16.8683372Z and direct machine reply readback at17:05:00.7053692Z on2026-10-19. Extension fill succeeded but send activation failed. See LIVE-INTEGRATION-2026-10-19.md for minimized evidence and issues. Owner subsequently confirmed ongoing FULL live execution; live_execution_authorized=true. m1_verified=false because independent acceptance evidence is incomplete, NOT because live permission is absent.",
   "canonical_entry": "https://github.com/owenservera/aion",
   "machine_authority": "OWNER_WINDOWS_MASTER",
   "target_browser_host": "OWNER_WINDOWS_MASTER",
@@ -9,14 +9,35 @@
   "decision_ref": "workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md",
   "architecture_proposal_ref": "workspace/aion/canon/ARCHITECTURE-WINDOWS-DEV-v0.2-PROPOSAL.md",
   "live_execution_authorized": true,
-  "current_live_scope": {"status":"OWNER_AUTHORIZED_NOT_EXECUTED","basis":"Owner clarified in this session: ChatGPT sends are fully included; finish the current build and test what exists.","scope":"Align/reload tested extension, check connection, submit one benign correlated ChatGPT prompt and retrieve its actual reply for AION readback.","outbound_text":"Reply with exactly: AION-INTEGRATION-20261019-01 53+29=82","expected_reply_token":"AION-INTEGRATION-20261019-01","deadline_policy":"Existing command-derived bounded deadlines; no extension of an active operation deadline.","no_resend":"If submission or outcome is uncertain, observe/reconcile the same operation; never automatically resubmit.","exclusions":["credential export","bulk history","ledger reset","unrelated executor tasks"],"supersedes":"Earlier no-send-only scope and historical consumed-grant wording below; neither overrides this newer owner instruction."},
-  "authorization_basis": "The one benign real ChatGPT send authorized by owner override (issue #27 / AUTHORIZATION-2026-10-17.md) was CONSUMED by M1 live attempt 2 on 2026-10-18T21:32:45Z, which sent and received a correct reply but ended `turn_refused: generation_incomplete` (receipt workspace/aion/agents/windows-master/M1-LIVE-ATTEMPT-2026-10-18.md). No live send authorization is outstanding. A further live send requires a fresh explicit owner grant naming the outbound text, the deadline policy and the no-resend/reconcile rule. No credential export, bulk history, login automation, Playwright, Puppeteer or Orca. Separately, on 2026-10-19 the owner approved a SCOPED no-send bring-up (CP1): path and version checks, aligning the extension to the tested build, one extension reload, and the panel plus native-host connection check. That approval explicitly excludes ChatGPT prompts, commander scanning, grants, executor tasks and ledger resets; it is not a live-send authorization, so live_execution_authorized stays false and m1_verified stays false. Native-host registration changes need a separate ask.",
+  "current_live_scope": {
+    "status": "ACTIVE_OWNER_AUTHORIZED",
+    "basis": "Owner explicitly corrected the snapshot in this session: live execution is TRUE and we are now in full live execution mode. This is ongoing authority for AION live workflows, including ChatGPT sends and reply readback; it is not exhausted by the completed test. Earlier no-send-only and consumed-single-test language is historical and superseded. Authorization and milestone verification are separate.",
+    "scope": "Full live execution of AION workflows, including ChatGPT send/readback, under ongoing owner direction.",
+    "no_resend": "Reconcile uncertain operations rather than automatically duplicating them.",
+    "code_policy": "Keep this source revision canonical; implementation changes remain frozen until further owner direction.",
+    "supersedes": "Earlier no-send-only and consumed-single-test restrictions."
+  },
+  "authorization_basis": "Owner explicitly corrected the snapshot in this session: live execution is TRUE and we are now in full live execution mode. This is ongoing authority for AION live workflows, including ChatGPT sends and reply readback; it is not exhausted by the completed test. Earlier no-send-only and consumed-single-test language is historical and superseded. Authorization and milestone verification are separate.",
   "no_send_bringup_approval": {
-    "status": "APPROVED_SCOPED_NO_SEND",
+    "status": "HISTORICAL_SUPERSEDED_BY_FULL_LIVE_EXECUTION",
     "granted_utc": "2026-10-19",
-    "scope_granted": ["extension path and version checks", "align the extension to the tested build fd347f22 if needed", "one reload of the pinned AION Chrome Relay Station extension card", "open the side panel -> Bus view and read Status", "confirm the native-host connection"],
-    "scope_excluded": ["ChatGPT prompts of any kind", "commander scanning", "grants", "executor tasks", "ledger resets"],
-    "separate_ask_required": ["native-host registration changes, including re-pointing the HKCU com.aion.relay manifest path"],
+    "scope_granted": [
+      "extension path and version checks",
+      "align the extension to the tested build fd347f22 if needed",
+      "one reload of the pinned AION Chrome Relay Station extension card",
+      "open the side panel -> Bus view and read Status",
+      "confirm the native-host connection"
+    ],
+    "scope_excluded": [
+      "ChatGPT prompts of any kind",
+      "commander scanning",
+      "grants",
+      "executor tasks",
+      "ledger resets"
+    ],
+    "separate_ask_required": [
+      "native-host registration changes, including re-pointing the HKCU com.aion.relay manifest path"
+    ],
     "known_path_state": {
       "native_host_manifest": "C:/Users/VIVIM.inc/AppData/Local/AION/relay/manifest.json",
       "native_host_launcher": "C:/0-BlackBoxProject-0/AION/workspace/aion/ops/chrome-relay/bridge/native-host/aion-relay-host.cmd (ORIGINAL checkout; the bridge it runs is at 7ffb434, NOT re-pointed under this approval)",
@@ -30,27 +51,61 @@
     "ref": "workspace/aion/agents/windows-master/TODO.md section 2, CP1"
   },
   "m1_verified": false,
+  "currentLiveOutcome": {
+    "outcome": "REAL_SEND_REPLY_READ_EXTENSION_PATH_FAILED",
+    "summary": "One real AION-originated prompt reached the real ChatGPT service and the actual service reply was read back directly by the machine, with no owner copy/paste relay. The successful leg was native Windows UI Automation on the ChatGPT Send control, NOT the extension submit path.",
+    "sender": "main agent via native Windows UI Automation (InvokePattern on the real Send control) - NOT an owner manual send",
+    "transport": "native Windows UI Automation on the ChatGPT composer and Send control; the extension submit path was not the successful leg",
+    "reply_check": "PASS - the reply contains the correlation marker AION-INTEGRATION-20261019-02 and the computed answer 53+29=82, read from UIA transcript nodes in order (You said + exact prompt, then ChatGPT said + marker + answer, with Copy/Read-aloud controls)",
+    "extension_path": "FAILED - the extension filled the composer but did not activate Send. Marker 01 (16:44:31Z) refused before dispatch with conversation_locked: unmapped legacy reservation. Marker 02 (16:59:35.797Z) ended UNCERTAIN turn_refused: generation_incomplete by 17:00:09, and read-only Observe returned the same, while the prompt was in fact only filled and not sent.",
+    "negative_case": "NOT RUN - no independent negative case, so M1 cannot be accepted",
+    "independent_review": "NOT DONE",
+    "timestamps_utc": {
+      "extension_native_ping": "before 2026-10-19T16:44:31Z - CONNECTED / VERIFIED",
+      "submit_marker_01_refused_before_dispatch": "2026-10-19T16:44:31Z",
+      "devtools_archive_attempt_failed_before_write": "after 16:44:31Z - failed in storage.get keys; suspected missing ARCHIVE_KEY in the loaded module; source paths not proven; nothing written",
+      "owner_start_over_extension_reinstall_and_tab_refresh": "after the archive failure - AION extension only; ChatGPT tab refreshed",
+      "submit_marker_02": "2026-10-19T16:59:35.797Z",
+      "generation_incomplete": "2026-10-19T17:00:09Z",
+      "owner_confirmed_prompt_filled_not_sent": "~2026-10-19T17:03Z (owner-confirmed; no exact clock claimed)",
+      "actual_send_via_uia_invoke_pattern": "2026-10-19T17:04:16.8683372Z",
+      "reply_read_via_uia": "2026-10-19T17:05:00.7053692Z"
+    },
+    "sends": 1,
+    "resend": "NONE - no retry, no second prompt actual send",
+    "composer_readback": "Prepared composer text length 73; exact prompt read back and real Send button enabled before native-UIA send.",
+    "approval_ref": "owner:20261019:fresh-live-test",
+    "canonical_frozen_source": "fd347f22dba24e9282e8a39b01ed5f0c760bee14 (parents 9b07eab + 7ffb434, 13 code/test paths); tested offline there: extension 736 passed, bridge 126 passed / 1 documented opt-in skip, bus runner 8 passed / 2 opt-in skips, MCP 10 passed, adapter 35 passed, bus offline demo 3/3",
+    "branch_head_at_observation": "fc30efd at the live session; HEAD later advanced to 389a928bd7bca1054fd8b2189ef29308a16bde5 (merge of main, two research-doc files) with the tested source re-verified byte-identical",
+    "receipt_ref": "workspace/aion/agents/windows-master/LIVE-INTEGRATION-2026-10-19.md",
+    "m1_effect": "none - m1_verified remains false"
+  },
   "chrome_relay_mvp": {
-    "status": "OFFLINE_VERIFIED_MERGED_LIVE_PENDING",
+    "status": "LIVE_NATIVE_UIA_READBACK_EXTENSION_ACTIVATION_OPEN",
     "observed_utc": "2026-10-19T16:24:41Z",
     "path": "workspace/aion/ops/chrome-relay/extension/",
     "issue": "https://github.com/owenservera/aion/issues/18",
-    "code_revision": "fd347f22dba24e9282e8a39b01ed5f0c760bee14 (merge of 9b07eab + 7ffb434, 13 code/test paths; integration worktree AION-integration-20261019). Branch HEAD 78dad551d633e01197863c4b128f7bb9cd2db8d3 (parents fd347f22 + 8448242) is the research-docs merge on top and changes no source. Docs for this snapshot not yet committed at observation time.",
+    "code_revision": "fd347f22dba24e9282e8a39b01ed5f0c760bee14 (merge of 9b07eab + 7ffb434, 13 code/test paths; integration worktree AION-integration-20261019). Branch HEAD 389a928bd7bca1054fd8b2189ef29308a16bde5 (merge of main, carrying the original checkout's two research-doc files) sits on top of fd347f22; the tested source is byte-identical, re-verified by git diff --quiet fd347f2 HEAD -- chrome-relay aion-mcp adapter (exit 0). Docs for this snapshot not yet committed at observation time.",
     "source_identity": "Independently verified read-only: git diff --quiet fd347f2 HEAD -- workspace/aion/ops/chrome-relay workspace/aion/ops/aion-mcp workspace/aion/sessions/01-escape-hatch/adapter exits 0 with no differing paths, so the tested source is byte-identical between source commit fd347f22 and integration HEAD 78dad551d633e01197863c4b128f7bb9cd2db8d3. The 18 differing paths are all under workspace/aion/sessions/roles/09-global-research/ plus workspace/aion/sessions/README.md (research docs, no source). Receipt points at source commit fd347f22 with integration HEAD 78dad55. Not pushed: origin/main is 8448242 and the branch is 3 ahead, 0 behind.",
     "tests": "Extension 736 passed; failed 0, cancelled 0, unexpected skipped 0 (2026-10-19T16:24:21Z). Bridge 126 passed / 1 documented opt-in skip (16:24:41Z), targeted re-run passed 16:24:19Z; the only bridge change is test-only (await w.relay.host.ensureSession() before HOLD; 400 ms prompt timeout kept; production code unchanged). Bus runner 8 passed / 2 opt-in skips; MCP 10 passed; adapter 35 passed (16:24:04-16:24:07Z). Bus offline demo 3/3 at 16:24:18Z, output OFFLINE_PASS D1/D2/D3. The new expected_reply_token regression negative is proven. All evidence is offline; nothing live.",
     "role_count": 8,
-    "permissions": ["sidePanel", "storage", "alarms", "nativeMessaging"],
+    "permissions": [
+      "sidePanel",
+      "storage",
+      "alarms",
+      "nativeMessaging"
+    ],
     "host_permissions": "https://chatgpt.com/*",
     "native_messaging": "actual Chrome side-panel host ping verified 2026-10-18T12:25:04Z; relay.hello acknowledged ACP initialization 12:25:26Z. Protocol/version display normalization pending; no execution session claimed",
     "content_scripts": "passive chatgpt.com loader; only explicit commands may run a turn",
-    "reads_web_pages": "authorized for one correlated turn; no live readback receipt yet",
+    "reads_web_pages": "Native Windows UIA read the actual correlated ChatGPT reply at2026-10-19T17:05:00.7053692Z; extension submit/readback remains unverified. See currentLiveOutcome.",
     "installed_in_chrome": true,
     "installed_profile": "Profile 3",
     "extension_id": "kgjfielmhcdlggjppmliabpiljnonhki",
     "installation_evidence": "Owner loaded unpacked; coordinator read Profile 3 Secure Preferences and observed extension card via native Windows UI Automation at 2026-10-18T11:32:23Z. No Orca. Installation is not handshake proof.",
-    "touched_signed_in_session": false,
+    "touched_signed_in_session": true,
     "acpx_decision": "Owner declared ACPX unavailable 2026-10-17; issue #25 remains open as an unanswered comparison",
-    "live_test_status": "M1 live attempt 2 on 2026-10-18T21:32:45Z made the single authorized send and received a correct reply (48 normalized chars, sha256 48fcf8af...; 53+29=82 verified), but the adapter returned turn_refused: generation_incomplete (worker 120s vs panel 180s). The single-send budget is consumed; nothing was retried and no second send is authorized. Since then the extension gained command-derived deadlines, the durable no-resend task store, the page-side submit/observe engine, the worker hookup, the reconcile endpoint and the durable expected_reply_token; the merged revision fd347f22 is 736/736 offline (16:24:21Z). Not yet proven in live Chrome: extension reload, real MV3 restart/page reload durability, consumer readback, accepted live envelope.",
+    "live_test_status": "Superseded by the 2026-10-19 native-UIA run - see currentLiveOutcome. History: M1 live attempt 2 on 2026-10-18T21:32:45Z made the then-authorized send and received a correct reply (48 normalized chars, sha256 48fcf8af...; 53+29=82 verified) but the adapter returned turn_refused: generation_incomplete; that budget was consumed and nothing was retried. The frozen revision fd347f22 is 736/736 offline (16:24:21Z). The 2026-10-19 run (send 17:04:16.8683372Z, reply read 17:05:00.7053692Z) is a REAL AION-originated send whose service reply was machine-read, but it went through native UIA rather than the extension submit path, and it has no accepted relay envelope, no independent negative case and no independent review - so m1_verified remains false. Still unproven: the extension submit path activating Send, real MV3 restart/page reload durability, consumer readback through the extension, and an accepted relay envelope.",
     "notes": "Built to the existing design in ops/chrome-relay/; spec role-count drift (5 vs 8) resolved to 8 per ROLES.json and corrected in ARCHITECTURE.md, FALLBACK-AND-ACCEPTANCE.md and OPENCODE-BUILD-ORDER.md."
   },
   "local_execution_agent": "opencode",
@@ -59,9 +114,31 @@
     "policy_utc": "2026-10-19T13:05:00Z",
     "primary_paid": "openai/gpt-6.1-sol#medium — thinking/design and M1 acceptance review",
     "free_tier_available": [
-      { "id": "opencode/deepseek-v4.1-flash-free", "variants": ["low", "high", "max"], "use": "orchestration, review triage, reasoning" },
-      { "id": "opencode/minimax-m3.1-flash-free", "variants": ["low", "medium", "high", "xhigh", "max"], "use": "agentic implementation, fixer lanes; failover default" },
-      { "id": "opencode/mimo-v2.6-flash-free", "variants": [], "use": "mechanical edits, summaries, bounded chores" }
+      {
+        "id": "opencode/deepseek-v4.1-flash-free",
+        "variants": [
+          "low",
+          "high",
+          "max"
+        ],
+        "use": "orchestration, review triage, reasoning"
+      },
+      {
+        "id": "opencode/minimax-m3.1-flash-free",
+        "variants": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "use": "agentic implementation, fixer lanes; failover default"
+      },
+      {
+        "id": "opencode/mimo-v2.6-flash-free",
+        "variants": [],
+        "use": "mechanical edits, summaries, bounded chores"
+      }
     ],
     "catalog_basis": "tools.opencode.models({query:'free'}) returned 23 free entries on 2026-10-19; the opencode-provider subset is listed above. Full list: opencode models | Select-String free. See workspace/aion/ops/OPENCODE-FREE-MODEL-PLAYBOOK.md.",
     "fallback": "opencode/minimax-m3.1-flash-free (workspace/aion/ops/model-failover/supervisor.js FALLBACK)",
@@ -88,8 +165,8 @@
     "notes": "Unattended operation proven on the real repository: the scheduler committed and pushed 1c07f6d and 60a5220 without prompting; git ls-remote main matched local HEAD."
   },
   "current_goal": "AION-originated real authenticated ChatGPT web app prompt on Windows -> real reply -> independently consumed by AION with matching ID and negative-case verification",
-  "current_phase": "OFFLINE_MERGED_736_GREEN_LIVE_TEST_AUTHORIZED",
-  "next_action": "Publish the tested integration, align/reload the extension to its tested source, then execute the owner-authorized benign correlated ChatGPT send and retrieve the reply for AION readback. Use current_live_scope, which supersedes the earlier no-send-only approval. Preserve the original checkout's research edits and record the actual extension/native-host source paths. No automatic resend; observe/reconcile uncertain operations. Keep m1_verified false until the full acceptance contract is proven.",
+  "current_phase": "LIVE_EXECUTION_ACTIVE_CANONICAL_FROZEN",
+  "next_action": "Commit and publish all integrated work on main, keep this implementation canonical and its issues logged. Live execution remains active under owner authority. No further code fixes as part of this freeze; next implementation work follows owner direction. Verification status does not revoke execution permission.",
   "proposals_pending_owner": [
     {
       "id": "M1_SPLIT",
@@ -176,6 +253,27 @@
     "No Playwright or Puppeteer.",
     "No secrets, cookies, credentials, private raw transcripts in GitHub."
   ],
-  "operating_policy": "Routine Windows coding/testing/reversible diagnostics may proceed directly with normal tool permissions; real authenticated browser/account operations remain subject to the recorded stop order until expressly authorized by owner.",
-  "bus_direction": {"status": "IMPLEMENTED_OFFLINE_CODE", "decision_ref": "workspace/aion/canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md", "labels": {"bus_v1": "Commander loop (phone -> chatgpt.com on PC + extension -> other chatgpt.com conversations)", "bus_v2": "Local executors, OpenCode first", "rc_1": "Manual mobile role-context workflows (old V1)", "rl_001": "Chrome role launcher (old V2)"}, "channel_decision": "OPEN (Option A tab watcher gated by SYNC-0, vs Option B connector bridge)", "implemented": true, "implementation_scope": "OFFLINE_CODE", "docs_only": false, "live_acceptance": false, "live_acceptance_note": "Windows bring-up, real Chrome, SYNC-0, one benign ChatGPT send, the V1 commander loop and the V2 executor are all still unverified. No live acceptance, no accepted live envelope, no consumer readback. Offline passing code is not acceptance.", "code_revision": "fd347f22dba24e9282e8a39b01ed5f0c760bee14", "branch_head": "78dad551d633e01197863c4b128f7bb9cd2db8d3 (parents fd347f22 + 8448242; research-docs merge, no source change)", "offline_evidence_utc": "2026-10-19T16:24:41Z", "offline_evidence": "extension 736 passed (16:24:21Z); bridge 126 passed / 1 documented opt-in skip (16:24:41Z) with targeted re-run passing 16:24:19Z; bus runner 8 passed / 2 opt-in skips; MCP 10 passed; adapter 35 passed (16:24:04-16:24:07Z); bus offline demo 3/3 at 16:24:18Z (OFFLINE_PASS D1/D2/D3)", "state_ref": "workspace/aion/agents/windows-master/TODO.md"}
+  "operating_policy": "Full AION live execution is owner-authorized, including ChatGPT sends and readback. Existing privacy and tooling rules remain. Keep the canonical implementation frozen until further owner direction; reconcile uncertain outcomes rather than automatically resending.",
+  "bus_direction": {
+    "status": "IMPLEMENTED_OFFLINE_CODE",
+    "decision_ref": "workspace/aion/canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md",
+    "labels": {
+      "bus_v1": "Commander loop (phone -> chatgpt.com on PC + extension -> other chatgpt.com conversations)",
+      "bus_v2": "Local executors, OpenCode first",
+      "rc_1": "Manual mobile role-context workflows (old V1)",
+      "rl_001": "Chrome role launcher (old V2)"
+    },
+    "channel_decision": "OPEN (Option A tab watcher gated by SYNC-0, vs Option B connector bridge)",
+    "implemented": true,
+    "implementation_scope": "OFFLINE_CODE",
+    "docs_only": false,
+    "live_acceptance": false,
+    "live_acceptance_note": "Bus V1/V2 live acceptance is not established. A separate native-UIA ChatGPT send/readback succeeded; the extension filled but failed to activate Send. Execution authority is ongoing and true; acceptance is separate.",
+    "code_revision": "fd347f22dba24e9282e8a39b01ed5f0c760bee14",
+    "branch_head": "389a928bd7bca1054fd8b2189ef29308a16bde5 (merge of main on top of fd347f22, carrying the original checkout's two research-doc files; no tested source change - byte-identical re-verified)",
+    "offline_evidence_utc": "2026-10-19T16:24:41Z",
+    "offline_evidence": "extension 736 passed (16:24:21Z); bridge 126 passed / 1 documented opt-in skip (16:24:41Z) with targeted re-run passing 16:24:19Z; bus runner 8 passed / 2 opt-in skips; MCP 10 passed; adapter 35 passed (16:24:04-16:24:07Z); bus offline demo 3/3 at 16:24:18Z (OFFLINE_PASS D1/D2/D3)",
+    "state_ref": "workspace/aion/agents/windows-master/TODO.md"
+  },
+  "live_execution_mode": "FULL"
 }
