@@ -79,3 +79,21 @@ test('CLI demo: all three offline demonstrations pass', () => {
 test('argument parser', () => {
   assert.deepEqual(parseArgs(['send', '--to', 'x', '--live', '--text', 'a b']), { _: ['send'], to: 'x', live: true, text: 'a b' });
 });
+
+test('manifest key still derives the pinned extension id (installer pin check, portable)', async () => {
+  const { createHash } = await import('node:crypto');
+  const key = JSON.parse((await import('node:fs')).readFileSync(new URL('../../extension/manifest.json', import.meta.url), 'utf8')).key;
+  const hex = createHash('sha256').update(Buffer.from(key, 'base64')).digest('hex').slice(0, 32);
+  const id = [...hex].map((c) => String.fromCharCode(97 + parseInt(c, 16))).join('');
+  assert.equal(id, 'kgjfielmhcdlggjppmliabpiljnonhki');
+});
+
+test('native-ping: read-only PING against the real host entry point', { skip: process.platform === 'win32' }, async () => {
+  const { pingLauncher } = await import('../bin/native-ping.mjs');
+  const d = dir();
+  const launcher = join(d, 'launcher.sh');
+  writeFileSync(launcher, `#!/bin/sh\nexec "${process.execPath}" "${fileURLToPath(new URL('../../bridge/bin/aion-relay-host.mjs', import.meta.url))}" "$@"\n`, { mode: 0o755 });
+  const r = await pingLauncher(launcher);
+  assert.equal(r.result, 'PASS', JSON.stringify(r));
+  assert.equal(r.session_created, false, 'PING never creates an ACP session');
+});
