@@ -1,0 +1,9 @@
+{
+  "name": "aion-bus-runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AION Bus V1/V2 Node runner, CLI and offline demos. Shares the bus core in ../extension/src/bus. No dependencies.",
+  "engines": { "node": ">=22.0.0" },
+  "scripts": { "test": "node --test", "demo": "node bin/aion-bus.mjs demo" }
+}
