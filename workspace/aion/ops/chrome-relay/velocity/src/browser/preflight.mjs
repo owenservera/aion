@@ -16,9 +16,13 @@ export async function runBrowserPreflight({alias='chief',stateDir=dirname(localS
   inspect=inspectBrowserSetup,open=openLocal}={}){
  const plan=planBrowserSetup({stateDir});
  const installed=inspect(plan);
- if(!installed.ok)
-   return step('SETUP',installed.code,'aion setup browser --apply',
-     {extension_dir:plan.extensionDir});
+ if(!installed.ok){
+   const foreign=['FOREIGN_DEV_REGISTRATION','DEV_MANIFEST_UNREADABLE',
+     'REGISTRY_QUERY_UNREADABLE','REGISTRY_QUERY_FAILED'].includes(installed.code);
+   return step('SETUP',installed.code,foreign
+     ? 'STOP: inspect the existing development native-host registration; do not overwrite it'
+     : 'aion setup browser --apply',{extension_dir:plan.extensionDir});
+ }
  let rt;
  try{rt=await open({withBrowser:true});}
  catch(error){return step('STATE',error?.code??'STATE_UNAVAILABLE','aion doctor');}
