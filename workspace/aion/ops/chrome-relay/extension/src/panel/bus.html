@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AION Relay Station: bus</title>
+    <link rel="stylesheet" href="panel.css" />
+    <link rel="stylesheet" href="bus.css" />
+  </head>
+  <body class="buspage">
+    <header class="masthead">
+      <div class="masthead__identity">
+        <h1 class="masthead__title">AION Bus</h1>
+        <p class="masthead__subtitle">Commander loop (V1) and local executors (V2). Offline-tested; live use needs your explicit grant.</p>
+      </div>
+    </header>
+
+    <nav class="viewswitch" aria-label="Choose a view">
+      <a class="viewswitch__link" id="view-human" href="sidepanel.html">For people</a>
+      <a class="viewswitch__link" id="view-machine" href="agent.html">For agents</a>
+      <a class="viewswitch__link" id="view-bus" href="bus.html" aria-current="page">Bus</a>
+    </nav>
+
+    <main>
+      <section class="bus-card bus-card--stop" aria-labelledby="stop-title">
+        <h2 id="stop-title">Stop</h2>
+        <p class="bus-note">One click stops all bus dispatch. Already-sent messages cannot be unsent; nothing new goes out until you resume.</p>
+        <button type="button" class="bus-btn bus-btn--danger" id="bus-kill">Stop the bus</button>
+        <button type="button" class="bus-btn" id="bus-resume">Resume</button>
+        <p class="bus-line" id="bus-kill-state" role="status">Kill switch: unknown</p>
+      </section>
+
+      <section class="bus-card" aria-labelledby="status-title">
+        <h2 id="status-title">Status</h2>
+        <p class="bus-line" id="bus-summary" role="status">Loading…</p>
+        <pre class="bus-tree" id="bus-tree"></pre>
+        <h3 class="bus-sub">Recent commands</h3>
+        <ul class="bus-list" id="bus-commands"></ul>
+        <button type="button" class="bus-btn" id="bus-refresh">Refresh</button>
+        <button type="button" class="bus-btn" id="bus-scan">Scan commander now</button>
+        <button type="button" class="bus-btn" id="bus-observe">Check unresolved</button>
+        <p class="bus-note">Bound conversations answer only when spoken to. An idle agent is not working.</p>
+      </section>
+
+      <section class="bus-card" aria-labelledby="bind-title">
+        <h2 id="bind-title">Bind an agent</h2>
+        <label class="bus-label" for="bind-agent">Agent</label>
+        <select class="bus-input" id="bind-agent"></select>
+        <label class="bus-label" for="bind-adapter">Adapter</label>
+        <select class="bus-input" id="bind-adapter">
+          <option value="chatgpt.com">chatgpt.com conversation</option>
+          <option value="acp">ACP executor (OpenCode)</option>
+        </select>
+        <label class="bus-label" for="bind-ref">Conversation URL or executor id</label>
+        <input class="bus-input" id="bind-ref" type="text" placeholder="https://chatgpt.com/c/… or opencode" />
+        <label class="bus-label" for="bind-by">Your confirmation reference</label>
+        <input class="bus-input" id="bind-by" type="text" placeholder="e.g. owner 2026-10-19 phone" />
+        <button type="button" class="bus-btn" id="bind-go">Bind</button>
+        <button type="button" class="bus-btn" id="commander-go">Make this agent the commander</button>
+        <p class="bus-line" id="bind-result" role="status"></p>
+      </section>
+
+      <section class="bus-card" aria-labelledby="grant-title">
+        <h2 id="grant-title">Grant</h2>
+        <p class="bus-note">Every bus send, including each report back into the commander, spends one unit.</p>
+        <label class="bus-label" for="grant-id">Grant id</label>
+        <input class="bus-input" id="grant-id" type="text" placeholder="g-2026-10-19-a" />
+        <label class="bus-label" for="grant-agents">Agents (comma separated, include the commander for reports)</label>
+        <input class="bus-input" id="grant-agents" type="text" placeholder="aion,role-06" />
+        <label class="bus-label" for="grant-max">Maximum sends</label>
+        <input class="bus-input" id="grant-max" type="number" min="1" max="100" value="4" />
+        <label class="bus-label" for="grant-hours">Expires in hours</label>
+        <input class="bus-input" id="grant-hours" type="number" min="1" max="72" value="2" />
+        <label class="bus-label" for="grant-ref">Your grant reference</label>
+        <input class="bus-input" id="grant-ref" type="text" placeholder="owner instruction, where and when" />
+        <button type="button" class="bus-btn" id="grant-go">Create grant</button>
+        <p class="bus-line" id="grant-result" role="status"></p>
+      </section>
+
+      <section class="bus-card" aria-labelledby="watch-title">
+        <h2 id="watch-title">Watcher</h2>
+        <label class="bus-label" for="watch-toggle">Scan the commander every 30 seconds</label>
+        <input class="bus-check" id="watch-toggle" type="checkbox" />
+        <p class="bus-line" id="watch-state" role="status"></p>
+      </section>
+
+      <section class="bus-card" aria-labelledby="sync-title">
+        <h2 id="sync-title">SYNC-0 (no-send test)</h2>
+        <p class="bus-note">Start, then send one message to the commander from your phone and touch nothing on the PC. If nothing appears, reload the commander tab by hand and press "I reloaded". Then finish.</p>
+        <button type="button" class="bus-btn" id="sync-start">Start</button>
+        <button type="button" class="bus-btn" id="sync-sample">Sample now</button>
+        <button type="button" class="bus-btn" id="sync-reload">I reloaded the tab</button>
+        <button type="button" class="bus-btn" id="sync-finish">Finish</button>
+        <p class="bus-line" id="sync-state" role="status"></p>
+      </section>
+    </main>
+
+    <script type="module" src="bus.js"></script>
+  </body>
+</html>
