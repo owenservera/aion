@@ -202,6 +202,30 @@ export function createBusStore({ storage, now = () => new Date().toISOString(), 
     key,
     async read() { return structuredClone((await load()).state); },
     /**
+     * Recovery from an unreadable ledger: the raw value is preserved under a
+     * quarantine key (never deleted) and a fresh state is written WITH THE KILL
+     * SWITCH ENGAGED, so nothing dispatches until the owner re-binds, re-grants
+     * and resumes. Refuses to quarantine a ledger that is actually readable.
+     */
+    async quarantine(reason = 'owner reset') {
+      const withLock = typeof storage.withLock === 'function' ? (fn) => storage.withLock(fn) : (fn) => fn();
+      return withLock(async () => {
+        let readable = false;
+        try { await load(); readable = true; } catch { readable = false; }
+        if (readable) refuse(REASON.BAD_VALUE, 'the bus ledger is readable; quarantine is only for an unreadable one');
+        const bag = await storage.get(key);
+        const at = now();
+        const backupKey = `${key}.quarantine.${at.replace(/[^0-9]/g, '')}`;
+        await storage.set({ [backupKey]: bag[key] ?? null });
+        const fresh = freshState(at, initialConfig);
+        fresh.kill = { engaged: true, at, reason: `ledger quarantined (${String(reason).slice(0, 80)}); re-bind, re-grant, then resume` };
+        appendEvent(fresh, at, 'ledger.quarantined', { backup_key: backupKey });
+        validateState(fresh);
+        await storage.set({ [key]: fresh });
+        return { backup_key: backupKey, kill: fresh.kill };
+      });
+    },
+    /**
      * Serialized read-modify-write. `fn(draft, ctx)` mutates the draft and may
      * return a value; the write happens only if it returns without throwing.
      */

@@ -146,7 +146,7 @@ function page() {
     now: () => new Date(T0 + (tick += 1000)).toISOString(), randomId: () => `wb${String(n += 1).padStart(10, '0')}` });
   const submits = (url) => posted.filter((m) => m.action === CHATGPT_ACTION.SUBMIT_TURN && (!url || m.url === url));
   const owner = (text, assistant) => transcripts[CMD].push({ role: 'user', text }, { role: 'assistant', text: assistant });
-  return { wb, transcripts, generating, posted, submits, owner, alarmLog };
+  return { wb, transcripts, generating, posted, submits, owner, alarmLog, storageApi: api.storage.local, driver };
 }
 
 async function ready(p) {
@@ -253,4 +253,42 @@ test('SYNC-0 through the worker: samples are read-only and suspend processing', 
   assert.equal(done.probe.verdict, SYNC0_VERDICT.WITHOUT_RELOAD);
   assert.equal(p.submits().length, 0, 'the probe never sends, even with watching on');
   assert.ok(p.posted.every((m) => m.action !== CHATGPT_ACTION.SUBMIT_TURN));
+});
+
+/* ------------------------------------------- worker restart and recovery */
+
+test('worker restart: the next generation halts never-attempted reservations before doing anything', async () => {
+  const p = page();
+  await ready(p);
+  // Previous generation reserved a command, then the worker died before dispatch.
+  const reserved = await p.wb.bus.ingestStructured({ op: 'send', to: 'role-06', text: 'late', nonce: 'boot-0001' });
+  assert.equal(reserved.accepted, true);
+  // A second worker generation over the same chrome.storage.local.
+  const gen2 = createWorkerBus({ storage: p.storageApi, call: createDriverCall(p.driver) });
+  const s = await gen2.handle({ type: 'aion/bus-status' });
+  assert.equal(s.commands.find((c) => c.command_id === reserved.command_id).state, 'HALTED');
+  assert.equal(p.submits().length, 0, 'a stale reservation is never executed late');
+});
+
+test('double dispatch of one command delivers once', async () => {
+  const p = page();
+  await ready(p);
+  const r = await p.wb.bus.ingestStructured({ op: 'send', to: 'role-06', text: 'once', nonce: 'dd-000001' });
+  await Promise.all([p.wb.bus.dispatch(r.command_id), p.wb.bus.dispatch(r.command_id), p.wb.bus.dispatch(r.command_id)]);
+  assert.equal(p.submits(R06).length, 1);
+});
+
+test('unreadable ledger: commands fail closed; reset quarantines it and comes back with the kill switch on', async () => {
+  const p = page();
+  await ready(p);
+  await p.storageApi.set({ 'aion.relay.bus.v1': { schema: 'aion.bus/1', version: 1, garbage: true } });
+  const broken = await p.wb.handle({ type: 'aion/bus-status' });
+  assert.equal(broken.ok, false);
+  assert.equal((await p.wb.handle({ type: 'aion/bus-reset' })).code, 'explicit_command_required');
+  const reset = await p.wb.handle({ type: 'aion/bus-reset', user_gesture: true });
+  assert.equal(reset.ok, true, JSON.stringify(reset));
+  assert.ok((await p.storageApi.get(reset.backup_key))[reset.backup_key].garbage, 'the unreadable value is preserved');
+  const s = await p.wb.handle({ type: 'aion/bus-status' });
+  assert.equal(s.kill.engaged, true);
+  assert.equal((await p.wb.handle({ type: 'aion/bus-reset', user_gesture: true })).ok, false, 'a readable ledger is never quarantined');
 });
