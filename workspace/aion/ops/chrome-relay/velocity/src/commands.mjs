@@ -1,7 +1,7 @@
 // Parse one operator command. No grant creation, routing, tab selection or I/O.
 // Send waits for a result by DEFAULT; --detach returns the durable admission.
 const ALIAS = /^[a-z0-9][a-z0-9._-]{0,63}$/;
-const OPERATIONS = new Set(['doctor', 'status', 'capabilities', 'send', 'observe', 'stop']);
+const OPERATIONS = new Set(['doctor', 'status', 'capabilities', 'send', 'observe', 'stop', 'resume']);
 const DEFAULT_WAIT_MS = 120_000;
 export function parseCommand(argv) {
   if (!Array.isArray(argv) || argv.some(a => typeof a !== 'string'))
@@ -35,7 +35,7 @@ export function parseCommand(argv) {
   if(follow&&command!=='observe')throw new Error('--follow applies to observe only');
   if(waitMs!==null && command!=='send' && !(command==='observe'&&follow))
     throw new Error('--wait-ms requires send or observe --follow');
-  if (['doctor','status','capabilities','stop'].includes(command)) {
+  if (['doctor','status','capabilities','stop','resume'].includes(command)) {
     if (rest.length) throw new Error('unexpected arguments');
     return { command, json };
   }
