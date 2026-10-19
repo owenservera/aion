@@ -7,7 +7,7 @@ export function parseCommand(argv) {
   if (!Array.isArray(argv) || argv.some(a => typeof a !== 'string'))
     throw new TypeError('argv must be strings');
   const args = [];
-  let json = false, detach = false, follow = false, waitMs = null;
+  let json = false, detach = false, follow = false, waitMs = null, context = null;
   for(let i=0;i<argv.length;i++){
     const arg=argv[i];
     if(arg==='--json'){
@@ -19,6 +19,11 @@ export function parseCommand(argv) {
     }else if(arg==='--follow'){
       if(follow)throw new Error('duplicate --follow');
       follow=true;
+    }else if(arg==='--context'){
+      if(context!==null)throw new Error('duplicate --context');
+      const value=argv[++i];
+      if(!['bootstrap','sitrep','both'].includes(value))throw new Error('invalid --context scope');
+      context=value;
     }else if(arg==='--wait-ms'){
       if(waitMs!==null)throw new Error('duplicate --wait-ms');
       const raw=argv[++i];
@@ -31,6 +36,7 @@ export function parseCommand(argv) {
   }
   const [command = 'status', ...rest] = args;
   if (!OPERATIONS.has(command)) throw new Error('unknown command');
+  if(context!==null&&command!=='send')throw new Error('--context applies to send only');
   if(detach&&command!=='send')throw new Error('--detach applies to send only');
   if(follow&&command!=='observe')throw new Error('--follow applies to observe only');
   if(waitMs!==null && command!=='send' && !(command==='observe'&&follow))
@@ -50,6 +56,7 @@ export function parseCommand(argv) {
   const text = rest.slice(1).join(' ');
   if (!text.trim() || text.length > 2_000) throw new Error('send text out of bounds');
   return { command, alias: rest[0], text, json,
-    ...(detach?{detach:true}:{}), ...(waitMs!==null?{wait_ms:waitMs}:{}) };
+    ...(detach?{detach:true}:{}), ...(waitMs!==null?{wait_ms:waitMs}:{}),
+    ...(context!==null?{context}: {}) };
 }
 export { DEFAULT_WAIT_MS };
