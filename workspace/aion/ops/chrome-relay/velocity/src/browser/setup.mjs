@@ -13,6 +13,7 @@ import {homedir} from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {createDevNativeManifest,DEV_HOST_NAME,validateDevIdentity} from '../native-host/guard.mjs';
+import {verifyOwnedRegistration} from './registration.mjs';
 
 const VELOCITY=resolve(dirname(fileURLToPath(import.meta.url)),'..','..');
 const EXTENSION_SRC=resolve(VELOCITY,'..','extension');
@@ -85,6 +86,9 @@ export function applyBrowserSetup(plan,{run=spawnSync,now=()=>new Date()}={}){
   mkdirSync(plan.stateDir,{recursive:true,mode:0o700});
   const key=loadOrCreateDevKey(plan.keyPath);
   validateDevIdentity(key.extensionId); // refuses the Track A ID
+  // Inspect the current GLOBAL registration BEFORE rewriting any manifest.
+  // An existing registration belonging to a different dev key/path is foreign.
+  verifyOwnedRegistration(plan,{run,expectedId:key.extensionId});
   buildDevExtension({extensionDir:plan.extensionDir,manifestKey:key.manifestKey});
   writeFileSync(plan.configPath,JSON.stringify({schema:'aion.b.host-config/1',extension_id:key.extensionId,state_dir:plan.stateDir},null,2),{mode:0o600});
   writeFileSync(plan.launcher,launcherText(plan),{mode:0o700});
@@ -109,11 +113,37 @@ export function applyBrowserSetup(plan,{run=spawnSync,now=()=>new Date()}={}){
 
 /** Remove ONLY the B host registration and generated files. Ledger and key are kept. */
 export function uninstallBrowserSetup(plan,{run=spawnSync}={}){
+  // Uninstall is not an indiscriminate 'reg delete' or 'rm -rf'. Require the
+  // receipt and pinned dev extension identity written by *this* installer.
+  let receipt;
+  try{receipt=JSON.parse(readFileSync(plan.receipt,'utf8'));}
+  catch{throw Object.assign(new Error('B setup receipt missing'),{code:'OWNERSHIP_RECEIPT_MISSING'});}
+  const key=loadOrCreateDevKey(plan.keyPath,{create:false});
+  if(!key||receipt?.schema!=='aion.b.setup-receipt/1'
+    ||receipt.extension_id!==key.extensionId || receipt.host!==DEV_HOST_NAME
+    ||receipt.extension_dir!==plan.extensionDir || receipt.host_manifest!==plan.hostManifest
+    ||receipt.registration?.kind!==plan.registration.kind)
+    throw Object.assign(new Error('B setup ownership mismatch'),{code:'OWNERSHIP_RECEIPT_MISMATCH'});
+  const owned=verifyOwnedRegistration(plan,{run,expectedId:key.extensionId});
+  if(!owned.exists)
+    throw Object.assign(new Error('dev host registration no longer exists'),{code:'REGISTRATION_NOT_FOUND'});
+  let config,built;
+  try{
+    config=JSON.parse(readFileSync(plan.configPath,'utf8'));
+    built=JSON.parse(readFileSync(join(plan.extensionDir,'manifest.json'),'utf8'));
+  }catch{throw Object.assign(new Error('dev install files changed or missing'),{code:'OWNERSHIP_FILES_UNVERIFIED'});}
+  if(config?.extension_id!==key.extensionId || config?.state_dir!==plan.stateDir
+    ||built?.key!==key.manifestKey || built?.background?.service_worker!=='src/dev/dev-worker.js')
+    throw Object.assign(new Error('dev install files differ'),{code:'OWNERSHIP_FILES_UNVERIFIED'});
   const removed=[];
   if(plan.registration.kind==='registry'){
     const r=run('reg',['delete',plan.registration.key,'/f'],{encoding:'utf8',shell:false,windowsHide:true,timeout:10000});
-    removed.push({registry:plan.registration.key,ok:r.status===0});
-  }else if(existsSync(plan.registration.path)){rmSync(plan.registration.path);removed.push({file:plan.registration.path});}
+    if(r.error||r.status!==0)
+      throw Object.assign(new Error('dev host removal failed'),{code:'REGISTRATION_REMOVAL_FAILED'});
+    removed.push({registry:plan.registration.key,ok:true});
+  }else{
+    rmSync(plan.registration.path);removed.push({file:plan.registration.path});
+  }
   for(const p of [plan.hostManifest,plan.launcher,plan.configPath])if(existsSync(p)){rmSync(p);removed.push({file:p});}
   if(existsSync(plan.extensionDir)){rmSync(plan.extensionDir,{recursive:true});removed.push({dir:plan.extensionDir});}
   return {schema:'aion.b.uninstall/1',removed,kept:['bus.json','dev-extension-key.pem'],track_a_touched:false};
