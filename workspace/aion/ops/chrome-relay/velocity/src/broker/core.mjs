@@ -11,6 +11,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     throw new TypeError('AION Bus instance required');
   if(!capabilities?.get || !events?.publish) throw new TypeError('projections required');
 
+  const inFlight=new Set();
   async function inspect(id){
     const c=await bus.readCommand(id);
     if(!c) return response(false,'OPERATION_UNKNOWN');
@@ -52,18 +53,24 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     }
     const id=accepted.command_id;
     events.publish('operation.admitted',{operation_id:id,target:to,state:'RESERVED'});
-    try{
-      const sent=await bus.dispatch(id); // MUST NOT be retried on error/timeout
-      events.publish('operation.dispatched',{operation_id:id,target:to,
-        state:sent.state??'UNRESOLVED'});
-    }catch{
-      events.publish('operation.settled',{operation_id:id,target:to,state:'UNRESOLVED',
-        reason:'dispatch_outcome_uncertain'});
-      return response(false,'OUTCOME_UNKNOWN',{operation_id:id,delivery:'OUTCOME_UNKNOWN'});
-    }
-    const observed=await inspect(id);
-    events.publish('operation.settled',{operation_id:id,target:to,state:observed.state??'UNKNOWN'});
-    return response(true,'ADMITTED',{operation_id:id,result:observed});
+    // Admission returns immediately. The broker outlives this RPC and owns the
+    // ONE attempt; never retry if the client disconnects or the attempt fails.
+    const job=Promise.resolve().then(async()=>{
+      try{
+        const sent=await bus.dispatch(id);
+        events.publish('operation.dispatched',{operation_id:id,target:to,
+          state:sent.state??'UNRESOLVED'});
+        const observed=await inspect(id);
+        events.publish('operation.settled',{operation_id:id,target:to,
+          state:observed.state??'UNKNOWN'});
+      }catch{
+        events.publish('operation.settled',{operation_id:id,target:to,state:'UNRESOLVED',
+          reason:'dispatch_outcome_uncertain'});
+      }
+    });
+    inFlight.add(job);
+    void job.finally(()=>inFlight.delete(job));
+    return response(true,'ADMITTED',{operation_id:id,state:'RESERVED'});
   }
 
   async function sendAlias({alias,text,nonce}){
@@ -77,6 +84,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     }
   return Object.freeze({
     sendAlias,
+    async waitForIdle(){await Promise.allSettled([...inFlight]);},
     async handle(method,params={}){
       switch(method){
         case 'doctor': return {schema:'aion.doctor/1',channel:'dev',
