@@ -16,6 +16,8 @@ OpenCode is AION's current **Windows local code execution agent**, by owner deci
 - This dossier does **not** authorize changes to the authenticated ChatGPT browser, machine packages, services, credentials or active workloads.
 - No Playwright or Puppeteer.
 
+> **2026-10-19 Context7 contract addendum:** [SOFTWARE_HQ V2 API / SDK / SSE / plugin research](https://github.com/owenservera/SOFTWARE_HQ/blob/main/context7/research/2026-10-19-opencode-v2-aion-contract-addendum.md). This complements the earlier `context7/raw/2026-10-19T13-03-*.json` harvest documented in this dossier, with V2 `@opencode/client`, volatile `GET /api/event` SSE, `Plugin.define` hook migration, agent permissions and a minimal Windows conformance probe. Source-backed docs, not a new Windows runtime verification. **Do not reimplement OpenCode's existing service/session/event infrastructure before testing it.**
+
 ## Contents
 1. [RESEARCH-2026-10-17.md](./RESEARCH-2026-10-17.md) — released feature inventory, architecture, compatibility and provenance.
 2. [MIGRATION-AND-VALIDATION.md](./MIGRATION-AND-VALIDATION.md) — read-only discovery, staged migration, test matrix and rollback.
