@@ -1,4 +1,7 @@
 # TOOLSMITH Skills — Discoverable Runbooks
+
+> **2026-10-19 CURRENT PLUGINS RESEARCH:** [SOFTWARE_HQ ChatGPT custom plugins / MCP / skills / events study](https://github.com/owenservera/SOFTWARE_HQ/blob/main/context7/research/2026-10-19-chatgpt-custom-plugins-mcp-aion.md). Current OpenAI Help explicitly names Business/Enterprise/Edu for custom MCP connections and write actions on web; older Pro read/fetch wording is **not confirmed by the current article**. Account entitlement and UI must be observed; no Windows tunnel/ChatGPT plugin connection or MCP Events subscription is claimed. Existing `aion-mcp` is the reuse target; a skills-only package can support onboarding without MCP access.
+
 All skills are repository-owned instructions (not automatically installed tools). Each folder has a SKILL.md that a ChatGPT role or OpenCode/ZCode executor can load for matching tasks. A skill is NOT proof the corresponding tool is installed.
 
 | Skill | Use when | Artifact |
