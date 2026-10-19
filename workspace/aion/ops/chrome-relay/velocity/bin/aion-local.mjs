@@ -65,13 +65,18 @@ export async function main(argv=process.argv.slice(2),{
    return done(print,{ok:false,code:'BROWSER_CONNECTOR_NOT_CONNECTED',delivery:'NOT_SENT'},3);
  if(parsed.command==='send'&&parsed.detach)
    return done(print,{ok:false,code:'DETACH_REQUIRES_BROKER',delivery:'NOT_SENT'},2);
- const needsEngine=parsed.command==='send'||parsed.command==='observe';
+ const needsEngine=['send','observe','capabilities'].includes(parsed.command);
  const rt=await open({withEngine:needsEngine});
  try{
    if(parsed.command==='doctor'){
      const engine=await probe();
      return done(print,{schema:'aion.doctor/1',ok:true,mode:'DIRECT_LOCAL',
        state_path:rt.statePath,engines:[safe(engine)],chrome:'NOT_CONNECTED',actions:'OWNER_GRANTED_ONLY'},0);
+   }
+   if(parsed.command==='capabilities'){
+     const ready=await rt.refresh();
+     return done(print,{schema:'aion.capabilities/1',engine:safe(rt.engine),
+       opencode_submit:ready?'READY':'BLOCKED',chrome_submit:'NOT_CONNECTED'},0);
    }
    if(parsed.command==='status'){
      const s=await rt.bus.status();
