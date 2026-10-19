@@ -1,0 +1,14 @@
+{
+  "name": "aion-track-b-velocity",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Isolated, offline-safe Track B command client groundwork. No native host or browser integration yet.",
+  "engines": { "node": ">=22.0.0" },
+  "bin": { "aion-velocity": "./bin/aion-velocity.mjs" },
+  "scripts": {
+    "test": "node --test",
+    "doctor": "node bin/aion-velocity.mjs doctor --json",
+    "status": "node bin/aion-velocity.mjs status --json"
+  }
+}
