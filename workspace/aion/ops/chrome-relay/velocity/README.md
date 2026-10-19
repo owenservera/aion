@@ -7,7 +7,7 @@
 **Baseline:** `e5819a36a84ac27405d3d4a6a5e8c37d655c4cc5`  
 **Stable frozen Track A:** `fd347f22dba24e9282e8a39b01ed5f0c760bee14`; do not replace existing Profile 3.
 
-This folder is **not** a second bus. It is a small command-client and capability-projection staging area. It intentionally cannot send or activate anything. The existing `extension/src/bus/` is the only bus contract. Future Windows AIOND must become the sole durable mutation authority, with the existing bus core imported rather than copied. Its Chrome/native-host transport will be adapted once local execution resumes and can be independently verified.
+The proposed `aion.rpc/1` request validator lives in `src/rpc.mjs`. It validates envelopes only: it neither authenticates callers nor grants authority, connects IPC, allocates operation IDs, or dispatches work. Tests are staged, but no successful runner result is claimed.\n\nThis folder is **not** a second bus. It is a small command-client and capability-projection staging area. It intentionally cannot send or activate anything. The existing `extension/src/bus/` is the only bus contract. Future Windows AIOND must become the sole durable mutation authority, with the existing bus core imported rather than copied. Its Chrome/native-host transport will be adapted once local execution resumes and can be independently verified.
 
 ## Offline tests (Node >=22)
 
@@ -38,3 +38,7 @@ No native-host registration, Chrome extension/profile changes, Task Scheduler, d
 Local authorized executor must inspect exact Windows branch/worktree, Chrome profiles/extension IDs, native host path, running services and interactive desktop before choosing installation locations. Prepare separate dev extension key/ID and `com.aion.relay.dev` registration **only in its dev namespace**; collect before/after receipts and rollback. Do not overwrite the stable `com.aion.relay` registration.
 
 See also [DUAL-TRACK-COMMAND-PLANE-2026-10-19.md](../DUAL-TRACK-COMMAND-PLANE-2026-10-19.md).
+
+## CI verification at bootstrap
+
+A GitHub Actions workflow is committed at `.github/workflows/aion-track-b-velocity.yml`, but its initial runs returned `startup_failure` with no jobs. Treat CI as **NOT VERIFIED**, not as passing or a source failure. Investigate Actions availability/permissions/billing or use an authorized independent Node 22 runner; keep the draft PR unmerged until reproducible tests pass.
