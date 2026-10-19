@@ -1,5 +1,8 @@
 # AION private MCP ingress (read-only pilot)
 
+> **2026-10-19 CURRENT PLUGINS RESEARCH:** [SOFTWARE_HQ ChatGPT custom plugins / MCP / skills / events study](https://github.com/owenservera/SOFTWARE_HQ/blob/main/context7/research/2026-10-19-chatgpt-custom-plugins-mcp-aion.md). Current OpenAI Help explicitly names Business/Enterprise/Edu for custom MCP connections and write actions on web; older Pro read/fetch wording is **not confirmed by the current article**. Account entitlement and UI must be observed; no Windows tunnel/ChatGPT plugin connection or MCP Events subscription is claimed. Existing `aion-mcp` is the reuse target; a skills-only package can support onboarding without MCP access.
+
+
 **State: SOURCE_IMPLEMENTED / TESTED_IN_ISOLATED_LINUX_SANDBOX / NOT INSTALLED ON WINDOWS / NOT CONNECTED TO CHATGPT.**
 
 A minimal stdio MCP 2025-06-18 server (`src/server.mjs`) that exposes local AION evidence to an authorized MCP client. Separate from the existing Chrome/ACP path in issue #27. Source task: issue #28 and the TOOLSMITH research dossier. The server does **not** speak ACP itself; it is the ChatGPT-facing read-only edge and may eventually call an independently authorized ACP gateway. Do not replace the existing `com.aion.relay` Chrome native host or add a second browser extension.
