@@ -3,7 +3,7 @@
 Source of truth for this run: **issue #27** (owner instruction, 2026-10-18). Updated as work lands.
 Status vocabulary is fixed: **DONE** (verified by a receipt), **PARTIAL**, **TODO**, **BLOCKED**.
 
-Last updated: 2026-10-18T19:14Z · Resume baseline: `f32b8bf`
+Last updated: 2026-10-19T13:50Z (docs-only: Bus V1/V2 lane rows added at end) · Resume baseline: `f32b8bf`
 
 ## Resume 2026-10-18T18:33Z — post-merge state and active todo list
 
@@ -306,3 +306,19 @@ Per `STATE-PROTOCOL.md`, `m1_verified` becomes true **only after an independent 
 - **No invented proof.** A test that did not run is not a passing test; a green suite that includes a
   test which cannot fail is not evidence.
 - ChatGPT contact happens only at **item 7**, which is the one irreversible action in this plan.
+
+## Bus V1/V2 lane (PROPOSED 2026-10-19; all TODO, none started)
+Source: [decision record](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md). Owner decisions open (channel A/B, grant model, hop/rate, commandable agents).
+| Row | Item | Status |
+|---|---|---|
+| BV1-0 | SYNC-0 no-send experiment (does PC commander tab show phone message) | TODO |
+| BV1-0a | Prerequisites: reconcile endpoint; task-store pruning/archival plan | TODO |
+| BV1-1 | Agent registry + genealogy (data + panel view), offline | TODO |
+| BV1-2 | AION_CMD_V1 grammar, validator, router with fakes | TODO |
+| BV1-3 | Commander watcher (read-only parser) | TODO |
+| BV1-4 | Report-back, loop guard, kill switch | TODO |
+| BV1-5 | Live bring-up, one agent, fresh explicit grant | TODO |
+| BV2-0 | Read-only OpenCode session inventory | TODO |
+| BV2-1 | One scoped prompt to one OpenCode ACP session | TODO |
+| BV2-2 | Grammar extension for executor ids | TODO |
+| BV2-3 | Executor report-back | TODO |

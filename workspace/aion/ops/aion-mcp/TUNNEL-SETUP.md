@@ -38,3 +38,4 @@ Tunnels do not directly transport ACP or Chrome extension messages; the server i
 - Tunnel: real tunnel identifier (not API key), doctor/ready evidence, timestamp.
 - ChatGPT: plugin identity visible and one real tool invocation output.
 - Authority: `aion_state` is a snapshot; no evidence of M1 until a separate real browser round trip plus independent negative-case verification.
+> **Direction note, 2026-10-19:** this is the possible Option B channel for [Bus V1](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md) (phone → ChatGPT → connector → PC). Plus and mobile availability are UNVERIFIED; no write tools exist; nothing here is claimed to work for Bus V1.

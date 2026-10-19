@@ -73,3 +73,5 @@ Required evidence before a wrapper can honestly be built:
 - Recovery admission proof plus unknown-side-effect handling; if using message-ID idempotency later, independently test duplicate/concurrent/crash semantics against the installed version. Keep outbox ambiguity stop until proven.
 
 These gaps block the stated fully automatic coordinator+children goal today. This staging implementation deliberately fails closed rather than representing mock flags as installed support.
+
+> **Dated correction, 2026-10-19 (earlier text unchanged):** per `opencode-models/RECEIPTS.md`, `space-bunny-free` was `active` at 13:01Z, and `minimax-m3.1-flash-free` was absent from the model list at 13:09Z although CLI-smoked at 12:52Z. Treat the fallback model as unconfirmed available. `opencode-models/` is owned by another Claude lane.

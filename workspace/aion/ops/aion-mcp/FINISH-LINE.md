@@ -59,3 +59,6 @@ If custom MCP is unavailable on the active workspace, stop here and retain GitHu
 | Full program acceptance | Two lanes evidenced independently, no false promotion | NOT VERIFIED |
 
 Issue ownership: [#27 Windows browser/ACP](https://github.com/owenservera/aion/issues/27), [#28 ChatGPT custom MCP](https://github.com/owenservera/aion/issues/28). The local Windows machine remains master. This document makes no claim about access to the live host from this ChatGPT chat.
+
+## Direction note, 2026-10-19
+This pilot is read-only. Statements here that no path claims ChatGPT→ChatGPT agent-to-agent execution describe today's state. [Bus V1](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md) targets that capability; this MCP route is its **Option B** (connector bridge) and would need write tools. Plus eligibility and mobile availability are UNVERIFIED.

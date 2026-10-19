@@ -1,7 +1,7 @@
 {
   "schema": "aion.entry-state.v1",
-  "updated_utc": "2026-10-19T12:45:00Z",
-  "update_basis": "Coordinator independently verified the chrome-relay extension suite 528/528 (exit 0, 2026-10-19T12:39:11Z) at commit cbb67e7, which adds command-derived deadlines, the durable no-resend task store, the page-side submit/observe turn engine and its worker hookup. Corrects two stale claims: the single authorized benign send was consumed by M1 live attempt 2 on 2026-10-18 (receipt workspace/aion/agents/windows-master/M1-LIVE-ATTEMPT-2026-10-18.md), and m1_verified remains false. No live send, accepted live envelope, consumer readback or reload since. Offline work remains unproven against a real MV3 restart or real Chrome; durability is tested only against storage fakes.",
+  "updated_utc": "2026-10-19T13:50:00Z",
+  "update_basis": "Docs-only update 2026-10-19T13:50:00Z: recorded Bus V1/V2 direction as PROPOSED (bus_direction key); no code, live send or acceptance change. Previous basis: Coordinator independently verified the chrome-relay extension suite 528/528 (exit 0, 2026-10-19T12:39:11Z) at commit cbb67e7, which adds command-derived deadlines, the durable no-resend task store, the page-side submit/observe turn engine and its worker hookup. Corrects two stale claims: the single authorized benign send was consumed by M1 live attempt 2 on 2026-10-18 (receipt workspace/aion/agents/windows-master/M1-LIVE-ATTEMPT-2026-10-18.md), and m1_verified remains false. No live send, accepted live envelope, consumer readback or reload since. Offline work remains unproven against a real MV3 restart or real Chrome; durability is tested only against storage fakes.",
   "canonical_entry": "https://github.com/owenservera/aion",
   "machine_authority": "OWNER_WINDOWS_MASTER",
   "target_browser_host": "OWNER_WINDOWS_MASTER",
@@ -155,5 +155,6 @@
     "No Playwright or Puppeteer.",
     "No secrets, cookies, credentials, private raw transcripts in GitHub."
   ],
-  "operating_policy": "Routine Windows coding/testing/reversible diagnostics may proceed directly with normal tool permissions; real authenticated browser/account operations remain subject to the recorded stop order until expressly authorized by owner."
+  "operating_policy": "Routine Windows coding/testing/reversible diagnostics may proceed directly with normal tool permissions; real authenticated browser/account operations remain subject to the recorded stop order until expressly authorized by owner.",
+  "bus_direction": {"status": "PROPOSED_NOT_STARTED", "decision_ref": "workspace/aion/canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md", "labels": {"bus_v1": "Commander loop (phone -> chatgpt.com on PC + extension -> other chatgpt.com conversations)", "bus_v2": "Local executors, OpenCode first", "rc_1": "Manual mobile role-context workflows (old V1)", "rl_001": "Chrome role launcher (old V2)"}, "channel_decision": "OPEN (Option A tab watcher gated by SYNC-0, vs Option B connector bridge)", "implemented": false, "docs_only": true}
 }

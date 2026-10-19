@@ -12,3 +12,8 @@
 |R9|Process|Dispatch issues piling up in 001.PROJECTS.PM with no consumer|D4|
 
 |R0|Blocker|P0#1 AION capabilities on Owen's PC blocked: ACP Bridge missing, no receipt consumer, Tailscale/Windows approvals pending, low disk|PM-000|
+|R10|Security|Bus V1 commander channel: prompt injection could yield a valid AION_CMD_V1 block when the owner arms a turn that reads hostile content|decision 2026-10-19 §5|
+|R11|Process|Bus V1 runaway loop between agents/commander; mitigated only by hop limit, rate and kill switch (not built)|decision 2026-10-19 §5|
+|R12|Ops|PC asleep/offline or Chrome closed: phone commands undeliverable; must not be queued and replayed silently|decision 2026-10-19 §7|
+|R13|Account|Consumer-UI automation of chatgpt.com may violate terms or trigger account action; UNVERIFIED, owner decision|decision 2026-10-19|
+|R14|Assumption|UNVERIFIED: a phone-sent message appears in an open PC tab without reload (SYNC-0 unrun)|decision 2026-10-19 §7|

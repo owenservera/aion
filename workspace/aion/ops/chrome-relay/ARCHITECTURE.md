@@ -1,5 +1,7 @@
 # AION Chrome Relay Station — Architecture v0.1
 
+> **2026-10-19 DIRECTION NOTE (PROPOSED):** Owner direction for **Bus V1 (commander loop)** and **Bus V2 (local executors, OpenCode first)** is recorded in [DECISION-2026-10-19-BUS-V1-V2-DIRECTION](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md) and summarized in [section 11](#11-bus-v1v2-direction--commander-channel-and-agent-fleet-proposed) below. It narrows, but does not yet adopt a change to, the "no page-to-shell authority" and "no autonomous driving of chatgpt.com" rules. Nothing there authorizes a live send.
+
 > **2026-10-19 reading guide:** The original design and implementation-status assertions below are preserved as history, not a current installation report. See [Proposed incremental messaging upgrade — 2026-10-19](#proposed-incremental-messaging-upgrade--2026-10-19) for the source-grounded baseline and proposed next slices. Neither this document nor that proposal claims accepted M1 or authorizes another live send.
 
 > **2026-10-17 IMPLEMENTATION DIRECTION:** This is a **proposed general-purpose design**, not evidence of installed Chrome relay. Current AION M1 execution target is the official **Windows master** (not BFF Linux). Inspect/reuse the already-uploaded ACPX MV3+Bun kit before authorizing an independent extension build; ACPX code is not currently in the GitHub repository. For shortest-path live M1, do not require side panel, role launcher, generalized native host, SQLite or multi-provider bus first. See [current Windows M1 architecture](../../canon/AION-M1-WINDOWS-MASTER-EXECUTION.md) and [experiment/evidence index](../../canon/AION-M1-EXPERIMENTS-AND-METHODS.md). No Playwright/Puppeteer. The host/browser stop order remains active absent specific restart authorization.
@@ -28,10 +30,10 @@ An optional *explicitly configured* authenticated localhost wss/ws service is fa
 
 ## Role model
 Chief/Planning/CoS/Efficiency/Dashboard/TOOLSMITH/INTAKE/Z-FORGE are *named human-facing role contexts*, NOT eight independent continuously executing ChatGPT web-app processes. Mapping: role_id -> approved chat URL + canonical GitHub capsule + assigned runtime identity (if any) + last evidence time.
-Future autonomous workers use ACP sessions with explicit authorization, and may send role-directed events that the extension shows. ChatGPT tab presence remains UI metadata; backend workers' liveness is verified separately.
+Future autonomous workers use ACP sessions with explicit authorization, and may send role-directed events that the extension shows. *(2026-10-19: roles become the initial entries of an agent registry with genealogy; see section 11.)* ChatGPT tab presence remains UI metadata; backend workers' liveness is verified separately.
 
 ## Authority model
-A read-only watch can be automatic; changing repo files, running shell, accessing browser content, starting an agent prompt, or sending a message into ChatGPT must pass existing authorization and task policy. MVP sends structured tasks to *approved local ACP runtimes*; does not autonomously drive chatgpt.com.
+A read-only watch can be automatic; changing repo files, running shell, accessing browser content, starting an agent prompt, or sending a message into ChatGPT must pass existing authorization and task policy. MVP sends structured tasks to *approved local ACP runtimes*; does not autonomously drive chatgpt.com. *(Bus V1 proposes one bounded exception, the commander channel; see section 11 and the decision record.)*
 Trust boundaries: webpage is untrusted; content scripts cannot grant privileges; extension origin pinned; local host authenticates source/target and checks path/command scope, replay/nonce, rate, timeout. Sensitive payload opt-in and data minimization. No transport ever weakens a host stop order.
 No auto-execution from GitHub issue comments. Grok Bot operates Linux/test/verification but must never author/modify code: code goes to OpenCode/ZCode.
 
@@ -54,7 +56,7 @@ Maintain one repo branch main (per current AION operating rules); no new long-ru
 
 ## Non-goals for v0.1
 - No perpetual ChatGPT model activity, automated login/session-renewal, captcha/cloudflare bypass, rate-limit evasion or undocumented ChatGPT API.
-- No general browser content harvesting, silent prompt submission, privileged shell execution through injected pages, or free-running agents from untrusted messages.
+- No general browser content harvesting, silent prompt submission, privileged shell execution through injected pages, or free-running agents from untrusted messages. *(Section 11 proposes a single owner-armed exception for Bus V1; unchanged otherwise.)*
 - No second platform or Slack; existing GitHub/UAH/SQLite canon remains.
 
 ## Official technical references
@@ -97,7 +99,7 @@ Target: **arbitrary bounded owner instruction → explicitly bound named role �
 1. **No blind resend on unknown.** Timeouts, transport loss, worker/panel closure, malformed storage, and missing observer evidence never cause replay. Reconnecting to observe is not submitting again.
 2. **Facts outrank phase labels.** Persist what was observed, what was merely attempted, and what is unknown independently. A legacy `submitted:true` or transport ACK must not be upgraded into DOM-observed submission. A terminal dispatch tombstone means “do not resend,” not “the model finished.”
 3. **No completion from caller boolean.** Only the trusted adapter's task-bound observation record can supply generation start/end evidence. `generation_complete:true` from a caller is ignored/rejected as proof, including through compatibility wrappers.
-4. **No page-to-shell authority.** Page text, task replies, correlation markers and consumer readback are untrusted data. They cannot select a shell command, widen a grant, route to another privileged target, or start an agent. Any later execution is separately policy-checked through the existing authorized host path.
+4. **No page-to-shell authority.** Page text, task replies, correlation markers and consumer readback are untrusted data. They cannot select a shell command, widen a grant, route to another privileged target, or start an agent. Any later execution is separately policy-checked through the existing authorized host path. *(2026-10-19: the only proposed exception is the owner-armed, allowlisted, scoped commander channel in section 11; it is PROPOSED, not adopted, and does not apply to any other path.)*
 5. **No exactly-once promise.** Browser dispatch and local storage do not form one atomic transaction. Prefer a safe unresolved reservation (possibly no send) over duplicate side effects. The guarantee sought is guarded single dispatch per approved operation, with explicitly represented uncertainty.
 6. **Consumption is not M1 acceptance.** A routine local consumer may demonstrate readback without appointing an independent reviewer for every task. Real M1 still needs its canonical AION-origin, authenticated exchange, independent readback/evidence check, negative case and verifier acknowledgment. Security-critical boundary changes retain independent review requirements.
 
@@ -295,7 +297,7 @@ The coordinator owns artifact readback, reconciliation with technical constraint
 Decisions still required before phase 3 release:
 
 1. **Local payload retention/access:** exact limits and expiry for prompts, checked replies and unverified candidates; owner-sensitive opt-in; behavior when content expires before consumer readback. Permanent no-resend guard retention is not optional payload retention.
-2. **Scoped multi-send authorization:** which ordinary-language owner scopes can authorize a series, how target/count/payload constraints are represented and checked, and how explicit legitimate repeats are approved. No new authorization is claimed here.
+2. **Scoped multi-send authorization:** which ordinary-language owner scopes can authorize a series, how target/count/payload constraints are represented and checked, and how explicit legitimate repeats are approved. No new authorization is claimed here. *(2026-10-19: Bus V1 makes this decision required, not optional; see section 11 and decision record section 8.)*
 3. **Observer survival behavior:** which page/worker/port resets preserve an observation session on the supported Chrome build; what ordered evidence can be durably acknowledged without falsely claiming atomic page/storage delivery. Until measured, use unknown/reconciliation.
 4. **Consumer binding/readback contract:** concrete existing local receiving session and task-specific readback validation, especially for free-form answers. A host handshake alone is insufficient.
 5. **Consolidated design approval/acceptance:** the designer's delivered UX specification is incorporated in section 9. Coordinator readback and final acceptance remain pending; owner approval of the design and any broader operational scope are not inferred from delivery.
@@ -313,3 +315,36 @@ Verified local references (paths/symbols, deliberately no guessed line numbers):
 - [Role source mirror](./extension/src/roles.js) and [canonical role registry](./role-launcher/ROLES.json): explicit role IDs and currently unbound session URLs; not evidence of live initialized roles.
 
 No external research, browser action, source/config/state/TODO change, implementation test, deployment, commit or acceptance claim is part of this documentation-only proposal.
+
+
+### 11. Bus V1/V2 direction — commander channel and agent fleet (PROPOSED)
+
+**Status: PROPOSED direction, recorded 2026-10-19. Not approved, implemented, or live.** Authority and open decisions live in [DECISION-2026-10-19-BUS-V1-V2-DIRECTION](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md); this section adds only the architectural consequences. `live_execution_authorized` and `m1_verified` stay `false`.
+
+**Labels.** *Bus V1* = commander loop (phone → ChatGPT → PC chatgpt.com + extension → other open chatgpt.com conversations). *Bus V2* = the same loop extended to local executors, OpenCode first. Older "V1/V2" wording in role-context and launcher docs is relabeled RC-1 / RL-001.
+
+**Commander channel.** One designated chatgpt.com conversation. The owner writes in it from the phone; the extension on the PC may act on a fenced `AION_CMD_V1` block in an assistant reply only under conditions C1–C8 of the decision record (owner-armed, bounded parse, allowlisted target, scoped action, scoped grant, hop/loop guard, no-resend, kill switch). Replies, reports and page text remain untrusted data; they never widen a grant. Channel Option A (tab watcher, gated by experiment SYNC-0) vs Option B (connector bridge via `ops/aion-mcp`) is an open owner decision.
+
+**Agent registry (extends the section 3 identity table).**
+
+| Field | Meaning |
+|---|---|
+| `agent_id` | Stable registry identity; roles are the initial agents. |
+| `parent_agent_id` | Genealogy link; null only for the owner-designated root. |
+| `kind` | `chatgpt_conversation` (Bus V1) or `local_executor` (Bus V2). |
+| `binding_ref` | Owner-confirmed `conversation_key` or executor session reference; never inferred from "first tab". |
+| `scope_ref` | Grant defining permitted actions, count, rate and expiry. |
+
+**Command path.** Observed command → validated (C1–C6) → reserved under the existing worker serialization gate → dispatched through the existing submit/observe engine → reply checked → report posted back to the commander at `hop + 1`. A command is a new operation with its own `operation_key`; the guards in sections 2–6 apply unchanged, including no blind resend and per-conversation locks.
+
+**Loop and hop guard.** Every chain carries `hop_count`/`max_hops`; reaching the maximum emits `loop.halted`, shows `HALTED`, and stops. Per-agent rate and a global kill switch (`kill.engaged`) are checked before every dispatch.
+
+**Report-back (extends section 7).** The checked agent reply is posted into the commander conversation as bounded, inert data with task/operation references and hash, then observed like any other send. Posting is itself a guarded send and counts against the grant.
+
+**Bus V2 executor leg.** For `kind: local_executor`, dispatch goes extension → native host `com.aion.relay` → ACP v1 to OpenCode (`opencode acp`), subject to the verified capability and scope checks already required in section 7. Order: V2-0 read-only session inventory, V2-1 one scoped prompt, V2-2 grammar extension, V2-3 report-back. `@opencode/client` (shared HTTP service) is a different interface and not a substitute.
+
+**Failure modes (all fail closed, none resend).** PC asleep/offline or Chrome closed: phone commands cannot execute and must be reported as not delivered when the PC returns, never replayed silently. Commander tab closed, discarded or not updated: watcher is blind; no inference from stale state. Tab/worker/page resets follow the section 6 reset rules. Unknown sync behavior is treated as failure until SYNC-0 measures it.
+
+**Prerequisites before any Bus V1 code beyond fakes:** the reconcile endpoint for a terminal-not-accepted lock and a pruning/archival plan for the task store (section 1 known gaps; section 5 forbids silent eviction).
+
+**Not claimed.** No watcher, registry, grammar, mobile behavior, SYNC-0 result or executor leg exists. This section is not evidence of any of them.

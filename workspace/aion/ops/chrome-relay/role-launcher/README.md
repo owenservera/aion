@@ -44,3 +44,6 @@ Chrome tabs: https://developer.chrome.com/docs/extensions/reference/api/tabs
 Chrome scripting: https://developer.chrome.com/docs/extensions/reference/api/scripting
 OpenAI ChatGPT Projects: https://help.openai.com/en/articles/10169521-using-projects-in-chatgpt
 Existing extension spec: https://github.com/owenservera/aion/issues/18
+
+## Roles vs agents; genealogy (2026-10-19, PROPOSED)
+A **role** is one of the eight contexts in `ROLES.json`; an **agent** is a registry entry (identity, parent, kind, scope) in [Bus V1](../../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md). Roles become the first agents. Genealogy as the repo states it today (owner-unconfirmed): Owen → AION (AION PM, AION BFF/Grok Bot); Owen → 05 Chief of Chiefs → 01–04, 06–08. See decision §6. This launcher is RL-001 and does not issue bus commands.

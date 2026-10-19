@@ -44,3 +44,5 @@ The project must use **an explicit gateway** if it needs both modes. An ACP sess
 ACP-01 initialize version/caps, ACP-02 new cwd scoping, ACP-03 session prompt and final completion, ACP-04 load replay vs resume, ACP-05 second concurrent prompt rejection, ACP-06 cancel, ACP-07 distinct worktree permission deny, ACP-08 plugin/model discovery, ACP-09 child death and restart recovery, ACP-10 no stdout protocol contamination, ACP-11 no leaked credentials, ACP-12 independent GitHub return evidence.
 
 **Do not claim V2 ACP / shared HTTP parity by feature name alone.** Their capabilities and lifecycles differ.
+
+> **Update 2026-10-19:** the "Remote phone application: Defer" row stands for direct phone→OpenCode exposure. Phone access is proposed only **indirectly** via [Bus V2](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md) (phone → chatgpt.com on PC → extension → native host → ACP stdio); no network exposure of ACP is proposed.

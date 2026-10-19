@@ -14,6 +14,8 @@ This page is the human/agent startup procedure, not a claim of self-executing on
 6. Continue the assigned task directly. Use a brief **AION_HANDOFF_V1** only when handing work to another agent or leaving the task unfinished. Do not claim autonomous execution just because you can read this repo.
 
 ## What AION is doing
+**Direction (2026-10-19, PROPOSED):** Bus V1 = owner commands from the phone via chatgpt.com on the PC and the extension to other chatgpt.com conversations ("agents", with genealogy); Bus V2 = the same loop reaching local executors, OpenCode first. See [the decision record](canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md). Nothing is built or live.
+
 **Current primary mission:** AION originates one unique message and receives the **real** ChatGPT web-app reply through the **official Windows machine** without the owner manually relaying text. Real M1 is **not verified**. ACPX existing Chrome MV3/Bun implementation is the first reuse candidate; Chrome Relay is design; M1-001 and M1-002 are mock tests, with M1-002's screenshot caveat documented.
 
 ## Source-of-truth precedence

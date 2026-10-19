@@ -1,11 +1,10 @@
-# AION Chrome Relay Station — extension (MVP / CR-001)
+# AION Chrome Relay Station — extension (CR-001)
 
 Implementation of the design in [`../ARCHITECTURE.md`](../ARCHITECTURE.md),
 [`../ENVELOPE-CONTRACT.md`](../ENVELOPE-CONTRACT.md) and
 [`../OPENCODE-BUILD-ORDER.md`](../OPENCODE-BUILD-ORDER.md) (issue #18).
 
-**Status: code complete, fixture-only, NOT INSTALLED and NOT RUNNING.**
-This MVP has never been loaded into a browser and has never touched a signed-in session.
+**Status (updated 2026-10-19): offline-tested code; live behavior unproven.** `npm test` passes 528/528 across 17 test files (coordinator-verified 2026-10-19). The extension has a worker native-messaging adapter (bridge in [`../bridge`](../bridge)), a real chatgpt.com content-script turn engine with submit/observe/run/read commands, a durable no-resend task store and command-derived deadlines. It has **not** been shown to work against a real MV3 restart, and **M1 is not verified**. No Bus V1/V2 code exists; direction is recorded in [the decision](../../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md) (PROPOSED).
 
 ## What this is
 
@@ -17,7 +16,7 @@ A read-only operator console. It reports four things that the AION contract requ
 3. **Approval** — is a task held at `APPROVAL_PENDING`?
 4. **Evidence** — how old is the last evidence, and where is it?
 
-The console itself reads **no web page content**. As of 2026-10-18 the manifest also carries a passive chatgpt.com content script (`src/chatgpt/loader.js` imports `content.js`), `host_permissions` for `https://chatgpt.com/*`, and `nativeMessaging`, for the M1 live path. The content script never composes, sends or reads on load or on a timer; it only acts on commands sent over its port. The service worker's native adapter is still disabled in code until the bridge host exists. The extension id is pinned by the manifest `key` to `kgjfielmhcdlggjppmliabpiljnonhki`.
+The console itself reads **no web page content**. As of 2026-10-18 the manifest also carries a passive chatgpt.com content script (`src/chatgpt/loader.js` imports `content.js`), `host_permissions` for `https://chatgpt.com/*`, and `nativeMessaging`, for the M1 live path. The content script never composes, sends or reads on load or on a timer; it only acts on commands sent over its port. The service worker's transport adapter is `native`; a locked-down build can use `disabled-native`. The extension id is pinned by the manifest `key` to `kgjfielmhcdlggjppmliabpiljnonhki`.
 
 ## Loading it (unpacked, for review only)
 
@@ -38,7 +37,7 @@ cd workspace/aion/ops/chrome-relay/extension
 npm test              # or: node --test
 ```
 
-Last observed: **81 tests, 81 pass, 0 fail**, on Node 24.11.1 / Windows. Zero dependencies — the
+Last observed (2026-10-19): **528 tests, 528 pass, 0 fail**. Zero dependencies — the
 runner is Node's built-in `node:test`.
 
 `src/lib/` is DOM-free by contract so it runs unchanged under Node. A separate
@@ -53,11 +52,14 @@ because it requires stubbing rather than a real browser, and this project must n
 | `src/lib/envelope.js` | Envelope schema, validation, encode/decode, expiry |
 | `src/lib/state.js` | Task + delivery state machines, presence staleness |
 | `src/lib/store.js` | Event store: dedupe, ACK tracking, restart survival |
-| `src/lib/transport.js` | Transport abstraction; native/loopback **disabled** in MVP |
+| `src/lib/transport.js` | Transport abstraction; worker uses the `native` adapter |
+| `src/lib/chatgpt-tasks.js`, `command-deadlines.js`, `bounded-lifecycle.js` | Durable no-resend task store; command-derived deadlines |
+| `src/chatgpt/` | Content-script turn engine (`content.js`), correlator, loader |
+| `src/background/chatgpt-port.js` | Worker port driver and dispatch reservations |
 | `src/roles.js` | Loads the 8 roles from `../role-launcher/ROLES.json` |
 | `src/panel/` | Side panel UI |
 | `src/background/service-worker.js` | MV3 worker; rehydrates from `chrome.storage.local` |
-| `tests/` | 81 tests, all fixture-based |
+| `tests/` | 528 tests, fixture-based |
 
 ## Permission rationale
 
@@ -66,7 +68,7 @@ because it requires stubbing rather than a real browser, and this project must n
 | `sidePanel` | Render the operator console | — |
 | `storage` | Survive MV3 worker suspension without losing events | Stores relay state only, never credentials |
 | `alarms` | Periodic presence refresh | — |
-| `nativeMessaging` | Talk to the bridge host `com.aion.relay` | Adapter still disabled in code |
+| `nativeMessaging` | Talk to the bridge host `com.aion.relay` | Adapter enabled in code; live use needs owner authorization |
 | `host_permissions` `https://chatgpt.com/*` | Let the worker find the ChatGPT tab and connect to the content script | Content script is passive |
 
 **Still absent:** `tabs` (tab presence is therefore *structurally* unobservable and renders `UNKNOWN` rather than being guessed), `cookies`, `debugger`, `webRequest`, and any site other than `https://chatgpt.com/*`. No credential appears anywhere in this tree. The signing key was generated once and not kept; unpacked loading only needs the public `key`.
@@ -77,8 +79,7 @@ because it requires stubbing rather than a real browser, and this project must n
   outbox and a quiet relay are indistinguishable. This is reported honestly rather than smoothed over.
 - **No tab presence.** The `tabs` permission is not held, so the panel *cannot* observe tabs and does
   not pretend to. Tab presence is UI metadata and never implies an agent is running.
-- **Transport is `DISABLED`.** `disabled-native` refuses to send and contacts no host. The fixture
-  transport is for tests only.
+- **Transport is `native` in code** but has not been proven live; `disabled-native` remains for locked-down builds.
 - **Fallback mode renders `MODE UNKNOWN`,** not `E`/SAFE_MANUAL, because asserting a mode before
   observing one is the exact quiet-normalcy failure this console exists to prevent.
 - **Chrome 155 only** (`minimum_chrome_version: 155`); untested on earlier versions.
@@ -86,8 +87,8 @@ because it requires stubbing rather than a real browser, and this project must n
 
 ## Denial cases (what this MVP refuses to do)
 
-- Will not connect to any real native messaging host, endpoint or network.
-- Will not read, inject into, or observe any web page.
+- Will not start the native host or send without an explicit owner action and authorization.
+- Will not read a web page except through the bounded content-script commands.
 - Will not treat a role tab being open as an agent running.
 - Will not treat an ACK as execution, or a delivery record as verification.
 - Will not render an unknown value as `0`, blank, or healthy.

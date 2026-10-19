@@ -33,3 +33,6 @@ Transport ACK != actual model reply != AION consumption. Never skip a state on s
 
 ## Health test for a new hire
 Can they start at `https://github.com/owenservera/aion`, locate Windows master, M1 contract, experiment hashes, current blockers and next action, and give an honest `AION_HANDOFF_V1` with no extra chat context? If yes, onboarding works. If they expect the page to autonomously execute or relay messages, it does not.
+
+## Bus V1/V2 state machines (PROPOSED, 2026-10-19)
+Command: OBSERVED -> VALIDATED -> RESERVED -> DISPATCHED -> SUBMISSION_OBSERVED -> REPLY_CHECKED -> REPORTED; terminal REJECTED or HALTED. Acceptance for Bus V1/V2 is tracked under `bus_direction` in STATE.json and is separate from M1; no phase may be marked complete without a receipt. See [decision record](canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md).
