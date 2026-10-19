@@ -13,7 +13,8 @@ import {createRpcChannel} from '../src/transport/channel.mjs';
 import {startUnixBroker} from '../src/transport/unix.mjs';
 
 export async function serve({socketPath=process.env.AION_DEV_SOCKET,
-  statePath=process.env.AION_DEV_STATE}={}){
+  statePath=process.env.AION_DEV_STATE,adapters=[]}={}){
+ if(!Array.isArray(adapters))throw new TypeError('adapters must be an array');
  if(process.platform==='win32')throw Object.assign(new Error('Windows SID-ACL IPC not yet verified'),{code:'WINDOWS_IPC_UNVERIFIED'});
  if(!socketPath||!statePath)throw new Error('AION_DEV_SOCKET and AION_DEV_STATE must both be explicit');
  const state=resolve(statePath);
@@ -27,7 +28,7 @@ export async function serve({socketPath=process.env.AION_DEV_SOCKET,
      {code:'UNSAFE_LEDGER_DIRECTORY'});
  }
  const storage=createFileStorage(state);
- const bus=createBus({storage,adapters:[],initialConfig:{report_back:false,watch:false}});
+ const bus=createBus({storage,adapters,initialConfig:{report_back:false,watch:false}});
  const events=createEventStream();
  const capabilities=createCapabilityIndex({publish:(type,data)=>events.publish(type,data)});
  const rolesPath=fileURLToPath(new URL('../../role-launcher/ROLES.json',import.meta.url));
