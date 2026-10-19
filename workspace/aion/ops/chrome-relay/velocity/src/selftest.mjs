@@ -6,7 +6,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const VELOCITY = resolve(HERE, '..');
 const RELAY = resolve(VELOCITY, '..');
 export const DEFAULT_SUITES = Object.freeze([
-  { name:'velocity', cwd:VELOCITY, argv:['--test','test'] },
+  { name:'velocity', cwd:VELOCITY, argv:['--test'] },
   { name:'bus', cwd:resolve(RELAY,'bus'), argv:['--test'] },
   { name:'extension', cwd:resolve(RELAY,'extension'), argv:['--test'] },
   { name:'bridge', cwd:resolve(RELAY,'bridge'), argv:['--test'] }
