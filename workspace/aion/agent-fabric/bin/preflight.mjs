@@ -40,9 +40,10 @@ export function inspectRoles({catalog,dirs}){
 }
 export function buildPreflight({catalog,roleDirs,toolProbe=probeCommand,gitProbe=probeCommand}){
  const roster=inspectRoles({catalog,dirs:roleDirs});
+ const head=gitProbe('git',['rev-parse','HEAD']);
  return {schema:REPORT_SCHEMA,execution:'LOCAL_READ_ONLY',
   node:process.version,
-  git:gitProbe('git',['rev-parse','HEAD']),
+  git:{state:head.state,head_sha:head.reported_version??null,reason:head.reason??null},
   engines:{opencode:toolProbe('opencode',['--version']),zcode:toolProbe('zcode',['--version'])},
   roster,
   integration:'DESIGN_CONTRACTS_ONLY',
@@ -59,7 +60,7 @@ export function main({print=s=>process.stdout.write(s+'\n')}={}){
  });
  const report=buildPreflight({catalog,roleDirs});
  print(JSON.stringify(report,null,2));
- return report.roster.discrepancies.length?0:0; // drift is reported, not failure
+ return 0; // role drift is a reported observation, not a test failure
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))
  process.exitCode=main();
