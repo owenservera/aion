@@ -12,7 +12,7 @@
 //   node bin/aion-bus.mjs send --to opencode --text "..." [--nonce X]     (live executor: needs --live)
 //   node bin/aion-bus.mjs dispatch-pending [--max-age-s 300]               (MCP ingress reservations)
 //   node bin/aion-bus.mjs observe <command_id> | reconcile
-//   node bin/aion-bus.mjs kill [reason] | resume
+//   node bin/aion-bus.mjs kill [reason] | resume | reset   (reset: quarantine an UNREADABLE ledger, kill on)
 //   node bin/aion-bus.mjs demo                                             (offline, fakes only)
 //
 // Options: --state <file> (default ~/.aion/bus/state.json, or AION_BUS_STATE)
@@ -123,6 +123,7 @@ export async function main(argv = process.argv.slice(2)) {
       case 'revoke': print(await bus.revoke(rest[0])); return 0;
       case 'kill': print(await bus.kill(rest.join(' ') || 'cli kill')); return 0;
       case 'resume': print(await bus.resume('cli')); return 0;
+      case 'reset': print(await bus.store.quarantine(rest.join(' ') || 'cli reset')); return 0;
       case 'send': {
         const r = await bus.ingestStructured({ op: 'send', to: args.to, text: String(args.text ?? ''), nonce: args.nonce ?? `cli-${randomBytes(6).toString('hex')}`,
           origin_kind: ORIGIN.OPERATOR_CLI, origin_ref: 'cli' });

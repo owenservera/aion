@@ -78,6 +78,10 @@ function wire() {
     const r = await act('aion/bus-archive', { keep_recent: 128 });
     say('dispose-result', r.ok ? `archived ${r.archived}; kept ${r.kept}` : errText(r));
   });
+  el('reset-go')?.addEventListener('click', async () => {
+    const r = await act('aion/bus-reset', { reason: 'panel reset' });
+    say('dispose-result', r.ok ? `ledger quarantined to ${r.backup_key}; kill switch ON. Re-bind, re-grant, resume.` : errText(r)); refresh();
+  });
   for (const a of ['start', 'sample', 'reload', 'finish']) el(`sync-${a}`)?.addEventListener('click', sync(a));
 }
 

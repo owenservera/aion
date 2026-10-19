@@ -460,7 +460,10 @@ export function createBus(options = {}) {
    * command is not executed late), and observe every attempted command.
    */
   async function reconcile({ observeActive = true } = {}) {
-    const { result: halted } = await store.mutate((draft, { now: at }) => {
+    // Read first: a reconcile with nothing stale writes nothing (status stays read-only).
+    const before = await store.read();
+    const stale = Object.values(before.commands).some((c) => c.state === S.RESERVED);
+    const { result: halted } = !stale ? { result: [] } : await store.mutate((draft, { now: at }) => {
       const ids = [];
       for (const c of Object.values(draft.commands)) {
         if (c.state === S.RESERVED) {

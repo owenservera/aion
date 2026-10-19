@@ -22,10 +22,10 @@ export const BUS_WATCH_PERIOD_MINUTES = 0.5;
 export const BUS_ENDPOINTS = Object.freeze([
   'aion/bus-status', 'aion/bus-scan', 'aion/bus-observe', 'aion/bus-kill', 'aion/bus-resume', 'aion/bus-config',
   'aion/bus-agent', 'aion/bus-commander', 'aion/bus-grant', 'aion/bus-revoke', 'aion/bus-sync0', 'aion/bus-dispose',
-  'aion/bus-archive',
+  'aion/bus-archive', 'aion/bus-reset',
 ]);
 const GESTURE_REQUIRED = new Set(['aion/bus-scan', 'aion/bus-resume', 'aion/bus-config', 'aion/bus-agent',
-  'aion/bus-commander', 'aion/bus-grant', 'aion/bus-revoke', 'aion/bus-dispose', 'aion/bus-archive']);
+  'aion/bus-commander', 'aion/bus-grant', 'aion/bus-revoke', 'aion/bus-dispose', 'aion/bus-archive', 'aion/bus-reset']);
 
 function failure(code, error, extra = {}) { return { ok: false, code, error: `${code}: ${error}`, ...extra }; }
 
@@ -40,7 +40,19 @@ export function createWorkerBus({ storage, call, extraAdapters = [], alarms = nu
   const chatgpt = createChatGPTAdapter({ call });
   const bus = createBus({ storage, adapters: [chatgpt, ...extraAdapters], now, randomId });
   let scanning = null;
+  let booted = null;
   const clock = now ?? (() => new Date().toISOString());
+
+  /**
+   * Once per worker generation, before any other bus work: halt reservations a
+   * previous generation made but never attempted (they are not executed late)
+   * and leave attempted ones for read-only observation. An unreadable ledger is
+   * reported, not repaired: the owner decides (aion/bus-reset).
+   */
+  function boot() {
+    if (!booted) booted = bus.reconcile({ observeActive: false }).catch((error) => { booted = null; throw error; });
+    return booted;
+  }
 
   async function commanderTab(state) {
     const id = state.commander.agent_id;
@@ -164,7 +176,12 @@ export function createWorkerBus({ storage, call, extraAdapters = [], alarms = nu
     if (GESTURE_REQUIRED.has(type) && message.user_gesture !== true) {
       return failure('explicit_command_required', `${type} changes bus authority; user_gesture must be true`);
     }
+    if (type === 'aion/bus-reset') {
+      try { return { ok: true, ...(await bus.store.quarantine(typeof message.reason === 'string' ? message.reason : 'panel reset')) }; }
+      catch (error) { return failure(error.code ?? REASON.ADAPTER_ERROR, String(error.detail ?? error.message ?? error).slice(0, 240)); }
+    }
     try {
+      await boot();
       switch (type) {
         case 'aion/bus-status': return { ok: true, ...(await bus.status()), scanning: !!scanning };
         case 'aion/bus-scan': return await scanOnce('manual');
@@ -200,9 +217,10 @@ export function createWorkerBus({ storage, call, extraAdapters = [], alarms = nu
   }
 
   return {
-    bus, handle, scanOnce, reconcileActive, syncWatch,
+    bus, handle, scanOnce, reconcileActive, syncWatch, boot,
     async onAlarm(alarm) {
       if (alarm?.name !== BUS_ALARM) return null;
+      await boot();
       // A running SYNC-0 probe samples read-only and SUSPENDS command processing.
       const probe = await readSync0();
       if (probe?.status === 'running') return handleSync0({ action: 'sample' });

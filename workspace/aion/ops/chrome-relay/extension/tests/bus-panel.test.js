@@ -32,7 +32,7 @@ test('every element bus.js looks up exists', () => {
 test('only declared bus endpoints are called; gated ones always go through act() with the gesture', () => {
   const used = [...js.matchAll(/'(aion\/bus-[a-z0-9-]+)'/g)].map((m) => m[1]);
   for (const t of used) assert.ok(BUS_ENDPOINTS.includes(t), t);
-  for (const gated of ['aion/bus-resume', 'aion/bus-scan', 'aion/bus-agent', 'aion/bus-commander', 'aion/bus-grant', 'aion/bus-config', 'aion/bus-dispose', 'aion/bus-archive']) {
+  for (const gated of ['aion/bus-resume', 'aion/bus-scan', 'aion/bus-agent', 'aion/bus-commander', 'aion/bus-grant', 'aion/bus-config', 'aion/bus-dispose', 'aion/bus-archive', 'aion/bus-reset']) {
     assert.match(js, new RegExp(`act\\('${gated}'`), gated);
   }
   assert.match(js, /const act = \(type, extra = \{\}\) => send\(\{ type, user_gesture: true/);
