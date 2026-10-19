@@ -1,0 +1,37 @@
+name: AION Track B Velocity (offline)
+on:
+  push:
+    branches: [track-b/velocity-command-plane-20261019]
+    paths:
+      - 'workspace/aion/ops/chrome-relay/velocity/**'
+      - '.github/workflows/aion-track-b-velocity.yml'
+  pull_request:
+    paths:
+      - 'workspace/aion/ops/chrome-relay/velocity/**'
+      - '.github/workflows/aion-track-b-velocity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  velocity-offline:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workspace/aion/ops/chrome-relay/velocity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test pure Track B contract and no-send refusal
+        run: node --test
+      - name: Verify diagnostic truth
+        run: |
+          node bin/aion-velocity.mjs doctor --json
+          set +e
+          node bin/aion-velocity.mjs send chief "do not dispatch"
+          actual=$?
+          set -e
+          test "$actual" -eq 3
