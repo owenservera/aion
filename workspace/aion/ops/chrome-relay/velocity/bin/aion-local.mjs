@@ -46,8 +46,8 @@ export async function main(argv=process.argv.slice(2),{
  }
  if(cmd==='context'){
    if(argv.length<2||argv.length>4||argv.length===3||
-     (argv.length===4&&(argv[2]!=='--scope'||!['bootstrap','sitrep','both'].includes(argv[3]))))
-     return done(print,{ok:false,code:'BAD_COMMAND',usage:'aion context <agent> [--scope bootstrap|sitrep|both]'},2);
+     (argv.length===4&&(argv[2]!=='--scope'||!['bootstrap','sitrep','both','brief'].includes(argv[3]))))
+     return done(print,{ok:false,code:'BAD_COMMAND',usage:'aion context <agent> [--scope bootstrap|sitrep|both|brief]'},2);
    try{
      const context=loadAgentContext(readRoleCatalog(),argv[1],{scope:argv[3]??'both'});
      return done(print,context,0);
