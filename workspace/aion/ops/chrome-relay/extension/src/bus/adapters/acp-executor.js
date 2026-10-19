@@ -46,6 +46,7 @@ export function createAcpExecutorAdapter({ relay, name = ACP_ADAPTER, provider =
   });
   /** correlation -> { chunks, chars, terminal, stop_reason, sessionId, unsubscribe } */
   const turns = new Map();
+  let onSettled = null;
 
   function track(correlationId) {
     const turn = { chunks: [], chars: 0, terminal: null, stop_reason: null, session: null, unsubscribe: null };
@@ -61,6 +62,9 @@ export function createAcpExecutorAdapter({ relay, name = ACP_ADAPTER, provider =
           turn.terminal = env.event_type;
           turn.stop_reason = typeof p.stop_reason === 'string' ? p.stop_reason : (env.event_type === 'task.cancelled' ? 'cancelled' : 'unknown');
           try { turn.unsubscribe?.(); } catch { /* already gone */ }
+          // Persist promptly: the owner of the bus observes this command now, so
+          // a late result reaches the durable ledger before the worker can sleep.
+          if (onSettled) queueMicrotask(() => { Promise.resolve(onSettled(correlationId)).catch(() => {}); });
         }
       });
     }
@@ -105,6 +109,13 @@ export function createAcpExecutorAdapter({ relay, name = ACP_ADAPTER, provider =
           turn.unsubscribe?.(); turns.delete(req.correlation_id);
           return { outcome: 'not_sent', reason: hostCode === 'cwd_not_allowed' ? REASON.GRANT_SCOPE : REASON.TARGET_REFUSED, detail: msg.slice(0, 200) };
         }
+        // The executor rejected session/prompt for missing provider credentials
+        // (observed on real OpenCode 2.0.32: JSON-RPC -32000 "Authentication
+        // required"). The prompt never ran: positive no-send, and actionable.
+        if (/Authentication required|provider authentication/i.test(msg) && /\(code -32000\)/.test(msg)) {
+          turn.unsubscribe?.(); turns.delete(req.correlation_id);
+          return { outcome: 'not_sent', reason: REASON.EXECUTOR_AUTH_REQUIRED, detail: 'executor needs provider login on this machine (e.g. `opencode auth login`); the prompt did not run' };
+        }
         if (/busy|in.?flight|already active|one active prompt/i.test(msg)) {
           return turn.terminal ? finished(turn) : { outcome: 'unknown', reason: REASON.EXECUTOR_BUSY, detail: msg.slice(0, 200) };
         }
@@ -113,8 +124,11 @@ export function createAcpExecutorAdapter({ relay, name = ACP_ADAPTER, provider =
           turn.unsubscribe?.(); turns.delete(req.correlation_id);
           return { outcome: 'not_sent', reason: REASON.TRANSPORT_LOST, detail: msg.slice(0, 200) };
         }
-        // Timed out or dropped AFTER posting: the prompt may be running.
-        return turn.terminal ? finished(turn) : { outcome: 'unknown', reason: /timed out/.test(msg) ? REASON.TIMEOUT : REASON.TRANSPORT_LOST, detail: msg.slice(0, 200) };
+        // Timed out, dropped, or an executor-side JSON-RPC error AFTER posting:
+        // the prompt may have run (real OpenCode 1.19.3 streamed updates before
+        // erroring). Unknown, never not-sent.
+        const reason = /timed out/.test(msg) ? REASON.TIMEOUT : /\(code -3\d{4}\)/.test(msg) ? REASON.EXECUTOR_ERROR : REASON.TRANSPORT_LOST;
+        return turn.terminal ? finished(turn) : { outcome: 'unknown', reason, detail: msg.slice(0, 200) };
       }
       if (reply?.replayed === true) return { outcome: 'unknown', reason: REASON.NONCE_REPLAYED, detail: 'host deduplicated this idempotency key; not executed again' };
       if (reply?.ok !== true) {
@@ -143,6 +157,8 @@ export function createAcpExecutorAdapter({ relay, name = ACP_ADAPTER, provider =
         return { outcome: 'unknown', reason: REASON.TRANSPORT_LOST, detail: String(error?.message ?? error).slice(0, 200) };
       }
     },
+    /** The bus wires this so a late terminal result is persisted immediately. */
+    setOnSettled(fn) { onSettled = typeof fn === 'function' ? fn : null; },
     /** For tests/diagnostics only. */
     _turns: turns,
   };

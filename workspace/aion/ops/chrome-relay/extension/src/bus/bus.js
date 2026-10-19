@@ -515,6 +515,17 @@ export function createBus(options = {}) {
 
   async function owner(fn) { return (await store.mutate(fn)).result; }
 
+  // Adapters that learn results asynchronously (ACP) report the correlation;
+  // the bus observes that command at once so the result becomes durable.
+  for (const adapter of Object.values(adapters)) {
+    if (typeof adapter.setOnSettled !== 'function') continue;
+    adapter.setOnSettled(async (correlationId) => {
+      const state = await store.read();
+      const c = Object.values(state.commands).find((x) => x.correlation_id === correlationId);
+      if (c && ACTIVE.includes(c.state)) await observe(c.command_id);
+    });
+  }
+
   return {
     store,
     adapters: Object.freeze({ ...adapters }),

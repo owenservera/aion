@@ -1,0 +1,12 @@
+{
+  "_provenance": "Shape observed from a REAL OpenCode 2.0.32 service (GET /api/session/{id}/message) on 2026-10-19 in an isolated sandbox HOME with no provider credentials. Ids/time kept, error text trimmed, response body omitted. Newest first.",
+  "data": [
+    { "id": "msg_154ce127e00122z0cognnXdhu4", "time": { "created": 1792424153726 }, "type": "idle", "outcome": "failed",
+      "error": { "type": "provider.auth", "message": "Provider request failed with HTTP 403", "status": 403 } },
+    { "id": "msg_154ce1158001QqHP7NPzs3qPlu", "time": { "created": 1792424153446, "completed": 1792424153722 }, "type": "assistant", "agent": "build",
+      "model": { "id": "ll-alpha-free", "providerID": "opencode" }, "content": [], "finish": "error",
+      "error": { "type": "provider.auth", "message": "Provider request failed with HTTP 403", "status": 403 } },
+    { "id": "msg_154ce0ee8001SC8lc0BvPRiolk", "time": { "created": 1792424153419 }, "text": "Reply with OK.", "type": "user" }
+  ],
+  "cursor": { "previous": "c-prev", "next": "c-next" }
+}
