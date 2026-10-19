@@ -21,6 +21,16 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
   async function sendTo(to,text,nonce,grantRef,{expectedRevision=null}={}){
     // Preflight is read-only; the REAL Bus validates grants, locks and nonce under mutate().
     const state=await bus.store.read();
+    // Existing Bus nonce index is the durable replay fence. A repeated nonce
+    // retrieves its prior ID without admitting, dispatching or spending a grant.
+    // The Bus stores only a non-cryptographic text signature after dispatch,
+    // so do NOT claim the repeated payload matches; refuse as a replay.
+    const priorId=state.nonces?.[nonce];
+    if(priorId){
+      return response(false,'NONCE_REPLAYED',{
+        operation_id:priorId,delivery:'NOT_RESENT',recovery:'observe_existing_operation'
+      });
+    }
     const agent=state.agents?.[to];
     if(!agent?.binding || agent.status!=='bound')
       return response(false,'TARGET_UNBOUND',{delivery:'NOT_SENT'});
@@ -44,7 +54,8 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     if(!accepted.accepted){
       events.publish('operation.refused',{target:to,reason:accepted.reason});
       return response(false,accepted.reason??'REFUSED',{
-        operation_id:accepted.command_id??null,delivery:'NOT_SENT'
+        operation_id:accepted.command_id??null,
+        delivery:accepted.reason==='nonce_replayed'?'NOT_RESENT':'NOT_SENT'
       });
     }
     const id=accepted.command_id;
