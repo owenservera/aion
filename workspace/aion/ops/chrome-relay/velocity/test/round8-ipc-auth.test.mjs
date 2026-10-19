@@ -4,7 +4,7 @@ import net from 'node:net';
 import {mkdtempSync,chmodSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {readSession,endpointFor,connectHost,SESSION_FILE,SESSION_SCHEMA,HELLO_SCHEMA}
+import {readSession,endpointFor,connectHost,startHostEndpoint,SESSION_FILE,SESSION_SCHEMA,HELLO_SCHEMA}
   from '../src/transport/local-ipc.mjs';
 import {createFrameDecoder,encodeFrame} from '../src/transport/framing.mjs';
 
@@ -46,4 +46,15 @@ test('fake host with wrong extension id is refused',async t=>{
 });
 test('fake host with no protocol schema is refused',async t=>{
  await rogueReply(t,s=>({ok:true,session_id:s.session_id,extension_id:s.extension_id}));
+});
+
+test('IPC bearer token cannot start or connect from a publicly accessible state directory',
+ {skip:process.platform==='win32'},async()=>{
+ const dir=ownDir();
+ try{
+   chmodSync(dir,0o755);
+   await assert.rejects(startHostEndpoint({stateDir:dir,onRequest:async()=>({})}),
+     {code:'STATE_ACL_UNVERIFIED'});
+   await assert.rejects(connectHost({stateDir:dir}),{code:'STATE_ACL_UNVERIFIED'});
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });
