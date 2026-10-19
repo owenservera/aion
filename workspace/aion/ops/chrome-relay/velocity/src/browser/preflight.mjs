@@ -43,8 +43,8 @@ export async function runBrowserPreflight({alias='chief',stateDir=dirname(localS
      'aion connect '+alias+' --conversation '+role.ref+' --max 1 --hours 1');
    let tabs;
    try{tabs=await rt.browser.link.request('aion/chatgpt-tabs',{}, {timeoutMs:10000});}
-   catch(error)return step('TABS',error.code??'TAB_PROBE_UNAVAILABLE',
-     'Check the Track B dev extension service worker and retry preflight');
+   catch(error){return step('TABS',error.code??'TAB_PROBE_UNAVAILABLE',
+     'Check the Track B dev extension service worker and retry preflight');}
    if(tabs?.ok!==true||!Array.isArray(tabs.tabs))
      return step('TABS','TAB_LISTING_FAILED','Open the target chat in the Track B Chrome profile');
    const matching=tabs.tabs.filter(tab=>{
