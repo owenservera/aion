@@ -32,7 +32,9 @@ export function readSession(stateDir){
   try{s=JSON.parse(readFileSync(join(stateDir,SESSION_FILE),'utf8'));}
   catch(e){throw err(e.code==='ENOENT'?'HOST_NOT_RUNNING':'HOST_SESSION_UNREADABLE');}
   if(s?.schema!==SESSION_SCHEMA||!TOKEN.test(s.token??'')||!SESSION_ID.test(s.session_id??'')
-     ||typeof s.endpoint!=='string'||!s.endpoint)throw err('HOST_SESSION_INVALID');
+     ||typeof s.endpoint!=='string'||!s.endpoint
+     ||s.endpoint!==endpointFor({stateDir,id:s.session_id}))
+    throw err('HOST_SESSION_INVALID');
   return s;
 }
 function writeSessionAtomic(stateDir,session){
@@ -106,7 +108,17 @@ export async function connectHost({stateDir,timeoutMs=3000,readSessionImpl=readS
     pending.clear();socket.destroy();
   };
   const decoder=createFrameDecoder({onMessage:msg=>{
-    if(!hello){hello=msg;return;}
+    if(!hello){
+      // The file pins a random session and endpoint. A frame from an unrelated
+      // process is NOT a host acknowledgement, even if it says ok:true.
+      if(msg?.schema!==HELLO_SCHEMA||msg.ok!==true
+        ||msg.session_id!==s.session_id
+        ||(s.extension_id && msg.extension_id!==s.extension_id)){
+        fail(err('HOST_AUTH_REFUSED'));
+        return;
+      }
+      hello=msg;return;
+    }
     const p=pending.get(msg.id);if(!p)return;
     pending.delete(msg.id);clearTimeout(p.timer);
     if(msg.error)p.reject(Object.assign(err(msg.error.code??'HOST_ERROR'),{written:true,remote:true}));
@@ -118,7 +130,8 @@ export async function connectHost({stateDir,timeoutMs=3000,readSessionImpl=readS
     socket.once('connect',()=>socket.write(encodeFrame({schema:HELLO_SCHEMA,token:s.token})));
     socket.on('data',b=>{
       try{decoder.push(b);}catch{clearTimeout(t);fail(err('HOST_PROTOCOL'));reject(err('HOST_PROTOCOL'));return;}
-      if(hello){clearTimeout(t);hello.ok===true?resolve():reject(err('HOST_AUTH_REFUSED'));}
+      if(hello){clearTimeout(t);resolve();}
+      else if(dead){clearTimeout(t);reject(dead);}
     });
     socket.once('close',()=>{clearTimeout(t);if(!hello)reject(err('HOST_AUTH_REFUSED'));});
   });
