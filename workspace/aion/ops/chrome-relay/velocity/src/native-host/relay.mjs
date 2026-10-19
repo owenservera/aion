@@ -20,24 +20,35 @@ export const PING='aion.b.ping';
 const ALLOWED=new Set([...Object.keys(REMOTE_CALLS),PING]);
 const isPlain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&Object.getPrototypeOf(v)===Object.prototype;
 const err=code=>Object.assign(new Error(code),{code});
+const MAX_INFLIGHT=32;
 
 export async function runDevHost({argv,stdin,stdout,stateDir,expectedExtensionId,
-  startEndpoint=startHostEndpoint,log=()=>{}}){
+  startEndpoint=startHostEndpoint,log=()=>{},forwardTimeoutMs=130_000}){
+  if(!Number.isSafeInteger(forwardTimeoutMs)||forwardTimeoutMs<1||forwardTimeoutMs>300_000)
+    throw new RangeError('invalid forward timeout');
   const origin=verifyDevNativeOrigin(argv,{expectedExtensionId});
   if(!origin.ok){log({event:'origin_refused',reason:origin.reason});return {ok:false,code:origin.reason};}
   const pending=new Map();let seq=0,endpoint=null,closed=false,workerHello=null;
   const send=msg=>stdout.write(encodeNativeFrame(msg,{maxFrameBytes:CHROME_MAX_HOST_MESSAGE_BYTES}));
-  const failAll=code=>{for(const p of pending.values())p.reject(err(code));pending.clear();};
+  const failAll=code=>{
+    for(const p of pending.values()){clearTimeout(p.timer);p.reject(err(code));}
+    pending.clear();
+  };
 
   async function forward({call_type,payload}){
     if(closed)throw err('HOST_CLOSING');
     if(!ALLOWED.has(call_type))throw err('CALL_NOT_ALLOWED');
     if(payload!==undefined&&!isPlain(payload))throw err('BAD_PAYLOAD');
+    if(pending.size>=MAX_INFLIGHT)throw err('HOST_BUSY');
     const id=`c${++seq}`;
     return new Promise((resolve,reject)=>{
-      pending.set(id,{resolve,reject});
+      const timer=setTimeout(()=>{
+        pending.delete(id);
+        reject(err('WORKER_REPLY_TIMEOUT')); // a send may have happened: never retry
+      },forwardTimeoutMs);
+      pending.set(id,{resolve,reject,timer});
       try{send({type:'aion.b.call',id,call_type,payload:payload??{}});}
-      catch(e){pending.delete(id);reject(err('FRAME_TOO_LARGE'));}
+      catch(e){clearTimeout(timer);pending.delete(id);reject(err('FRAME_TOO_LARGE'));}
     });
   }
 
@@ -66,7 +77,7 @@ export async function runDevHost({argv,stdin,stdout,stateDir,expectedExtensionId
     }
     if(msg.type==='aion.b.reply'&&typeof msg.id==='string'){
       const p=pending.get(msg.id);if(!p)return;
-      pending.delete(msg.id);
+      pending.delete(msg.id);clearTimeout(p.timer);
       isPlain(msg.result)?p.resolve(msg.result):p.reject(err('BAD_WORKER_REPLY'));
     }
   });
