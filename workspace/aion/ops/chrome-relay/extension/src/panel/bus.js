@@ -70,6 +70,14 @@ function wire() {
     const p = r?.probe;
     say('sync-state', !r?.ok ? errText(r) : `status ${p.status}; samples ${p.samples.length}; first change ${p.first_change_utc ?? 'none'}${p.verdict ? `; verdict ${p.verdict}` : ''}`);
   };
+  el('dispose-go')?.addEventListener('click', async () => {
+    const r = await act('aion/bus-dispose', { command_id: el('dispose-id').value.trim(), disposition: el('dispose-what').value, by: 'panel owner' });
+    say('dispose-result', r.ok ? (r.disposed ? `resolved (${r.state}); lock released: ${r.lock_released}` : `not changed: ${r.detail ?? r.state}`) : errText(r)); refresh();
+  });
+  el('archive-go')?.addEventListener('click', async () => {
+    const r = await act('aion/bus-archive', { keep_recent: 128 });
+    say('dispose-result', r.ok ? `archived ${r.archived}; kept ${r.kept}` : errText(r));
+  });
   for (const a of ['start', 'sample', 'reload', 'finish']) el(`sync-${a}`)?.addEventListener('click', sync(a));
 }
 

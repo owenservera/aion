@@ -197,7 +197,9 @@ for (const stage of ['resolveTab', 'preflight', 'reservationRead', 'reservationW
     if (stage === 'resolveTab') options.query = () => gate.promise;
     if (stage === 'preflight') options.silent = 'ping';
     if (stage === 'reservationRead') options.get = () => gate.promise;
-    if (stage === 'reservationWrite') options.get = async () => ++gets === 3 ? gate.promise : {};
+    // The store reads three keys per pass (dispatch, tasks, archive): gets 1-3 are
+    // the reservationRead pass, get 4 is the first read inside the reserving write.
+    if (stage === 'reservationWrite') options.get = async () => ++gets === 4 ? gate.promise : {};
     if (stage === 'exchange') options.silent = 'run-turn';
     if (stage === 'settlement') options.set = async (value) => { if (++sets === 4) return gate.promise; Object.assign(f.bag, structuredClone(value)); };
     const f = fixture(options);

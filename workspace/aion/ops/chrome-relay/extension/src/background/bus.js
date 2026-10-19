@@ -21,10 +21,11 @@ export const BUS_WATCH_PERIOD_MINUTES = 0.5;
 
 export const BUS_ENDPOINTS = Object.freeze([
   'aion/bus-status', 'aion/bus-scan', 'aion/bus-observe', 'aion/bus-kill', 'aion/bus-resume', 'aion/bus-config',
-  'aion/bus-agent', 'aion/bus-commander', 'aion/bus-grant', 'aion/bus-revoke', 'aion/bus-sync0',
+  'aion/bus-agent', 'aion/bus-commander', 'aion/bus-grant', 'aion/bus-revoke', 'aion/bus-sync0', 'aion/bus-dispose',
+  'aion/bus-archive',
 ]);
 const GESTURE_REQUIRED = new Set(['aion/bus-scan', 'aion/bus-resume', 'aion/bus-config', 'aion/bus-agent',
-  'aion/bus-commander', 'aion/bus-grant', 'aion/bus-revoke']);
+  'aion/bus-commander', 'aion/bus-grant', 'aion/bus-revoke', 'aion/bus-dispose', 'aion/bus-archive']);
 
 function failure(code, error, extra = {}) { return { ok: false, code, error: `${code}: ${error}`, ...extra }; }
 
@@ -189,6 +190,8 @@ export function createWorkerBus({ storage, call, extraAdapters = [], alarms = nu
         case 'aion/bus-grant': return { ok: true, grant: await bus.grant(message.grant) };
         case 'aion/bus-revoke': return { ok: true, grant: await bus.revoke(message.grant_id) };
         case 'aion/bus-sync0': return await handleSync0(message);
+        case 'aion/bus-dispose': return { ok: true, ...(await bus.dispose(message.command_id, { disposition: message.disposition, by: message.by ?? 'panel owner' })) };
+        case 'aion/bus-archive': return await call('aion/chatgpt-archive', { keep_recent: message.keep_recent ?? 128, user_gesture: true });
         default: return failure('unknown_endpoint', type);
       }
     } catch (error) {

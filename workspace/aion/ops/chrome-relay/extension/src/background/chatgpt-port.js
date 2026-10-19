@@ -210,6 +210,7 @@ const TIMEOUT_KEY_TO_COMMAND = Object.freeze({
 const METHOD_COMMANDS = Object.freeze({
   listTabs: 'tabs', ping: 'ping', runTurn: 'run-turn', submitTurn: 'submit-turn',
   observeTurn: 'observe-turn', readFinal: 'read-final', commanderScan: 'commander-scan',
+  disposeTurn: 'dispose', archiveResolved: 'archive',
 });
 
 /** Command name -> `DEFAULT_CHATGPT_TIMEOUTS` key. */
@@ -1011,6 +1012,36 @@ export function createChatGPTPortDriver(options = {}) {
         verdict: sanitizeVerdict(receipt.verdict), envelope: null, observer: fact,
         submitted: true, uncertain: true, captured: false, pending: false, read_only: true,
       });
+    },
+
+    /**
+     * `dispose` — OWNER disposal of one unresolved operation (lock release).
+     * Requires the explicit gesture. Sends nothing, reads no page; the
+     * operation's tombstone stays, so it can never be submitted again.
+     */
+    async disposeTurn(command = {}, lifecycle) {
+      if (command.user_gesture !== true) return fail(CHATGPT_ERROR.EXPLICIT_COMMAND_REQUIRED, { message: 'disposal is an owner decision; user_gesture must be true' });
+      if (typeof reservations.disposeOperation !== 'function') return fail(CHATGPT_ERROR.RESERVATION_FAILED, { message: 'this store cannot dispose' });
+      try {
+        lifecycle.assertActive();
+        const record = await reservations.disposeOperation(String(command.correlation_id ?? ''), command.disposition, lifecycle);
+        return { ok: true, action: 'dispose', correlation_id: record.correlation_id, phase: record.phase, disposition: record.disposition, lock_released: true, resent: false };
+      } catch (error) {
+        return fail(error.code ?? CHATGPT_ERROR.RESERVATION_FAILED, { message: String(error.message ?? error) });
+      }
+    },
+
+    /** `archive` — EXPLICIT owner archival of resolved operations into tombstones. */
+    async archiveResolved(command = {}, lifecycle) {
+      if (command.user_gesture !== true) return fail(CHATGPT_ERROR.EXPLICIT_COMMAND_REQUIRED, { message: 'archival is an owner decision; user_gesture must be true' });
+      if (typeof reservations.archiveResolved !== 'function') return fail(CHATGPT_ERROR.RESERVATION_FAILED, { message: 'this store cannot archive' });
+      try {
+        lifecycle.assertActive();
+        const keep = command.keep_recent === undefined ? 128 : Number(command.keep_recent);
+        return { ok: true, action: 'archive', ...(await reservations.archiveResolved(keep, lifecycle)) };
+      } catch (error) {
+        return fail(error.code ?? CHATGPT_ERROR.RESERVATION_FAILED, { message: String(error.message ?? error) });
+      }
     },
 
     /**
