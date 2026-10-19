@@ -1,0 +1,16 @@
+/* AION Bus panel. Uses panel.css tokens so both themes follow the station. */
+.buspage main { display: grid; gap: var(--gap); padding: var(--pad); }
+.bus-card { border: 1px solid var(--rule); background: var(--surface); padding: var(--pad); display: grid; gap: 8px; }
+.bus-card--stop { border-color: var(--stop); }
+.bus-card h2, .bus-sub { margin: 0; color: var(--text-hi); font-family: var(--font-ui); }
+.bus-sub { font-size: 0.9em; }
+.bus-note { margin: 0; color: var(--text-low); font-size: 0.85em; }
+.bus-line { margin: 0; color: var(--text-mid); font-family: var(--font-data); font-size: 0.85em; overflow-wrap: anywhere; }
+.bus-tree { margin: 0; padding: 8px; border: 1px solid var(--rule); color: var(--text-mid); font-family: var(--font-data); font-size: 0.8em; white-space: pre; overflow-x: auto; }
+.bus-list { margin: 0; padding-left: 18px; color: var(--text-mid); font-family: var(--font-data); font-size: 0.8em; }
+.bus-label { color: var(--text-mid); font-size: 0.85em; }
+.bus-input { font: inherit; padding: 6px; border: 1px solid var(--rule-strong); background: var(--chassis); color: var(--text-hi); }
+.bus-check { justify-self: start; }
+.bus-btn { justify-self: start; font: inherit; padding: 6px 12px; border: 1px solid var(--rule-strong); background: var(--chassis); color: var(--text-hi); cursor: pointer; }
+.bus-btn:focus-visible, .bus-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.bus-btn--danger { border-color: var(--stop); color: var(--stop); font-weight: 600; }
