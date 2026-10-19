@@ -2,7 +2,7 @@
 // Does not start an agent, register a native host, or modify a browser.
 import {statSync} from 'node:fs';
 import {loadHostConfig} from '../../../bridge/bin/aion-relay-host.mjs';
-import {assertValidConfig} from '../../../bridge/src/config.js';
+import {assertValidConfig,assertCwdAllowed} from '../../../bridge/src/config.js';
 
 export function createAcpProbe({loadConfig,validateConfig,stat=statSync,now=()=>Date.now()}={}){
  if(typeof loadConfig!=='function'||typeof validateConfig!=='function')throw new TypeError('ACP config callbacks required');
@@ -22,3 +22,10 @@ export function createAcpProbe({loadConfig,validateConfig,stat=statSync,now=()=>
  };
 }
 export const probeAcpBinary=createAcpProbe({loadConfig:loadHostConfig,validateConfig:assertValidConfig});
+
+export function verifyAcpCwd(cwd,{loadConfig=loadHostConfig,allow=assertCwdAllowed}={}){
+ try{
+  const result=allow(loadConfig(),cwd);
+  return {ok:result?.allowed===true,code:result?.allowed===true?null:'ACP_CWD_NOT_ALLOWLISTED'};
+ }catch{return {ok:false,code:'ACP_CWD_UNVERIFIED'};}
+}
