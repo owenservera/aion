@@ -14,6 +14,7 @@ import {canonicalConversation} from '../../extension/src/lib/chatgpt-tasks.js';
 import {probeAcpBinary,verifyAcpCwd} from '../src/engines/acp.mjs';
 import {runLocalSelftest} from '../src/selftest.mjs';
 import {planBrowserSetup,applyBrowserSetup,uninstallBrowserSetup} from '../src/browser/setup.mjs';
+import {runBrowserPreflight} from '../src/browser/preflight.mjs';
 import {localStatePath} from '../src/local-runtime.mjs';
 import {assertPrivateStateDir} from '../src/security.mjs';
 import {dirname} from 'node:path';
@@ -33,6 +34,17 @@ export async function main(argv=process.argv.slice(2),{
  if(cmd==='selftest'){
    if(argv.length!==1)return done(print,{ok:false,code:'BAD_COMMAND'},2);
    const report=tests();return done(print,report,report.all_pass?0:1);
+ }
+ if(cmd==='preflight'){
+   if(argv.length!==2||argv[1]!=='browser')
+     return done(print,{ok:false,code:'BAD_COMMAND',reason:'usage: aion preflight browser'},2);
+   try{
+     const report=await runBrowserPreflight();
+     return done(print,report,report.ok?0:3);
+   }catch(error){
+     return done(print,{ok:false,code:error?.code??'BROWSER_PREFLIGHT_FAILED',
+       live_send_verified:false},3);
+   }
  }
  if(cmd==='setup'){
    const mode=argv[2]??'--dry-run';
