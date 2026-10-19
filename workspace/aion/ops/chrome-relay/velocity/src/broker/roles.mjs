@@ -6,6 +6,14 @@ export function resolveRole(alias, catalog, registry) {
   if (typeof alias !== 'string' || !NAME.test(alias)) return refusal('INVALID_ALIAS');
   if (!Array.isArray(catalog?.roles) || !registry || typeof registry !== 'object')
     return refusal('REGISTRY_UNAVAILABLE');
+  if (Object.hasOwn(registry,alias)) {
+    const a=registry[alias];
+    if (!a || !['executor','conversation'].includes(a.kind) || a.status!=='bound'
+        || !a.binding?.ref || !a.binding?.confirmed_by) return refusal('ROLE_UNBOUND');
+    if (!Number.isSafeInteger(a.revision) || a.revision<1) return refusal('BAD_BINDING_REVISION');
+    return {ok:true,target:a.agent_id,role_id:a.role_id??null,revision:a.revision,
+      adapter:a.binding.adapter,ref:a.binding.ref,confirmed_by:a.binding.confirmed_by};
+  }
   const matches = catalog.roles.filter(role => Array.isArray(role.aliases)
     && role.aliases.includes(alias));
   if (matches.length === 0) return refusal('ALIAS_UNKNOWN');
