@@ -1,0 +1,41 @@
+{
+  "schema": "aion.context-pack/1",
+  "context_id": "ctx_demo_0001",
+  "work_ref": "repo://owenservera/aion/issues/32",
+  "role_id": "aion.role.05",
+  "audience": {
+    "principal": "owner",
+    "project_id": "aion",
+    "deployment_id": "aion.chrome-b.dev"
+  },
+  "created_utc": "2026-10-20T00:00:00Z",
+  "sources": [
+    {
+      "uri": "repo://owenservera/aion/workspace/aion/sessions/roles/05-chief-of-chiefs/BOOTSTRAP.md",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_commit": "1111111111111111111111111111111111111111",
+      "classification": "agent_instruction",
+      "trust": "configured",
+      "sensitivity": "internal",
+      "freshness": "version_pinned",
+      "observed_utc": null,
+      "collected_utc": null,
+      "included_ranges": [
+        "L1-L12"
+      ]
+    }
+  ],
+  "skills": [],
+  "budget": {
+    "max_input_tokens": 16000,
+    "reserve_output_tokens": 4000,
+    "estimated_used_tokens": 600
+  },
+  "omissions": [
+    {
+      "source_ref": "repo://owenservera/aion/workspace/aion/sessions/roles/05-chief-of-chiefs/SITREP.md",
+      "reason": "budget"
+    }
+  ],
+  "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
