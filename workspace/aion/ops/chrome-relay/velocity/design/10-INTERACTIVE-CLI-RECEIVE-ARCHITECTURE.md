@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-20. **Status:** ASSESSED / DESIGN FOR NEXT CODE SLICES; not implemented or live-verified. **Authority:** existing Chrome Extension Track B, PR #46; architecture context Harvest Crosswalk C-004 PR #41; command-space registry PR #47 at `69a967b9ece61e3f039ed98983eb4837b414ffef`. All three sources currently reside in separate branches. GitHub is source/handoff, not runtime.
 
-> **Independent review (2026-10-20):** see [11-PRINCIPAL-ARCHITECT-REVIEW-2026-10-20.md](11-PRINCIPAL-ARCHITECT-REVIEW-2026-10-20.md) — recommendations and open owner decisions; not yet accepted.
+> **SUPERSEDED DESIGN FOR DECISIONS:** The owner has ACCEPTED Claude's review PR #50. The controlling architecture, M1–M6 resolutions, event transport, and build order are now in **[12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md](12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md)**. This document records the previous long-poll proposal and is not an implementation mandate.
 
 ## Decision: enough evidence to build; one targeted crosswalk enrichment, not another broad Harvest
 
