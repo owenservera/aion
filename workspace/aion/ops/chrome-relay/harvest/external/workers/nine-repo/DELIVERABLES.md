@@ -4,6 +4,16 @@
 
 **Governance:** one `main`, Development/Harvest/Research as cooperating subprojects; Track A deprecated; runtime/Agent Fabric work out of scope. See [SITREP](SITREP.md), [BOOTSTRAP](BOOTSTRAP.md), [full historical charter](LAUNCH-PROMPT.md), [shared exchange](../../../EXCHANGE.md).
 
+## Active TODO — External Nine Discovery
+
+- [ ] Scout **Cereon MV3 CDP/session manager and bounded accessibility tree** against **cdpilot's CDP engine** for high-payoff browser diagnostics and control primitives; distinguish read-only inspection from effectful actions.
+- [ ] Cross-check VOMEGA NLCL's already captured parser/grounder assessment for any **new differentiated semantic-engine leapfrog**, without repeating existing harvest.
+- [ ] Find one unexpected major shortcut among transport, identity/recovery, provider adapters or other donor code, if it beats minor feature findings.
+- [ ] Publish **at most three strong leads** through existing triage/exchange: pinned source symbol/path, AION contract seam, work eliminated, dependencies/license, constraint, BREAKTHROUGH/HIGH/NORMAL.
+- [ ] Hand leads to Integration Manager; revisit Bridge/Multi-AI only for a specific missing source symbol requested by that manager.
+
+**Done = actionable leapfrog intelligence. No donor tests, wiring verification, adapted code, AION verification or coverage-grid busywork. Thinking effort: High.**
+
 ## Active discovery assignment — scout the biggest shortcut (2026-10-20)
 
 **No more deep investigation of Bridge/Multi-AI for PACK-01/02 unless Integration Manager requests a missing symbol.** They already have a pinned handoff. Run one bounded, source-only leapfrog sweep:
