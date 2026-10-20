@@ -14,7 +14,7 @@
     "basis": "Owner explicitly corrected the snapshot in this session: live execution is TRUE and we are now in full live execution mode. This is ongoing authority for AION live workflows, including ChatGPT sends and reply readback; it is not exhausted by the completed test. Earlier no-send-only and consumed-single-test language is historical and superseded. Authorization and milestone verification are separate.",
     "scope": "Full live execution of AION workflows, including ChatGPT send/readback, under ongoing owner direction.",
     "no_resend": "Reconcile uncertain operations rather than automatically duplicating them.",
-    "code_policy": "Keep this source revision canonical; implementation changes remain frozen until further owner direction.",
+    "code_policy": "2026-10-20 owner direction: Track B source development is approved for the accepted bidirectional CLI architecture (canonical decision file in track_b_architecture); preserve Track A isolation, Bus grant rules, existing unresolved effects and real live-test receipts. Previous full implementation freeze is historical for Track B only.",
     "supersedes": "Earlier no-send-only and consumed-single-test restrictions."
   },
   "authorization_basis": "Owner explicitly corrected the snapshot in this session: live execution is TRUE and we are now in full live execution mode. This is ongoing authority for AION live workflows, including ChatGPT sends and reply readback; it is not exhausted by the completed test. Earlier no-send-only and consumed-single-test language is historical and superseded. Authorization and milestone verification are separate.",
@@ -295,10 +295,20 @@
     "opencode_v2": {
       "version": "2.0.32",
       "live_replies_verified": 3,
-      "operations": ["5c2p1h0x3z6o24050s5h", "2f094r3r18530s0g6y70", "6h4p320i5s1m3c4z2i0u"],
+      "operations": [
+        "5c2p1h0x3z6o24050s5h",
+        "2f094r3r18530s0g6y70",
+        "6h4p320i5s1m3c4z2i0u"
+      ],
       "negative_operation": "516d126w6m0n332z1y6f",
       "negative_outcome": "REJECTED_NOT_SENT_INVALID_VARIANT",
-      "verified_features": ["correlated_reply", "attachment_admission", "explicit_agent_model_variant", "parent_link", "exact_session_reuse"],
+      "verified_features": [
+        "correlated_reply",
+        "attachment_admission",
+        "explicit_agent_model_variant",
+        "parent_link",
+        "exact_session_reuse"
+      ],
       "independent_read_only_review": "PASS: ledger and native inbox/correlation/segment boundaries corroborate exactly three admitted inputs and zero negative-case input",
       "duplicate_inputs_observed": 0
     },
@@ -316,5 +326,17 @@
     "projects_pm_collection_unchanged": true,
     "m1_effect": "none; Chrome round trip and original independent M1 acceptance remain unverified",
     "later_refinements": "Native roster and compact project-context refinements are recorded separately in the final current-head PR receipt; this record does not attribute earlier tests or live sends to later revisions."
+  },
+  "track_b_architecture": {
+    "decision_id": "AION-BIDIRECTIONAL-CLI-ARCH-2026-10-20",
+    "status": "OWNER_ACCEPTED_DEVELOPMENT_DIRECTION_IMPLEMENTATION_PENDING",
+    "source_path": "workspace/aion/ops/chrome-relay/velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md",
+    "candidate_branch": "track-b/platform-local-candidate-20261020",
+    "review_pr": 50,
+    "review_merge_sha": "663a5ee0cf849f591b58847b3cec138370f13b37",
+    "operating_priority": "I0_CONTRACT_THEN_I1_WATCH_ONLY_THEN_I2_TWO_LIVE_TURNS_THEN_I3_RECOVERY",
+    "code_development_authorized": true,
+    "windows_execution_model": "WINDOWS_FOR_LIVE_TESTING_NOT_PRIMARY_CODE_AUTHORING",
+    "m1_live_verified": false
   }
 }
