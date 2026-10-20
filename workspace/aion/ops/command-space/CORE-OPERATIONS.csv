@@ -1,0 +1,30 @@
+semantic_id,core_priority,effect_class,intent,required_identity_and_authority,critical_distinction
+send,P0,external_mutation,submit_prompt,exact target; Bus grant; at-most-one attempt,submission_observed != reply_complete
+observe,P0,read,operation_or_conversation_status,exact operation or bound conversation,operation polling != conversation inbox
+reply.read,P0,read,read_assistant_message,message identity; read scope; coverage,partial/excerpt != full reply
+stream,P0,read,watch_reply_changes,"cursor, identity, read scope",delta != completion; gap explicit
+history.read,P0,read,read_visible_history,read scope; bounded range,visible subset != complete history
+session.bind,P0,local_state_mutation,bind_exact_chat,provider/account/conversation identity,API session != web chat
+recover,P0,read,resume_observation,operation id/cursor + original binding,never automatically resend
+sessions.list,P0,read,list_available_chats,provider/account/surface context,no fabricated off-page chats
+model.list,P0,read,list_available_models,account/surface current snapshot,catalog != selectable entitlement
+model.select,P0,external_mutation,set_model,exact conversation; current available choices,selection confirmation required
+file.attach,P0,external_mutation,attach_file,file consent/identity; exact composer,queued != attached
+chat.create,P0,external_mutation,create_conversation,new conversation identity returned,blank UI != persisted chat
+chat.open,P0,local_or_external_mutation,open_exact_conversation,unique existing conversation id,no guessed tab
+chat.rename,P0,external_mutation,rename_conversation,exact chat; verified title,no wrong chat
+generation.stop,P0,external_mutation,stop_model_generation,generation identity; exact target,Bus stop != provider Stop
+thinking.level.set,P0,external_mutation,set_reasoning_effort,model/mode-dependent allowed levels,reasoning level != model choice
+steer,P0,external_mutation,steer_active_generation,explicit behavior: midturn/queued/interrupt,queued follow-up != mid-turn steer
+message.edit,P0,external_mutation,edit_prior_user_turn,exact message; regeneration semantics,not equivalent new message
+response.regenerate,P0,external_mutation,regenerate_answer,exact assistant message/parent turn,not blind resend of user text
+chat.search,P1,read,find_conversation,scoped searchable source,search index != provider-wide coverage
+chat.archive,P1,external_mutation,archive_conversation,exact chat,reversible availability must be observed
+chat.delete,P1,destructive_external_mutation,delete_conversation,explicit stronger confirmation,no silent destructive retry
+chat.share,P1,external_mutation,manage_share,visibility/privacy confirmation,sharing scope and snapshot/live differ
+branch.create,P1,external_mutation,fork_conversation_at_turn,exact turn/context semantics,fork != new empty chat
+message.copy,P1,read,copy_message,specific visible message,format vs plaintext fidelity
+tool.toggle,P1,external_mutation,toggle_tools,effective tool list and scopes,availability != enabled
+project.select,P1,local_or_external_mutation,select_project,project identity and context,select != move conversation
+chat.export,P1,read,export_chat,"read scope, visible coverage",export completeness specified
+mode.select,P1,external_mutation,select_mode,mode options and effective scope,mode != model or effort
