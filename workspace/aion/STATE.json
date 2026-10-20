@@ -5,7 +5,7 @@
   "canonical_entry": "https://github.com/owenservera/aion",
   "machine_authority": "OWNER_WINDOWS_MASTER",
   "target_browser_host": "OWNER_WINDOWS_MASTER",
-  "dev_model": "WINDOWS_DRIVEN_LOCAL_AGENTS",
+  "dev_model": "GITHUB_AUTHORING_WITH_OWNER_WINDOWS_MASTER_FOR_LIVE_TESTING",
   "decision_ref": "workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md",
   "architecture_proposal_ref": "workspace/aion/canon/ARCHITECTURE-WINDOWS-DEV-v0.2-PROPOSAL.md",
   "live_execution_authorized": true,
@@ -164,9 +164,9 @@
     "agent_folder": "workspace/aion/agents/windows-master/",
     "notes": "Unattended operation proven on the real repository: the scheduler committed and pushed 1c07f6d and 60a5220 without prompting; git ls-remote main matched local HEAD."
   },
-  "current_goal": "AION-originated real authenticated ChatGPT web app prompt on Windows -> real reply -> independently consumed by AION with matching ID and negative-case verification",
-  "current_phase": "LIVE_EXECUTION_ACTIVE_CANONICAL_FROZEN",
-  "next_action": "Commit and publish all integrated work on main, keep this implementation canonical and its issues logged. Live execution remains active under owner authority. No further code fixes as part of this freeze; next implementation work follows owner direction. Verification status does not revoke execution permission.",
+  "current_goal": "Deliver an interactive bidirectional CLI into the exact bound AI web conversation: watch incoming messages, send natural multi-turn prompts, receive snapshots/updates, recover without duplicate effects. See track_b_architecture.",
+  "current_phase": "TRACK_B_ARCHITECTURE_OWNER_ACCEPTED_BUILD_READY_LIVE_ACCEPTANCE_PENDING",
+  "next_action": "On Track B candidate implement P1 shared receive event/snapshot contract and hermetic tests, then P2/P3/P4/P5 separately; gate I1 live watch-only before one-actuator authorized two-way Send and I2; I3 recovery last. Track A stays isolated. Existing real-operation locks require reconciliation and no blind replay.",
   "proposals_pending_owner": [
     {
       "id": "M1_SPLIT",
