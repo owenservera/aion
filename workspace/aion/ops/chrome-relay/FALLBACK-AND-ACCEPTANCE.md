@@ -1,4 +1,40 @@
 # AION Chrome Relay — Fallback, Recovery and Acceptance
+
+## Track B Send/state repair acceptance — current target (2026-10-20)
+
+This section tests the current [command-environment specification](./ARCHITECTURE.md#track-b-command-environment--current-target-specification-2026-10-20) and [observation contract](./ENVELOPE-CONTRACT.md#track-b-observation-contract--target-v1-2026-10-20). It supersedes conflicting fallback behavior below for this bounded path. It grants no browser authority. No acceptance case below has been newly executed by this documentation pass.
+
+### Executable acceptance cases
+
+- **AC-CENV-01 (CENV-01/03/12, DATA-01/02/03):** empty/draft/responding/blocked/unknown observations remain distinct; hidden, disabled, ambiguous and unreadable controls produce the appropriate separate Send/Stop facts. Unknown/missing fields never imply idle or ready. A snapshot older than 2,000 ms cannot authorize activation.
+- **AC-CENV-02 (CENV-04/05):** preparation that becomes ready within its finite budget rechecks exact text/editor/target/baseline and activates once; preparation that stays disabled expires with a concrete pre-activation reason and zero activation attempts. Resolving a terminal blocker later never sends.
+- **AC-CENV-03 (CENV-05/06/07):** editor replacement, baseline rerender, outbound mismatch, navigation, disabled or ambiguous Send each produce specific evidence. Any relaxation of node-identity continuity needs its own wrong-target/stale-turn negative tests; never disable continuity checks just to obtain a click.
+- **AC-CENV-04 (CENV-06/07/10, DATA-04/05):** a no-op/throwing activation, click with no matching user turn, timer failure and pre-activation exception retain original stage/reason, exact click-attempt facts and uncertainty. No Enter/click fallback is executed. No result falsely reports positively observed submission.
+- **AC-CENV-05 (CENV-08):** fast start/end, delayed start, Stop flicker, hidden Stop decoy, reappearing Stop, changing candidate, and unrelated user turns are tested. Completion needs the original observed transition evidence, correct pairing and 750 ms stability, not current absence of Stop.
+- **AC-CENV-06 (CENV-09):** a response longer than 20 seconds but inside the configured 180-second response window remains observable after submit returns. Verify 300-second ceiling, submission-confirmation timeout, preparation/exchange margins and original absolute cutoff. A longer CLI wait or repeated poll cannot extend the page deadline.
+- **AC-CENV-07 (CENV-10/13, DATA-04/06):** exact original preparation/activation reason survives page -> worker -> journal -> adapter -> CLI; reply-validation reason remains separate. Existing stored records remain readable with unknown new fields; guard/lock/tombstone records survive every change. Ordinary diagnostics contain no private text or credentials.
+- **AC-CENV-08 (CENV-11):** repeat submit, fresh IDs in a locked conversation, port loss, worker restart, page reload, host loss and failed evidence persistence never cause another actuation. Only surviving exact observer evidence resumes read-only; lost continuity remains unresolved.
+- **AC-CENV-09 (CENV-14):** reading Stop availability produces zero effects. If an existing authorized Stop surface is exercised separately, it does not claim user-turn rollback or free a send allowance. No new Stop capability is inferred from these tests.
+- **AC-CENV-10 (vertical slice):** one fresh owner-authorized operation on the exact dev conversation yields one recorded activation attempt, one new matching user turn, observed response start/end, accepted checked reply and retrievable durable result. Wrong-target and duplicate sends must both be zero. Record source/build identity, UTC, operation identity, actual evidence and remaining unknowns.
+
+Coverage index: CENV-01/03/12 -> AC-CENV-01; CENV-04/05 -> AC-CENV-02; CENV-06/07/10 -> AC-CENV-04; CENV-08 -> AC-CENV-05; CENV-09 -> AC-CENV-06; **CENV-13** -> AC-CENV-07; CENV-11 -> AC-CENV-08; CENV-14 -> AC-CENV-09. **CENV-12** freshness is tested independently from historical evidence retention.
+
+### Verification and release order
+
+1. Add failing tests for specific diagnosed gaps before changing implementation. Use existing built-in test runner and deterministic fixtures; Bun first for project scripts. No Playwright/Puppeteer/Orca or new browser frameworks.
+2. Run focused suites, then `aion selftest` at the exact implementation head. Record counts, failures/skips and UTC. Documentation/link validation is not runtime test evidence.
+3. For any later authorized live test, verify matching dev build/source, current-head selftest receipt and `aion preflight browser` READY. Keep Track A untouched. Browser install/reload/login/Send/Stop actions remain separately explicit; do not perform them as readiness side effects.
+4. Reconcile the original unresolved operation before any distinct fresh send; do not press Enter on its pending composer as a test. A fresh marker does not bypass the lock or confer approval.
+5. A live failure stops new actuation and retains original facts/reasons. A successful fixture never upgrades REAL_CHROME_VERIFIED or M1. Original M1 independent acceptance remains unchanged.
+
+### Safe fallback
+
+No automatic transport switch, keyboard fallback, tab selection, new conversation or queued replay after uncertain Send. When connectedness fails, report unavailable/unknown and keep the operation addressable. Read-only diagnostics may recover evidence; owner disposition may release a lock but is not synthetic delivery proof. Historical delayed-GitHub/SQLite/fallback proposals below are not the Track B command runtime.
+
+---
+
+## Historical fallback and milestone proposals (retained)
+
 Status: design only; no installed extension, listener, scheduler or agent has been verified.
 
 ## Five progressive modes
