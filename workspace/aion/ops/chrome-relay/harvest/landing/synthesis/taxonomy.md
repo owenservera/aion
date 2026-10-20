@@ -1,8 +1,8 @@
 # Crosswalk taxonomy — seed batch C-001
-Status: PROVISIONAL SYNTHESIS, 2026-10-20. Not an AION specification, implementation, acceptance, or test result.
+Status: PROVISIONAL SYNTHESIS, revised C-002 with remote captures, 2026-10-20. Not an AION specification, implementation, acceptance, or test result.
 
 ## Evidence basis and rules
-- Input: [16 original reconnaissance findings](../../FINDINGS.md), FINAL-01..08 and OMEGA-01..08. Donor source revisions are UNKNOWN; all original anchors in FINDINGS.md are checkout-local and unverified against immutable donor commits. Worker A/B capture not yet published on the inspected landing branch.
+- Input: [16 original reconnaissance findings](../../FINDINGS.md), FINAL-01..08 and OMEGA-01..08. Donor source revisions are UNKNOWN; all original anchors in FINDINGS.md are checkout-local and unverified against immutable donor commits. At initial C-001, Worker A/B capture was not on the base branch; see C-002 remote branch evidence below.
 - AION reference: [current CENV-01..14](../../../ARCHITECTURE.md), [observation envelope DATA-01..06](../../../ENVELOPE-CONTRACT.md), and [dual-track command-plane proposal](../../../DUAL-TRACK-COMMAND-PLANE-2026-10-19.md).
 - Status labels: source-reported concept, source-observed excerpt, proposed mapping, AION target specification, offline-tested implementation, and live-verified behavior are **different claims**. Do not count researcher report as direct code verification, or an authored donor design as running code.
 - These categories organize findings; they do not establish donor authority or recommend adoption. Preserve donor term and meaning before any canonical alias is proposed.
@@ -46,3 +46,26 @@ Status: PROVISIONAL SYNTHESIS, 2026-10-20. Not an AION specification, implementa
 - Each proposed alias must link at least one landing item ID (VF-/VO-...), its exact immutable source revision, owning path, actual line range, capture status, and whether evidence is design/code/test/observation.
 - Keep competing original terms side-by-side; use alias, subclass, shared ancestry, fork or genuine disagreement rather than destructive normalization.
 - Record unknown/effect/authority at every mapping boundary. Do not infer live capability or broad provider support from these initial 16 seeds.
+
+## C-002 — remote donor captures incorporated (2026-10-20)
+**Supersedes C-001 no-capture assumption above.** Read actual copied excerpts/modules and the published A/B indexes on their isolated remote GitHub branches. FINAL remote: owenservera/vivim-final@8a798f91d52574cb3d7db579da516bc1c4aee7b7, VF-0001..0008 (8 COPIED_EXCERPT). Omega remote: owenservera/vivim-omega@79ee558d6c7ea77c20f220db2341adaa57b11d44, VO-GH-0001..0027 (15 COPIED_MODULE, 12 FLAGGED). No local Windows checkout was consulted; dirty state unknown/not observable remotely. Neither worker ran tests or a live browser. [A published index](https://github.com/owenservera/aion/blob/harvest/vivim-final-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-final/index.jsonl); [B published index](https://github.com/owenservera/aion/blob/harvest/omega-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-omega/index.jsonl).
+
+### Critical new classification distinction (do not call these synonyms)
+| Dimension | Source-owned vocabulary and evidence | Crosswalk classification |
+|---|---|---|
+| Concrete webapp/provider manifest | VF-0001 ChatGPT, VF-0002 Claude at final@8a798f91d52574cb3d7db579da516bc1c4aee7b7: category=ai, provider_type=llm, auth_type=browser, declared actions/model/profile/endpoints | **AI chat webapp** family; two distinct provider manifests, not two independently tested browser adapters |
+| Generic interactive app archetype | VF-0003 CapabilityShape id=chat_app, expected required send_message/receive_message, optional typing/file/model | **UI archetype/shape**, reusable concept, not a verified current provider instance |
+| Bespoke application archetype | VF-0004 CapabilityShape id=coding_ide, required send_message/receive_message/code_execution, extended file_operations/terminal; source excerpt also begins search_engine shape | **Bespoke coding IDE application shape** documented. Not proof a named IDE is integrated/live; selector hints remain historical |
+| Source-specific implementation mode | VO-GH-0001 ProviderClass = SIMULATOR / API_NATIVE / BROWSER_MEDIATED, at omega@79ee558d6c7ea77c20f220db2341adaa57b11d44 | **Realization/transport class**, orthogonal to AI-chat vs bespoke family. A ChatGPT or bespoke webapp could conceptually be browser-mediated, but current support is unproven |
+| Manifest/routed op risk | VO-GH-0001 RiskClass EXTERNAL_MUTATION/MUTATION/READ; contribution kind, operation version, runtime tier worker-thread/process/wasm (wasm forward-declared) | **Operation/risk and runtime contract**, not app type or current live readiness |
+| Provider realization lifecycle | VO-GH-0002/0003/0007: DRAFT, TESTING, PROMOTED, DEGRADED, REQUIRES_REDISCOVERY; ProviderRealization and evidence refs | Historical Omega verification/provenance axis, **not** AION grant, current browser Send enablement or effect |
+| Cross-surface action catalog | VF-0005/0008: capabilities with CLI/UI/workflow/MCP/API slots; VO-GH-0005/0009/0015: derive names from composition routed ops for MCP/CLI/chat | Two different catalog designs with conceptual overlap. Neither creates a second AION registry or makes surface listing actuation-ready |
+| Negative/ambiguous resolution | VO-GH-0006: UNKNOWN, UNSUPPORTED, AMBIGUOUS, CONTRADICTORY, REFUSED, VERIFICATION_FAILED, EVALUATION_FAILED | Typed **outcome** vocabulary; UNKNOWN means missing concept while CENV UNKNOWN can mean insufficient page observation. Preserve reason and domain rather than equating enum strings |
+| Simulated browser/fixture | VO-GH-0008/0012/0013/0014: captured fixture session with redaction and email message.send; CDP leg future/owner-machine-only | **Browser-mediated email fixture**, not live ChatGPT Send nor bespoke coding IDE adapter |
+
+### Provider-family relationship model (revised)
+Generic action semantics [VF-0005] and UI archetype [VF-0003/0004] may be shared across webapps. Concrete provider manifests [VF-0001/0002] specify expected operations; a provider-specific realization and runtime transport are separate [VO-GH-0001/0003/0007]. Dynamic capability filtering [VF-0006/0007] uses plan tier, existential rules, dependency bindings and context; it is not a current Send/Stop observation. Availability freshness and Bus authorization must still be obtained separately from AION CENV-03/04/12.
+
+**Genuine disagreement to preserve:** VF-0007's filter drops unsatisfied capabilities from a UI result, while CENV-03 requires tri-state per-action diagnostic observation and explicit failure reason at a bound composer. Omega's PROMOTED status [VO-GH-0002] is a provider realization state, while AION's submission_observed and REPLY_CHECKED are specific operation facts. Do not flatten them into one status. VO-GH-0007 reportedly coerces unrecognized providerClass to SIMULATOR during realization validation; do not borrow that fallback for AION's provider-type classification (unknown should remain unknown).
+
+All new mappings are copied-source observations or conceptual reuse only; no AION implementation/change is implied.
