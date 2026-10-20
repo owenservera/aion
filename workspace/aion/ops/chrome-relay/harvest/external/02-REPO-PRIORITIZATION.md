@@ -1,4 +1,9 @@
-# Worker 2 — first-pass repo-by-repo prioritization and deduplication
+# Worker 2 — historical repo-by-repo prioritization and deduplication
+
+> **Historical triage prompt — superseded for current work (2026-10-20).** The nine-repo first pass has already inspected all nine source trees and delivered source-backed offers AX-0016–0018. Do **not** restart the clone/branch exercise or follow its outdated instruction to nominate an implementation donor. The worker's **initial job is discovery and categorization against AION Development needs**: in-house source/proof versus external methodology, negative tests, and when warranted a specific normative protocol/contract. See [current delivery guidance](DELIVERY.md), [worker seed deliverables](workers/nine-repo/DELIVERABLES.md), [Development Master](../DEVELOPMENT-MASTER.md), and [EXCHANGE](../EXCHANGE.md). The original text below is retained for provenance; `main` is the only permanent integration target.
+
+---
+
 
 ## Copy-paste as a new Claude/ChatGPT agent task
 
