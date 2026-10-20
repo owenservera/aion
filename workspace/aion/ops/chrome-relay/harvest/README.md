@@ -1,9 +1,11 @@
-# AION — authoritative branch and harvest layout
+# AION — Harvest reference and research layout
+
+**Repository-wide governing policy:** [REPOSITORY-GOVERNANCE.md](../../../../../REPOSITORY-GOVERNANCE.md). This page is a source/evidence guide, not a separate branch policy.
 
 ## Authority
 
 - **`main`** is the sole integrated AION baseline. The nine external donor source **snapshots** are under [`harvest/external/landing/donors/`](external/landing/donors/). Donor application code is reference material, not executable AION runtime.
-- **`track-b/implementation-rounds-20261019`** is the existing Track B implementation lane; **`track-b/platform-local-candidate-20261020`** is its current candidate, [PR #46](https://github.com/owenservera/aion/pull/46). It remains draft and is **not** accepted as production by virtue of existing.
+- **Track B is the only continuing Development workstream on `main`.** Historical branches `track-b/implementation-rounds-20261019` and `track-b/platform-local-candidate-20261020` contain the outstanding draft [PR #46](https://github.com/owenservera/aion/pull/46), not a second permanent development line. Track A is deprecated.
 - **Track B is the active build path.** Both harvest components inform its capability model and implementation; neither is a separate product or a prerequisite to finish all research before building.
 - **Omega / VIVIM harvest** is the established capability-research corpus already informing Track B: source cards, the 65-record crosswalk and capability-register inputs. Keep using this work; do not restart it or confuse it with the nine-repo capture.
 - **Nine-repo external harvest** has completed phase-one source capture and custody. The snapshots are already on `main`; deeper capability triage and adoption are not established by cloning. Do not re-clone or re-import them as a consolidation step.
@@ -20,7 +22,7 @@
 
 ## Working order (owner direction, 2026-10-20)
 
-1. **Build on Track B candidate #46**, using its existing `velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md` for current build order. Keep `main` as the integrated baseline; development priority does not imply live acceptance.
+1. **Continue Development (formerly Track B) on `main`**, referencing the current accepted architecture and draft candidate #46 for unique, still-unvalidated work. Do not treat the historical Track B branch as the ongoing default or imply live acceptance.
 2. **Use the established Omega / VIVIM corpus now** through `harvest/landing/synthesis/` on `main` and Track B. Disposition useful capabilities into the build rather than opening another parallel registry or restarting research.
 3. **Treat the complete P0 Command Space catalog on `main` (PRs #47, #59 and #60) as supporting research**, not a competing development lane or a runtime capability gate.
 4. **Advance the nine-repo harvest only for concrete build needs.** Reuse the snapshots and canonical manifest/reference tables on `main`, with custody records from #53. The superseded clone-first scaffold PR #52 is closed.
