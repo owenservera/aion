@@ -1,0 +1,52 @@
+export function initSse(res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders?.();
+}
+
+export function writeNamedSse(res, event, payload) {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+export function streamEventBus(req, res, eventBus, channel) {
+  if (!eventBus) {
+    res.status(503).json({ detail: 'Event bus is not configured' });
+    return;
+  }
+
+  initSse(res);
+  const limit = Number.parseInt(String(req.query.limit || '50'), 10);
+  const includeRecent = req.query.recent !== '0';
+  const eventName = channel === 'debug' ? 'debug' : 'event';
+  let closed = false;
+
+  const write = (event) => {
+    if (!closed) writeNamedSse(res, eventName, event);
+  };
+
+  if (includeRecent) {
+    const recent = channel === 'debug'
+      ? eventBus.recentDebugEvents(Number.isFinite(limit) ? limit : 50)
+      : eventBus.recentEvents(Number.isFinite(limit) ? limit : 50);
+    for (const event of recent) write(event);
+  }
+
+  const handler = (event) => write(event);
+  eventBus.on(eventName, handler);
+
+  const keepalive = setInterval(() => {
+    if (!closed) res.write(': keepalive\n\n');
+  }, 15_000);
+  keepalive.unref?.();
+
+  res.on('close', () => {
+    closed = true;
+    clearInterval(keepalive);
+    eventBus.off(eventName, handler);
+  });
+}

@@ -1,0 +1,389 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import vm from 'node:vm';
+
+async function loadGlobal(file, name, extra = {}) {
+  const source = await fs.readFile(path.resolve(file), 'utf8');
+  const context = vm.createContext({ ...extra });
+  vm.runInContext(source, context, { filename: path.basename(file) });
+  return { value: context[name], context };
+}
+
+test('tab observation core normalizes independent tab facts without an active request', async () => {
+  const { value: core } = await loadGlobal(
+    'tools/chrome-bridge-extension/observation/tabObservationCore.js',
+    'ChatGptTabObservationCore',
+  );
+  const observation = core.normalizeTabObservation({
+    url: 'https://chatgpt.com/c/session-1',
+    title: 'Session',
+    session: { id: 'session-1' },
+    presence: {
+      documentReadyState: 'complete',
+      chatMainReady: true,
+      composerReady: true,
+      pageReady: true,
+      visibilityState: 'visible',
+      focused: true,
+    },
+    snapshot: {
+      phase: 'ASSISTANT_FINAL',
+      turnKey: 'assistant-1',
+      messageId: 'message-1',
+      answer: 'Complete',
+      hasFinalMessage: true,
+      actionBarVisible: true,
+      artifacts: [{ id: 'file-1', phase: 'READY' }],
+    },
+  });
+
+  assert.equal(observation.conversationId, 'session-1');
+  assert.equal(observation.document.state, 'ready');
+  assert.equal(observation.composer.state, 'ready');
+  assert.equal(observation.turn.state, 'final');
+  assert.equal(observation.generation.state, 'stopped');
+  assert.equal(observation.output.state, 'final');
+  assert.equal(observation.artifact.state, 'ready');
+  assert.equal(observation.activeRequest, null);
+  assert.equal(observation.degraded, false);
+});
+
+test('tab observation core treats a DOM streaming marker as active generation even when the stop button is hidden', async () => {
+  const { value: core } = await loadGlobal(
+    'tools/chrome-bridge-extension/observation/tabObservationCore.js',
+    'ChatGptTabObservationCore',
+  );
+  const observation = core.normalizeTabObservation({
+    presence: { documentReadyState: 'complete', chatMainReady: true, composerReady: true },
+    snapshot: {
+      phase: 'ASSISTANT_FINAL_STREAMING',
+      turnKey: 'assistant-hidden-tab',
+      answer: 'CON',
+      hasFinalMessage: true,
+      stopVisible: false,
+      streamingVisible: true,
+    },
+  });
+  assert.equal(observation.generation.state, 'active');
+  assert.equal(observation.generation.streamingVisible, true);
+  assert.equal(observation.turn.state, 'streaming');
+  assert.equal(observation.output.state, 'streaming');
+});
+
+test('tab observation core keeps blockers and generation orthogonal', async () => {
+  const { value: core } = await loadGlobal(
+    'tools/chrome-bridge-extension/observation/tabObservationCore.js',
+    'ChatGptTabObservationCore',
+  );
+  const observation = core.normalizeTabObservation({
+    presence: { documentReadyState: 'complete', chatMainReady: true, composerReady: true },
+    snapshot: {
+      phase: 'NEEDS_CONFIRMATION',
+      needsConfirmation: true,
+      stopVisible: true,
+      thinking: 'Waiting for approval',
+    },
+    activeRequest: { requestId: 'req-1', phase: 'needs_confirmation' },
+  });
+  assert.equal(observation.generation.state, 'active');
+  assert.equal(observation.blocker.state, 'confirmation');
+  assert.equal(observation.activeRequest.requestId, 'req-1');
+});
+
+test('tab observation signatures ignore scheduling metadata and change on material facts', async () => {
+  const { value: core } = await loadGlobal(
+    'tools/chrome-bridge-extension/observation/tabObservationCore.js',
+    'ChatGptTabObservationCore',
+  );
+  const base = core.normalizeTabObservation({
+    url: 'https://chatgpt.com/c/one',
+    presence: { documentReadyState: 'complete', chatMainReady: true, composerReady: true },
+    snapshot: { phase: 'ASSISTANT_REASONING', thinking: 'One', stopVisible: true },
+  });
+  assert.equal(core.isMateriallyEqual(base, { ...base, revision: 9, observedAt: 50, reason: 'poll' }), true);
+  assert.equal(core.isMateriallyEqual(base, { ...base, conversationId: 'two' }), false);
+  assert.equal(core.isMateriallyEqual(base, { ...base, blocker: { state: 'continue' } }), false);
+
+  const withVolatileParserMetadata = {
+    ...base,
+    output: {
+      ...base.output,
+      progressItems: [{ id: 'step-1', text: 'Working', firstSeenAt: 10, lastSeenAt: 20 }],
+      reasoningHistory: [{ text: 'Working', observedAt: 20 }],
+      responseBlocks: [{ type: 'paragraph', markdown: 'Answer', diagnostic: { durationMs: 0.2 } }],
+      parserAudit: { performance: { durationMs: 1.2 } },
+    },
+  };
+  const laterPoll = {
+    ...withVolatileParserMetadata,
+    output: {
+      ...withVolatileParserMetadata.output,
+      progressItems: [{ id: 'step-1', text: 'Working', firstSeenAt: 10, lastSeenAt: 5_000 }],
+      reasoningHistory: [{ text: 'Working', observedAt: 5_000 }],
+      responseBlocks: [{ type: 'paragraph', markdown: 'Answer', diagnostic: { durationMs: 9.9 } }],
+      parserAudit: { performance: { durationMs: 8.8 } },
+    },
+  };
+  assert.equal(core.isMateriallyEqual(withVolatileParserMetadata, laterPoll), true, 'poll-only timestamps and parser timings must not create a new semantic revision');
+  assert.equal(core.isMateriallyEqual(withVolatileParserMetadata, {
+    ...laterPoll,
+    output: { ...laterPoll.output, progressItems: [{ id: 'step-1', text: 'Finished', lastSeenAt: 5_000 }] },
+  }), false, 'semantic progress changes must still create a new revision');
+});
+
+test('tab observations retain exact artifact turn and action identity for later materialization', async () => {
+  const { value: core } = await loadGlobal(
+    'tools/chrome-bridge-extension/observation/tabObservationCore.js',
+    'ChatGptTabObservationCore',
+  );
+  const observation = core.normalizeTabObservation({
+    url: 'https://chatgpt.com/c/files',
+    presence: { documentReadyState: 'complete', chatMainReady: true, composerReady: true },
+    snapshot: {
+      phase: 'ASSISTANT_FINAL',
+      turnKey: 'assistant-files',
+      artifacts: [{
+        id: 'artifact-one',
+        name: 'run-one.txt',
+        sourceTurnKey: 'assistant-files',
+        sourceTurnIndex: 4,
+        sourceCandidateIndex: 1,
+        selectorHint: 'button[aria-label="run-one.txt"]',
+        blockStart: '12',
+        blockEnd: '44',
+        blockTestId: 'artifact-row',
+        actionOrdinal: 0,
+        actionTag: 'button',
+        actionRole: 'button',
+        actionTestId: 'open-file',
+        actionAriaLabel: 'run-one.txt',
+        actionLabel: 'run-one.txt Document',
+        phase: 'READY',
+        downloadable: true,
+        downloadActionPresent: true,
+      }],
+    },
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(observation.artifacts[0])), {
+    id: 'artifact-one',
+    candidateId: 'artifact-one',
+    kind: '',
+    name: 'run-one.txt',
+    fileName: 'run-one.txt',
+    mime: '',
+    phase: 'READY',
+    url: '',
+    turnKey: 'assistant-files',
+    sourceTurnKey: 'assistant-files',
+    sourceTurnIndex: 4,
+    sourceCandidateIndex: 1,
+    downloadable: true,
+    downloadActionPresent: true,
+    actionLabel: 'run-one.txt Document',
+    selectorHint: 'button[aria-label="run-one.txt"]',
+    blockStart: '12',
+    blockEnd: '44',
+    blockTestId: 'artifact-row',
+    actionOrdinal: 0,
+    actionTag: 'button',
+    actionRole: 'button',
+    actionTestId: 'open-file',
+    actionAriaLabel: 'run-one.txt',
+  });
+});
+
+test('always-on tab observer emits initial and changed revisions without request ownership', async () => {
+  let mutationListener = null;
+  class FakeMutationObserver {
+    constructor(listener) { mutationListener = listener; }
+    observe() {}
+    disconnect() {}
+  }
+  const timers = new Set();
+  const setIntervalFake = (callback) => { timers.add(callback); return callback; };
+  const clearIntervalFake = (callback) => timers.delete(callback);
+  const { value: factory } = await loadGlobal(
+    'tools/chrome-bridge-extension/observation/tabObserver.js',
+    'ChatGptTabObserver',
+    {
+      MutationObserver: FakeMutationObserver,
+      setTimeout,
+      clearTimeout,
+      setInterval: setIntervalFake,
+      clearInterval: clearIntervalFake,
+      Date,
+      Math,
+    },
+  );
+
+  let current = { degraded: false, state: 'idle', activeRequest: null };
+  const emitted = [];
+  const observer = factory.createTabObserver({
+    MutationObserver: FakeMutationObserver,
+    pollMs: 100_000,
+    settleMs: 1,
+    degradedSettleMs: 5,
+    resolveRoot: () => ({ tagName: 'MAIN', getAttribute: () => '' }),
+    read: () => current,
+    signature: (value) => JSON.stringify(value),
+    emit: (value) => emitted.push(value),
+  });
+  observer.start();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].revision, 1);
+  assert.equal(emitted[0].activeRequest, null);
+  assert.ok(emitted[0].observerId);
+
+  mutationListener?.([]);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(emitted.length, 1, 'duplicate observations should be deduplicated');
+
+  current = { degraded: false, state: 'generating', activeRequest: { requestId: 'req-1' } };
+  mutationListener?.([]);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(emitted.length, 2);
+  assert.equal(emitted[1].revision, 2);
+  assert.equal(emitted[1].activeRequest.requestId, 'req-1');
+  observer.stop();
+});
+
+test('always-on tab observer refreshes an unchanged capture on its freshness heartbeat', async () => {
+  class FakeMutationObserver {
+    constructor() {}
+    observe() {}
+    disconnect() {}
+  }
+  const intervals = [];
+  const { value: factory } = await loadGlobal(
+    'tools/chrome-bridge-extension/observation/tabObserver.js',
+    'ChatGptTabObserver',
+    {
+      MutationObserver: FakeMutationObserver,
+      setTimeout,
+      clearTimeout,
+      setInterval: (callback, delayMs) => { intervals.push({ callback, delayMs }); return callback; },
+      clearInterval: () => {},
+      Date,
+      Math,
+    },
+  );
+
+  const emitted = [];
+  let contentState = { degraded: false, state: 'idle', generation: { state: 'stopped' } };
+  const observer = factory.createTabObserver({
+    MutationObserver: FakeMutationObserver,
+    pollMs: 100_000,
+    freshnessHeartbeatMs: 5,
+    settleMs: 1,
+    resolveRoot: () => ({ tagName: 'MAIN', getAttribute: () => '' }),
+    read: () => contentState,
+    signature: (value) => JSON.stringify(value),
+    emit: (value) => emitted.push(value),
+  });
+  observer.start();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].semanticChange, true);
+
+  const heartbeat = intervals.find((item) => item.delayMs === 5);
+  assert.ok(heartbeat, 'freshness sampling interval must be installed');
+  heartbeat.callback();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.equal(emitted.length, 2);
+  assert.equal(emitted[1].revision, 2);
+  assert.ok(emitted[1].observedAt > emitted[0].observedAt);
+  assert.equal(emitted[1].reason, 'freshness.heartbeat');
+  assert.equal(emitted[1].semanticChange, false);
+
+  contentState = { degraded: false, state: 'active', generation: { state: 'active' } };
+  heartbeat.callback();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(emitted.length, 3);
+  assert.equal(emitted[2].reason, 'freshness.heartbeat');
+  assert.equal(emitted[2].semanticChange, true, 'a content change found during the heartbeat read is still marked meaningful');
+  observer.stop();
+});
+
+test('always-on tab observer suppresses transient degraded DOM snapshots but emits a stable degradation', async () => {
+  let mutationListener = null;
+  class FakeMutationObserver {
+    constructor(listener) { mutationListener = listener; }
+    observe() {}
+    disconnect() {}
+  }
+  const { value: factory } = await loadGlobal(
+    'tools/chrome-bridge-extension/observation/tabObserver.js',
+    'ChatGptTabObserver',
+    {
+      MutationObserver: FakeMutationObserver,
+      setTimeout,
+      clearTimeout,
+      setInterval: () => 1,
+      clearInterval: () => {},
+      Date,
+      Math,
+    },
+  );
+
+  let current = { degraded: false, document: { state: 'ready' }, composer: { state: 'ready' } };
+  const emitted = [];
+  const observer = factory.createTabObserver({
+    MutationObserver: FakeMutationObserver,
+    pollMs: 100_000,
+    settleMs: 1,
+    degradedSettleMs: 20,
+    resolveRoot: () => ({ tagName: 'MAIN', getAttribute: () => '' }),
+    read: () => current,
+    signature: (value) => JSON.stringify(value),
+    emit: (value) => emitted.push(value),
+  });
+  observer.start();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(emitted.length, 1);
+
+  current = { degraded: true, document: { state: 'degraded' }, composer: { state: 'missing' } };
+  mutationListener?.([]);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  current = { degraded: false, document: { state: 'ready' }, composer: { state: 'ready' } };
+  mutationListener?.([]);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(emitted.length, 1, 'a short React replacement must not publish a degraded observation');
+
+  current = { degraded: true, document: { state: 'degraded' }, composer: { state: 'missing' } };
+  mutationListener?.([]);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(emitted.length, 2);
+  assert.equal(emitted[1].degraded, true);
+  assert.equal(emitted[1].revision, 2);
+  observer.stop();
+});
+
+test('response stability ignores presentation churn but tracks identity, content and blockers', async () => {
+  const { value: core } = await loadGlobal('tools/chrome-bridge-extension/observation/tabObservationCore.js', 'ChatGptTabObservationCore');
+  const base = core.normalizeTabObservation({
+    presence: { chatMainReady: true, composerReady: true },
+    snapshot: { turnKey: 'assistant-1', answer: 'Done', phase: 'ASSISTANT_FINAL', hasFinalMessage: true },
+    turnContext: { userTurnKey: 'user-1' },
+  });
+  const signature = core.signatureForResponseStability(base);
+  const presentation = {
+    ...base, focused: true, visibility: 'hidden',
+    turn: { ...base.turn, index: 100 },
+    output: { ...base.output, responseBlocks: [{ diagnostic: { sourceRoot: 'new wrapper', domContext: '<div>Done</div>' } }] },
+  };
+  assert.notEqual(core.signatureForObservation(base), core.signatureForObservation(presentation));
+  assert.equal(signature, core.signatureForResponseStability(presentation));
+  for (const changed of [
+    { turn: { ...base.turn, userKey: 'other' } },
+    { turn: { ...base.turn, messageId: 'regenerated' } },
+    { output: { ...base.output, answer: 'Changed' } },
+    { generation: { ...base.generation, streamingVisible: true } },
+    { blocker: { state: 'continue' } },
+    { artifacts: [{ id: 'file', phase: 'GENERATING' }] },
+    { degraded: true },
+  ]) assert.notEqual(signature, core.signatureForResponseStability({ ...base, ...changed }));
+});

@@ -1,0 +1,437 @@
+import { randomUUID } from 'node:crypto';
+import { AsyncMutex } from '../../mutex.js';
+import { makeRequestId } from '../../protocol.js';
+import { createPromptExecutionPlan } from '../requestExecutionPlan.js';
+import { log } from '../../logger.js';
+import { config } from '../../config.js';
+import {
+  abortError,
+  makeEvent,
+  noopCallbacks,
+  normalizeOptions,
+} from '../requestState.js';
+import {
+  RequestEventType,
+  RequestTerminalCode,
+} from '../state/requestEvents.js';
+import { isRequestRuntimeFinished } from './requestRuntimeProjection.js';
+
+/**
+ * Owns construction and delivery of active bridge requests. The canonical
+ * lifecycle remains in RequestLifecycleCoordinator; this class only creates
+ * pending runtime records and binds them to a selected browser source.
+ */
+export class RequestSubmissionCoordinator {
+  constructor({ pending, lifecycle, browserClients, eventBus = null, hub, serverInstanceId = '', sendCommand, resolveAttachments }) {
+    this.pending = pending;
+    this.lifecycle = lifecycle;
+    this.browserClients = browserClients;
+    this.eventBus = eventBus;
+    this.hub = hub;
+    this.serverInstanceId = String(serverInstanceId || hub?.serverInstanceId || randomUUID());
+    this.sendCommand = sendCommand;
+    this.resolveAttachments = resolveAttachments;
+    this.mutex = new AsyncMutex();
+    this.clientMutexes = new Map();
+  }
+
+  followPendingRequest(state, callbacks = {}, options = {}) {
+    if (!state || isRequestRuntimeFinished(state)) return Promise.reject(new Error('The tracked request has already finished.'));
+    if (options.signal?.aborted) return Promise.reject(abortError(options.signal.reason || 'Request follow cancelled'));
+    const normalizedCallbacks = noopCallbacks(callbacks);
+
+    return new Promise((resolve, reject) => {
+      const follower = {
+        callbacks: normalizedCallbacks,
+        resolve,
+        reject,
+        signal: options.signal || null,
+        abortHandler: null,
+        done: false,
+      };
+      state.followers ||= new Set();
+      state.followers.add(follower);
+
+      const detach = () => {
+        if (follower.done) return;
+        follower.done = true;
+        state.followers?.delete(follower);
+        if (follower.signal && follower.abortHandler) follower.signal.removeEventListener('abort', follower.abortHandler);
+      };
+      follower.detach = detach;
+      if (follower.signal) {
+        follower.abortHandler = () => {
+          detach();
+          reject(abortError(String(follower.signal.reason || 'Request follow cancelled')));
+        };
+        follower.signal.addEventListener('abort', follower.abortHandler, { once: true });
+      }
+
+      try {
+        normalizedCallbacks.onStatus?.('tracked', { requestId: state.requestId, clientId: state.clientId, phase: state.progress?.phase || '' });
+        for (const event of state.events || []) normalizedCallbacks.onEvent?.(event);
+        if (state.thinking) normalizedCallbacks.onThinkingUpdate?.(state.thinking, { requestId: state.requestId, replay: true });
+        if (state.progressText || state.progressItems?.length) normalizedCallbacks.onProgressUpdate?.(state.progressText, { requestId: state.requestId, replay: true, items: state.progressItems || [], progressItems: state.progressItems || [] });
+        if (state.answer) normalizedCallbacks.onAnswerUpdate?.(state.answer, { requestId: state.requestId, replay: true });
+        if (Array.isArray(state.artifacts) && state.artifacts.length) normalizedCallbacks.onArtifactUpdate?.(state.artifacts, { requestId: state.requestId, replay: true });
+      } catch (err) {
+        detach();
+        reject(err);
+      }
+    });
+  }
+
+  async resumeActiveRequest(callbacks = {}, options = {}) {
+    if (options.signal?.aborted) throw abortError(options.signal.reason || 'Request cancelled');
+
+    const expectedRequestId = String(options.expectedRequestId || '');
+    const preferredRequestId = String(options.preferredRequestId || '');
+    const localRequestId = expectedRequestId || preferredRequestId;
+    const hasExplicitClient = Boolean(String(options.sourceClientId || options.clientId || '').trim());
+    const localExisting = localRequestId
+      ? this.pending.get(localRequestId)
+      : !hasExplicitClient && this.pending.size === 1 ? this.pending.values().next().value : null;
+    if (localExisting) return await this.followPendingRequest(localExisting, callbacks, options);
+
+    const target = this.browserClients.resolveResumeTarget(options);
+    const active = target.client;
+    const activeRequest = target.activeRequest || null;
+    const requestId = String(activeRequest.requestId);
+    const localActiveRequest = this.pending.get(requestId);
+    if (localActiveRequest) return await this.followPendingRequest(localActiveRequest, callbacks, options);
+    const previousOwnerServerInstanceId = String(activeRequest.ownerServerInstanceId || '');
+    const currentOwnerServerInstanceId = String(this.serverInstanceId || previousOwnerServerInstanceId);
+    const ownerHandoff = Boolean(previousOwnerServerInstanceId && currentOwnerServerInstanceId
+      && previousOwnerServerInstanceId !== currentOwnerServerInstanceId);
+    const resumeIdentity = {
+      requestId,
+      leaseId: ownerHandoff ? randomUUID() : String(activeRequest.leaseId || ''),
+      ownerServerInstanceId: currentOwnerServerInstanceId,
+      responseEpoch: Math.max(0, Number(activeRequest.responseEpoch) || 0),
+    };
+    if (expectedRequestId && expectedRequestId !== requestId) {
+      throw new Error(`Active ChatGPT prompt belongs to ${requestId}, not ${expectedRequestId}. Use /recover after it finishes, or select the tab/session that is running the expected prompt.`);
+    }
+    const localClientConflict = Array.from(this.pending.values()).find((state) => !isRequestRuntimeFinished(state)
+      && state.requestId !== requestId
+      && (state.clientId === active.id || state.reservedClientId === active.id));
+    if (localClientConflict) throw new Error('Another local request is already running on the selected ChatGPT tab. Use /stop or wait before /resume.');
+
+    const normalizedCallbacks = noopCallbacks(callbacks);
+    const started = Date.now();
+
+    return await new Promise((resolve, reject) => {
+      const state = {
+        requestId,
+        clientId: active.id,
+        resolve,
+        reject,
+        callbacks: normalizedCallbacks,
+        answer: '',
+        thinking: '',
+        artifacts: [],
+        progressText: '',
+        session: null,
+        model: '',
+        effort: '',
+        events: [],
+        timer: null,
+        delivered: true,
+        runtime: { finished: false, cancellationRequested: false },
+        resumed: true,
+        startedAt: started,
+        createdAt: new Date(started).toISOString(),
+        lastActivityAt: started,
+        lastHeartbeatAt: 0,
+        lastMeaningfulProgressAt: started,
+        lastProgressAt: 0,
+        lastActivityReason: 'request.resumed',
+        progress: { phase: 'resumed', requestId },
+        abortSignal: options.signal || null,
+        abortHandler: null,
+      };
+
+      if (state.abortSignal) {
+        state.abortHandler = () => {
+          this.lifecycle.cancelState(state, String(state.abortSignal.reason || 'Request cancelled'));
+        };
+        state.abortSignal.addEventListener('abort', state.abortHandler, { once: true });
+      }
+
+      this.pending.set(requestId, state);
+      this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.CREATED, {
+        resumed: true,
+        sourceClientId: active.id,
+        sessionId: activeRequest.sessionId || active.session?.id || '',
+        leaseId: resumeIdentity.leaseId,
+        ownerServerInstanceId: resumeIdentity.ownerServerInstanceId,
+        responseEpoch: resumeIdentity.responseEpoch,
+      }, 'request_resume'));
+      this.lifecycle.emitRequestEvent(state, makeEvent('request.resumed', {
+        requestId,
+        clientId: active.id,
+        activeRequest,
+        promptPreview: activeRequest.promptPreview || '',
+      }));
+      state.callbacks.onStatus?.('resumed', { requestId, activeRequest });
+      this.lifecycle.touchState(state, 'request.resumed');
+
+      void this.lifecycle.runRequestEffect(state, {
+        id: `${requestId}:request-resume`,
+        type: 'request.resume',
+        data: { sourceClientId: active.id },
+        execute: async () => {
+          const response = await this.sendCommand('request.resume', {
+            requestId,
+            previousOwnerServerInstanceId: ownerHandoff ? previousOwnerServerInstanceId : '',
+          }, {
+            ...options,
+            sourceClientId: active.id,
+            timeoutMs: options.resumeTimeoutMs || options.timeoutMs || 10_000,
+            request: resumeIdentity,
+          });
+          const remote = response?.activeRequest || null;
+          if (!remote?.requestId) {
+            const error = new Error('Selected tab reported no active prompt to resume.');
+            error.code = 'RESUME_ACTIVE_REQUEST_MISSING';
+            throw error;
+          }
+          if (remote.requestId !== requestId) {
+            const error = new Error(`Selected tab is running ${remote.requestId}, not ${requestId}.`);
+            error.code = 'RESUME_REQUEST_MISMATCH';
+            throw error;
+          }
+          return response;
+        },
+      }).then((response) => {
+        if (isRequestRuntimeFinished(state)) return;
+        const remote = response.activeRequest;
+        state.session = response.session || state.session;
+        this.lifecycle.emitRequestEvent(state, makeEvent('session.snapshot', { requestId, session: state.session }), { canonical: false });
+        this.lifecycle.emitRequestEvent(state, makeEvent('resume.attached', { requestId, activeRequest: remote, promptPreview: remote.promptPreview || '' }), { canonical: false });
+        this.lifecycle.touchState(state, 'resume.attached');
+      }).catch(() => {
+        // EffectRunner has already reported the typed failure to the canonical request machine.
+      });
+    }).then((response) => {
+      const elapsedSec = (Date.now() - started) / 1000;
+      const answerPreview = response.answer.slice(0, 120).replaceAll('\n', '\\n');
+      log(`Resumed answer ${requestId} received in ${elapsedSec.toFixed(2)}s: ${JSON.stringify(answerPreview)}`);
+      return response;
+    });
+  }
+
+  async sendToChatGPT(message, callbacks = {}, options = {}) {
+    const response = await this.sendRequest({ message, ...options, fullResponse: true }, callbacks, options);
+    return options.fullResponse ? response : response.answer;
+  }
+
+  async sendRequest(request, callbacks = {}, options = {}) {
+    const sourceClientId = String(options.sourceClientId || options.clientId || request.sourceClientId || request.clientId || '').trim();
+    const clientLock = sourceClientId ? this.#retainClientMutex(sourceClientId) : null;
+    const mutex = clientLock?.mutex || this.mutex;
+    const pending = mutex.runExclusive(async () => {
+      if (options.signal?.aborted) throw abortError(options.signal.reason || 'Request cancelled');
+
+      const requestId = request.requestId || makeRequestId();
+      const requestIdentity = {
+        requestId,
+        leaseId: randomUUID(),
+        ownerServerInstanceId: this.serverInstanceId,
+        responseEpoch: 0,
+      };
+      const normalizedCallbacks = noopCallbacks(callbacks);
+      const started = Date.now();
+      const message = String(request.message || '');
+      const safePreview = message.slice(0, 120).replaceAll('\n', '\\n');
+      const attachments = await this.resolveAttachments(request.attachments || request.fileIds || []);
+      if (options.signal?.aborted) throw abortError(options.signal.reason || 'Request cancelled');
+      const chatOptions = normalizeOptions({ ...request, attachments });
+      log(`Incoming prompt ${requestId}: ${JSON.stringify(safePreview)} attachments=${attachments.length}`);
+
+      return await new Promise((resolve, reject) => {
+        const state = {
+          requestId,
+          clientId: null,
+          leaseId: requestIdentity.leaseId,
+          ownerServerInstanceId: requestIdentity.ownerServerInstanceId,
+          resolve,
+          reject,
+          callbacks: normalizedCallbacks,
+          answer: '',
+          thinking: '',
+          artifacts: [],
+          progressText: '',
+          progressItems: [],
+          progressItemsSignature: '[]',
+          reasoningHistory: [],
+          responseBlocks: [],
+          codeBlocks: [],
+          codeBlockDiagnostics: [],
+          parserAudit: null,
+          session: null,
+          model: chatOptions.model,
+          effort: chatOptions.effort,
+          expectedOutput: chatOptions.expectedOutput || { expected: '', required: false },
+          requiredArtifactWaitSince: 0,
+          deferredDone: null,
+          events: [],
+          timer: null,
+          delivered: false,
+          runtime: { finished: false, cancellationRequested: false },
+          startedAt: started,
+          createdAt: new Date(started).toISOString(),
+          lastActivityAt: started,
+          lastHeartbeatAt: 0,
+          lastMeaningfulProgressAt: started,
+          lastProgressAt: 0,
+          lastActivityReason: 'request.started',
+          progress: { phase: 'created', requestId },
+          phaseEnteredAt: started,
+          generationActivityAt: 0,
+          promptPayload: null,
+          promptResendCount: 0,
+          lastPromptResendAt: 0,
+          lastForcedSnapshotAt: 0,
+          forcedSnapshotCount: 0,
+          forcedSnapshotInFlight: false,
+          abortSignal: options.signal || null,
+          abortHandler: null,
+        };
+
+        const startedEvent = makeEvent('request.started', {
+          requestId,
+          model: chatOptions.model || undefined,
+          effort: chatOptions.effort || undefined,
+          sessionId: chatOptions.sessionId || undefined,
+          newSession: chatOptions.newSession || undefined,
+          freshTab: chatOptions.freshTab || undefined,
+          expectedOutput: chatOptions.expectedOutput || { expected: '', required: false },
+          attachments: attachments.map(({ contentBase64, ...attachment }) => attachment),
+        });
+        this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.CREATED, {
+          expectedOutput: chatOptions.expectedOutput || { expected: '', required: false },
+          sessionId: chatOptions.sessionId || '',
+          sourceClientId: '',
+          leaseId: requestIdentity.leaseId,
+          ownerServerInstanceId: requestIdentity.ownerServerInstanceId,
+          responseRetryPolicy: {
+            maxRetries: Math.max(0, Number(config.chatGptTransientErrorMaxRetries) || 0),
+            baseDelayMs: Math.max(100, Number(config.chatGptTransientErrorRetryBaseMs) || 1_000),
+            maxDelayMs: Math.max(100, Number(config.chatGptTransientErrorRetryMaxMs) || 8_000),
+          },
+        }, 'request_start'));
+        if (state.abortSignal) {
+          state.abortHandler = () => {
+            this.lifecycle.cancelState(state, String(state.abortSignal.reason || 'Request cancelled'));
+          };
+          state.abortSignal.addEventListener('abort', state.abortHandler, { once: true });
+        }
+        this.lifecycle.emitRequestEvent(state, startedEvent);
+        this.lifecycle.touchState(state, 'request.started');
+        if (state.abortSignal?.aborted) state.abortHandler?.();
+        if (isRequestRuntimeFinished(state) || this.lifecycle.getState(state.requestId)?.terminal) return;
+
+        try {
+          this.pending.set(requestId, state);
+          this.eventBus?.emitDebug({ type: 'protocol.out.prompt.send', requestId, data: { requestId, messageLength: message.length, attachments: attachments.map(({ contentBase64, ...rest }) => rest), model: chatOptions.model, effort: chatOptions.effort, sessionId: chatOptions.sessionId } });
+          const executionPlan = createPromptExecutionPlan({
+            request: requestIdentity,
+            message,
+            options: chatOptions,
+            attachments,
+          });
+          const promptPayload = {
+            type: 'prompt.send',
+            requestId,
+            serverInstanceId: this.serverInstanceId,
+            message,
+            options: chatOptions,
+            attachments,
+            executionPlan,
+            executionStepOnly: true,
+            continuationOfEffectId: '',
+            continuationReason: 'request_started',
+          };
+          state.promptPayload = promptPayload;
+          Promise.resolve(this.browserClients.resolvePromptClient(state, chatOptions, options)).then((target) => {
+            if (state.abortSignal?.aborted || isRequestRuntimeFinished(state) || this.lifecycle.getState(state.requestId)?.terminal) {
+              state.reservedClientId = '';
+              return;
+            }
+            const targetClient = target?.client || null;
+            const { client, delivered } = this.browserClients.sendPromptToClient(targetClient, promptPayload, { ...options, request: requestIdentity });
+            state.clientId = client.id;
+            state.reservedClientId = '';
+            this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.SOURCE_BOUND, {
+              clientId: client.id,
+              sessionId: chatOptions.sessionId || '',
+              url: client.url || '',
+              leaseId: requestIdentity.leaseId,
+              ownerServerInstanceId: requestIdentity.ownerServerInstanceId,
+            }, 'source_selection'));
+            this.lifecycle.emitRequestEvent(state, makeEvent('client.target.resolved', {
+              requestId,
+              clientId: client.id,
+              reason: target?.reason || 'active_client',
+              sessionId: chatOptions.sessionId || undefined,
+              sessionSwitch: Boolean(target?.sessionSwitch),
+              sourceUrl: client.url || '',
+            }));
+            if (target?.sessionSwitch && chatOptions.sessionId) {
+              this.lifecycle.emitRequestEvent(state, makeEvent('session.switch.requested', { requestId, clientId: client.id, sessionId: chatOptions.sessionId }));
+            }
+            void this.lifecycle.runRequestEffect(state, {
+              id: `${requestId}:prompt-delivery`,
+              type: 'prompt.delivery',
+              data: { clientId: client.id },
+              execute: async () => await delivered,
+            }).then(() => {
+              if (isRequestRuntimeFinished(state)) return;
+              state.delivered = true;
+              this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.PROMPT_DELIVERED, {
+                clientId: client.id,
+              }, 'prompt_delivery'));
+              this.lifecycle.updateProgress(state, { phase: 'prompt_delivered_to_extension', requestId, clientId: client.id, meaningful: true }, { emit: false });
+              this.lifecycle.emitRequestEvent(state, makeEvent('prompt.delivered', { requestId, clientId: client.id }));
+            }).catch((err) => {
+              if (isRequestRuntimeFinished(state) || this.lifecycle.getState(state.requestId)?.terminal) return;
+              this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.FAILED, {
+                code: err.code || RequestTerminalCode.EFFECT_FAILED,
+                message: err.message || String(err),
+              }, 'prompt_delivery_fallback'));
+            });
+          }).catch((err) => {
+            if (isRequestRuntimeFinished(state)) return;
+            this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.FAILED, {
+              code: err.code || RequestTerminalCode.FAILED,
+              message: err.message || String(err),
+            }, 'prompt_target_resolution'));
+          });
+        } catch (err) {
+          this.lifecycle.cleanupState(state);
+          this.pending.delete(requestId);
+          reject(err);
+        }
+      }).then((response) => {
+        const elapsedSec = (Date.now() - started) / 1000;
+        const answerPreview = response.answer.slice(0, 120).replaceAll('\n', '\\n');
+        log(`Answer ${requestId} received in ${elapsedSec.toFixed(2)}s: ${JSON.stringify(answerPreview)}`);
+        return response;
+      });
+    });
+    return clientLock ? pending.finally(() => this.#releaseClientMutex(sourceClientId, clientLock)) : pending;
+  }
+
+  #retainClientMutex(clientId) {
+    const entry = this.clientMutexes.get(clientId) || { mutex: new AsyncMutex(), users: 0 };
+    entry.users += 1;
+    this.clientMutexes.set(clientId, entry);
+    return entry;
+  }
+
+  #releaseClientMutex(clientId, entry) {
+    entry.users -= 1;
+    if (entry.users === 0 && this.clientMutexes.get(clientId) === entry) this.clientMutexes.delete(clientId);
+  }
+}

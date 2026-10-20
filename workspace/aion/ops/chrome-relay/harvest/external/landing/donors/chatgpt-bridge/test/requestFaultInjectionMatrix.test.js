@@ -1,0 +1,224 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  ArtifactState,
+  RequestDeadlineKind,
+  RequestEffectType,
+  RequestEventType,
+  RequestTerminalCode,
+  createRequestEvent,
+} from '../src/bridge/state/requestEvents.js';
+import { reduceRequestState } from '../src/bridge/state/requestMachine.js';
+
+let sequence = 0;
+function event(type, requestId, data = {}, options = {}) {
+  sequence += 1;
+  return createRequestEvent(type, requestId, data, {
+    eventId: options.eventId || `request-fault-${sequence}`,
+    occurredAt: options.at || sequence,
+    receivedAt: options.at || sequence,
+    sourceSequence: options.sourceSequence,
+  });
+}
+function apply(state, next) {
+  const result = reduceRequestState(state, next);
+  assert.equal(result.accepted, true, JSON.stringify(result.diagnostics));
+  return result;
+}
+
+function terminalRequest(requestId = 'request-terminal') {
+  let result = apply(null, event(RequestEventType.CREATED, requestId));
+  result = apply(result.state, event(RequestEventType.SOURCE_BOUND, requestId, { sourceClientId: 'client-terminal' }));
+  return apply(result.state, event(RequestEventType.COMPLETED, requestId, { artifactStatus: ArtifactState.NOT_EXPECTED }));
+}
+
+test('terminal request state is absorbing for every late lifecycle, effect, observation, and deadline event', () => {
+  const completed = terminalRequest();
+  assert.equal(completed.state.terminal.code, RequestTerminalCode.COMPLETED);
+  assert.equal(completed.effects.length, 1, 'terminal transition emits exactly one release effect');
+  const terminalSnapshot = structuredClone(completed.state);
+  const lateEvents = [
+    event(RequestEventType.OBSERVATION_UPDATED, 'request-terminal', { completionCandidate: true }),
+    event(RequestEventType.OUTPUT_UPDATED, 'request-terminal', { answerLength: 10, final: true }),
+    event(RequestEventType.ARTIFACT_UPDATED, 'request-terminal', { artifactCount: 1 }),
+    event(RequestEventType.EFFECT_STARTED, 'request-terminal', { effectId: 'late-effect', effectType: 'model.apply' }),
+    event(RequestEventType.EFFECT_SUCCEEDED, 'request-terminal', { effectId: 'late-effect' }),
+    event(RequestEventType.EFFECT_FAILED, 'request-terminal', { effectId: 'late-effect', message: 'late' }),
+    event(RequestEventType.CONNECTION_CHANGED, 'request-terminal', { connected: false, definitive: true }),
+    event(RequestEventType.DEADLINE_REACHED, 'request-terminal', { kind: RequestDeadlineKind.HARD_LIVENESS }),
+    event(RequestEventType.CANCELLED, 'request-terminal', { message: 'late cancel' }),
+  ];
+  for (const late of lateEvents) {
+    const result = reduceRequestState(completed.state, late);
+    assert.equal(result.accepted, false, late.type);
+    assert.equal(result.diagnostics[0].code, 'request_already_terminal', late.type);
+    assert.deepEqual(result.state, terminalSnapshot, late.type);
+    assert.equal(result.effects.length, 0, `${late.type} must not emit another release`);
+  }
+});
+
+test('stale response epochs are rejected consistently across output, artifact, effect, and completion evidence', () => {
+  const requestId = 'request-epoch';
+  let result = apply(null, event(RequestEventType.CREATED, requestId));
+  result = apply(result.state, event(RequestEventType.STEER_ACCEPTED, requestId, { userTurnKey: 'user-steer' }));
+  assert.equal(result.state.response.epoch, 1);
+  const before = result.state;
+  for (const stale of [
+    event(RequestEventType.OBSERVATION_UPDATED, requestId, { responseEpoch: 0, output: 'final', completionCandidate: true }),
+    event(RequestEventType.OUTPUT_UPDATED, requestId, { responseEpoch: 0, final: true, answerLength: 10 }),
+    event(RequestEventType.ARTIFACT_UPDATED, requestId, { responseEpoch: 0, artifactCount: 1 }),
+    event(RequestEventType.EFFECT_SUCCEEDED, requestId, { responseEpoch: 0, effectId: 'old-effect' }),
+    event(RequestEventType.COMPLETED, requestId, { responseEpoch: 0, artifactStatus: ArtifactState.NOT_EXPECTED }),
+  ]) {
+    const rejected = reduceRequestState(before, stale);
+    assert.equal(rejected.accepted, false, stale.type);
+    assert.equal(rejected.diagnostics[0].code, 'response_epoch_mismatch', stale.type);
+    assert.equal(rejected.state.response.epoch, 1);
+    assert.equal(rejected.state.terminal, null);
+  }
+});
+
+test('duplicate and stale source sequences cannot regress request output or produce terminal effects', () => {
+  const requestId = 'request-sequence';
+  let result = apply(null, event(RequestEventType.CREATED, requestId));
+  result = apply(result.state, event(RequestEventType.OBSERVATION_UPDATED, requestId, {
+    observationEpoch: 'content-1', output: 'streaming', answerLength: 4,
+  }, { sourceSequence: 10 }));
+  const current = result.state;
+  for (const sourceSequence of [10, 9]) {
+    const rejected = reduceRequestState(current, event(RequestEventType.OBSERVATION_UPDATED, requestId, {
+      observationEpoch: 'content-1', output: 'final', completionCandidate: true,
+    }, { sourceSequence }));
+    assert.equal(rejected.accepted, false);
+    assert.match(rejected.diagnostics[0].code, /duplicate_source_sequence|stale_source_sequence/);
+    assert.equal(rejected.state.terminal, null);
+    assert.equal(rejected.effects.length, 0);
+  }
+});
+
+
+test('duplicate uncertain delivery schedules exactly one browser reconciliation', () => {
+  const requestId = 'request-duplicate-uncertain';
+  let result = apply(null, event(RequestEventType.CREATED, requestId));
+  result = apply(result.state, event(RequestEventType.EFFECT_STARTED, requestId, {
+    effectId: `${requestId}:session.apply:2`,
+    effectType: 'session.apply',
+  }));
+  const uncertain = event(RequestEventType.EFFECT_UNCERTAIN, requestId, {
+    effectId: `${requestId}:session.apply:2`,
+    effectType: 'session.apply',
+    idempotencyKey: `${requestId}:session.apply:2`,
+  });
+  result = apply(result.state, uncertain);
+  assert.equal(result.effects.length, 1);
+  assert.equal(result.effects[0].type, RequestEffectType.EFFECT_RECONCILE);
+
+  const duplicate = reduceRequestState(result.state, event(RequestEventType.EFFECT_UNCERTAIN, requestId, {
+    effectId: `${requestId}:session.apply:2`,
+    effectType: 'session.apply',
+    idempotencyKey: `${requestId}:session.apply:2`,
+  }));
+  assert.equal(duplicate.accepted, false);
+  assert.equal(duplicate.effects.length, 0);
+  assert.equal(duplicate.diagnostics[0].code, 'duplicate_effect_uncertain');
+});
+
+test('successful preparation effect schedules exactly one next server-owned execution step', () => {
+  const requestId = 'request-next-execution-step';
+  let result = apply(null, event(RequestEventType.CREATED, requestId));
+  result = apply(result.state, event(RequestEventType.PROMPT_ACCEPTED, requestId));
+  const effectId = `${requestId}:model.apply:attempt:1`;
+  result = apply(result.state, event(RequestEventType.EFFECT_STARTED, requestId, {
+    effectId,
+    effectType: 'model.apply',
+    effectDomain: 'browser',
+  }));
+  result = apply(result.state, event(RequestEventType.EFFECT_SUCCEEDED, requestId, {
+    effectId,
+    effectType: 'model.apply',
+    effectDomain: 'browser',
+  }));
+  assert.equal(result.effects.length, 1);
+  assert.equal(result.effects[0].type, RequestEffectType.PROMPT_EXECUTION_STEP);
+  assert.equal(result.effects[0].data.originalEffectId, effectId);
+  assert.equal(result.effects[0].data.resumeMode, 'continue_after');
+
+  const duplicate = reduceRequestState(result.state, event(RequestEventType.EFFECT_SUCCEEDED, requestId, {
+    effectId,
+    effectType: 'model.apply',
+    effectDomain: 'browser',
+  }));
+  assert.equal(duplicate.accepted, false);
+  assert.equal(duplicate.effects.length, 0);
+  assert.equal(duplicate.diagnostics[0].code, 'duplicate_effect_result');
+});
+
+test('proved pre-submit preparation effect resumes the persisted prompt pipeline once', () => {
+  const requestId = 'request-resume-preparation';
+  let result = apply(null, event(RequestEventType.CREATED, requestId));
+  result = apply(result.state, event(RequestEventType.PROMPT_ACCEPTED, requestId));
+  result = apply(result.state, event(RequestEventType.EFFECT_STARTED, requestId, {
+    effectId: `${requestId}:session.apply:2`,
+    effectType: 'session.apply',
+  }));
+  result = apply(result.state, event(RequestEventType.EFFECT_UNCERTAIN, requestId, {
+    effectId: `${requestId}:session.apply:2`,
+    effectType: 'session.apply',
+  }));
+  result = apply(result.state, event(RequestEventType.EFFECT_RECONCILED, requestId, {
+    originalEffectId: `${requestId}:session.apply:2`,
+    effectType: 'session.apply',
+    outcome: 'succeeded',
+  }));
+  assert.equal(result.effects.length, 1);
+  assert.equal(result.effects[0].type, RequestEffectType.PROMPT_EXECUTION_STEP);
+  assert.equal(result.effects[0].data.effectType, 'session.apply');
+  assert.equal(result.effects[0].data.resumeMode, 'continue_after');
+});
+
+test('proved preparation effect never resubmits after the prompt boundary was committed', () => {
+  const requestId = 'request-no-resume-after-submit';
+  let result = apply(null, event(RequestEventType.CREATED, requestId));
+  result = apply(result.state, event(RequestEventType.PROMPT_ACCEPTED, requestId));
+  result = apply(result.state, event(RequestEventType.PROMPT_SUBMITTED, requestId));
+  result = apply(result.state, event(RequestEventType.EFFECT_RECONCILED, requestId, {
+    originalEffectId: `${requestId}:session.apply:2`,
+    effectType: 'session.apply',
+    outcome: 'succeeded',
+  }));
+  assert.equal(result.effects.length, 0);
+});
+
+test('coordinator orchestration and physical browser writes settle in independent request effect domains', () => {
+  const requestId = 'request-effect-domain-fault';
+  let result = apply(null, event(RequestEventType.CREATED, requestId));
+  result = apply(result.state, event(RequestEventType.EFFECT_STARTED, requestId, {
+    effectId: 'coordinator-steer', effectType: 'prompt.steer', effectDomain: 'coordinator',
+  }));
+  result = apply(result.state, event(RequestEventType.EFFECT_STARTED, requestId, {
+    effectId: 'browser-steer', effectType: 'prompt.steer', effectDomain: 'browser',
+  }));
+  assert.equal(result.state.terminal, null);
+  assert.equal(result.state.effect.coordinator.activeId, 'coordinator-steer');
+  assert.equal(result.state.effect.browser.activeId, 'browser-steer');
+
+  result = apply(result.state, event(RequestEventType.EFFECT_SUCCEEDED, requestId, {
+    effectId: 'browser-steer', effectType: 'prompt.steer', effectDomain: 'browser',
+  }));
+  assert.equal(result.state.effect.coordinator.activeId, 'coordinator-steer');
+  assert.equal(result.state.effect.browser.activeId, null);
+
+  result = apply(result.state, event(RequestEventType.EFFECT_SUCCEEDED, requestId, {
+    effectId: 'coordinator-steer', effectType: 'prompt.steer', effectDomain: 'coordinator',
+  }));
+  assert.equal(result.state.effect.coordinator.activeId, null);
+  assert.equal(result.state.terminal, null);
+});
+
+test('canonical request effects expose only explicit browser and coordinator domains', () => {
+  const requestId = 'request-effect-domain-shape';
+  const result = apply(null, event(RequestEventType.CREATED, requestId));
+  assert.deepEqual(Object.keys(result.state.effect).sort(), ['browser', 'coordinator']);
+  assert.equal(Object.hasOwn(result.state.effect, 'activeId'), false);
+  assert.equal(Object.hasOwn(result.state.effect, 'activeType'), false);
+});

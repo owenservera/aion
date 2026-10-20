@@ -1,0 +1,79 @@
+{
+  "name": "cdpilot",
+  "version": "0.9.4",
+  "mcpName": "io.github.mehmetnadir/cdpilot",
+  "description": "Zero-dependency browser automation CLI. Raw CDP, 70+ commands, friction ladder, 3-tier stealth, CAPTCHA + press-and-hold solvers, proxy pools, MCP server. No Puppeteer/Playwright/Selenium.",
+  "bin": {
+    "cdpilot": "./bin/cdpilot.js",
+    "bctl": "./bin/cdpilot.js"
+  },
+  "scripts": {
+    "test": "node test/test.js",
+    "start": "node bin/cdpilot.js",
+    "build:mcpb": "bash scripts/build-mcpb.sh"
+  },
+  "keywords": [
+    "browser-automation",
+    "cdp",
+    "chrome-devtools-protocol",
+    "cli",
+    "mcp",
+    "ai-agent",
+    "web-scraping",
+    "zero-dependency",
+    "headless-browser",
+    "puppeteer-alternative",
+    "playwright-alternative",
+    "screenshot",
+    "pdf",
+    "automation",
+    "devtools",
+    "browser",
+    "model-context-protocol",
+    "claude",
+    "brave",
+    "testing",
+    "web-testing",
+    "accessibility",
+    "a11y",
+    "stealth",
+    "captcha-solver",
+    "anti-bot",
+    "cloudflare-bypass",
+    "datadome",
+    "adaptive-escalation",
+    "proxy-rotation",
+    "tls-fingerprint",
+    "cookie-management",
+    "video-understanding",
+    "screencast",
+    "shadow-dom",
+    "perimeterx",
+    "press-and-hold",
+    "progressive-resilience"
+  ],
+  "author": "Mehmet Nadir",
+  "license": "MIT",
+  "homepage": "https://cdpilot.ndr.ist",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mehmetnadir/cdpilot"
+  },
+  "bugs": {
+    "url": "https://github.com/mehmetnadir/cdpilot/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "src/cdpilot.py",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "gray-matter": "^4.0.3",
+    "remark": "^15.0.1",
+    "remark-html": "^16.0.1"
+  }
+}

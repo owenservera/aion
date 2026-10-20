@@ -1,0 +1,154 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {
+  EXTENSION_COMPATIBILITY,
+  compareVersions,
+  evaluateExtensionCompatibility,
+} from '../src/extensionCompatibility.js';
+import { BrowserExtensionHub } from '../src/browserExtensionHub.js';
+import { connectExtensionClient } from './helpers/extensionClient.js';
+
+async function readExtensionContentRuntime() {
+  const root = path.resolve('tools/chrome-bridge-extension');
+  const manifest = JSON.parse(await fs.readFile(path.join(root, 'manifest.json'), 'utf8'));
+  return (await Promise.all(manifest.content_scripts[1].js.map((file) => fs.readFile(path.join(root, file), 'utf8')))).join('\n');
+}
+
+test('extension compatibility uses semantic version comparison', () => {
+  assert.equal(compareVersions('0.3.0', '0.2.10'), 1);
+  assert.equal(compareVersions('0.3.0', '0.3.0'), 0);
+  assert.equal(compareVersions('0.3.0', '0.2.99'), 1);
+  assert.equal(compareVersions('1.0.0', '0.99.99'), 1);
+  assert.equal(compareVersions('invalid', '0.3.0'), null);
+});
+
+test('current extension is compatible and unsupported older runtimes are blocked', () => {
+  const current = evaluateExtensionCompatibility({
+    runtime: 'extension',
+    extensionProtocolVersion: EXTENSION_COMPATIBILITY.protocolVersion,
+    extensionVersion: EXTENSION_COMPATIBILITY.recommendedExtensionVersion,
+    clientVersion: EXTENSION_COMPATIBILITY.minContentVersion,
+  });
+  assert.equal(current.compatible, true);
+  assert.equal(current.status, 'compatible');
+
+  const previousPatch = evaluateExtensionCompatibility({
+    runtime: 'extension',
+    extensionProtocolVersion: EXTENSION_COMPATIBILITY.protocolVersion,
+    extensionVersion: '2.0.1',
+    clientVersion: '4.0.1',
+  });
+  assert.equal(previousPatch.compatible, false);
+  assert.equal(previousPatch.status, 'extension_outdated');
+
+  const previous = evaluateExtensionCompatibility({
+    runtime: 'extension',
+    extensionProtocolVersion: EXTENSION_COMPATIBILITY.minProtocolVersion - 1,
+    extensionVersion: '0.7.0',
+    clientVersion: '2.16.0',
+  });
+  assert.equal(previous.compatible, false);
+  assert.equal(previous.status, 'extension_outdated');
+  assert.match(previous.message, new RegExp(`Reload extension ${EXTENSION_COMPATIBILITY.recommendedExtensionVersion.replaceAll('.', '\\.')}`,'i'));
+});
+
+test('tab identification rejects the immediately previous extension/content runtime pair', () => {
+  const stale = evaluateExtensionCompatibility({
+    runtime: 'extension',
+    extensionProtocolVersion: EXTENSION_COMPATIBILITY.protocolVersion,
+    extensionVersion: '2.4.5',
+    clientVersion: '4.4.5',
+  });
+  assert.equal(stale.compatible, false);
+  assert.equal(stale.status, 'extension_outdated');
+});
+
+test('tab identification rejects previous content runtime when extension version is current', () => {
+  const staleContent = evaluateExtensionCompatibility({
+    runtime: 'extension',
+    extensionProtocolVersion: EXTENSION_COMPATIBILITY.protocolVersion,
+    extensionVersion: EXTENSION_COMPATIBILITY.recommendedExtensionVersion,
+    clientVersion: '4.4.5',
+  });
+  assert.equal(staleContent.compatible, false);
+  assert.equal(staleContent.status, 'extension_outdated');
+  assert.match(staleContent.message, /Content runtime 4\.4\.5 is outdated/);
+});
+
+test('candidate package and extension versions match the next patch set', async () => {
+  const packageMetadata = JSON.parse(await fs.readFile(path.resolve('package.json'), 'utf8'));
+  const packageLock = JSON.parse(await fs.readFile(path.resolve('package-lock.json'), 'utf8'));
+  const root = path.resolve('tools/chrome-bridge-extension');
+  const manifest = JSON.parse(await fs.readFile(path.join(root, 'manifest.json'), 'utf8'));
+  const content = await fs.readFile(path.join(root, 'content.js'), 'utf8');
+  const contentVersion = content.match(/CONTENT_SCRIPT_VERSION = '([^']+)'/)?.[1] || '';
+
+  assert.equal(packageMetadata.version, '6.4.1');
+  assert.equal(packageLock.version, '6.4.1');
+  assert.equal(packageLock.packages[''].version, '6.4.1');
+  assert.equal(EXTENSION_COMPATIBILITY.minExtensionVersion, '2.4.8');
+  assert.equal(EXTENSION_COMPATIBILITY.recommendedExtensionVersion, '2.4.8');
+  assert.equal(EXTENSION_COMPATIBILITY.minContentVersion, '4.4.8');
+  assert.equal(manifest.version, '2.4.8');
+  assert.equal(manifest.version_name, '2.4.8');
+  assert.equal(contentVersion, '4.4.8');
+  assert.equal(manifest.version, EXTENSION_COMPATIBILITY.recommendedExtensionVersion);
+  assert.equal(manifest.version, EXTENSION_COMPATIBILITY.minExtensionVersion);
+  assert.equal(contentVersion, EXTENSION_COMPATIBILITY.minContentVersion);
+});
+
+test('newer unsupported extension protocol tells the user to update the bridge', () => {
+  const result = evaluateExtensionCompatibility({
+    runtime: 'extension',
+    extensionProtocolVersion: EXTENSION_COMPATIBILITY.maxProtocolVersion + 1,
+    extensionVersion: '0.3.0',
+    clientVersion: '3.0.0',
+  });
+  assert.equal(result.compatible, false);
+  assert.equal(result.status, 'bridge_outdated');
+  assert.match(result.message, /Update ChatGPT Browser Bridge/i);
+});
+
+test('hub keeps incompatible older extensions visible in diagnostics but excludes them from active selection', async () => {
+  const hub = new BrowserExtensionHub();
+  const connection = await connectExtensionClient(hub, {
+    clientId: 'outdated-tab',
+    url: 'https://chatgpt.com/c/test',
+    extensionProtocolVersion: EXTENSION_COMPATIBILITY.minProtocolVersion - 1,
+    extensionVersion: '0.7.0',
+    clientVersion: '2.16.0',
+  });
+  try {
+    const client = hub.clients.find((item) => item.id === 'outdated-tab');
+    assert.equal(client.compatible, false);
+    assert.equal(client.compatibility.status, 'extension_outdated');
+    assert.equal(hub.activeClient, null);
+    assert.throws(() => hub.selectClient('outdated-tab'), /incompatible/i);
+  } finally {
+    await connection.close();
+  }
+});
+
+test('hub rejects invalid extension origins without leaking the owned test server', async () => {
+  const hub = new BrowserExtensionHub();
+  await assert.rejects(
+    () => connectExtensionClient(hub, { clientId: 'invalid-origin-tab' }, { origin: 'null' }),
+    /403|Unexpected server response/i,
+  );
+});
+
+test('extension handshake reports manifest/content versions and background surfaces compatibility errors', async () => {
+  const content = await readExtensionContentRuntime();
+  const background = (await Promise.all([
+    'tools/chrome-bridge-extension/background.js',
+    'tools/chrome-bridge-extension/background/serverEnvelopeRouter.js',
+  ].map((file) => fs.readFile(path.resolve(file), 'utf8')))).join('\n');
+  assert.match(content, /extensionVersion: EXTENSION_VERSION/);
+  assert.match(content, /extensionProtocolVersion: EXTENSION_PROTOCOL_VERSION/);
+  assert.match(content, /applyCompatibilityStatus/);
+  assert.match(content, /extension update required/);
+  assert.match(background, /payload\.type === 'extension\.status' \|\| payload\.type === 'extension\.compatibility'/);
+  assert.match(background, /type: 'extension\.status'/);
+});

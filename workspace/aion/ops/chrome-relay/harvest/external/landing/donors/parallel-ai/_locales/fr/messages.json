@@ -1,0 +1,960 @@
+{
+  "extensionName": {
+    "message": "Parallel AI"
+  },
+  "extensionDescription": {
+    "message": "Comparez les assistants IA côte à côte dans une seule fenêtre. Envoyez un prompt et examinez les réponses plus rapidement."
+  },
+  "actionDefaultTitle": {
+    "message": "Ouvrir Parallel AI"
+  },
+  "aboutBuildDate": {
+    "message": "Date de compilation :"
+  },
+  "aboutCheckVersion": {
+    "message": "Vérifier la version"
+  },
+  "aboutCommit": {
+    "message": "Commit :"
+  },
+  "aboutManifestVersion": {
+    "message": "Version du manifeste :"
+  },
+  "aboutUnknown": {
+    "message": "Inconnu"
+  },
+  "aboutUpToDate": {
+    "message": "Vous utilisez $1.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateAvailable": {
+    "message": "Nouvelle version des métadonnées disponible : $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateCheckDescription": {
+    "message": "Exécute la vérification de version intégrée à partir des métadonnées de compilation locales."
+  },
+  "aboutUpdateCheckTitle": {
+    "message": "Vérification des mises à jour"
+  },
+  "aboutVersionDescription": {
+    "message": "Informations de compilation et de paquet pour cette extension."
+  },
+  "aboutVersionTitle": {
+    "message": "Informations de version"
+  },
+  "appStatusReady": {
+    "message": "Prêt."
+  },
+  "commonCancel": {
+    "message": "Annuler"
+  },
+  "composerAriaAddPane": {
+    "message": "Ajouter un panneau"
+  },
+  "composerAriaClearAll": {
+    "message": "Tout effacer"
+  },
+  "composerAriaDisableScrollSync": {
+    "message": "Désactiver la synchronisation du défilement"
+  },
+  "composerAriaDisableTemporaryChats": {
+    "message": "Désactiver les conversations temporaires"
+  },
+  "composerAriaEnableScrollSync": {
+    "message": "Activer la synchronisation du défilement"
+  },
+  "composerAriaEnableTemporaryChats": {
+    "message": "Activer les conversations temporaires"
+  },
+  "composerAriaFillAll": {
+    "message": "Tout remplir"
+  },
+  "composerAriaNewChats": {
+    "message": "Nouvelles conversations"
+  },
+  "composerAriaOpenLayout": {
+    "message": "Ouvrir le sélecteur de disposition"
+  },
+  "composerAriaOpenPromptLibrary": {
+    "message": "Ouvrir la bibliothèque de prompts"
+  },
+  "composerAriaOpenSettings": {
+    "message": "Ouvrir les paramètres"
+  },
+  "composerAriaResizeBottom": {
+    "message": "Redimensionner le compositeur depuis le bord inférieur"
+  },
+  "composerAriaResizeLeft": {
+    "message": "Redimensionner le compositeur depuis le bord gauche"
+  },
+  "composerAriaResizeRight": {
+    "message": "Redimensionner le compositeur depuis le bord droit"
+  },
+  "composerAriaResizeTop": {
+    "message": "Redimensionner le compositeur depuis le bord supérieur"
+  },
+  "composerAriaSendAll": {
+    "message": "Tout envoyer"
+  },
+  "composerAriaStopAll": {
+    "message": "Tout arrêter"
+  },
+  "composerAriaSwitchToPopupMode": {
+    "message": "Passer en mode popup"
+  },
+  "composerAriaSwitchToTabMode": {
+    "message": "Passer en mode onglet"
+  },
+  "composerAttachmentRemove": {
+    "message": "Supprimer $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerBarDragHint": {
+    "message": "Faites glisser pour repositionner. Double-cliquez pour réinitialiser la position."
+  },
+  "composerPlaceholder": {
+    "message": "Demandez n'importe quoi, partout..."
+  },
+  "composerPositionBottom": {
+    "message": "Bas"
+  },
+  "composerPositionDescription": {
+    "message": "Position par défaut du compositeur flottant. Faites-le glisser pour le placer où vous voulez. Un double-clic sur la barre du compositeur le ramène à cette position par défaut."
+  },
+  "composerPositionLower": {
+    "message": "Inférieur"
+  },
+  "composerPositionMiddle": {
+    "message": "Milieu"
+  },
+  "composerPositionTitle": {
+    "message": "Position par défaut du compositeur"
+  },
+  "composerTooltipAddPane": {
+    "message": "Ajouter un panneau"
+  },
+  "composerTooltipAttachFiles": {
+    "message": "Joindre des fichiers"
+  },
+  "composerTooltipClearAll": {
+    "message": "Tout effacer"
+  },
+  "composerTooltipFillAll": {
+    "message": "Tout remplir"
+  },
+  "composerTooltipLayout": {
+    "message": "Disposition"
+  },
+  "composerTooltipNewChats": {
+    "message": "Nouvelles conversations"
+  },
+  "composerTooltipPopupMode": {
+    "message": "Mode popup"
+  },
+  "composerTooltipPromptLibrary": {
+    "message": "Bibliothèque de prompts"
+  },
+  "composerTooltipResizeHeight": {
+    "message": "Glissez pour redimensionner la hauteur. Double-cliquez pour ajuster au contenu."
+  },
+  "composerTooltipResizeWidth": {
+    "message": "Glissez pour redimensionner la largeur. Double-cliquez pour réinitialiser la largeur."
+  },
+  "composerTooltipSettings": {
+    "message": "Paramètres"
+  },
+  "composerTooltipStopAllEsc": {
+    "message": "Tout arrêter (Esc)"
+  },
+  "composerTooltipTabMode": {
+    "message": "Mode onglet"
+  },
+  "composerTooltipTemporaryChats": {
+    "message": "Conversations temporaires"
+  },
+  "confirmClearLibrary": {
+    "message": "Supprimer tous les prompts enregistrés dans la bibliothèque ?"
+  },
+  "confirmDefault": {
+    "message": "Confirmer"
+  },
+  "confirmDeletePrompt": {
+    "message": "Supprimer « $1 » de votre bibliothèque de prompts ?",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "connectorLinesAriaDisable": {
+    "message": "Désactiver les lignes de connexion"
+  },
+  "connectorLinesAriaEnable": {
+    "message": "Activer les lignes de connexion"
+  },
+  "connectorLinesDescription": {
+    "message": "Affiche les liens animés expérimentaux entre le compositeur flottant et les prompts des fournisseurs.\n(Les désactiver peut améliorer les performances sur certains appareils, n'hésitez donc pas à les désactiver si vous constatez des ralentissements ou pour réduire les animations.)"
+  },
+  "connectorLinesTitle": {
+    "message": "Lignes de connexion stylisées"
+  },
+  "dataBackupDescription": {
+    "message": "Exportez vos paramètres actuels ou l'état complet de l'espace de travail, y compris les prompts enregistrés."
+  },
+  "dataBackupTitle": {
+    "message": "Sauvegarde et restauration"
+  },
+  "dataExportSettings": {
+    "message": "Exporter les paramètres"
+  },
+  "dataExportWorkspace": {
+    "message": "Exporter l'espace de travail"
+  },
+  "dataImportJson": {
+    "message": "Importer JSON"
+  },
+  "dataImportSettingsTitle": {
+    "message": "Importer le JSON des paramètres"
+  },
+  "dataResetComposer": {
+    "message": "Réinitialiser la position et la taille du compositeur"
+  },
+  "dataResetLayout": {
+    "message": "Réinitialiser la disposition"
+  },
+  "dataResetSettings": {
+    "message": "Réinitialiser les paramètres"
+  },
+  "dataResetSettingsConfirmLabel": {
+    "message": "Réinitialiser les paramètres"
+  },
+  "dataResetSettingsConfirmMessage": {
+    "message": "Cela restaure tous les paramètres (thème, fournisseurs, disposition, raccourcis, compositeur) à leurs valeurs par défaut.\nVos prompts enregistrés ne sont PAS affectés."
+  },
+  "dataResetSettingsConfirmTitle": {
+    "message": "Réinitialiser tous les paramètres ?"
+  },
+  "dataWorkspaceActionsDescription": {
+    "message": "Restaurez les valeurs par défaut de certains éléments de l'espace de travail, ou réinitialisez l'extension entière."
+  },
+  "dataWorkspaceActionsTitle": {
+    "message": "Actions de l'espace de travail"
+  },
+  "enterCustomNewline": {
+    "message": "Insérer un saut de ligne"
+  },
+  "enterCustomSend": {
+    "message": "Envoyer le message"
+  },
+  "enterKeyBehaviorAria": {
+    "message": "Choisir le comportement de la touche Enter"
+  },
+  "enterKeyBehaviorDescription": {
+    "message": "Ajustez le comportement de la touche Enter lorsque l'extension remplit les champs des fournisseurs."
+  },
+  "enterKeyBehaviorTitle": {
+    "message": "Comportement de la touche Enter"
+  },
+  "errorDefaultLibraryUnavailable": {
+    "message": "La bibliothèque de prompts par défaut n'est pas disponible."
+  },
+  "geminiAutoExtendedThinkingAriaDisable": {
+    "message": "Désactiver le mode de réflexion Extended automatique de Gemini"
+  },
+  "geminiAutoExtendedThinkingAriaEnable": {
+    "message": "Activer le mode de réflexion Extended automatique de Gemini"
+  },
+  "geminiAutoExtendedThinkingDescription": {
+    "message": "Bascule automatiquement le niveau de réflexion de Gemini sur « Extended » pour éviter que la page ne revienne à « Standard ».\n(Correctif temporaire pour un bug connu de l'interface web de Gemini. Fonctionnalité expérimentale — des dysfonctionnements ponctuels sont à prévoir.)"
+  },
+  "geminiAutoExtendedThinkingTitle": {
+    "message": "Maintenir Gemini en réflexion Extended"
+  },
+  "googleModeAi": {
+    "message": "Mode IA"
+  },
+  "googleModeAria": {
+    "message": "Choisir le mode Google"
+  },
+  "googleModeSearch": {
+    "message": "Recherche"
+  },
+  "keyboardShortcutDescriptionPrefix": {
+    "message": "Pour modifier ou désactiver ce raccourci, saisissez"
+  },
+  "keyboardShortcutDescriptionShortcut": {
+    "message": "Ouvre un nouvel espace de travail Parallel AI."
+  },
+  "keyboardShortcutDescriptionSuffix": {
+    "message": "dans un nouvel onglet Chrome ou utilisez le bouton de droite pour ouvrir la page des raccourcis clavier de Chrome et modifier l'entrée pour Parallel AI."
+  },
+  "keyboardShortcutOpenChrome": {
+    "message": "Raccourcis Chrome"
+  },
+  "keyboardShortcutOpenChromeTitle": {
+    "message": "Ouvrir la page des raccourcis clavier de Chrome"
+  },
+  "keyboardShortcutTitle": {
+    "message": "Raccourci clavier"
+  },
+  "languageAriaChoose": {
+    "message": "Choisir la langue"
+  },
+  "languageDescription": {
+    "message": "Choisissez la langue à utiliser pour l'interface de l'extension."
+  },
+  "languageTitle": {
+    "message": "Langue"
+  },
+  "layoutAriaSwitchTo": {
+    "message": "Passer à la disposition $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "layoutModalDescription": {
+    "message": "Choisissez la disposition globale des panneaux. Les poignées de redimensionnement dans l'espace de travail affinent la disposition actuelle."
+  },
+  "layoutModalTitle": {
+    "message": "Disposition"
+  },
+  "layoutSlots": {
+    "message": "$1 emplacements",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAddToFavorites": {
+    "message": "Ajouter aux favoris"
+  },
+  "libraryAllCategories": {
+    "message": "Toutes les catégories"
+  },
+  "libraryAriaAddFavorite": {
+    "message": "Ajouter $1 aux favoris",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDelete": {
+    "message": "Supprimer $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDragReorder": {
+    "message": "Faire glisser $1 pour réorganiser",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaEdit": {
+    "message": "Modifier $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaRemoveFavorite": {
+    "message": "Retirer $1 des favoris",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryBadgeFavorite": {
+    "message": "Favori"
+  },
+  "libraryClear": {
+    "message": "Vider la bibliothèque"
+  },
+  "libraryClearConfirmLabel": {
+    "message": "Vider la bibliothèque"
+  },
+  "libraryClearConfirmMessage": {
+    "message": "Cela supprime définitivement tous les prompts enregistrés dans votre bibliothèque.\nCette action est irréversible."
+  },
+  "libraryClearConfirmTitle": {
+    "message": "Vider la bibliothèque de prompts ?"
+  },
+  "libraryDeleteConfirmLabel": {
+    "message": "Supprimer"
+  },
+  "libraryDeleteConfirmMessage": {
+    "message": "Cela supprime définitivement « $1 ».\nCette action est irréversible.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryDeleteConfirmTitle": {
+    "message": "Supprimer le prompt ?"
+  },
+  "libraryDeletePrompt": {
+    "message": "Supprimer le prompt"
+  },
+  "libraryEditPrompt": {
+    "message": "Modifier le prompt"
+  },
+  "libraryEmptyDescription": {
+    "message": "Essayez un autre filtre, effacez la recherche ou importez la bibliothèque par défaut pour commencer."
+  },
+  "libraryEmptyTitle": {
+    "message": "Aucun prompt trouvé"
+  },
+  "libraryExportJson": {
+    "message": "Exporter JSON"
+  },
+  "libraryFilterAll": {
+    "message": "Tous"
+  },
+  "libraryFilterCategoryAria": {
+    "message": "Filtrer les prompts par catégorie"
+  },
+  "libraryFilterFavorites": {
+    "message": "Favoris"
+  },
+  "libraryFilterRecent": {
+    "message": "Récents"
+  },
+  "libraryImportDefaults": {
+    "message": "Importer les valeurs par défaut"
+  },
+  "libraryImportExportDescription": {
+    "message": "Importez des prompts de démarrage ou échangez des bibliothèques sous forme de fichiers JSON."
+  },
+  "libraryImportExportTitle": {
+    "message": "Importer et exporter"
+  },
+  "libraryImportJson": {
+    "message": "Importer JSON"
+  },
+  "libraryImportJsonTitle": {
+    "message": "Importer le JSON de la bibliothèque de prompts"
+  },
+  "libraryImportPromptsJsonTitle": {
+    "message": "Importer le JSON des prompts"
+  },
+  "libraryModalDescription": {
+    "message": "Enregistrez des prompts réutilisables, recherchez-les rapidement et réinjectez-les dans le compositeur unifié."
+  },
+  "libraryModalTitle": {
+    "message": "Bibliothèque de prompts"
+  },
+  "libraryNewPrompt": {
+    "message": "Nouveau prompt"
+  },
+  "libraryOpen": {
+    "message": "Ouvrir la bibliothèque"
+  },
+  "libraryOverviewDescription": {
+    "message": "Votre bibliothèque de prompts enregistrés est stockée localement dans IndexedDB pour une réutilisation rapide."
+  },
+  "libraryOverviewTitle": {
+    "message": "Aperçu de la bibliothèque"
+  },
+  "libraryPromptCountMany": {
+    "message": "$1 prompts enregistrés",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryPromptCountOne": {
+    "message": "$1 prompt enregistré",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryRemoveFromFavorites": {
+    "message": "Retirer des favoris"
+  },
+  "librarySearchPlaceholder": {
+    "message": "Rechercher dans les prompts, étiquettes ou contenu"
+  },
+  "libraryUse": {
+    "message": "Utiliser"
+  },
+  "multilineSendAriaDisable": {
+    "message": "Désactiver l'exigence d'un modificateur pour les prompts multilignes"
+  },
+  "multilineSendAriaEnable": {
+    "message": "Exiger Ctrl ou Command + Enter pour les prompts multilignes"
+  },
+  "multilineSendDescriptionPrefix": {
+    "message": "Lorsque cette option est activée, les prompts avec des sauts de ligne (plus d'une ligne) nécessitent"
+  },
+  "multilineSendDescriptionSuffix": {
+    "message": "pour être envoyés."
+  },
+  "multilineSendTitle": {
+    "message": "Exiger $1 + Enter pour les prompts multilignes",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "promptEditorAriaMarkFavorite": {
+    "message": "Marquer le prompt comme favori"
+  },
+  "promptEditorAriaRemoveFavorite": {
+    "message": "Retirer le prompt des favoris"
+  },
+  "promptEditorCategory": {
+    "message": "Catégorie"
+  },
+  "promptEditorCategoryPlaceholder": {
+    "message": "Général"
+  },
+  "promptEditorContent": {
+    "message": "Contenu du prompt"
+  },
+  "promptEditorContentPlaceholder": {
+    "message": "Écrivez votre prompt réutilisable ici"
+  },
+  "promptEditorDescription": {
+    "message": "Créez des prompts réutilisables avec des étiquettes, catégories et variables optionnelles comme {topic}."
+  },
+  "promptEditorEditTitle": {
+    "message": "Modifier le prompt"
+  },
+  "promptEditorFavoriteDescription": {
+    "message": "Afficher ce prompt dans le filtre des favoris."
+  },
+  "promptEditorFavoriteLabel": {
+    "message": "Favori"
+  },
+  "promptEditorNewTitle": {
+    "message": "Nouveau prompt"
+  },
+  "promptEditorSave": {
+    "message": "Enregistrer le prompt"
+  },
+  "promptEditorTags": {
+    "message": "Étiquettes"
+  },
+  "promptEditorTagsPlaceholder": {
+    "message": "recherche, planification, rédaction"
+  },
+  "promptEditorTitle": {
+    "message": "Titre"
+  },
+  "promptEditorTitlePlaceholder": {
+    "message": "Titre du prompt"
+  },
+  "promptEditorVariables": {
+    "message": "Variables"
+  },
+  "promptEditorVariablesPlaceholder": {
+    "message": "sujet, ton, audience"
+  },
+  "providerAriaDisable": {
+    "message": "Désactiver $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaDragReorder": {
+    "message": "Faire glisser $1 pour réorganiser",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaEnable": {
+    "message": "Activer $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsModalDescription": {
+    "message": "Toutes les commandes sont désormais intégrées à l'espace de travail au lieu d'une page d'options séparée."
+  },
+  "settingsModalTitle": {
+    "message": "Paramètres"
+  },
+  "sourceUrlAria": {
+    "message": "Choisir l'emplacement de l'URL source"
+  },
+  "sourceUrlBeginning": {
+    "message": "Placer l'URL au début"
+  },
+  "sourceUrlDescription": {
+    "message": "Déterminez si les URL sélectionnées sont ajoutées au début ou à la fin lors de l'importation de contenu."
+  },
+  "sourceUrlEnd": {
+    "message": "Placer l'URL à la fin"
+  },
+  "sourceUrlNone": {
+    "message": "Ne pas inclure l'URL source"
+  },
+  "sourceUrlTitle": {
+    "message": "Emplacement de l'URL source"
+  },
+  "statusAttachmentReadyMany": {
+    "message": "$1 pièces jointes prêtes.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusAttachmentReadyOne": {
+    "message": "$1 pièce jointe prête.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusCleared": {
+    "message": "Saisie unifiée et brouillons des fournisseurs effacés."
+  },
+  "statusComposerFullReset": {
+    "message": "Position et taille du compositeur réinitialisées."
+  },
+  "statusComposerHeightReset": {
+    "message": "Hauteur du compositeur réinitialisée."
+  },
+  "statusComposerPositionReset": {
+    "message": "Position du compositeur réinitialisée."
+  },
+  "statusComposerWidthReset": {
+    "message": "Largeur du compositeur réinitialisée."
+  },
+  "statusDefaultImportFailed": {
+    "message": "Échec de l'importation des prompts par défaut."
+  },
+  "statusDraftsAlreadySent": {
+    "message": "Brouillons remplis déjà envoyés."
+  },
+  "statusFavoriteAdded": {
+    "message": "Ajouté aux favoris."
+  },
+  "statusFavoriteFailed": {
+    "message": "Échec de la mise à jour du favori."
+  },
+  "statusFavoriteRemoved": {
+    "message": "Retiré des favoris."
+  },
+  "statusFavoritesReorderFailed": {
+    "message": "Échec de la réorganisation des favoris."
+  },
+  "statusFilledPanels": {
+    "message": "Panneaux actifs remplis."
+  },
+  "statusImageAttached": {
+    "message": "Image jointe au compositeur."
+  },
+  "statusImageFetchFailed": {
+    "message": "Impossible de récupérer cette image."
+  },
+  "statusImportedSkippedSuffix": {
+    "message": ", $1 ignorés",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusLayoutReset": {
+    "message": "Disposition des panneaux réinitialisée."
+  },
+  "statusLibraryClearFailed": {
+    "message": "Échec du vidage de la bibliothèque de prompts."
+  },
+  "statusLibraryCleared": {
+    "message": "Bibliothèque de prompts vidée."
+  },
+  "statusLibraryExportFailed": {
+    "message": "Échec de l'exportation des prompts."
+  },
+  "statusLibraryExported": {
+    "message": "Bibliothèque de prompts exportée."
+  },
+  "statusLibraryLoadFailed": {
+    "message": "Échec du chargement de la bibliothèque de prompts."
+  },
+  "statusNewChats": {
+    "message": "Nouvelle conversation demandée dans chaque panneau."
+  },
+  "statusNoContentToSend": {
+    "message": "Ajoutez un prompt ou des pièces jointes avant l'envoi."
+  },
+  "statusNoMoreProviders": {
+    "message": "Aucun autre fournisseur activé n'est disponible."
+  },
+  "statusOnePanelMin": {
+    "message": "Au moins un panneau doit rester ouvert."
+  },
+  "statusPanelAdded": {
+    "message": "Nouveau panneau de fournisseur ajouté."
+  },
+  "statusPanelsReordered": {
+    "message": "Panneaux réorganisés."
+  },
+  "statusPromptDeleteFailed": {
+    "message": "Échec de la suppression du prompt."
+  },
+  "statusPromptDeleted": {
+    "message": "Prompt supprimé."
+  },
+  "statusPromptInserted": {
+    "message": "Prompt inséré dans le compositeur unifié."
+  },
+  "statusPromptSaveFailed": {
+    "message": "Échec de l'enregistrement du prompt."
+  },
+  "statusPromptSaved": {
+    "message": "Prompt enregistré."
+  },
+  "statusPromptUpdated": {
+    "message": "Prompt mis à jour."
+  },
+  "statusPromptsImportFailed": {
+    "message": "Échec de l'importation des prompts."
+  },
+  "statusScrollSyncOff": {
+    "message": "Synchronisation du défilement désactivée."
+  },
+  "statusScrollSyncOn": {
+    "message": "Synchronisation du défilement activée."
+  },
+  "statusSelectedTextLoaded": {
+    "message": "Texte sélectionné chargé dans le compositeur."
+  },
+  "statusSentToPanels": {
+    "message": "Envoyé aux panneaux actifs."
+  },
+  "statusSettingsExportFailed": {
+    "message": "Échec de l'exportation des paramètres."
+  },
+  "statusSettingsExported": {
+    "message": "Paramètres exportés."
+  },
+  "statusSettingsImportFailed": {
+    "message": "Échec de l'importation des paramètres."
+  },
+  "statusSettingsImportedMany": {
+    "message": "$1 paramètres importés.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusSettingsImportedOne": {
+    "message": "$1 paramètre importé.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusStopRequested": {
+    "message": "Arrêt demandé dans les panneaux actifs."
+  },
+  "statusTempChatOff": {
+    "message": "Les panneaux pris en charge sont revenus aux URL de conversation normales."
+  },
+  "statusTempChatOn": {
+    "message": "Mode conversation temporaire activé là où il est pris en charge."
+  },
+  "statusWorkspaceExportFailed": {
+    "message": "Échec de l'exportation des données de l'espace de travail."
+  },
+  "statusWorkspaceExported": {
+    "message": "Données de l'espace de travail exportées."
+  },
+  "tabAbout": {
+    "message": "À propos"
+  },
+  "tabAppearance": {
+    "message": "Apparence"
+  },
+  "tabData": {
+    "message": "Données"
+  },
+  "tabKeyboard": {
+    "message": "Clavier"
+  },
+  "tabLibrary": {
+    "message": "Bibliothèque de prompts"
+  },
+  "tabProviders": {
+    "message": "Fournisseurs"
+  },
+  "themeAuto": {
+    "message": "Auto"
+  },
+  "themeDark": {
+    "message": "Sombre"
+  },
+  "themeDescription": {
+    "message": "Clair, sombre ou suivre la préférence du système."
+  },
+  "themeLight": {
+    "message": "Clair"
+  },
+  "themeTitle": {
+    "message": "Thème"
+  },
+  "variableApplyPrompt": {
+    "message": "Appliquer le prompt"
+  },
+  "variableEnterPlaceholder": {
+    "message": "Saisir $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "variableModalDescription": {
+    "message": "Remplissez les variables avant que le prompt ne soit copié dans le compositeur unifié."
+  },
+  "variableModalTitleDefault": {
+    "message": "Variables du prompt"
+  },
+  "variableModalTitleUse": {
+    "message": "Utiliser « $1 »",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerAriaOpenTokenMeter": {
+    "message": "Ouvrir le compteur d'utilisation"
+  },
+  "composerAriaCloseTokenMeter": {
+    "message": "Fermer le compteur d'utilisation"
+  },
+  "composerTooltipTokenMeter": {
+    "message": "Utilisation"
+  },
+  "usagePanelTitle": {
+    "message": "Utilisation"
+  },
+  "usagePanelDragHint": {
+    "message": "Glissez pour déplacer. Double-cliquez pour réinitialiser la position."
+  },
+  "usageAriaRefresh": {
+    "message": "Actualiser l'utilisation"
+  },
+  "usageTooltipRefresh": {
+    "message": "Actualiser"
+  },
+  "usageAriaClose": {
+    "message": "Fermer le panneau d'utilisation"
+  },
+  "usageTooltipClose": {
+    "message": "Fermer"
+  },
+  "usageUpdatedAgo": {
+    "message": "Mis à jour il y a $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageResetsIn": {
+    "message": "Réinitialisation dans $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageRemainingCount": {
+    "message": "$1 restants",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageWaiting": {
+    "message": "En attente des données d'utilisation"
+  },
+  "usageUnsupported": {
+    "message": "Aucune info d'utilisation pour ce fournisseur"
+  },
+  "usageSignInRequired": {
+    "message": "Connectez-vous à ce fournisseur pour voir l'utilisation"
+  },
+  "usageLoadFailed": {
+    "message": "Impossible de charger l'utilisation"
+  },
+  "usageNoLimitsReported": {
+    "message": "Aucune limite signalée"
+  },
+  "usageNoActivePanels": {
+    "message": "Aucun panneau actif"
+  },
+  "paneUsageStripTitle": {
+    "message": "Barre d'utilisation sur les panneaux"
+  },
+  "paneUsageStripDescription": {
+    "message": "Affiche une petite barre d'utilisation en bas de chaque panneau de fournisseur, pour les fournisseurs qui indiquent l'utilisation de leur forfait. Elle flotte au-dessus du panneau et ne prend aucune place au chat."
+  },
+  "paneUsageStripAriaEnable": {
+    "message": "Afficher la barre d'utilisation sur les panneaux"
+  },
+  "paneUsageStripAriaDisable": {
+    "message": "Masquer la barre d'utilisation sur les panneaux"
+  },
+  "usageAriaResizeRight": {
+    "message": "Redimensionner la largeur du panneau d'utilisation"
+  },
+  "usageAriaResizeBottom": {
+    "message": "Redimensionner la hauteur du panneau d'utilisation"
+  },
+  "usageAriaResizeCorner": {
+    "message": "Redimensionner le panneau d'utilisation"
+  },
+  "usagePercentRemaining": {
+    "message": "$1% restant",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  }
+}

@@ -1,0 +1,3486 @@
+// Text injection handler for all AI providers
+// Self-contained script without module imports (for iframe compatibility)
+
+(function() {
+  'use strict';
+
+  const GOOGLE_PROVIDER_MODE_AI = 'ai';
+  const GOOGLE_PROVIDER_MODE_SEARCH = 'search';
+  const MULTI_PANEL_PROVIDER_STATUS_CONTEXT = 'multi-panel-provider-status';
+  const PARALLEL_AI_PROVIDER_BUSY = 'PARALLEL_AI_PROVIDER_BUSY';
+  const PARALLEL_AI_PROVIDER_IDLE = 'PARALLEL_AI_PROVIDER_IDLE';
+  const PARALLEL_AI_PROVIDER_INPUT_ANCHOR = 'PARALLEL_AI_PROVIDER_INPUT_ANCHOR';
+  const PARALLEL_AI_PROVIDER_USER_INTERACTION = 'PARALLEL_AI_PROVIDER_USER_INTERACTION';
+  const PARALLEL_AI_PROVIDER_URL = 'PARALLEL_AI_PROVIDER_URL';
+  const PARALLEL_AI_PROVIDER_TITLE = 'PARALLEL_AI_PROVIDER_TITLE';
+  const PARALLEL_AI_TEMP_CHAT_ENABLED = 'PARALLEL_AI_TEMP_CHAT_ENABLED';
+  const PARALLEL_AI_TEMP_CHAT_DISABLED = 'PARALLEL_AI_TEMP_CHAT_DISABLED';
+  const CHATGPT_STOP_BUTTON_SELECTOR = 'button[data-testid="stop-button"]';
+  const CHATGPT_SEND_TRACKING_IDLE_DELAY_MS = 800;
+  const CHATGPT_SEND_TRACKING_NO_BUSY_TIMEOUT_MS = 2000;
+  const PROVIDER_SEND_TRACKING_IDLE_DELAY_MS = 800;
+  const PROVIDER_SEND_TRACKING_NO_BUSY_TIMEOUT_MS = 2500;
+  const PROVIDER_SEND_TRACKING_SLOW_BUSY_TIMEOUT_MS = 8000;
+  const PROVIDER_SEND_TRACKING_POLL_INTERVAL_MS = 500;
+  const PROVIDER_SEND_TRACKING_EVALUATE_THROTTLE_MS = 120;
+  const META_SEND_TRACKING_NO_STOP_IDLE_DELAY_MS = 1200;
+  const CHATGPT_AUTO_SUBMIT_POLL_INTERVAL_MS = 150;
+  const CHATGPT_AUTO_SUBMIT_TIMEOUT_MS = 2500;
+  const CHATGPT_IMAGE_AUTO_SUBMIT_TIMEOUT_MS = 12000;
+  const ZAI_IMAGE_AUTO_SUBMIT_TIMEOUT_MS = 12000;
+  const MULTI_PANEL_USER_INTERACTION_TRACKING_TIMEOUT_MS = 90000;
+  const PROVIDER_INPUT_ANCHOR_REPORT_DELAY_MS = 140;
+  const TEMP_CHAT_POLL_INTERVAL_MS = 200;
+  const TEMP_CHAT_POLL_TIMEOUT_MS = 1200;
+  const TEXT_INJECTION_DEBUG = false;
+  let googleSearchReplaceOnNextFill = true;
+  let chatgptSendTracking = null;
+  let providerSendTracking = null;
+  let filledDraftTracking = null;
+  let multiPanelUserInteractionTracking = null;
+  let providerInputAnchorReportTimer = null;
+  let providerInputAnchorObserver = null;
+
+  function debugLog(...args) {
+    if (TEXT_INJECTION_DEBUG) {
+      console.debug(...args);
+    }
+  }
+
+  // Provider-specific selectors
+  const PROVIDER_SELECTORS = {
+    chatgpt: [
+      // The current ChatGPT composer no longer has the prompt-textarea ID.
+      '.ProseMirror[contenteditable="true"][data-composer-markdown]',
+      '#prompt-textarea'
+    ],
+    claude: [
+      '.ProseMirror[role="textbox"]',
+      '.ProseMirror[contenteditable="true"]',
+      'div[contenteditable="true"].ProseMirror',
+      'div[contenteditable="true"]'
+    ],
+    gemini: ['.ql-editor'],
+    grok: ['.tiptap', '.ProseMirror', 'textarea'],
+    deepseek: [
+      'textarea[placeholder="How can I help you?"]',
+      'textarea.ds-scroll-area',
+      'textarea[class*="ds-"]',
+      'textarea',
+      'div[contenteditable="true"]'
+    ],
+    kimi: [
+      '.chat-input-editor',
+      'div[contenteditable="true"].chat-input-editor',
+      'div.chat-input-editor[contenteditable]',
+      'div[contenteditable="true"]'
+    ],
+    qwen: [
+      'textarea[placeholder*="Qwen"]',
+      'textarea[placeholder*="Ask"]',
+      'textarea[aria-label*="Ask"]',
+      'textarea',
+      '.ProseMirror[contenteditable="true"]',
+      'div[contenteditable="true"][role="textbox"]',
+      'div[contenteditable="true"]'
+    ],
+    zai: [
+      '#chat-input',
+      'textarea[placeholder="How can I help you today?"]',
+      'textarea'
+    ],
+    mimo: [
+      'textarea[placeholder*="有问题"]',
+      'textarea[placeholder*="Ask me anything"]',
+      'textarea[placeholder*="Shift"]',
+      'textarea'
+    ],
+    meta: [
+      'textarea[placeholder*="Ask"]',
+      'textarea[aria-label*="Ask"]',
+      'textarea',
+      'div[contenteditable="true"][role="textbox"]',
+      'div[role="textbox"][contenteditable="true"]',
+      'div[contenteditable="true"]'
+    ],
+    google: [
+      'textarea.ITIRGe',
+      'textarea[aria-label="Ask anything"]',
+      'textarea[maxlength="8192"]'
+    ]
+  };
+
+  const GOOGLE_AI_INPUT_SELECTORS = [
+    'textarea.ITIRGe',
+    'textarea[aria-label="Ask anything"]',
+    'textarea[maxlength="8192"]'
+  ];
+
+  const GOOGLE_SEARCH_INPUT_SELECTORS = [
+    'input[name="q"]',
+    'textarea[name="q"]',
+    'input.gLFyf',
+    'textarea.gLFyf'
+  ];
+
+  // Provider image support configuration
+  const PROVIDER_IMAGE_SUPPORT = {
+    chatgpt: true,
+    claude: true,
+    gemini: true,
+    grok: true,
+    deepseek: true,
+    kimi: true,  // Kimi supports images
+    qwen: true,
+    zai: true,
+    mimo: true,
+    meta: true,
+    google: true  // Google AI Mode supports images
+  };
+
+  // Provider-specific file input selectors for image upload
+  const FILE_INPUT_SELECTORS = {
+    chatgpt: ['input[type="file"][data-testid="file-upload-input"]', 'input[type="file"]'],
+    claude: ['input[type="file"]'],
+    gemini: ['input[type="file"]'],
+    grok: ['input[type="file"]'],
+    deepseek: ['input[type="file"]'],
+    kimi: ['input[type="file"]'],
+    qwen: ['input[type="file"]'],
+    zai: ['input[type="file"]'],
+    mimo: ['input[type="file"]'],
+    meta: ['input[type="file"]'],
+    google: ['input[type="file"]']
+  };
+
+  // Provider-specific upload button selectors (to click before file input)
+  const UPLOAD_BUTTON_SELECTORS = {
+    chatgpt: ['button[aria-label="Attach files"]', 'button[data-testid="composer-attach-button"]', 'button:has(svg path[d*="M9"])'],
+    claude: ['button[aria-label="Attach file"]', 'button[aria-label="Upload file"]', 'fieldset button:has(svg)'],
+    gemini: ['button[aria-label="Upload file"]', 'button[mattooltip="Upload file"]', '.add-button', 'button:has(mat-icon)'],
+    grok: [],
+    deepseek: [],
+    kimi: [],  // Kimi supports drag-drop for images
+    qwen: [
+      'button[aria-label*="Attach"]',
+      'button[aria-label*="Upload"]',
+      'button[aria-label*="Add file"]',
+      'button[title*="Attach"]',
+      'button[title*="Upload"]',
+      'button[type="button"]:has(input[type="file"])'
+    ],
+    zai: [],
+    mimo: [
+      'button[data-track-id="file_bar_upload_btn"]',
+      'button[aria-label="Upload file"]',
+      'button[aria-label*="上传"]',
+      'button[type="button"]:has(input[type="file"])'
+    ],
+    meta: [
+      'button[aria-label*="Attach"]',
+      'button[aria-label*="Upload"]',
+      'button[aria-label*="Add photo"]',
+      'button[aria-label*="Add file"]',
+      'button[title*="Attach"]',
+      'button[title*="Upload"]',
+      'button[type="button"]:has(input[type="file"])'
+    ],
+    google: [
+      'button[aria-label="更多输入项"]',
+      'button[aria-label="Upload image"]',
+      'button[aria-label="上传图片"]',
+      'button[aria-label="上传文件"]',
+      'button[aria-label="Add image"]',
+      'button[aria-label="Upload image"]',
+      'button[aria-label="Add"]',
+      'button[title="Add image"]',
+      'button[title="Upload image"]',
+      'button[data-xid*="image"]',
+      'button[data-xid*="upload"]'
+    ]
+  };
+
+  // Provider-specific send button selectors
+  const SEND_BUTTON_SELECTORS = {
+    chatgpt: [
+      'button[data-testid="send-button"]',
+      'button[data-testid="composer-submit-button"]',
+      'button#composer-submit-button',
+      'button[aria-label="Send prompt"]',
+      'button[aria-label="Send message"]',
+      'button[aria-label="Send"]',
+      'form button[type="submit"]'
+    ],
+    claude: [
+      'button[aria-label="Send Message"]',
+      'button[aria-label="Send message"]',
+      'button[aria-label="Send"]',
+      'fieldset button[type="button"]:has(svg)',
+      'button.bg-accent-main-100'
+    ],
+    gemini: [
+      'button[aria-label="Send message"]',
+      'button.send-button',
+      'button[mattooltip="Send message"]',
+      '.input-area-container button:has(mat-icon)',
+      'button[aria-label="Submit"]'
+    ],
+    grok: [
+      'button[aria-label="Send message"]',
+      'button[aria-label="Send"]',
+      'button[type="submit"]',
+      'form button:has(svg)'
+    ],
+    deepseek: [
+      'button[aria-label="Send"]',
+      'button[type="submit"]'
+    ],
+    kimi: [
+      // Priority: clickable send button containers that are not disabled
+      '.send-button-container:not(.disabled)',
+      'div[class*="send"]:not([class*="disabled"])',
+      // Backup: look for send icon and click its parent
+      'svg[name="Send"]',
+      '.send-icon',
+      // Try to find button by aria-label
+      'button[aria-label*="Send"]',
+      'button[aria-label*="发送"]'
+    ],
+    qwen: [
+      'button[class*="send" i]',
+      'button[aria-label="Send"]',
+      'button[aria-label="Send message"]',
+      'button[aria-label="Submit"]',
+      'button[aria-label*="send" i]',
+      'button[aria-label*="submit" i]',
+      'button[title*="send" i]',
+      'button[title*="submit" i]',
+      'button[type="submit"]',
+      '[role="button"][aria-label*="send" i]',
+      '[role="button"][title*="send" i]',
+      '[class*="send"][role="button"]',
+      'form button:has(svg)'
+    ],
+    zai: [
+      '#send-message-button',
+      'button.sendMessageButton',
+      'form button[type="submit"]'
+    ],
+    mimo: [
+      'button[data-track-id*="send" i]',
+      'button[aria-label="Send message"]',
+      'button[aria-label="发送消息"]',
+      'button[aria-label="Send"]',
+      'button[type="submit"]',
+      'form button:not([disabled]):not([aria-disabled="true"]):has(svg)'
+    ],
+    meta: [
+      'button[aria-label="Send"]',
+      'button[aria-label="Submit"]',
+      'button[aria-label="Send message"]',
+      'button[aria-label*="send" i]',
+      'button[aria-label*="submit" i]',
+      'button[title*="send" i]',
+      'button[title*="submit" i]',
+      'button[type="submit"]',
+      '[role="button"][aria-label*="send" i]',
+      '[role="button"][title*="send" i]',
+      '[class*="send" i][role="button"]',
+      'button[class*="send" i]',
+      'form button:has(svg)'
+    ],
+    google: [
+      'button[data-xid="input-plate-send-button"]',
+      'button[aria-label="Send"]',
+      'button.OEueve'
+    ]
+  };
+
+  const STOP_BUTTON_SELECTORS = {
+    chatgpt: [
+      CHATGPT_STOP_BUTTON_SELECTOR,
+      'button[aria-label="Stop streaming"]',
+      'button[aria-label="Stop generating"]',
+      'button[aria-label="Stop"]'
+    ],
+    claude: [
+      'button[aria-label="Stop response"]',
+      'button[aria-label="Stop generating"]',
+      'button[aria-label="Stop"]'
+    ],
+    gemini: [
+      'button[aria-label="Stop response"]',
+      'button[aria-label="Stop generating"]',
+      'button[aria-label="Stop"]',
+      'button[mattooltip="Stop response"]',
+      'button[mattooltip="Stop generating"]'
+    ],
+    grok: [
+      'button[aria-label="Stop generating"]',
+      'button[aria-label="Stop"]',
+      'button[type="button"][aria-label*="stop" i]'
+    ],
+    deepseek: [
+      'button[aria-label="Stop generating"]',
+      'button[aria-label="Stop"]',
+      'button[aria-label*="stop" i]',
+      'button[aria-label*="cancel" i]',
+      'button[title*="stop" i]',
+      'button[title*="cancel" i]',
+      'button[type="button"][aria-label*="stop" i]',
+      '[role="button"][aria-label*="stop" i]',
+      '[role="button"][title*="stop" i]',
+      '[class*="stop" i][role="button"]',
+      'button[class*="stop" i]',
+      'button[class*="cancel" i]'
+    ],
+    kimi: [
+      'button[aria-label*="Stop" i]',
+      'button[aria-label*="Cancel" i]',
+      'button[title*="Stop" i]',
+      'button[title*="Cancel" i]',
+      'div[role="button"][aria-label*="Stop" i]',
+      'div[role="button"][aria-label*="Cancel" i]',
+      'div[role="button"][title*="Stop" i]',
+      'div[role="button"][title*="Cancel" i]',
+      'svg[name*="Stop" i]',
+      'svg[name*="Pause" i]',
+      '.stop-icon',
+      '.pause-icon',
+      '[class*="stop" i][role="button"]',
+      '[class*="pause" i][role="button"]'
+    ],
+    qwen: [
+      'button[aria-label*="Stop" i]',
+      'button[aria-label*="Cancel" i]',
+      'button[title*="Stop" i]',
+      'button[title*="Cancel" i]',
+      'button[type="button"][aria-label*="stop" i]',
+      'button[type="button"][aria-label*="cancel" i]',
+      '[role="button"][aria-label*="stop" i]',
+      '[role="button"][aria-label*="cancel" i]',
+      '[role="button"][title*="stop" i]',
+      '[role="button"][title*="cancel" i]',
+      '[class*="stop" i][role="button"]',
+      '[class*="pause" i][role="button"]',
+      'button[class*="stop" i]',
+      'button[class*="pause" i]'
+    ],
+    zai: [
+      '#stop-response-button',
+      'button[aria-label*="Stop" i]',
+      'button[title*="Stop" i]',
+      'button[class*="stop" i]'
+    ],
+    meta: [
+      'button[aria-label="Stop"]',
+      'button[aria-label="Stop response"]',
+      'button[aria-label="Stop generating"]',
+      'button[aria-label*="Stop" i]',
+      'button[aria-label*="Cancel" i]',
+      'button[aria-label*="Interrupt" i]',
+      'button[title*="Stop" i]',
+      'button[title*="Cancel" i]',
+      'button[title*="Interrupt" i]',
+      'button[type="button"][aria-label*="stop" i]',
+      'button[type="button"][aria-label*="cancel" i]',
+      '[role="button"][aria-label*="stop" i]',
+      '[role="button"][aria-label*="cancel" i]',
+      '[role="button"][aria-label*="interrupt" i]',
+      '[role="button"][title*="stop" i]',
+      '[role="button"][title*="cancel" i]',
+      '[role="button"][title*="interrupt" i]',
+      '[class*="stop" i][role="button"]',
+      '[class*="pause" i][role="button"]',
+      'button[class*="stop" i]',
+      'button[class*="pause" i]'
+    ],
+    google: [
+      'button[aria-label="Stop"]',
+      'button[aria-label*="Stop" i]',
+      'button[title*="Stop" i]'
+    ]
+  };
+
+  const STOP_BUTTON_KEYWORDS = [
+    'stop',
+    'stop generating',
+    'stop response',
+    'stop streaming',
+    'cancel',
+    'cancel response',
+    'abort',
+    'interrupt',
+    '停止',
+    '停止生成',
+    '停止回答',
+    '取消',
+    '暂停',
+    '中止',
+    '中止生成',
+    'キャンセル',
+    '정지'
+  ];
+
+  // Provider-specific new chat button selectors and URLs
+  const NEW_CHAT_BUTTON_SELECTORS = {
+    chatgpt: [
+      'a[aria-label="New chat"]',
+      'button[aria-label="New chat"]',
+      'a[href="/"]',
+      'nav a[href="/"]',
+      'aside a[href="/"]',
+      '[data-testid="new-chat-button"]'
+    ],
+    claude: [
+      'button[aria-label="Start new chat"]',
+      'button[aria-label*="new chat"]',
+      'a[href="/new"]',
+      'div[role="button"][aria-label*="New"]',
+      // Match /new and /new?… but NOT /news (e.g. announcement banner links)
+      'a[href$="/new"]',
+      'a[href*="/new?"]'
+    ],
+    gemini: [
+      'button[aria-label="New chat"]',
+      'button[aria-label*="New"]',
+      'a[aria-label="New chat"]'
+    ],
+    grok: [
+      'a[href="/"]',
+      'button[aria-label*="New"]',
+      // Match /new and /new?… but NOT /news
+      'a[href$="/new"]',
+      'a[href*="/new?"]'
+    ],
+    deepseek: [
+      'button[aria-label*="New"]',
+      'a[href="/"]',
+      'div[class*="new-chat"]'
+    ],
+    kimi: [
+      'a.new-chat-btn',
+      'a[href="/"]',
+      '.sidebar a[href="/"]'
+    ],
+    qwen: [
+      'a[href="/"]',
+      'button[aria-label*="New"]',
+      'a[aria-label*="New"]',
+      // Match /new and /new?… but NOT /news
+      'a[href$="/new"]',
+      'a[href*="/new?"]'
+    ],
+    zai: [
+      '#sidebar-new-chat-button',
+      '#new-chat-button',
+      'button[aria-label="New Chat"]'
+    ],
+    mimo: [
+      'button[aria-label*="New"]',
+      'button[aria-label*="新建"]',
+      '[role="button"][aria-label*="New"]',
+      '[role="button"][aria-label*="新建"]',
+      'a[href="/"]'
+    ],
+    meta: [
+      'a[href="/"]',
+      'button[aria-label*="New"]',
+      'a[aria-label*="New"]',
+      // Match /new and /new?… but NOT /news
+      'a[href$="/new"]',
+      'a[href*="/new?"]'
+    ],
+    google: [
+      'button[aria-label="New search"]',
+      'a[aria-label="Google"]',
+      'a[href^="/search"][href*="udm="]'
+    ]
+  };
+
+  // Fallback URLs for creating new chat when button not found
+  const NEW_CHAT_URLS = {
+    chatgpt: 'https://chatgpt.com/',
+    claude: 'https://claude.ai/new',
+    gemini: 'https://gemini.google.com/app',
+    grok: 'https://grok.com/',
+    deepseek: 'https://chat.deepseek.com/',
+    kimi: 'https://www.kimi.com/',
+    qwen: 'https://chat.qwen.ai/',
+    zai: 'https://chat.z.ai/',
+    mimo: 'https://aistudio.xiaomimimo.com/',
+    meta: 'https://www.meta.ai/',
+    google: 'https://www.google.com/search?udm=50'
+  };
+
+  const TEMP_CHAT_BUTTON_SELECTORS = {
+    chatgpt: ['button[aria-label="Turn on temporary chat"]'],
+    claude: ['button[aria-label="Use incognito"]'],
+    gemini: [
+      // The clickable control is the inner <button>; the temp-chat-button
+      // data-test-id / .temp-chat-on state now live on the wrapping
+      // <gem-icon-button>, so match the button by its label first and fall
+      // back to the wrapper (older builds put the attribute on the button).
+      'gem-icon-button[data-test-id="temp-chat-button"] button',
+      'button[aria-label="Temporary chat"]',
+      'gem-icon-button[data-test-id="temp-chat-button"]',
+      'button[data-test-id="temp-chat-button"]'
+    ],
+    grok: ['a[href="/c#private"][aria-label="Switch to Private Chat"]'],
+    qwen: [
+      '.temporary-button-ui',
+      '.temporary-button-mobile-ui',
+      '.temporary-chat',
+      'button[aria-label*="Temporary" i]',
+      'button[title*="Temporary" i]',
+      '[role="button"][aria-label*="Temporary" i]',
+      '[role="button"][title*="Temporary" i]',
+      'button[aria-label*="临时" i]',
+      'button[title*="临时" i]',
+      '[role="button"][aria-label*="临时" i]',
+      '[role="button"][title*="临时" i]'
+    ]
+  };
+
+  // Detect which provider we're on based on hostname
+  function detectProvider() {
+    const hostname = window.location.hostname;
+    const pathname = window.location.pathname;
+    const search = window.location.search;
+
+    if (hostname.includes('chatgpt.com') || hostname.includes('openai.com')) {
+      return 'chatgpt';
+    } else if (hostname.includes('claude.ai')) {
+      return 'claude';
+    } else if (hostname.includes('gemini.google.com')) {
+      return 'gemini';
+    } else if (hostname.includes('grok.com')) {
+      return 'grok';
+    } else if (hostname.includes('deepseek.com')) {
+      return 'deepseek';
+    } else if (hostname.includes('kimi.com')) {
+      return 'kimi';
+    } else if (hostname.includes('chat.qwen.ai')) {
+      return 'qwen';
+    } else if (hostname === 'chat.z.ai') {
+      return 'zai';
+    } else if (hostname.includes('aistudio.xiaomimimo.com')) {
+      return 'mimo';
+    } else if (hostname.includes('meta.ai')) {
+      return 'meta';
+    } else if (hostname.includes('google.com') || hostname.includes('google.') || hostname === 'www.google.com') {
+      // Google Search / AI Mode
+      // Always return 'google' for any google.com page
+      // The handleGoogleNewSearch will navigate to homepage which works for all cases
+      return 'google';
+    }
+    return null;
+  }
+
+  function normalizeGoogleProviderMode(mode) {
+    return mode === GOOGLE_PROVIDER_MODE_SEARCH
+      ? GOOGLE_PROVIDER_MODE_SEARCH
+      : GOOGLE_PROVIDER_MODE_AI;
+  }
+
+  function resetGoogleSearchFillSession() {
+    googleSearchReplaceOnNextFill = true;
+  }
+
+  function isVisibleElement(element) {
+    if (!element || element.getAttribute('aria-hidden') === 'true') {
+      return false;
+    }
+
+    const styles = typeof window.getComputedStyle === 'function'
+      ? window.getComputedStyle(element)
+      : null;
+    if (
+      styles &&
+      (styles.display === 'none' || styles.visibility === 'hidden' || styles.opacity === '0')
+    ) {
+      return false;
+    }
+
+    const rect = typeof element.getBoundingClientRect === 'function'
+      ? element.getBoundingClientRect()
+      : null;
+
+    if (!rect) {
+      return true;
+    }
+
+    if (rect.width === 0 && rect.height === 0) {
+      return false;
+    }
+
+    const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || Number.POSITIVE_INFINITY;
+    const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || Number.POSITIVE_INFINITY;
+
+    return Boolean(
+      rect.bottom > 0 &&
+      rect.right > 0 &&
+      rect.top < viewportHeight &&
+      rect.left < viewportWidth
+    );
+  }
+
+  function findFirstVisibleElement(selectors, predicate = null) {
+    for (const selector of selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const element of elements) {
+          if (isVisibleElement(element) && (!predicate || predicate(element))) {
+            return element;
+          }
+        }
+      } catch (error) {
+        debugLog('[Text Injection] Error finding visible element with selector:', selector, error);
+      }
+    }
+
+    return null;
+  }
+
+  function isPromptInputEnabled(element) {
+    return Boolean(
+      element &&
+      !element.disabled &&
+      !element.readOnly &&
+      element.getAttribute?.('aria-disabled') !== 'true' &&
+      element.getAttribute?.('contenteditable') !== 'false'
+    );
+  }
+
+  function findFirstEnabledElement(selectors) {
+    for (const selector of selectors) {
+      try {
+        const elements = querySelectorAllDeep(selector);
+        for (const element of elements) {
+          if (isPromptInputEnabled(element)) {
+            return element;
+          }
+        }
+      } catch (error) {
+        debugLog('[Text Injection] Error finding enabled element with selector:', selector, error);
+      }
+    }
+
+    return null;
+  }
+
+  function getElementAccessibleTextParts(element) {
+    return [
+      element?.getAttribute?.('aria-label') || '',
+      element?.getAttribute?.('title') || '',
+      element?.textContent || ''
+    ]
+      .map(part => part.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+  }
+
+  function getElementAccessibleText(element) {
+    return getElementAccessibleTextParts(element)
+      .join(' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  // True only when the accessible text IS a generation-stop phrase ("Stop",
+  // "Cancel", "Stop generating", …) — anchored, not a loose substring. Used to
+  // keep the page-wide stop keyword scan from matching benign controls whose
+  // text merely contains "cancel"/"stop" (e.g. "Cancel subscription").
+  function isGenerationStopPhrase(text) {
+    if (!text) {
+      return false;
+    }
+
+    const normalizedText = text.replace(/\s+/g, ' ').trim().toLowerCase();
+    return (
+      /^(stop|cancel|interrupt|pause)( (generating|generation|response|answer|message|request|streaming|reply))?$/.test(normalizedText) ||
+      /^(stop|cancel|interrupt|pause) (generating|generation|response|answer|message|request|streaming|reply)\b/.test(normalizedText) ||
+      ['停止', '停止生成', '停止回答', '取消', '暂停', '中止', '中止生成', 'キャンセル', '정지'].includes(normalizedText)
+    );
+  }
+
+  function findDeepFirstVisibleElement(selectors, predicate = null) {
+    for (const selector of selectors) {
+      try {
+        const elements = querySelectorAllDeep(selector);
+        for (const element of elements) {
+          if (isVisibleElement(element) && (!predicate || predicate(element))) {
+            return element;
+          }
+        }
+      } catch (error) {
+        debugLog('[Text Injection] Error finding deep visible element with selector:', selector, error);
+      }
+    }
+
+    return null;
+  }
+
+  function findDeepClickableElementByKeywords(keywords) {
+    const loweredKeywords = keywords.map(keyword => keyword.toLowerCase());
+    const candidates = querySelectorAllDeep('button, [role="button"], [role="menuitem"], label');
+
+    for (const candidate of candidates) {
+      if (!isVisibleElement(candidate)) {
+        continue;
+      }
+
+      const searchableText = getElementAccessibleText(candidate);
+      if (loweredKeywords.some(keyword => searchableText.includes(keyword))) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  function getGoogleInputSelectors(mode) {
+    return normalizeGoogleProviderMode(mode) === GOOGLE_PROVIDER_MODE_SEARCH
+      ? GOOGLE_SEARCH_INPUT_SELECTORS
+      : GOOGLE_AI_INPUT_SELECTORS;
+  }
+
+  function detectGoogleProviderModeFromLocation() {
+    try {
+      const currentUrl = new URL(window.location.href);
+      return currentUrl.searchParams.get('udm') === '50'
+        ? GOOGLE_PROVIDER_MODE_AI
+        : GOOGLE_PROVIDER_MODE_SEARCH;
+    } catch {
+      return GOOGLE_PROVIDER_MODE_AI;
+    }
+  }
+
+  function resolveProviderMode(provider, requestedMode = null) {
+    if (provider !== 'google') {
+      return null;
+    }
+
+    if (requestedMode) {
+      return normalizeGoogleProviderMode(requestedMode);
+    }
+
+    return detectGoogleProviderModeFromLocation();
+  }
+
+  function findProviderInputElement(provider = detectProvider(), providerMode = null) {
+    if (!provider) {
+      return null;
+    }
+
+    if (provider === 'google') {
+      return findGoogleInput(resolveProviderMode(provider, providerMode));
+    }
+
+    const selectors = PROVIDER_SELECTORS[provider] || [];
+    const visibleInput = findDeepFirstVisibleElement(selectors) || findFirstVisibleElement(selectors);
+    if (visibleInput) {
+      return visibleInput;
+    }
+
+    return provider === 'meta'
+      ? findFirstEnabledElement(selectors)
+      : null;
+  }
+
+  function parseRadiusValue(value) {
+    const parsed = Number.parseFloat(value || '0');
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function getElementCornerRadius(element) {
+    if (!element || typeof window.getComputedStyle !== 'function') {
+      return 0;
+    }
+
+    const styles = window.getComputedStyle(element);
+    return Math.max(
+      parseRadiusValue(styles.borderTopLeftRadius),
+      parseRadiusValue(styles.borderTopRightRadius),
+      parseRadiusValue(styles.borderBottomRightRadius),
+      parseRadiusValue(styles.borderBottomLeftRadius),
+    );
+  }
+
+  function findProviderInputSurfaceElement(inputElement, provider = detectProvider(), providerMode = null) {
+    if (!inputElement) {
+      return null;
+    }
+
+    const providerModeResolved = resolveProviderMode(provider, providerMode);
+    const providerSpecificSurface =
+      provider === 'chatgpt'
+        ? inputElement.closest('form[data-type="unified-composer"]') || inputElement.closest('form')
+        : provider === 'claude'
+          ? inputElement.closest('fieldset') || inputElement.closest('form')
+          : provider === 'gemini'
+            ? inputElement.closest('.input-area-container') || inputElement.closest('form')
+            : provider === 'grok'
+              ? inputElement.closest('form')
+              : provider === 'deepseek'
+                ? inputElement.closest('form')
+                : provider === 'kimi'
+                  ? inputElement.closest('form')
+                  : provider === 'qwen'
+                    ? inputElement.closest('form')
+                    : provider === 'mimo'
+                      ? inputElement
+                      : provider === 'meta'
+                        ? inputElement.closest('form')
+                        : provider === 'google'
+                          ? (
+                              providerModeResolved === GOOGLE_PROVIDER_MODE_SEARCH
+                                ? inputElement.closest('form[role="search"]') || inputElement.closest('form')
+                                : inputElement.closest('form')
+                            )
+                          : null;
+
+    if (providerSpecificSurface && typeof providerSpecificSurface.getBoundingClientRect === 'function') {
+      const providerRect = providerSpecificSurface.getBoundingClientRect();
+      if (providerRect.width > 0 && providerRect.height > 0) {
+        return providerSpecificSurface;
+      }
+    }
+
+    const inputRect = inputElement.getBoundingClientRect();
+    let current = inputElement.parentElement;
+
+    while (current && current !== document.body) {
+      const rect = current.getBoundingClientRect();
+      const cornerRadius = getElementCornerRadius(current);
+      const styles = window.getComputedStyle(current);
+      const hasSurface =
+        styles.backgroundColor !== 'rgba(0, 0, 0, 0)' &&
+        styles.backgroundColor !== 'transparent';
+
+      if (
+        rect.width >= inputRect.width + 32 &&
+        rect.height >= inputRect.height + 10 &&
+        (cornerRadius >= 12 || hasSurface)
+      ) {
+        return current;
+      }
+
+      current = current.parentElement;
+    }
+
+    return inputElement;
+  }
+
+  function postProviderInputAnchor(providerMode = null, reason = 'update', provider = detectProvider()) {
+    if (!provider || window.parent === window) {
+      return;
+    }
+
+    const inputElement = findProviderInputElement(provider, providerMode);
+    const surfaceElement = findProviderInputSurfaceElement(inputElement, provider, providerMode);
+    if (!surfaceElement || typeof surfaceElement.getBoundingClientRect !== 'function') {
+      return;
+    }
+
+    const rect = surfaceElement.getBoundingClientRect();
+    if (!rect.width && !rect.height) {
+      return;
+    }
+
+    const anchor = {
+      height: rect.height,
+      left: rect.left,
+      radius: getElementCornerRadius(surfaceElement),
+      top: rect.top,
+      width: rect.width,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+
+    window.parent.postMessage({
+      type: PARALLEL_AI_PROVIDER_INPUT_ANCHOR,
+      provider,
+      providerMode: resolveProviderMode(provider, providerMode),
+      anchor,
+      reason,
+      context: MULTI_PANEL_PROVIDER_STATUS_CONTEXT
+    }, '*');
+  }
+
+  function scheduleProviderInputAnchorReport(reason = 'mutation', providerMode = null) {
+    if (window.parent === window) {
+      return;
+    }
+
+    if (typeof providerInputAnchorReportTimer === 'number') {
+      clearTimeout(providerInputAnchorReportTimer);
+    }
+
+    providerInputAnchorReportTimer = setTimeout(() => {
+      providerInputAnchorReportTimer = null;
+      postProviderInputAnchor(providerMode, reason);
+    }, PROVIDER_INPUT_ANCHOR_REPORT_DELAY_MS);
+  }
+
+  function startProviderInputAnchorTracking() {
+    const initializeTracking = () => {
+      if (!providerInputAnchorObserver && (document.body || document.documentElement)) {
+        providerInputAnchorObserver = new MutationObserver(() => {
+          scheduleProviderInputAnchorReport('mutation');
+        });
+
+        providerInputAnchorObserver.observe(document.body || document.documentElement, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['aria-hidden', 'aria-expanded', 'aria-disabled', 'class', 'style', 'hidden']
+        });
+      }
+
+      scheduleProviderInputAnchorReport('initial');
+      setTimeout(() => scheduleProviderInputAnchorReport('follow-up'), 700);
+      setTimeout(() => scheduleProviderInputAnchorReport('settled'), 1600);
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeTracking, { once: true });
+    } else {
+      initializeTracking();
+    }
+
+    window.addEventListener('load', () => scheduleProviderInputAnchorReport('load'), { once: true });
+    window.addEventListener('resize', () => scheduleProviderInputAnchorReport('resize'));
+    document.addEventListener('focusin', () => scheduleProviderInputAnchorReport('focus'));
+  }
+
+  let lastReportedProviderUrl = null;
+
+  function postProviderCurrentUrl() {
+    if (window.parent === window) {
+      return;
+    }
+    const url = window.location.href;
+    if (!url || url === lastReportedProviderUrl) {
+      return;
+    }
+    lastReportedProviderUrl = url;
+    window.parent.postMessage({
+      type: PARALLEL_AI_PROVIDER_URL,
+      url,
+      context: MULTI_PANEL_PROVIDER_STATUS_CONTEXT
+    }, '*');
+  }
+
+  // Baseline title as it stood when this script ran. It may be empty on a
+  // document-start provider, and that is fine: the workspace decides whether a
+  // pane holds a conversation from its URL, not from this title. Adopting the
+  // first non-empty title instead would misfire on a pane that opens straight
+  // into a conversation, recording the conversation's own name as the baseline
+  // and suppressing it for as long as the provider left the title alone.
+  const initialProviderDocumentTitle = (document.title || '').trim();
+  let lastReportedProviderTitle = null;
+
+  function postProviderDocumentTitle() {
+    if (window.parent === window) {
+      return;
+    }
+    const provider = detectProvider();
+    if (!provider) {
+      return;
+    }
+    const title = (document.title || '').trim();
+    if (title === lastReportedProviderTitle) {
+      return;
+    }
+    lastReportedProviderTitle = title;
+    window.parent.postMessage({
+      type: PARALLEL_AI_PROVIDER_TITLE,
+      provider,
+      title,
+      initialTitle: initialProviderDocumentTitle,
+      context: MULTI_PANEL_PROVIDER_STATUS_CONTEXT
+    }, '*');
+  }
+
+  function startProviderDocumentTitleTracking() {
+    if (window.parent === window) {
+      return;
+    }
+
+    postProviderDocumentTitle();
+    setTimeout(postProviderDocumentTitle, 500);
+
+    // The <title> element may be replaced during SPA navigation. Re-attach
+    // the observer when it changes, in addition to observing its contents.
+    let titleElementObserver = null;
+    function attachTitleObserver() {
+      const titleElement = document.head ? document.head.querySelector('title') : null;
+      if (!titleElement) {
+        return;
+      }
+      if (titleElementObserver) {
+        titleElementObserver.disconnect();
+      }
+      titleElementObserver = new MutationObserver(postProviderDocumentTitle);
+      titleElementObserver.observe(titleElement, {
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
+    }
+
+    attachTitleObserver();
+
+    if (document.head) {
+      const headObserver = new MutationObserver(() => {
+        attachTitleObserver();
+        postProviderDocumentTitle();
+      });
+      headObserver.observe(document.head, { childList: true });
+    }
+  }
+
+  function startProviderCurrentUrlTracking() {
+    if (window.parent === window) {
+      return;
+    }
+
+    postProviderCurrentUrl();
+    setTimeout(postProviderCurrentUrl, 500);
+    setTimeout(postProviderCurrentUrl, 1500);
+
+    window.addEventListener('popstate', postProviderCurrentUrl);
+    window.addEventListener('hashchange', postProviderCurrentUrl);
+
+    // Page-side pushState calls happen in the page's main world, so a
+    // content-script monkey-patch wouldn't see them. Poll location.href
+    // (shared across isolated/main worlds) to catch SPA navigations.
+    setInterval(postProviderCurrentUrl, 700);
+  }
+
+  function postMultiPanelProviderStatus(type, requestId, phase, provider = detectProvider()) {
+    if (!requestId || window.parent === window) {
+      return;
+    }
+
+    window.parent.postMessage({
+      type,
+      requestId,
+      provider,
+      phase,
+      context: MULTI_PANEL_PROVIDER_STATUS_CONTEXT
+    }, '*');
+  }
+
+  function postTemporaryChatEnabled(provider = detectProvider()) {
+    if (!provider || window.parent === window) {
+      return;
+    }
+
+    window.parent.postMessage({
+      type: PARALLEL_AI_TEMP_CHAT_ENABLED,
+      provider,
+      context: MULTI_PANEL_PROVIDER_STATUS_CONTEXT
+    }, '*');
+  }
+
+  function postTemporaryChatDisabled(provider = detectProvider()) {
+    if (!provider || window.parent === window) {
+      return;
+    }
+
+    window.parent.postMessage({
+      type: PARALLEL_AI_TEMP_CHAT_DISABLED,
+      provider,
+      context: MULTI_PANEL_PROVIDER_STATUS_CONTEXT
+    }, '*');
+  }
+
+  function stopMultiPanelUserInteractionTracking() {
+    const tracking = multiPanelUserInteractionTracking;
+    if (!tracking) {
+      return;
+    }
+
+    if (typeof tracking.timeoutId === 'number') {
+      clearTimeout(tracking.timeoutId);
+    }
+
+    if (tracking.interactionHandler) {
+      document.removeEventListener('pointerdown', tracking.interactionHandler, true);
+      document.removeEventListener('keydown', tracking.interactionHandler, true);
+    }
+
+    multiPanelUserInteractionTracking = null;
+  }
+
+  function stopFilledDraftTracking() {
+    const tracking = filledDraftTracking;
+    if (!tracking) {
+      return;
+    }
+
+    if (tracking.clickHandler) {
+      document.removeEventListener('click', tracking.clickHandler, true);
+    }
+
+    if (tracking.keydownHandler) {
+      document.removeEventListener('keydown', tracking.keydownHandler, true);
+    }
+
+    filledDraftTracking = null;
+  }
+
+  function isEventWithinElement(event, element) {
+    if (!event || !element) {
+      return false;
+    }
+
+    const path = typeof event.composedPath === 'function'
+      ? event.composedPath()
+      : [];
+
+    if (path.includes(element)) {
+      return true;
+    }
+
+    return event.target instanceof Node && element.contains(event.target);
+  }
+
+  function getElementClassName(element) {
+    const className = element?.className;
+    if (typeof className === 'string') {
+      return className;
+    }
+    if (className && typeof className.baseVal === 'string') {
+      return className.baseVal;
+    }
+    return '';
+  }
+
+  function isClickableElementCandidate(element) {
+    if (!element) {
+      return false;
+    }
+
+    const tagName = element.tagName?.toUpperCase?.() || '';
+    const role = element.getAttribute?.('role') || '';
+    const className = getElementClassName(element).toLowerCase();
+
+    return Boolean(
+      tagName === 'BUTTON' ||
+      tagName === 'A' ||
+      tagName === 'LABEL' ||
+      tagName === 'INPUT' ||
+      role === 'button' ||
+      role === 'menuitem' ||
+      role === 'link' ||
+      element.onclick ||
+      className.includes('send') ||
+      className.includes('submit') ||
+      className.includes('stop') ||
+      className.includes('pause') ||
+      className.includes('cancel') ||
+      className.includes('upload') ||
+      className.includes('attach')
+    );
+  }
+
+  function resolveClickableElement(element) {
+    let current = element;
+    while (current && current !== document) {
+      if (isClickableElementCandidate(current) && typeof current.dispatchEvent === 'function') {
+        return current;
+      }
+
+      const root = typeof current.getRootNode === 'function' ? current.getRootNode() : null;
+      current = current.parentElement ||
+        (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot ? root.host : null);
+    }
+
+    return element && typeof element.dispatchEvent === 'function'
+      ? element
+      : null;
+  }
+
+  // Defense-in-depth: an in-app control click (new chat, send, stop, attach, …)
+  // must never navigate off the provider's origin or open a new tab/window.
+  // Providers sometimes inject promo/announcement banners whose links (e.g.
+  // Claude's "Learn more" → anthropic.com/news/…) can be matched by broad
+  // selectors. Treat any candidate that resolves to a cross-origin anchor — or
+  // one that opens a new tab — as unsafe, so a mis-match degrades to a no-op
+  // instead of hijacking the pane.
+  function resolvesToOffsiteNavigation(element) {
+    if (!element || typeof element.closest !== 'function') {
+      return false;
+    }
+
+    const anchor = element.matches?.('a[href]') ? element : element.closest('a[href]');
+    if (!anchor) {
+      return false;
+    }
+
+    const target = (anchor.getAttribute('target') || '').trim().toLowerCase();
+    if (target && target !== '_self') {
+      return true; // opens a new tab/window
+    }
+
+    let resolved;
+    try {
+      resolved = new URL(anchor.getAttribute('href') || '', window.location.href);
+    } catch (error) {
+      return false; // unparseable href: not a clear off-site navigation
+    }
+
+    // Non-navigating schemes (javascript:, mailto:, tel:, …) are never an
+    // off-site navigation. In-page #hash links resolve to an http(s)
+    // same-origin URL, so they are cleared by the origin check below instead.
+    if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') {
+      return false;
+    }
+
+    return resolved.origin !== window.location.origin;
+  }
+
+  function clickElement(element) {
+    const target = resolveClickableElement(element);
+    if (!target) {
+      return false;
+    }
+
+    if (resolvesToOffsiteNavigation(target)) {
+      debugLog('[Text Injection] Refusing to click off-site / new-tab link:', target);
+      return false;
+    }
+
+    if (typeof target.click === 'function') {
+      target.click();
+      return true;
+    }
+
+    target.dispatchEvent(new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window
+    }));
+    return true;
+  }
+
+  function resolveClickableSendElement(element) {
+    return resolveClickableElement(element);
+  }
+
+  function isSendControlDisabled(element) {
+    return Boolean(
+      element?.disabled ||
+      element?.getAttribute?.('aria-disabled') === 'true' ||
+      element?.classList?.contains('disabled')
+    );
+  }
+
+  function isGenerationControl(element) {
+    if (!element) {
+      return false;
+    }
+
+    const className = getElementClassName(element).toLowerCase();
+    if (/\b(stop|pause|cancel|interrupt)\b/.test(className)) {
+      return true;
+    }
+
+    return getElementAccessibleTextParts(element).some((part) => {
+      const text = part.toLowerCase();
+      return /\b(stop|pause|cancel|interrupt|abort)\b/.test(text) ||
+        text.includes('停止') ||
+        text.includes('暂停') ||
+        text.includes('取消') ||
+        text.includes('中止');
+    });
+  }
+
+  function isManualSendClick(event, provider, providerMode = null) {
+    if (provider === 'google' && normalizeGoogleProviderMode(providerMode) === GOOGLE_PROVIDER_MODE_SEARCH) {
+      return false;
+    }
+
+    const selectors = SEND_BUTTON_SELECTORS[provider] || [];
+    for (const selector of selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const element of elements) {
+          const clickableElement = resolveClickableSendElement(element);
+          if (
+            (isEventWithinElement(event, element) || isEventWithinElement(event, clickableElement)) &&
+            !isSendControlDisabled(clickableElement) &&
+            !isGenerationControl(clickableElement)
+          ) {
+            return true;
+          }
+        }
+      } catch (error) {
+        debugLog('[Text Injection] Error checking manual send selector:', selector, error);
+      }
+    }
+
+    return false;
+  }
+
+  function isManualSendKeydown(event, provider, providerMode = null) {
+    if (
+      event.key !== 'Enter' ||
+      event.shiftKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    ) {
+      return false;
+    }
+
+    const input = findProviderInputElement(provider, providerMode);
+    return Boolean(input && isEventWithinElement(event, input));
+  }
+
+  function reportFilledDraftSubmitted(tracking) {
+    if (!tracking || filledDraftTracking !== tracking) {
+      return;
+    }
+
+    postMultiPanelProviderStatus(
+      PARALLEL_AI_PROVIDER_USER_INTERACTION,
+      tracking.requestId,
+      'manual-send',
+      tracking.provider
+    );
+    stopFilledDraftTracking();
+  }
+
+  function startFilledDraftTracking(requestId, provider = detectProvider(), providerMode = null) {
+    if (!requestId || !provider) {
+      return;
+    }
+
+    stopFilledDraftTracking();
+
+    const tracking = {
+      requestId,
+      provider,
+      providerMode,
+      clickHandler: null,
+      keydownHandler: null
+    };
+
+    tracking.clickHandler = (event) => {
+      if (filledDraftTracking !== tracking || !event.isTrusted) {
+        return;
+      }
+
+      if (isManualSendClick(event, tracking.provider, tracking.providerMode)) {
+        reportFilledDraftSubmitted(tracking);
+      }
+    };
+
+    tracking.keydownHandler = (event) => {
+      if (filledDraftTracking !== tracking || !event.isTrusted) {
+        return;
+      }
+
+      if (isManualSendKeydown(event, tracking.provider, tracking.providerMode)) {
+        reportFilledDraftSubmitted(tracking);
+      }
+    };
+
+    document.addEventListener('click', tracking.clickHandler, true);
+    document.addEventListener('keydown', tracking.keydownHandler, true);
+    filledDraftTracking = tracking;
+  }
+
+  function startMultiPanelUserInteractionTracking(requestId, provider = detectProvider()) {
+    if (!requestId || !provider) {
+      return;
+    }
+
+    stopMultiPanelUserInteractionTracking();
+
+    const tracking = {
+      requestId,
+      provider,
+      timeoutId: null,
+      interactionHandler: null
+    };
+
+    tracking.interactionHandler = (event) => {
+      if (multiPanelUserInteractionTracking !== tracking || !event.isTrusted) {
+        return;
+      }
+
+      postMultiPanelProviderStatus(
+        PARALLEL_AI_PROVIDER_USER_INTERACTION,
+        tracking.requestId,
+        'user-interaction',
+        tracking.provider
+      );
+
+      if (tracking.provider === 'chatgpt' && chatgptSendTracking?.requestId === tracking.requestId) {
+        stopChatgptSendTracking();
+      }
+
+      if (providerSendTracking?.requestId === tracking.requestId) {
+        stopProviderSendTracking();
+      }
+
+      stopMultiPanelUserInteractionTracking();
+    };
+
+    document.addEventListener('pointerdown', tracking.interactionHandler, true);
+    document.addEventListener('keydown', tracking.interactionHandler, true);
+
+    tracking.timeoutId = setTimeout(() => {
+      if (multiPanelUserInteractionTracking !== tracking) {
+        return;
+      }
+
+      stopMultiPanelUserInteractionTracking();
+    }, MULTI_PANEL_USER_INTERACTION_TRACKING_TIMEOUT_MS);
+
+    multiPanelUserInteractionTracking = tracking;
+  }
+
+  function findChatgptBusyButton() {
+    return document.querySelector(CHATGPT_STOP_BUTTON_SELECTOR);
+  }
+
+  function isClickableStopCandidate(element, provider = detectProvider()) {
+    if (!element || !isVisibleElement(element)) {
+      return false;
+    }
+
+    if (
+      element.disabled ||
+      element.getAttribute('aria-disabled') === 'true' ||
+      element.classList?.contains('disabled')
+    ) {
+      return false;
+    }
+
+    if (
+      provider === 'meta' &&
+      (
+        !getElementAccessibleTextParts(element).some(part => isGenerationStopPhrase(part)) ||
+        !isMetaStopCandidateNearComposer(element)
+      )
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function findProviderStopButton(provider = detectProvider()) {
+    if (!provider) {
+      return null;
+    }
+
+    const selectors = STOP_BUTTON_SELECTORS[provider] || [];
+    const selectorMatch = findDeepFirstVisibleElement(selectors);
+    if (isClickableStopCandidate(selectorMatch, provider)) {
+      return selectorMatch;
+    }
+
+    // The keyword scan matches on accessible TEXT page-wide, so require that
+    // text to be an actual stop phrase (anchored) rather than merely containing
+    // "stop"/"cancel". Otherwise a benign idle-pane control ("Cancel
+    // subscription", a dialog "Cancel") could be clicked when STOP arrives with
+    // nothing generating. (Icon-only stop buttons are matched by the class
+    // selectors above, not here, so this does not lose legitimate targets.)
+    const keywordMatch = findDeepClickableElementByKeywords(STOP_BUTTON_KEYWORDS);
+    if (
+      isClickableStopCandidate(keywordMatch, provider) &&
+      getElementAccessibleTextParts(keywordMatch).some(part => isGenerationStopPhrase(part))
+    ) {
+      return keywordMatch;
+    }
+
+    return null;
+  }
+
+  function hasResilientProviderLifecycle(provider) {
+    return provider === 'deepseek' || provider === 'kimi' || provider === 'qwen' || provider === 'mimo' || provider === 'meta';
+  }
+
+  function getProviderNoBusyTimeout(provider) {
+    return hasResilientProviderLifecycle(provider)
+      ? PROVIDER_SEND_TRACKING_SLOW_BUSY_TIMEOUT_MS
+      : PROVIDER_SEND_TRACKING_NO_BUSY_TIMEOUT_MS;
+  }
+
+  function canIdleAfterStopDisappearsWithoutReady(provider) {
+    return provider === 'meta';
+  }
+
+  function isProviderInputReadyForPrompt(provider, providerMode = null) {
+    const input = findProviderInputElement(provider, providerMode);
+    if (!input) {
+      return false;
+    }
+
+    const inputIsAvailable =
+      isVisibleElement(input) ||
+      (
+        provider === 'meta' &&
+        isVisibleElement(findProviderInputSurfaceElement(input, provider, providerMode))
+      );
+
+    return Boolean(
+      inputIsAvailable &&
+      isPromptInputEnabled(input)
+    );
+  }
+
+  function findProviderSendControl(provider, providerMode = null) {
+    if (provider === 'google') {
+      return findFirstVisibleElement(SEND_BUTTON_SELECTORS.google);
+    }
+
+    const selectors = SEND_BUTTON_SELECTORS[provider] || [];
+    for (const selector of selectors) {
+      try {
+        const elements = querySelectorAllDeep(selector);
+        for (const element of elements) {
+          if (!isVisibleElement(element)) {
+            continue;
+          }
+
+          const sendControl = resolveClickableSendElement(element);
+          if (
+            sendControl &&
+            isVisibleElement(sendControl) &&
+            !isSendControlDisabled(sendControl) &&
+            !isGenerationControl(sendControl)
+          ) {
+            return sendControl;
+          }
+        }
+      } catch (error) {
+        debugLog('[Text Injection] Error finding provider send control:', selector, error);
+      }
+    }
+
+    if (hasResilientProviderLifecycle(provider)) {
+      return isProviderInputReadyForPrompt(provider, providerMode)
+        ? findProviderInputElement(provider, providerMode)
+        : null;
+    }
+
+    return null;
+  }
+
+  function isProviderReadyForNextPrompt(provider, providerMode = null) {
+    return Boolean(findProviderSendControl(provider, providerMode));
+  }
+
+  function isMetaStopCandidateNearComposer(element) {
+    if (!element || typeof element.getBoundingClientRect !== 'function') {
+      return false;
+    }
+
+    const input = findProviderInputElement('meta');
+    const surface = findProviderInputSurfaceElement(input, 'meta');
+    if (!surface || typeof surface.getBoundingClientRect !== 'function') {
+      return true;
+    }
+
+    if (surface.contains(element)) {
+      return true;
+    }
+
+    const elementRect = element.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    const elementCenterX = elementRect.left + elementRect.width / 2;
+    const elementCenterY = elementRect.top + elementRect.height / 2;
+
+    return (
+      elementCenterX >= surfaceRect.left - 140 &&
+      elementCenterX <= surfaceRect.right + 140 &&
+      elementCenterY >= surfaceRect.top - 160 &&
+      elementCenterY <= surfaceRect.bottom + 80
+    );
+  }
+
+  function clickStopButton(provider = detectProvider()) {
+    const stopButton = findProviderStopButton(provider);
+    if (!stopButton) {
+      debugLog('[Text Injection] Stop button not found for:', provider);
+      return false;
+    }
+
+    debugLog('[Text Injection] Clicking stop button for', provider, stopButton);
+    return clickElement(stopButton);
+  }
+
+  function getChatgptComposerRoot() {
+    return document.querySelector('form[data-type="unified-composer"]') ||
+      findProviderInputElement('chatgpt')?.closest('form') ||
+      document.body;
+  }
+
+  function stopChatgptSendTracking({ reportIdle = false } = {}) {
+    const tracking = chatgptSendTracking;
+    if (!tracking) {
+      return;
+    }
+
+    if (tracking.observer) {
+      tracking.observer.disconnect();
+    }
+
+    if (typeof tracking.idleTimerId === 'number') {
+      clearTimeout(tracking.idleTimerId);
+    }
+
+    if (typeof tracking.noBusyTimerId === 'number') {
+      clearTimeout(tracking.noBusyTimerId);
+    }
+
+    if (typeof tracking.evalTimerId === 'number') {
+      clearTimeout(tracking.evalTimerId);
+    }
+
+    const { requestId, phase } = tracking;
+    chatgptSendTracking = null;
+
+    if (reportIdle) {
+      postMultiPanelProviderStatus(PARALLEL_AI_PROVIDER_IDLE, requestId, phase, 'chatgpt');
+    }
+  }
+
+  function evaluateChatgptSendTrackingState() {
+    const tracking = chatgptSendTracking;
+    if (!tracking) {
+      return;
+    }
+
+    if (findChatgptBusyButton()) {
+      if (typeof tracking.noBusyTimerId === 'number') {
+        clearTimeout(tracking.noBusyTimerId);
+        tracking.noBusyTimerId = null;
+      }
+
+      if (typeof tracking.idleTimerId === 'number') {
+        clearTimeout(tracking.idleTimerId);
+        tracking.idleTimerId = null;
+      }
+
+      if (tracking.phase !== 'busy') {
+        tracking.phase = 'busy';
+        postMultiPanelProviderStatus(PARALLEL_AI_PROVIDER_BUSY, tracking.requestId, tracking.phase, 'chatgpt');
+      }
+      return;
+    }
+
+    if (tracking.phase !== 'busy' || typeof tracking.idleTimerId === 'number') {
+      return;
+    }
+
+    tracking.idleTimerId = setTimeout(() => {
+      const currentTracking = chatgptSendTracking;
+      if (!currentTracking || currentTracking.requestId !== tracking.requestId) {
+        return;
+      }
+
+      currentTracking.idleTimerId = null;
+      if (findChatgptBusyButton()) {
+        evaluateChatgptSendTrackingState();
+        return;
+      }
+
+      currentTracking.phase = 'idle';
+      stopChatgptSendTracking({ reportIdle: true });
+    }, CHATGPT_SEND_TRACKING_IDLE_DELAY_MS);
+  }
+
+  function scheduleChatgptSendTrackingEvaluation() {
+    const tracking = chatgptSendTracking;
+    if (!tracking || typeof tracking.evalTimerId === 'number') {
+      return;
+    }
+
+    tracking.evalTimerId = setTimeout(() => {
+      const currentTracking = chatgptSendTracking;
+      if (!currentTracking || currentTracking.requestId !== tracking.requestId) {
+        return;
+      }
+
+      currentTracking.evalTimerId = null;
+      evaluateChatgptSendTrackingState();
+    }, PROVIDER_SEND_TRACKING_EVALUATE_THROTTLE_MS);
+  }
+
+  function startChatgptSendTracking(requestId) {
+    if (!requestId) {
+      return;
+    }
+
+    stopChatgptSendTracking();
+
+    const tracking = {
+      requestId,
+      phase: 'pending',
+      observer: null,
+      idleTimerId: null,
+      noBusyTimerId: null,
+      evalTimerId: null
+    };
+
+    const observerTarget = document.body || getChatgptComposerRoot();
+    if (observerTarget) {
+      tracking.observer = new MutationObserver(() => {
+        if (chatgptSendTracking !== tracking) {
+          return;
+        }
+
+        scheduleChatgptSendTrackingEvaluation();
+      });
+
+      tracking.observer.observe(observerTarget, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-testid', 'aria-label', 'disabled', 'aria-disabled']
+      });
+    }
+
+    tracking.noBusyTimerId = setTimeout(() => {
+      if (chatgptSendTracking !== tracking || tracking.phase !== 'pending') {
+        return;
+      }
+
+      stopChatgptSendTracking();
+    }, CHATGPT_SEND_TRACKING_NO_BUSY_TIMEOUT_MS);
+
+    chatgptSendTracking = tracking;
+    evaluateChatgptSendTrackingState();
+  }
+
+  function stopProviderSendTracking({ reportIdle = false } = {}) {
+    const tracking = providerSendTracking;
+    if (!tracking) {
+      return;
+    }
+
+    if (tracking.observer) {
+      tracking.observer.disconnect();
+    }
+
+    if (typeof tracking.idleTimerId === 'number') {
+      clearTimeout(tracking.idleTimerId);
+    }
+
+    if (typeof tracking.noBusyTimerId === 'number') {
+      clearTimeout(tracking.noBusyTimerId);
+    }
+
+    if (typeof tracking.pollTimerId === 'number') {
+      clearInterval(tracking.pollTimerId);
+    }
+
+    if (typeof tracking.evalTimerId === 'number') {
+      clearTimeout(tracking.evalTimerId);
+    }
+
+    const { requestId, phase, provider } = tracking;
+    providerSendTracking = null;
+
+    if (reportIdle) {
+      postMultiPanelProviderStatus(PARALLEL_AI_PROVIDER_IDLE, requestId, phase, provider);
+    }
+  }
+
+  function evaluateProviderSendTrackingState() {
+    const tracking = providerSendTracking;
+    if (!tracking) {
+      return;
+    }
+
+    if (findProviderStopButton(tracking.provider)) {
+      if (typeof tracking.noBusyTimerId === 'number') {
+        clearTimeout(tracking.noBusyTimerId);
+        tracking.noBusyTimerId = null;
+      }
+
+      if (typeof tracking.idleTimerId === 'number') {
+        clearTimeout(tracking.idleTimerId);
+        tracking.idleTimerId = null;
+      }
+
+      if (tracking.phase !== 'busy') {
+        tracking.phase = 'busy';
+        postMultiPanelProviderStatus(
+          PARALLEL_AI_PROVIDER_BUSY,
+          tracking.requestId,
+          tracking.phase,
+          tracking.provider
+        );
+      }
+      return;
+    }
+
+    if (tracking.phase !== 'busy' || typeof tracking.idleTimerId === 'number') {
+      return;
+    }
+
+    if (
+      !isProviderReadyForNextPrompt(tracking.provider) &&
+      !canIdleAfterStopDisappearsWithoutReady(tracking.provider)
+    ) {
+      return;
+    }
+
+    tracking.idleTimerId = setTimeout(() => {
+      const currentTracking = providerSendTracking;
+      if (!currentTracking || currentTracking.requestId !== tracking.requestId) {
+        return;
+      }
+
+      currentTracking.idleTimerId = null;
+      if (findProviderStopButton(currentTracking.provider)) {
+        evaluateProviderSendTrackingState();
+        return;
+      }
+
+      if (
+        !isProviderReadyForNextPrompt(currentTracking.provider) &&
+        !canIdleAfterStopDisappearsWithoutReady(currentTracking.provider)
+      ) {
+        return;
+      }
+
+      currentTracking.phase = 'idle';
+      stopProviderSendTracking({ reportIdle: true });
+    }, tracking.provider === 'meta'
+      ? META_SEND_TRACKING_NO_STOP_IDLE_DELAY_MS
+      : PROVIDER_SEND_TRACKING_IDLE_DELAY_MS);
+  }
+
+  function scheduleProviderSendTrackingEvaluation() {
+    const tracking = providerSendTracking;
+    if (!tracking || typeof tracking.evalTimerId === 'number') {
+      return;
+    }
+
+    tracking.evalTimerId = setTimeout(() => {
+      const currentTracking = providerSendTracking;
+      if (!currentTracking || currentTracking.requestId !== tracking.requestId) {
+        return;
+      }
+
+      currentTracking.evalTimerId = null;
+      evaluateProviderSendTrackingState();
+    }, PROVIDER_SEND_TRACKING_EVALUATE_THROTTLE_MS);
+  }
+
+  function startProviderSendTracking(requestId, provider = detectProvider()) {
+    if (!requestId || !provider) {
+      return;
+    }
+
+    stopFilledDraftTracking();
+
+    if (provider === 'chatgpt') {
+      startChatgptSendTracking(requestId);
+      return;
+    }
+
+    stopProviderSendTracking();
+
+    const tracking = {
+      requestId,
+      provider,
+      phase: 'pending',
+      observer: null,
+      idleTimerId: null,
+      noBusyTimerId: null,
+      pollTimerId: null,
+      evalTimerId: null
+    };
+
+    const observerTarget = document.body || document.documentElement;
+    if (observerTarget) {
+      tracking.observer = new MutationObserver(() => {
+        if (providerSendTracking !== tracking) {
+          return;
+        }
+
+        scheduleProviderSendTrackingEvaluation();
+      });
+
+      tracking.observer.observe(observerTarget, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-label', 'title', 'disabled', 'aria-disabled', 'class', 'style', 'hidden']
+      });
+    }
+
+    if (hasResilientProviderLifecycle(provider)) {
+      tracking.pollTimerId = setInterval(() => {
+        if (providerSendTracking !== tracking) {
+          clearInterval(tracking.pollTimerId);
+          return;
+        }
+
+        evaluateProviderSendTrackingState();
+      }, PROVIDER_SEND_TRACKING_POLL_INTERVAL_MS);
+    }
+
+    tracking.noBusyTimerId = setTimeout(() => {
+      if (providerSendTracking !== tracking || tracking.phase !== 'pending') {
+        return;
+      }
+
+      stopProviderSendTracking({
+        reportIdle:
+          isProviderReadyForNextPrompt(tracking.provider) ||
+          canIdleAfterStopDisappearsWithoutReady(tracking.provider),
+      });
+    }, getProviderNoBusyTimeout(provider));
+
+    providerSendTracking = tracking;
+    evaluateProviderSendTrackingState();
+  }
+
+  function stopAllProviderGenerationTracking({ reportIdle = false } = {}) {
+    stopProviderSendTracking({ reportIdle });
+    stopChatgptSendTracking({ reportIdle });
+    stopMultiPanelUserInteractionTracking();
+    stopFilledDraftTracking();
+  }
+
+  function findGoogleInput(mode) {
+    return findFirstVisibleElement(getGoogleInputSelectors(mode));
+  }
+
+  function setFormControlValue(element, value) {
+    const prototype = element.tagName === 'INPUT'
+      ? window.HTMLInputElement.prototype
+      : window.HTMLTextAreaElement.prototype;
+    const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+
+    if (nativeSetter) {
+      nativeSetter.call(element, value);
+    } else {
+      element.value = value;
+    }
+
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+
+    if (typeof element.value === 'string') {
+      element.selectionStart = element.selectionEnd = element.value.length;
+    }
+  }
+
+  function buildGoogleSearchFillValue(currentValue, nextText) {
+    const normalizedCurrent = (currentValue || '').trim();
+    const normalizedNext = (nextText || '').trim();
+
+    if (!normalizedNext) {
+      return normalizedCurrent;
+    }
+
+    if (googleSearchReplaceOnNextFill || !normalizedCurrent) {
+      return normalizedNext;
+    }
+
+    return `${normalizedCurrent}${normalizedNext}`.trim();
+  }
+
+  function clearGoogleInput(mode) {
+    const input = findGoogleInput(mode);
+    if (!input) {
+      return false;
+    }
+
+    setFormControlValue(input, '');
+
+    if (normalizeGoogleProviderMode(mode) === GOOGLE_PROVIDER_MODE_SEARCH) {
+      resetGoogleSearchFillSession();
+    }
+
+    return true;
+  }
+
+  function isElementEnabled(element) {
+    return Boolean(
+      element &&
+      !element.disabled &&
+      element.getAttribute('aria-disabled') !== 'true'
+    );
+  }
+
+  function fillGoogleSearchInput(text) {
+    const input = findGoogleInput(GOOGLE_PROVIDER_MODE_SEARCH);
+    if (!input || !text || typeof text !== 'string') {
+      return false;
+    }
+
+    const nextValue = buildGoogleSearchFillValue(input.value || '', text);
+    setFormControlValue(input, nextValue);
+    googleSearchReplaceOnNextFill = false;
+    return true;
+  }
+
+  function navigateToGoogleSearchResults(query) {
+    const normalizedQuery = (query || '').trim();
+    if (!normalizedQuery) {
+      return false;
+    }
+
+    const searchUrl = new URL('/search', window.location.origin);
+    searchUrl.searchParams.set('q', normalizedQuery);
+    window.location.assign(searchUrl.toString());
+    return true;
+  }
+
+  function findGoogleFileInput() {
+    const fileInputs = querySelectorAllDeep('input[type="file"]');
+    let fallbackInput = null;
+
+    for (const input of fileInputs) {
+      const accept = (input.getAttribute('accept') || '').toLowerCase();
+      if (accept && accept.includes('image') && !accept.includes('.pdf') && !accept.includes('application/pdf')) {
+        return input;
+      }
+
+      if (!fallbackInput && (!accept || accept.includes('image') || accept.includes('*'))) {
+        fallbackInput = input;
+      }
+    }
+
+    return fallbackInput;
+  }
+
+  async function openGoogleImagePicker() {
+    const uploadButton = findDeepFirstVisibleElement(UPLOAD_BUTTON_SELECTORS.google);
+    if (uploadButton) {
+      clickElement(uploadButton);
+      await sleep(150);
+    }
+
+    let fileInput = findGoogleFileInput();
+    if (fileInput) {
+      return fileInput;
+    }
+
+    const imageMenuAction = findDeepClickableElementByKeywords([
+      '更多输入项',
+      'add image',
+      'upload image',
+      'upload file',
+      'image',
+      'photo',
+      '上传图片',
+      '上传文件',
+      '图片',
+      '照片',
+      '图像'
+    ]);
+
+    if (imageMenuAction) {
+      clickElement(imageMenuAction);
+      await sleep(150);
+    }
+
+    fileInput = findGoogleFileInput();
+    if (fileInput) {
+      return fileInput;
+    }
+
+    const addAction = findDeepClickableElementByKeywords([
+      'add',
+      'attach',
+      'plus',
+      '添加',
+      '附件'
+    ]);
+
+    if (addAction) {
+      clickElement(addAction);
+      await sleep(150);
+    }
+
+    return findGoogleFileInput();
+  }
+
+  function assignFilesToInput(fileInput, files) {
+    if (!fileInput || !files || files.length === 0) {
+      return false;
+    }
+
+    try {
+      const dataTransfer = new DataTransfer();
+      files.forEach(file => dataTransfer.items.add(file));
+      fileInput.files = dataTransfer.files;
+      return true;
+    } catch (error) {
+      try {
+        Object.defineProperty(fileInput, 'files', {
+          configurable: true,
+          value: files
+        });
+        return true;
+      } catch (fallbackError) {
+        console.error('[Image Injection] Failed to assign files to input:', fallbackError);
+        return false;
+      }
+    }
+  }
+
+  // Find text input element by selector
+  function findTextInputElement(selector) {
+    if (!selector || typeof selector !== 'string') {
+      return null;
+    }
+
+    try {
+      return document.querySelector(selector);
+    } catch (error) {
+      console.error('Error finding element:', error);
+      return null;
+    }
+  }
+
+  function clickGoogleSendButton(mode) {
+    const normalizedMode = normalizeGoogleProviderMode(mode);
+
+    if (normalizedMode === GOOGLE_PROVIDER_MODE_SEARCH) {
+      const input = findGoogleInput(normalizedMode);
+      if (!input) {
+        debugLog('[Text Injection] Google Search input not found');
+        return false;
+      }
+      const query = (input.value || '').trim();
+      if (!query) {
+        return false;
+      }
+
+      debugLog('[Text Injection] Navigating Google Search mode to results page');
+      resetGoogleSearchFillSession();
+      return navigateToGoogleSearchResults(query);
+    }
+
+    const sendButton = findFirstVisibleElement(SEND_BUTTON_SELECTORS.google);
+    if (sendButton && !isSendControlDisabled(sendButton) && !isGenerationControl(sendButton)) {
+      return clickElement(sendButton);
+    }
+
+    const input = findGoogleInput(normalizedMode);
+    if (!input) {
+      return false;
+    }
+
+    input.focus();
+    const enterEvent = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      bubbles: true,
+      cancelable: true
+    });
+    input.dispatchEvent(enterEvent);
+    return true;
+  }
+
+  function getProviderAutoSubmitDelay(provider) {
+    return provider === 'deepseek' || provider === 'qwen' || provider === 'mimo' || provider === 'meta'
+      ? 800
+      : 500;
+  }
+
+  // Z.ai renders a w-60 chip immediately, but the thumbnail stays a spinner
+  // until status leaves "uploading". The send button stays enabled, so
+  // auto-submit must wait for the preview <img>, not for disabled=false.
+  function isZaiImageAttachmentReady() {
+    const input = document.querySelector('#chat-input');
+    const root = input?.closest('form') || document;
+    const chips = root.querySelectorAll('button.w-60.shrink-0');
+    if (chips.length === 0) {
+      return false;
+    }
+
+    return Array.from(chips).every((chip) => Boolean(chip.querySelector('img')));
+  }
+
+  function scheduleProviderAutoSubmit(provider, providerMode = null, options = {}) {
+    const delay = typeof options.delay === 'number'
+      ? options.delay
+      : getProviderAutoSubmitDelay(provider);
+    const waitUntil = typeof options.waitUntil === 'function' ? options.waitUntil : null;
+
+    const retryUntilReady = provider === 'chatgpt' || options.retryUntilReady === true || waitUntil !== null;
+
+    if (!retryUntilReady) {
+      setTimeout(() => {
+        const clicked = clickSendButton(provider, providerMode);
+        if (!clicked) {
+          console.warn('[Text Injection] Failed to click send button for', provider);
+        }
+      }, delay);
+      return;
+    }
+
+    const timeout = typeof options.timeout === 'number'
+      ? options.timeout
+      : CHATGPT_AUTO_SUBMIT_TIMEOUT_MS;
+    const deadline = Date.now() + timeout;
+
+    const attemptClick = () => {
+      if (waitUntil && !waitUntil()) {
+        if (Date.now() >= deadline) {
+          console.warn('[Text Injection] Failed to click send button for', provider);
+          return;
+        }
+
+        setTimeout(attemptClick, CHATGPT_AUTO_SUBMIT_POLL_INTERVAL_MS);
+        return;
+      }
+
+      const clicked = clickSendButton(provider, providerMode);
+      if (clicked) {
+        return;
+      }
+
+      if (Date.now() >= deadline) {
+        console.warn('[Text Injection] Failed to click send button for', provider);
+        return;
+      }
+
+      setTimeout(attemptClick, CHATGPT_AUTO_SUBMIT_POLL_INTERVAL_MS);
+    };
+
+    setTimeout(attemptClick, delay);
+  }
+
+  function getProviderImageInjectionInterval(provider) {
+    return provider === 'gemini' ? 900 : 200;
+  }
+
+  function getProviderImageUploadSettlingDelay(provider, imageCount) {
+    return provider === 'gemini'
+      ? Math.max(1800, imageCount * 900)
+      : 500;
+  }
+
+  function dispatchEnterSubmit(input) {
+    if (!input) {
+      return false;
+    }
+
+    input.focus?.();
+    const events = [
+      new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+      new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+      new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true })
+    ];
+
+    events.forEach(event => input.dispatchEvent(event));
+    return true;
+  }
+
+  function trySendWithEnterFallback(provider, providerMode = null) {
+    const enterFallbackProviders = ['deepseek', 'kimi', 'qwen', 'mimo', 'meta'];
+    if (!enterFallbackProviders.includes(provider)) {
+      return false;
+    }
+
+    const input = findProviderInputElement(provider, providerMode);
+    if (!input) {
+      return false;
+    }
+
+    debugLog('[Text Injection] Send button not found, trying Enter key fallback for', provider);
+    return dispatchEnterSubmit(input);
+  }
+
+  // Find and click send button
+  function clickSendButton(provider, providerMode = null) {
+    if (provider === 'google') {
+      return clickGoogleSendButton(providerMode);
+    }
+
+    const selectors = SEND_BUTTON_SELECTORS[provider];
+    if (!selectors) {
+      debugLog('[Text Injection] No send button selectors for provider:', provider);
+      return false;
+    }
+
+    debugLog('[Text Injection] Attempting to click send button for provider:', provider);
+
+    // Try each selector
+    for (const selector of selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        debugLog(`[Text Injection] Found ${elements.length} elements with selector:`, selector);
+
+        for (const element of elements) {
+          const targetElement = resolveClickableSendElement(element);
+          
+          // Check if element or its parent is disabled
+          const isDisabled = isSendControlDisabled(targetElement);
+          
+          if (!isDisabled && !isGenerationControl(targetElement)) {
+            debugLog('[Text Injection] Clicking send button:', selector, targetElement);
+            return clickElement(targetElement);
+          } else if (isGenerationControl(targetElement)) {
+            debugLog('[Text Injection] Button found but is generation control:', selector);
+          } else {
+            debugLog('[Text Injection] Button found but disabled:', selector);
+          }
+        }
+      } catch (error) {
+        debugLog('[Text Injection] Error finding button with selector:', selector, error);
+      }
+    }
+
+    // Special handling for DeepSeek - trigger Enter key if button not found
+    if (provider === 'deepseek') {
+      debugLog('[Text Injection] DeepSeek send button not found, trying Enter key');
+      try {
+        const inputSelectors = PROVIDER_SELECTORS.deepseek;
+        for (const selector of inputSelectors) {
+          const input = document.querySelector(selector);
+          if (input) {
+            debugLog('[Text Injection] Triggering Enter key on DeepSeek input');
+            return dispatchEnterSubmit(input);
+          }
+        }
+      } catch (error) {
+        debugLog('[Text Injection] Error in DeepSeek Enter key fallback:', error);
+      }
+    }
+
+    // Special handling for Kimi - trigger Enter key if button not found
+    if (provider === 'kimi') {
+      debugLog('[Text Injection] Kimi send button not found, trying Enter key on input');
+      try {
+        const inputSelectors = PROVIDER_SELECTORS.kimi;
+        for (const selector of inputSelectors) {
+          const input = document.querySelector(selector);
+          if (input) {
+            debugLog('[Text Injection] Triggering Enter key on Kimi input');
+            return dispatchEnterSubmit(input);
+          }
+        }
+      } catch (error) {
+        debugLog('[Text Injection] Error in Kimi Enter key fallback:', error);
+      }
+    }
+
+    if (trySendWithEnterFallback(provider, providerMode)) {
+      return true;
+    }
+
+    debugLog('[Text Injection] Send button not found or disabled for:', provider);
+    debugLog('[Text Injection] Available buttons:', document.querySelectorAll('button'));
+    return false;
+  }
+
+  // Special handler for Google to create "new search"
+  function handleGoogleNewSearch(mode) {
+    const normalizedMode = normalizeGoogleProviderMode(mode);
+    debugLog('[Text Injection] Handling Google new search for mode:', normalizedMode);
+    resetGoogleSearchFillSession();
+    window.location.href = normalizedMode === GOOGLE_PROVIDER_MODE_SEARCH
+      ? 'https://www.google.com/'
+      : 'https://www.google.com/search?udm=50';
+    return true;
+  }
+
+  function isTemporaryChatControlActive(element) {
+    if (!element) {
+      return false;
+    }
+
+    if (element.getAttribute('aria-pressed') === 'true' || element.getAttribute('aria-checked') === 'true') {
+      return true;
+    }
+
+    const dataState = (element.dataset?.state || '').toLowerCase();
+    if (dataState === 'active' || dataState === 'on' || dataState === 'checked' || dataState === 'selected') {
+      return true;
+    }
+
+    const classTokens = element.classList
+      ? [...element.classList].map(token => token.toLowerCase())
+      : String(element.className || '')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+
+    return ['active', 'selected', 'checked', 'toggled', 'enabled', 'on'].some(token => classTokens.includes(token));
+  }
+
+  function isGeminiTemporaryChatEnabled(control = null) {
+    const button = control ||
+      document.querySelector('gem-icon-button[data-test-id="temp-chat-button"]') ||
+      document.querySelector('button[aria-label="Temporary chat"]') ||
+      document.querySelector('[data-test-id="temp-chat-button"]');
+
+    if (!button) {
+      return false;
+    }
+
+    // The "on" state is expressed by a `temp-chat-on` class on the
+    // <gem-icon-button> wrapper, not on the inner <button>. Depending on which
+    // selector matched, `button` may be that wrapper, its descendant, or its
+    // ancestor — so check the class across the whole local subtree/ancestry.
+    if (
+      button.classList.contains('temp-chat-on') ||
+      (typeof button.closest === 'function' && button.closest('.temp-chat-on')) ||
+      (typeof button.querySelector === 'function' && button.querySelector('.temp-chat-on'))
+    ) {
+      return true;
+    }
+
+    return isTemporaryChatControlActive(button);
+  }
+
+  function isTemporaryChatAlreadyEnabled(provider, control = null) {
+    const currentUrl = new URL(window.location.href);
+
+    switch (provider) {
+      case 'chatgpt':
+        return currentUrl.searchParams.get('temporary-chat') === 'true';
+      case 'claude':
+        return currentUrl.searchParams.has('incognito');
+      case 'grok':
+        return currentUrl.hash === '#private' || isTemporaryChatControlActive(control);
+      case 'gemini': {
+        return isGeminiTemporaryChatEnabled(control);
+      }
+      case 'qwen':
+        return isTemporaryChatControlActive(control);
+      default:
+        return false;
+    }
+  }
+
+  async function enableTemporaryChat(provider) {
+    const selectors = TEMP_CHAT_BUTTON_SELECTORS[provider];
+    if (!selectors || selectors.length === 0) {
+      return false;
+    }
+
+    if (isTemporaryChatAlreadyEnabled(provider)) {
+      postTemporaryChatEnabled(provider);
+      return true;
+    }
+
+    const deadline = Date.now() + TEMP_CHAT_POLL_TIMEOUT_MS;
+    while (Date.now() <= deadline) {
+      const button = findDeepFirstVisibleElement(selectors) || findFirstVisibleElement(selectors);
+      if (isTemporaryChatAlreadyEnabled(provider, button)) {
+        postTemporaryChatEnabled(provider);
+        return true;
+      }
+
+      if (button && isElementEnabled(button)) {
+        if (clickElement(button)) {
+          postTemporaryChatEnabled(provider);
+          return true;
+        }
+      }
+
+      await sleep(TEMP_CHAT_POLL_INTERVAL_MS);
+    }
+
+    return false;
+  }
+
+  // Mirror of enableTemporaryChat for providers whose temp/normal URLs are
+  // identical (Gemini, Qwen): their iframe never reloads to a normal URL, so
+  // turning temp mode off requires clicking the in-page toggle. Only click when
+  // it is currently on, so we never accidentally re-enable it.
+  async function disableTemporaryChat(provider) {
+    const selectors = TEMP_CHAT_BUTTON_SELECTORS[provider];
+    if (!selectors || selectors.length === 0) {
+      return false;
+    }
+
+    const deadline = Date.now() + TEMP_CHAT_POLL_TIMEOUT_MS;
+    while (Date.now() <= deadline) {
+      const button = findDeepFirstVisibleElement(selectors) || findFirstVisibleElement(selectors);
+
+      if (button) {
+        if (!isTemporaryChatAlreadyEnabled(provider, button)) {
+          // Already in a normal chat — nothing to toggle.
+          postTemporaryChatDisabled(provider);
+          return true;
+        }
+
+        if (isElementEnabled(button) && clickElement(button)) {
+          postTemporaryChatDisabled(provider);
+          return true;
+        }
+      }
+
+      await sleep(TEMP_CHAT_POLL_INTERVAL_MS);
+    }
+
+    return false;
+  }
+
+  // Find and click new chat button
+  function clickNewChatButton(provider, providerMode = null) {
+    // Special handling for Google
+    if (provider === 'google') {
+      return handleGoogleNewSearch(providerMode);
+    }
+
+    const selectors = NEW_CHAT_BUTTON_SELECTORS[provider];
+    if (!selectors) {
+      debugLog('[Text Injection] No new chat button selectors for provider:', provider);
+      return false;
+    }
+
+    // Try to find and click button. Skip any candidate that would navigate
+    // off-site / open a new tab (e.g. an announcement banner link) so the
+    // search falls through to the safe same-origin URL fallback below.
+    const isSafeTarget = (element) => !resolvesToOffsiteNavigation(element);
+    const button =
+      findDeepFirstVisibleElement(selectors, isSafeTarget) ||
+      findFirstVisibleElement(selectors, isSafeTarget);
+    if (button) {
+      debugLog('[Text Injection] Clicking new chat button via visible selector match');
+      return clickElement(button);
+    }
+
+    // Fallback: Try to find any link or button containing "new" text
+    try {
+      const allButtons = document.querySelectorAll('button, a, div[role="button"]');
+      for (const elem of allButtons) {
+        if (resolvesToOffsiteNavigation(elem)) {
+          continue;
+        }
+
+        const text = (elem.textContent || '').toLowerCase();
+        const ariaLabel = (elem.getAttribute('aria-label') || '').toLowerCase();
+        const href = elem.getAttribute('href') || '';
+
+        if (text.includes('new chat') ||
+          text.includes('start new') ||
+          text.includes('新建会话') ||
+          text.includes('新建对话') ||
+          ariaLabel.includes('new chat') ||
+          ariaLabel.includes('start new') ||
+          ariaLabel.includes('新建会话') ||
+          ariaLabel.includes('新建对话') ||
+          (href === '/' && elem.closest('nav, aside'))) {
+          debugLog('[Text Injection] Found new chat button by text search');
+          return clickElement(elem);
+        }
+      }
+    } catch (error) {
+      debugLog('[Text Injection] Error in text-based button search:', error);
+    }
+
+    // Ultimate fallback: navigate to new chat URL
+    const fallbackUrl = NEW_CHAT_URLS[provider];
+    if (fallbackUrl) {
+      debugLog('[Text Injection] Using fallback URL for new chat:', fallbackUrl);
+      if (fallbackUrl.startsWith('http')) {
+        window.location.href = fallbackUrl;
+      } else {
+        window.location.href = window.location.origin + fallbackUrl;
+      }
+      return true;
+    }
+
+    debugLog('[Text Injection] New chat button not found for:', provider);
+    return false;
+  }
+
+  // Inject text into an element (textarea or contenteditable)
+  function injectTextIntoElement(element, text) {
+    if (!element || !text || typeof text !== 'string' || text.trim() === '') {
+      return false;
+    }
+
+    try {
+      const isTextarea = element.tagName === 'TEXTAREA' || element.tagName === 'INPUT';
+      const isContentEditable = element.isContentEditable || element.getAttribute('contenteditable') === 'true';
+
+      if (!isTextarea && !isContentEditable) {
+        console.warn('Element is not a textarea or contenteditable:', element);
+        return false;
+      }
+
+      if (isTextarea) {
+        // For textarea/input elements
+        const currentValue = element.value || '';
+        const newValue = currentValue + text;
+
+        setFormControlValue(element, newValue);
+      } else {
+        // For contenteditable elements - append text without clearing existing content
+        element.focus();
+
+        // Move cursor to end first
+        try {
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          range.collapse(false); // Collapse to end
+          selection.removeAllRanges();
+          selection.addRange(range);
+        } catch (e) {
+          // Ignore selection errors in cross-origin context
+        }
+
+        // Use execCommand insertText to append - works well with ProseMirror/Lexical/Quill
+        let inserted = false;
+        try {
+          inserted = document.execCommand('insertText', false, text);
+        } catch (e) {
+          // execCommand not available in some contexts
+        }
+
+        if (!inserted) {
+          // Fallback: manually append text node
+          const textNode = document.createTextNode(text);
+          element.appendChild(textNode);
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // Ensure cursor is at the end after insertion
+        try {
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        } catch (e) {
+          // Ignore selection errors in cross-origin context
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error injecting text:', error);
+      return false;
+    }
+  }
+
+  function handleGoogleTextInjection(text, autoSubmit, providerMode) {
+    const normalizedMode = normalizeGoogleProviderMode(providerMode);
+
+    if (normalizedMode === GOOGLE_PROVIDER_MODE_SEARCH) {
+      const success = fillGoogleSearchInput(text);
+      if (success && autoSubmit) {
+        setTimeout(() => clickGoogleSendButton(normalizedMode), 100);
+      }
+      return success;
+    }
+
+    const input = findGoogleInput(normalizedMode);
+    if (!input) {
+      return false;
+    }
+
+    const success = injectTextIntoElement(input, text);
+    if (success && autoSubmit) {
+      setTimeout(() => clickGoogleSendButton(normalizedMode), 500);
+    }
+    return success;
+  }
+
+  // ===== Image Injection Functions =====
+
+  // Helper function to inject text into provider's input field
+  function injectText(provider, text, autoSubmit, providerMode = null) {
+    if (provider === 'google') {
+      return handleGoogleTextInjection(text, autoSubmit, providerMode);
+    }
+
+    const selectors = PROVIDER_SELECTORS[provider];
+    if (!selectors) {
+      debugLog('[Text Injection] No selectors for provider:', provider);
+      return false;
+    }
+
+    for (const selector of selectors) {
+      const element = findTextInputElement(selector);
+      if (element) {
+        const success = injectTextIntoElement(element, text);
+        if (success) {
+          debugLog('[Text Injection] Text injected via injectText helper for', provider);
+          if (autoSubmit) {
+            scheduleProviderAutoSubmit(provider, providerMode);
+          }
+          return true;
+        }
+      }
+    }
+
+    debugLog('[Text Injection] No input element found for provider:', provider);
+    return false;
+  }
+
+  // Handle image injection message
+  async function handleImageInjection(event) {
+    const { text, images, autoSubmit, requestId } = event.data;
+    const provider = detectProvider();
+    const providerMode = provider === 'google'
+      ? normalizeGoogleProviderMode(event.data.providerMode)
+      : null;
+
+    if (!provider) {
+      console.warn('[Image Injection] Provider not detected');
+      return;
+    }
+
+    if (provider === 'google' && providerMode === GOOGLE_PROVIDER_MODE_SEARCH) {
+      console.warn('[Image Injection] Google Search mode does not support image injection, falling back to text only');
+      if (text && text.trim()) {
+        const filled = handleGoogleTextInjection(text, autoSubmit, providerMode);
+        if (!autoSubmit && requestId && filled) {
+          startFilledDraftTracking(requestId, provider, providerMode);
+        }
+      }
+      return;
+    }
+
+    if (!PROVIDER_IMAGE_SUPPORT[provider]) {
+      console.warn('[Image Injection] Provider does not support images:', provider);
+      // For providers that don't support images, just inject text
+      if (text) {
+        const filled = injectText(provider, text, autoSubmit, providerMode);
+        if (!autoSubmit && requestId && filled) {
+          startFilledDraftTracking(requestId, provider, providerMode);
+        }
+      }
+      return;
+    }
+
+    if (!images || images.length === 0) {
+      console.warn('[Image Injection] No images provided');
+      return;
+    }
+
+    try {
+      if (autoSubmit && requestId) {
+        startMultiPanelUserInteractionTracking(requestId, provider);
+        startProviderSendTracking(requestId, provider);
+      } else {
+        stopAllProviderGenerationTracking();
+      }
+
+      let filledDraftReady = false;
+      const waitsForImageReady = provider === 'chatgpt' || provider === 'zai';
+
+      // Inject images first
+      const imageInjectionInterval = getProviderImageInjectionInterval(provider);
+      for (const [index, image] of images.entries()) {
+        const injected = await injectSingleImage(provider, image);
+        filledDraftReady = filledDraftReady || injected;
+        if (index < images.length - 1) {
+          await sleep(imageInjectionInterval);
+        }
+      }
+
+      // Wait for images to upload
+      await sleep(getProviderImageUploadSettlingDelay(provider, images.length));
+
+      // Then inject text if provided
+      if (text && text.trim()) {
+        await sleep(300);
+        const textInjected = injectText(
+          provider,
+          text,
+          autoSubmit && waitsForImageReady ? false : autoSubmit,
+          providerMode
+        );
+        filledDraftReady = filledDraftReady || textInjected;
+
+        if (autoSubmit && waitsForImageReady && textInjected) {
+          scheduleProviderAutoSubmit(provider, providerMode, {
+            timeout: provider === 'chatgpt'
+              ? CHATGPT_IMAGE_AUTO_SUBMIT_TIMEOUT_MS
+              : ZAI_IMAGE_AUTO_SUBMIT_TIMEOUT_MS,
+            retryUntilReady: true,
+            waitUntil: provider === 'zai' ? isZaiImageAttachmentReady : undefined,
+          });
+        }
+      } else if (autoSubmit) {
+        // If no text but autoSubmit is true, click send button
+        await sleep(300);
+        scheduleProviderAutoSubmit(provider, providerMode, {
+          delay: 0,
+          timeout: provider === 'chatgpt'
+            ? CHATGPT_IMAGE_AUTO_SUBMIT_TIMEOUT_MS
+            : provider === 'zai'
+              ? ZAI_IMAGE_AUTO_SUBMIT_TIMEOUT_MS
+              : CHATGPT_AUTO_SUBMIT_TIMEOUT_MS,
+          retryUntilReady: waitsForImageReady,
+          waitUntil: provider === 'zai' ? isZaiImageAttachmentReady : undefined,
+        });
+      }
+
+      if (!autoSubmit && requestId && filledDraftReady) {
+        startFilledDraftTracking(requestId, provider, providerMode);
+      }
+    } catch (error) {
+      console.error('[Image Injection] Error:', error);
+    }
+  }
+
+  // Inject a single image to the provider using provider-specific strategy
+  async function injectSingleImage(provider, imageData) {
+    // Use provider-specific strategies
+    switch (provider) {
+      case 'chatgpt':
+        return await injectImageToChatGPT(imageData);
+      case 'claude':
+        return await injectImageToClaude(imageData);
+      case 'gemini':
+        return await injectImageToGemini(imageData);
+      case 'grok':
+      case 'deepseek':
+        // These work with drag-drop
+        return await tryDragDropUpload(provider, imageData);
+      case 'google':
+        return await injectImageToGoogle(imageData);
+      default:
+        // Fallback: try file input first, then drag-drop
+        if (await tryFileInputUpload(provider, imageData)) {
+          return true;
+        }
+        return await tryDragDropUpload(provider, imageData);
+    }
+  }
+
+  // ChatGPT-specific image injection
+  async function injectImageToChatGPT(imageData) {
+    try {
+      // ChatGPT: find and use file input directly
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) {
+        const blob = await dataUrlToBlob(imageData.dataUrl);
+        const file = new File([blob], imageData.name, { type: imageData.type });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+      console.warn('[Image Injection] ChatGPT: No file input found');
+      return false;
+    } catch (error) {
+      console.error('[Image Injection] ChatGPT error:', error);
+      return false;
+    }
+  }
+
+  // Claude-specific image injection
+  async function injectImageToClaude(imageData) {
+    try {
+      // Claude: find the file input (it's usually hidden)
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) {
+        const blob = await dataUrlToBlob(imageData.dataUrl);
+        const file = new File([blob], imageData.name, { type: imageData.type });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+
+      // Try clicking the attachment button first
+      const attachBtnSelectors = UPLOAD_BUTTON_SELECTORS.claude;
+      for (const selector of attachBtnSelectors) {
+        const btn = document.querySelector(selector);
+        if (btn) {
+          clickElement(btn);
+          await sleep(300);
+          // Now try to find and use the file input
+          const input = document.querySelector('input[type="file"]');
+          if (input) {
+            const blob = await dataUrlToBlob(imageData.dataUrl);
+            const file = new File([blob], imageData.name, { type: imageData.type });
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            input.files = dataTransfer.files;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
+          }
+        }
+      }
+
+      console.warn('[Image Injection] Claude: No file input found');
+      return false;
+    } catch (error) {
+      console.error('[Image Injection] Claude error:', error);
+      return false;
+    }
+  }
+
+  // Gemini-specific image injection
+  async function injectImageToGemini(imageData) {
+    try {
+      // Strategy: Simulate paste event with image
+      // Find the editor (Quill editor or contenteditable)
+      const editorSelectors = ['.ql-editor', '[contenteditable="true"]', 'div[contenteditable]'];
+      let editor = null;
+
+      for (const selector of editorSelectors) {
+        editor = querySelectorDeep(selector);
+        if (editor) {
+          break;
+        }
+      }
+
+      if (!editor) {
+        console.warn('[Image Injection] Gemini: Editor not found');
+        return false;
+      }
+
+      // Convert dataUrl to blob
+      const blob = await dataUrlToBlob(imageData.dataUrl);
+      const file = new File([blob], imageData.name, { type: imageData.type });
+
+      // Create DataTransfer for clipboard data
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+
+      // Focus the editor first
+      editor.focus();
+
+      // Simulate paste event with the image
+      const pasteEvent = new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: dataTransfer
+      });
+
+      editor.dispatchEvent(pasteEvent);
+
+      // Also try drag-drop as fallback if paste doesn't work
+      await sleep(100);
+      const dropEvent = new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: dataTransfer
+      });
+      editor.dispatchEvent(dropEvent);
+
+      return true;
+    } catch (error) {
+      console.error('[Image Injection] Gemini error:', error);
+      return false;
+    }
+  }
+
+  // Google AI Mode image injection
+  async function injectImageToGoogle(imageData) {
+    try {
+      let fileInput = findGoogleFileInput();
+      if (!fileInput) {
+        fileInput = await openGoogleImagePicker();
+      }
+
+      if (fileInput) {
+        const blob = await dataUrlToBlob(imageData.dataUrl);
+        const file = new File([blob], imageData.name, { type: imageData.type });
+        const assigned = assignFilesToInput(fileInput, [file]);
+        if (!assigned) {
+          return false;
+        }
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+      console.warn('[Image Injection] Google: No file input found');
+      return false;
+    } catch (error) {
+      console.error('[Image Injection] Google error:', error);
+      return false;
+    }
+  }
+
+  // Try to upload image via drag-drop event (works for Grok, DeepSeek)
+  async function tryDragDropUpload(provider, imageData) {
+    try {
+      const selectors = PROVIDER_SELECTORS[provider];
+      let targetElement = null;
+
+      for (const selector of selectors) {
+        targetElement = findTextInputElement(selector);
+        if (targetElement) break;
+      }
+
+      if (!targetElement) {
+        console.warn('[Image Injection] No target element found for drag-drop');
+        return false;
+      }
+
+      // Convert dataUrl to blob
+      const blob = await dataUrlToBlob(imageData.dataUrl);
+
+      // Create File object from blob
+      const file = new File([blob], imageData.name, { type: imageData.type });
+
+      // Create DataTransfer with file
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+
+      // Focus the element first
+      targetElement.focus();
+
+      // Dispatch drag events sequence
+      const dragEnterEvent = new DragEvent('dragenter', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: dataTransfer
+      });
+
+      const dragOverEvent = new DragEvent('dragover', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: dataTransfer
+      });
+
+      const dropEvent = new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: dataTransfer
+      });
+
+      targetElement.dispatchEvent(dragEnterEvent);
+      targetElement.dispatchEvent(dragOverEvent);
+      targetElement.dispatchEvent(dropEvent);
+
+      return true;
+    } catch (error) {
+      console.error('[Image Injection] Drag-drop upload failed:', error);
+      return false;
+    }
+  }
+
+  // Fallback: Try to upload image via file input
+  async function tryFileInputUpload(provider, imageData) {
+    try {
+      const fileInputSelectors = FILE_INPUT_SELECTORS[provider] || [];
+
+      // First try specific selectors
+      let fileInput = null;
+      for (const selector of fileInputSelectors) {
+        fileInput = document.querySelector(selector);
+        if (fileInput) break;
+      }
+
+      // If no direct file input, try to find any file input
+      if (!fileInput) {
+        const allFileInputs = document.querySelectorAll('input[type="file"]');
+        for (const input of allFileInputs) {
+          if (!input.accept || input.accept.includes('image') || input.accept.includes('*')) {
+            fileInput = input;
+            break;
+          }
+        }
+      }
+
+      if (!fileInput) {
+        console.warn('[Image Injection] No file input found');
+        return false;
+      }
+
+      // Convert dataUrl to blob
+      const blob = await dataUrlToBlob(imageData.dataUrl);
+
+      // Create File object
+      const file = new File([blob], imageData.name, { type: imageData.type });
+
+      // Create FileList-like object
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      fileInput.files = dataTransfer.files;
+
+      // Trigger change event
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+      return true;
+    } catch (error) {
+      console.error('[Image Injection] File input upload failed:', error);
+      return false;
+    }
+  }
+
+  // Convert data URL to Blob
+  function dataUrlToBlob(dataUrl) {
+    return new Promise((resolve, reject) => {
+      try {
+        const arr = dataUrl.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        resolve(new Blob([u8arr], { type: mime }));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // Sleep utility
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Shadow DOM query helper functions
+  function querySelectorDeep(selector, root = document) {
+    // Try to find in current root element
+    const element = root.querySelector(selector);
+    if (element) return element;
+    
+    // Recursively search all shadow DOM
+    const allElements = root.querySelectorAll('*');
+    for (const el of allElements) {
+      if (el.shadowRoot) {
+        const found = querySelectorDeep(selector, el.shadowRoot);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function querySelectorAllDeep(selector, root = document) {
+    const elements = [...root.querySelectorAll(selector)];
+    const allElements = root.querySelectorAll('*');
+    for (const el of allElements) {
+      if (el.shadowRoot) {
+        elements.push(...querySelectorAllDeep(selector, el.shadowRoot));
+      }
+    }
+    return elements;
+  }
+
+  // Handle text injection message
+  function handleTextInjection(event) {
+    // Validate event data structure
+    if (!event || !event.data || typeof event.data !== 'object') {
+      return;
+    }
+
+    if (event.data.type === 'REQUEST_INPUT_ANCHOR' && event.data.context === 'multi-panel') {
+      const provider = detectProvider();
+      const providerMode = resolveProviderMode(provider, event.data.providerMode);
+      scheduleProviderInputAnchorReport('requested', providerMode);
+      return;
+    }
+
+    // Handle CLEAR_INPUT messages
+    if (event.data.type === 'CLEAR_INPUT' && event.data.context === 'multi-panel') {
+      const provider = detectProvider();
+      stopAllProviderGenerationTracking();
+      if (provider) {
+        const providerMode = provider === 'google'
+          ? normalizeGoogleProviderMode(event.data.providerMode)
+          : null;
+
+        if (provider === 'google') {
+          clearGoogleInput(providerMode);
+          debugLog('[Text Injection] Input cleared for', provider, 'mode:', providerMode);
+          return;
+        }
+
+        const selectors = PROVIDER_SELECTORS[provider];
+        for (const selector of selectors) {
+          const element = findTextInputElement(selector);
+          if (element) {
+            const isTextarea = element.tagName === 'TEXTAREA' || element.tagName === 'INPUT';
+            if (isTextarea) {
+              setFormControlValue(element, '');
+            } else {
+              // For contenteditable elements
+              element.focus();
+
+              // Special handling for Kimi (Lexical editor): simulate Ctrl+A + Backspace
+              // Lexical maintains internal state, so we must use keyboard events
+              if (provider === 'kimi') {
+                // Dispatch Ctrl+A (Select All)
+                element.dispatchEvent(new KeyboardEvent('keydown', {
+                  key: 'a',
+                  code: 'KeyA',
+                  keyCode: 65,
+                  which: 65,
+                  ctrlKey: true,
+                  metaKey: true,  // For Mac
+                  bubbles: true,
+                  cancelable: true
+                }));
+
+                // Use execCommand to select all (works with Lexical)
+                document.execCommand('selectAll', false, null);
+
+                // Small delay then delete
+                setTimeout(() => {
+                  element.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Backspace',
+                    code: 'Backspace',
+                    keyCode: 8,
+                    which: 8,
+                    bubbles: true,
+                    cancelable: true
+                  }));
+                  document.execCommand('delete', false, null);
+                  element.dispatchEvent(new Event('input', { bubbles: true }));
+                }, 10);
+              } else {
+                element.innerHTML = '';
+                // Trigger multiple events for React/Vue compatibility
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            }
+            debugLog('[Text Injection] Input cleared for', provider);
+            scheduleProviderInputAnchorReport('clear', providerMode);
+            break;
+          }
+        }
+      }
+      return;
+    }
+
+    // Handle TRIGGER_SEND messages (send without injecting text)
+    if (event.data.type === 'TRIGGER_SEND' && event.data.context === 'multi-panel') {
+      const provider = detectProvider();
+      if (provider) {
+        const providerMode = provider === 'google'
+          ? normalizeGoogleProviderMode(event.data.providerMode)
+          : null;
+        if (event.data.requestId) {
+          startMultiPanelUserInteractionTracking(event.data.requestId, provider);
+          startProviderSendTracking(event.data.requestId, provider);
+        } else {
+          stopAllProviderGenerationTracking();
+        }
+        debugLog('[Text Injection] Triggering send for', provider);
+        clickSendButton(provider, providerMode);
+        scheduleProviderInputAnchorReport('trigger-send', providerMode);
+      }
+      return;
+    }
+
+    if (event.data.type === 'STOP_GENERATION' && event.data.context === 'multi-panel') {
+      const provider = detectProvider();
+      if (provider) {
+        const providerMode = provider === 'google'
+          ? normalizeGoogleProviderMode(event.data.providerMode)
+          : null;
+        const stopped = clickStopButton(provider);
+        stopAllProviderGenerationTracking({ reportIdle: true });
+        scheduleProviderInputAnchorReport(stopped ? 'stop-generation' : 'stop-generation-missing', providerMode);
+      }
+      return;
+    }
+
+    // Handle NEW_CHAT messages (create new chat)
+    if (event.data.type === 'NEW_CHAT' && event.data.context === 'multi-panel') {
+      const provider = detectProvider();
+      stopAllProviderGenerationTracking();
+      const providerMode = provider === 'google'
+        ? normalizeGoogleProviderMode(event.data.providerMode)
+        : null;
+      debugLog('[Text Injection] NEW_CHAT message received, provider:', provider);
+      debugLog('[Text Injection] Current URL:', window.location.href);
+      if (provider) {
+        debugLog('[Text Injection] Creating new chat for', provider);
+        clickNewChatButton(provider, providerMode);
+        setTimeout(() => scheduleProviderInputAnchorReport('new-chat', providerMode), 700);
+      } else {
+        debugLog('[Text Injection] Provider not detected for NEW_CHAT');
+      }
+      return;
+    }
+
+    if (event.data.type === 'ENABLE_TEMP_CHAT' && event.data.context === 'multi-panel') {
+      const provider = detectProvider();
+      if (provider) {
+        void enableTemporaryChat(provider);
+        setTimeout(() => scheduleProviderInputAnchorReport('temp-chat'), 800);
+      }
+      return;
+    }
+
+    if (event.data.type === 'DISABLE_TEMP_CHAT' && event.data.context === 'multi-panel') {
+      const provider = detectProvider();
+      if (provider) {
+        void disableTemporaryChat(provider);
+        setTimeout(() => scheduleProviderInputAnchorReport('temp-chat'), 800);
+      }
+      return;
+    }
+
+    // Handle INJECT_TEXT_WITH_IMAGES messages
+    if (event.data.type === 'INJECT_TEXT_WITH_IMAGES' && event.data.context === 'multi-panel') {
+      void handleImageInjection(event);
+      setTimeout(() => scheduleProviderInputAnchorReport('image-injection'), 600);
+      return;
+    }
+
+    // Only handle INJECT_TEXT messages
+    if (event.data.type !== 'INJECT_TEXT') {
+      return;
+    }
+
+    // Validate text payload
+    const text = event.data.text;
+    if (!text || typeof text !== 'string' || text.length === 0) {
+      debugLog('[Text Injection] Invalid text payload');
+      return;
+    }
+
+    // Sanity check: reject extremely large payloads (> 1MB)
+    if (text.length > 1048576) {
+      console.error('[Text Injection] Text payload too large:', text.length, 'bytes');
+      return;
+    }
+
+    const autoSubmit = event.data.autoSubmit === true;
+    const context = event.data.context;
+    const requestId = event.data.requestId;
+
+    // Security check: Only allow autoSubmit from multi-panel context
+    // This prevents other contexts from accidentally auto-submitting when
+    // multi-panel sends messages to its iframes
+    const shouldAutoSubmit = autoSubmit && context === 'multi-panel';
+
+    const provider = detectProvider();
+    if (!provider) {
+      console.warn('Unknown provider, cannot inject text');
+      return;
+    }
+
+    const providerMode = provider === 'google'
+      ? normalizeGoogleProviderMode(event.data.providerMode)
+      : null;
+
+    if (shouldAutoSubmit && requestId) {
+      startMultiPanelUserInteractionTracking(requestId, provider);
+      startProviderSendTracking(requestId, provider);
+    } else {
+      stopAllProviderGenerationTracking();
+    }
+
+    if (provider === 'google') {
+      const success = handleGoogleTextInjection(text, shouldAutoSubmit, providerMode);
+      if (success) {
+        debugLog('[Text Injection] Text injected into Google using mode:', providerMode);
+        scheduleProviderInputAnchorReport('google-injected', providerMode);
+        if (!shouldAutoSubmit && requestId) {
+          startFilledDraftTracking(requestId, provider, providerMode);
+        }
+        return;
+      }
+
+      debugLog('[Text Injection] Google editor not found on first try, retrying...');
+      [500, 1000].forEach((delay, index, delays) => {
+        setTimeout(() => {
+          const retried = handleGoogleTextInjection(text, shouldAutoSubmit, providerMode);
+          if (retried) {
+            scheduleProviderInputAnchorReport('google-injected-retry', providerMode);
+            if (!shouldAutoSubmit && requestId) {
+              startFilledDraftTracking(requestId, provider, providerMode);
+            }
+          }
+          if (!retried && index === delays.length - 1) {
+            console.error('[Text Injection] Google editor not found after retries');
+          }
+        }, delay);
+      });
+      return;
+    }
+
+    const selectors = PROVIDER_SELECTORS[provider];
+    if (!selectors) {
+      console.warn('No selectors configured for provider:', provider);
+      return;
+    }
+
+    // Try each selector until we find an element
+    let element = null;
+    let matchedSelector = null;
+    for (const selector of selectors) {
+      element = findTextInputElement(selector);
+      if (element) {
+        matchedSelector = selector;
+        debugLog('[Text Injection] Found input element with selector:', selector, 'for provider:', provider);
+        break;
+      }
+    }
+
+    if (element) {
+      const success = injectTextIntoElement(element, text);
+      if (success) {
+        debugLog('[Text Injection] Text injected into', provider, 'using selector:', matchedSelector);
+        scheduleProviderInputAnchorReport('text-injected', providerMode);
+
+        // Auto-submit if requested (only from multi-panel context)
+        if (shouldAutoSubmit) {
+          scheduleProviderAutoSubmit(provider, providerMode);
+        } else if (requestId) {
+          startFilledDraftTracking(requestId, provider, providerMode);
+        }
+      } else {
+        console.error(`[Text Injection] Failed to inject text into ${provider}`);
+      }
+    } else {
+      console.warn(`[Text Injection] ${provider} editor not found on first try, retrying...`);
+      // Retry after a short delay in case page is still loading
+      // Use multiple retries for DeepSeek
+      const retryDelays = provider === 'deepseek' ? [1000, 2000] : [1000];
+
+      retryDelays.forEach((delay, index) => {
+        setTimeout(() => {
+          let retryElement = null;
+          let retrySelector = null;
+          for (const selector of selectors) {
+            retryElement = findTextInputElement(selector);
+            if (retryElement) {
+              retrySelector = selector;
+              debugLog(`[Text Injection] Found input element on retry ${index + 1} with selector:`, selector);
+              break;
+            }
+          }
+          if (retryElement) {
+            const success = injectTextIntoElement(retryElement, text);
+            if (success) {
+              debugLog('[Text Injection] Text injected on retry into', provider, 'using selector:', retrySelector);
+              scheduleProviderInputAnchorReport('text-injected-retry', providerMode);
+              if (shouldAutoSubmit) {
+                scheduleProviderAutoSubmit(provider, providerMode);
+              } else if (requestId) {
+                startFilledDraftTracking(requestId, provider, providerMode);
+              }
+            }
+          } else if (index === retryDelays.length - 1) {
+            console.error(`[Text Injection] ${provider} editor not found after ${retryDelays.length} retries`);
+            console.error('[Text Injection] Available textareas:', document.querySelectorAll('textarea'));
+            console.error('[Text Injection] Available contenteditable:', document.querySelectorAll('[contenteditable="true"]'));
+          }
+        }, delay);
+      });
+    }
+  }
+
+  // Listen for messages from the multi-panel host
+  window.addEventListener('message', handleTextInjection);
+  startProviderInputAnchorTracking();
+  startProviderCurrentUrlTracking();
+  startProviderDocumentTitleTracking();
+})();

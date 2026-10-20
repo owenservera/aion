@@ -1,0 +1,960 @@
+{
+  "extensionName": {
+    "message": "Parallel AI"
+  },
+  "extensionDescription": {
+    "message": "在同一個視窗中並排比較 AI 助理。傳送一則提示詞，更快檢視各方回應。"
+  },
+  "actionDefaultTitle": {
+    "message": "開啟 Parallel AI"
+  },
+  "aboutBuildDate": {
+    "message": "建置日期："
+  },
+  "aboutCheckVersion": {
+    "message": "檢查版本"
+  },
+  "aboutCommit": {
+    "message": "提交："
+  },
+  "aboutManifestVersion": {
+    "message": "Manifest 版本："
+  },
+  "aboutUnknown": {
+    "message": "未知"
+  },
+  "aboutUpToDate": {
+    "message": "您使用的是 $1。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateAvailable": {
+    "message": "有更新的中繼資料版本：$1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateCheckDescription": {
+    "message": "使用本機建置中繼資料執行已封裝的版本檢查。"
+  },
+  "aboutUpdateCheckTitle": {
+    "message": "更新檢查"
+  },
+  "aboutVersionDescription": {
+    "message": "此擴充套件組合的建置與封裝資訊。"
+  },
+  "aboutVersionTitle": {
+    "message": "版本資訊"
+  },
+  "appStatusReady": {
+    "message": "就緒。"
+  },
+  "commonCancel": {
+    "message": "取消"
+  },
+  "composerAriaAddPane": {
+    "message": "新增面板"
+  },
+  "composerAriaClearAll": {
+    "message": "全部清除"
+  },
+  "composerAriaDisableScrollSync": {
+    "message": "停用捲動同步"
+  },
+  "composerAriaDisableTemporaryChats": {
+    "message": "停用暫時對話"
+  },
+  "composerAriaEnableScrollSync": {
+    "message": "啟用捲動同步"
+  },
+  "composerAriaEnableTemporaryChats": {
+    "message": "啟用暫時對話"
+  },
+  "composerAriaFillAll": {
+    "message": "全部填入"
+  },
+  "composerAriaNewChats": {
+    "message": "新對話"
+  },
+  "composerAriaOpenLayout": {
+    "message": "開啟版面配置選擇器"
+  },
+  "composerAriaOpenPromptLibrary": {
+    "message": "開啟提示詞庫"
+  },
+  "composerAriaOpenSettings": {
+    "message": "開啟設定"
+  },
+  "composerAriaResizeBottom": {
+    "message": "從底部邊緣調整編輯器大小"
+  },
+  "composerAriaResizeLeft": {
+    "message": "從左側邊緣調整編輯器大小"
+  },
+  "composerAriaResizeRight": {
+    "message": "從右側邊緣調整編輯器大小"
+  },
+  "composerAriaResizeTop": {
+    "message": "從頂部邊緣調整編輯器大小"
+  },
+  "composerAriaSendAll": {
+    "message": "全部傳送"
+  },
+  "composerAriaStopAll": {
+    "message": "全部停止"
+  },
+  "composerAriaSwitchToPopupMode": {
+    "message": "切換至彈出視窗模式"
+  },
+  "composerAriaSwitchToTabMode": {
+    "message": "切換至分頁模式"
+  },
+  "composerAttachmentRemove": {
+    "message": "移除 $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerBarDragHint": {
+    "message": "拖曳可重新定位。按兩下可重設位置。"
+  },
+  "composerPlaceholder": {
+    "message": "在任何地方都能問任何問題……"
+  },
+  "composerPositionBottom": {
+    "message": "底部"
+  },
+  "composerPositionDescription": {
+    "message": "浮動編輯器預設出現的位置。拖曳可移至任何地方。在編輯器列上按兩下會將其貼回此預設位置。"
+  },
+  "composerPositionLower": {
+    "message": "偏下"
+  },
+  "composerPositionMiddle": {
+    "message": "中間"
+  },
+  "composerPositionTitle": {
+    "message": "編輯器預設位置"
+  },
+  "composerTooltipAddPane": {
+    "message": "新增面板"
+  },
+  "composerTooltipAttachFiles": {
+    "message": "附加檔案"
+  },
+  "composerTooltipClearAll": {
+    "message": "全部清除"
+  },
+  "composerTooltipFillAll": {
+    "message": "全部填入"
+  },
+  "composerTooltipLayout": {
+    "message": "版面配置"
+  },
+  "composerTooltipNewChats": {
+    "message": "新對話"
+  },
+  "composerTooltipPopupMode": {
+    "message": "彈出視窗模式"
+  },
+  "composerTooltipPromptLibrary": {
+    "message": "提示詞庫"
+  },
+  "composerTooltipResizeHeight": {
+    "message": "拖曳可調整高度。按兩下可符合內容。"
+  },
+  "composerTooltipResizeWidth": {
+    "message": "拖曳可調整寬度。按兩下可重設寬度。"
+  },
+  "composerTooltipSettings": {
+    "message": "設定"
+  },
+  "composerTooltipStopAllEsc": {
+    "message": "全部停止 (Esc)"
+  },
+  "composerTooltipTabMode": {
+    "message": "分頁模式"
+  },
+  "composerTooltipTemporaryChats": {
+    "message": "暫時對話"
+  },
+  "confirmClearLibrary": {
+    "message": "要刪除提示詞庫中所有已儲存的提示詞嗎？"
+  },
+  "confirmDefault": {
+    "message": "確認"
+  },
+  "confirmDeletePrompt": {
+    "message": "要從提示詞庫中刪除「$1」嗎？",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "connectorLinesAriaDisable": {
+    "message": "停用連接線"
+  },
+  "connectorLinesAriaEnable": {
+    "message": "啟用連接線"
+  },
+  "connectorLinesDescription": {
+    "message": "顯示浮動編輯器與各服務商提示詞之間的實驗性動畫連結。\n（在部分裝置上停用此功能可能會改善效能，若您發現有延遲或想減少動態效果，可以將其停用。）"
+  },
+  "connectorLinesTitle": {
+    "message": "華麗連接線"
+  },
+  "dataBackupDescription": {
+    "message": "匯出您目前的設定或完整的工作區狀態，包含已儲存的提示詞。"
+  },
+  "dataBackupTitle": {
+    "message": "備份與還原"
+  },
+  "dataExportSettings": {
+    "message": "匯出設定"
+  },
+  "dataExportWorkspace": {
+    "message": "匯出工作區"
+  },
+  "dataImportJson": {
+    "message": "匯入 JSON"
+  },
+  "dataImportSettingsTitle": {
+    "message": "匯入設定 JSON"
+  },
+  "dataResetComposer": {
+    "message": "重設編輯器位置/大小"
+  },
+  "dataResetLayout": {
+    "message": "重設版面配置"
+  },
+  "dataResetSettings": {
+    "message": "重設設定"
+  },
+  "dataResetSettingsConfirmLabel": {
+    "message": "重設設定"
+  },
+  "dataResetSettingsConfirmMessage": {
+    "message": "這將會把所有設定（主題、服務商、版面配置、快速鍵、編輯器）還原為預設值。\n您已儲存的提示詞不會受到影響。"
+  },
+  "dataResetSettingsConfirmTitle": {
+    "message": "要重設所有設定嗎？"
+  },
+  "dataWorkspaceActionsDescription": {
+    "message": "將個別的工作區項目貼回預設值，或重設整個擴充套件。"
+  },
+  "dataWorkspaceActionsTitle": {
+    "message": "工作區動作"
+  },
+  "enterCustomNewline": {
+    "message": "插入換行"
+  },
+  "enterCustomSend": {
+    "message": "傳送訊息"
+  },
+  "enterKeyBehaviorAria": {
+    "message": "選擇 Enter 鍵行為"
+  },
+  "enterKeyBehaviorDescription": {
+    "message": "調整當擴充套件填入服務商輸入框時 Enter 鍵的行為。"
+  },
+  "enterKeyBehaviorTitle": {
+    "message": "Enter 鍵行為"
+  },
+  "errorDefaultLibraryUnavailable": {
+    "message": "預設提示詞庫無法使用。"
+  },
+  "geminiAutoExtendedThinkingAriaDisable": {
+    "message": "停用 Gemini 自動 Extended 思考"
+  },
+  "geminiAutoExtendedThinkingAriaEnable": {
+    "message": "啟用 Gemini 自動 Extended 思考"
+  },
+  "geminiAutoExtendedThinkingDescription": {
+    "message": "自動將 Gemini 的思考等級切換為「Extended」，避免頁面退回至「Standard」。\n（暫時修正 Gemini 網頁介面的已知問題。實驗性功能 — 偶爾可能會出現問題。）"
+  },
+  "geminiAutoExtendedThinkingTitle": {
+    "message": "保持 Gemini 為 Extended 思考"
+  },
+  "googleModeAi": {
+    "message": "AI 模式"
+  },
+  "googleModeAria": {
+    "message": "選擇 Google 模式"
+  },
+  "googleModeSearch": {
+    "message": "搜尋"
+  },
+  "keyboardShortcutDescriptionPrefix": {
+    "message": "若要變更或停用此快速鍵，請輸入"
+  },
+  "keyboardShortcutDescriptionShortcut": {
+    "message": "開啟新的 Parallel AI 工作區。"
+  },
+  "keyboardShortcutDescriptionSuffix": {
+    "message": "於 Chrome 新分頁中，或使用右側按鈕開啟 Chrome 的鍵盤快速鍵頁面並編輯 Parallel AI 的項目。"
+  },
+  "keyboardShortcutOpenChrome": {
+    "message": "Chrome 快速鍵"
+  },
+  "keyboardShortcutOpenChromeTitle": {
+    "message": "開啟 Chrome 的鍵盤快速鍵頁面"
+  },
+  "keyboardShortcutTitle": {
+    "message": "鍵盤快速鍵"
+  },
+  "languageAriaChoose": {
+    "message": "選擇語言"
+  },
+  "languageDescription": {
+    "message": "選擇擴充套件介面偏好的語系。"
+  },
+  "languageTitle": {
+    "message": "語言"
+  },
+  "layoutAriaSwitchTo": {
+    "message": "切換至 $1 版面配置",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "layoutModalDescription": {
+    "message": "選擇整體面板排列方式。工作區內的調整控點可微調目前的版面配置。"
+  },
+  "layoutModalTitle": {
+    "message": "版面配置"
+  },
+  "layoutSlots": {
+    "message": "$1 格",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAddToFavorites": {
+    "message": "加入我的最愛"
+  },
+  "libraryAllCategories": {
+    "message": "所有分類"
+  },
+  "libraryAriaAddFavorite": {
+    "message": "將 $1 加入我的最愛",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDelete": {
+    "message": "刪除 $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDragReorder": {
+    "message": "拖曳 $1 以重新排序",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaEdit": {
+    "message": "編輯 $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaRemoveFavorite": {
+    "message": "將 $1 從我的最愛中移除",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryBadgeFavorite": {
+    "message": "我的最愛"
+  },
+  "libraryClear": {
+    "message": "清空詞庫"
+  },
+  "libraryClearConfirmLabel": {
+    "message": "清空詞庫"
+  },
+  "libraryClearConfirmMessage": {
+    "message": "這將會永久刪除詞庫中所有已儲存的提示詞。\n此動作無法復原。"
+  },
+  "libraryClearConfirmTitle": {
+    "message": "要清空提示詞庫嗎？"
+  },
+  "libraryDeleteConfirmLabel": {
+    "message": "刪除"
+  },
+  "libraryDeleteConfirmMessage": {
+    "message": "這將會永久刪除「$1」。\n此動作無法復原。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryDeleteConfirmTitle": {
+    "message": "要刪除提示詞嗎？"
+  },
+  "libraryDeletePrompt": {
+    "message": "刪除提示詞"
+  },
+  "libraryEditPrompt": {
+    "message": "編輯提示詞"
+  },
+  "libraryEmptyDescription": {
+    "message": "請嘗試其他篩選條件、清除搜尋，或匯入預設詞庫以開始使用。"
+  },
+  "libraryEmptyTitle": {
+    "message": "找不到提示詞"
+  },
+  "libraryExportJson": {
+    "message": "匯出 JSON"
+  },
+  "libraryFilterAll": {
+    "message": "全部"
+  },
+  "libraryFilterCategoryAria": {
+    "message": "依分類篩選提示詞"
+  },
+  "libraryFilterFavorites": {
+    "message": "我的最愛"
+  },
+  "libraryFilterRecent": {
+    "message": "最近"
+  },
+  "libraryImportDefaults": {
+    "message": "匯入預設"
+  },
+  "libraryImportExportDescription": {
+    "message": "引入入門提示詞，或以 JSON 檔案交換詞庫。"
+  },
+  "libraryImportExportTitle": {
+    "message": "匯入與匯出"
+  },
+  "libraryImportJson": {
+    "message": "匯入 JSON"
+  },
+  "libraryImportJsonTitle": {
+    "message": "匯入提示詞庫 JSON"
+  },
+  "libraryImportPromptsJsonTitle": {
+    "message": "匯入提示詞 JSON"
+  },
+  "libraryModalDescription": {
+    "message": "儲存可重複使用的提示詞，快速搜尋，並將其插回統一編輯器。"
+  },
+  "libraryModalTitle": {
+    "message": "提示詞庫"
+  },
+  "libraryNewPrompt": {
+    "message": "新增提示詞"
+  },
+  "libraryOpen": {
+    "message": "開啟詞庫"
+  },
+  "libraryOverviewDescription": {
+    "message": "您已儲存的提示詞庫會在本機 IndexedDB 中儲存，方便快速重複使用。"
+  },
+  "libraryOverviewTitle": {
+    "message": "詞庫概覽"
+  },
+  "libraryPromptCountMany": {
+    "message": "$1 個已儲存的提示詞",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryPromptCountOne": {
+    "message": "$1 個已儲存的提示詞",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryRemoveFromFavorites": {
+    "message": "從我的最愛中移除"
+  },
+  "librarySearchPlaceholder": {
+    "message": "搜尋提示詞、標籤或內容"
+  },
+  "libraryUse": {
+    "message": "使用"
+  },
+  "multilineSendAriaDisable": {
+    "message": "停用多行提示詞的輔助鍵需求"
+  },
+  "multilineSendAriaEnable": {
+    "message": "要求多行提示詞使用 Ctrl 或 Command Enter"
+  },
+  "multilineSendDescriptionPrefix": {
+    "message": "啟用後，含換行（超過一行）的提示詞需要"
+  },
+  "multilineSendDescriptionSuffix": {
+    "message": "才能傳送。"
+  },
+  "multilineSendTitle": {
+    "message": "多行提示詞需使用 $1 + Enter",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "promptEditorAriaMarkFavorite": {
+    "message": "將提示詞標記為我的最愛"
+  },
+  "promptEditorAriaRemoveFavorite": {
+    "message": "將提示詞從我的最愛中移除"
+  },
+  "promptEditorCategory": {
+    "message": "分類"
+  },
+  "promptEditorCategoryPlaceholder": {
+    "message": "一般"
+  },
+  "promptEditorContent": {
+    "message": "提示詞內容"
+  },
+  "promptEditorContentPlaceholder": {
+    "message": "在此撰寫您可重複使用的提示詞"
+  },
+  "promptEditorDescription": {
+    "message": "建立可重複使用的提示詞，可選擇性加入標籤、分類及變數，例如 {topic}。"
+  },
+  "promptEditorEditTitle": {
+    "message": "編輯提示詞"
+  },
+  "promptEditorFavoriteDescription": {
+    "message": "在我的最愛篩選中顯示此提示詞。"
+  },
+  "promptEditorFavoriteLabel": {
+    "message": "我的最愛"
+  },
+  "promptEditorNewTitle": {
+    "message": "新增提示詞"
+  },
+  "promptEditorSave": {
+    "message": "儲存提示詞"
+  },
+  "promptEditorTags": {
+    "message": "標籤"
+  },
+  "promptEditorTagsPlaceholder": {
+    "message": "研究、規劃、寫作"
+  },
+  "promptEditorTitle": {
+    "message": "標題"
+  },
+  "promptEditorTitlePlaceholder": {
+    "message": "提示詞標題"
+  },
+  "promptEditorVariables": {
+    "message": "變數"
+  },
+  "promptEditorVariablesPlaceholder": {
+    "message": "主題、語氣、受眾"
+  },
+  "providerAriaDisable": {
+    "message": "停用 $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaDragReorder": {
+    "message": "拖曳 $1 以重新排序",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaEnable": {
+    "message": "啟用 $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsModalDescription": {
+    "message": "所有控制項現已內建於工作區中，不再使用獨立的選項頁面。"
+  },
+  "settingsModalTitle": {
+    "message": "設定"
+  },
+  "sourceUrlAria": {
+    "message": "選擇來源 URL 放置位置"
+  },
+  "sourceUrlBeginning": {
+    "message": "將 URL 放在開頭"
+  },
+  "sourceUrlDescription": {
+    "message": "控制匯入內容時所選的 URL 要放在前面或附加在後面。"
+  },
+  "sourceUrlEnd": {
+    "message": "將 URL 放在結尾"
+  },
+  "sourceUrlNone": {
+    "message": "不包含來源 URL"
+  },
+  "sourceUrlTitle": {
+    "message": "來源 URL 放置位置"
+  },
+  "statusAttachmentReadyMany": {
+    "message": "已備妥 $1 個附件。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusAttachmentReadyOne": {
+    "message": "已備妥 $1 個附件。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusCleared": {
+    "message": "已清除統一輸入框與各服務商草稿。"
+  },
+  "statusComposerFullReset": {
+    "message": "已重設編輯器位置與大小。"
+  },
+  "statusComposerHeightReset": {
+    "message": "已重設編輯器高度。"
+  },
+  "statusComposerPositionReset": {
+    "message": "已重設編輯器位置。"
+  },
+  "statusComposerWidthReset": {
+    "message": "已重設編輯器寬度。"
+  },
+  "statusDefaultImportFailed": {
+    "message": "匯入預設提示詞失敗。"
+  },
+  "statusDraftsAlreadySent": {
+    "message": "已填入的草稿已傳送。"
+  },
+  "statusFavoriteAdded": {
+    "message": "已加入我的最愛。"
+  },
+  "statusFavoriteFailed": {
+    "message": "更新我的最愛失敗。"
+  },
+  "statusFavoriteRemoved": {
+    "message": "已從我的最愛中移除。"
+  },
+  "statusFavoritesReorderFailed": {
+    "message": "重新排序我的最愛失敗。"
+  },
+  "statusFilledPanels": {
+    "message": "已填入啟用中的面板。"
+  },
+  "statusImageAttached": {
+    "message": "已將圖片附加至編輯器。"
+  },
+  "statusImageFetchFailed": {
+    "message": "無法擷取該圖片。"
+  },
+  "statusImportedSkippedSuffix": {
+    "message": "，已略過 $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusLayoutReset": {
+    "message": "已重設面板版面配置。"
+  },
+  "statusLibraryClearFailed": {
+    "message": "清空提示詞庫失敗。"
+  },
+  "statusLibraryCleared": {
+    "message": "已清空提示詞庫。"
+  },
+  "statusLibraryExportFailed": {
+    "message": "匯出提示詞失敗。"
+  },
+  "statusLibraryExported": {
+    "message": "已匯出提示詞庫。"
+  },
+  "statusLibraryLoadFailed": {
+    "message": "載入提示詞庫失敗。"
+  },
+  "statusNewChats": {
+    "message": "已要求在每個面板開啟新對話。"
+  },
+  "statusNoContentToSend": {
+    "message": "傳送前請先新增提示詞或附件。"
+  },
+  "statusNoMoreProviders": {
+    "message": "沒有其他已啟用的服務商可用。"
+  },
+  "statusOnePanelMin": {
+    "message": "至少需保留一個面板開啟。"
+  },
+  "statusPanelAdded": {
+    "message": "已新增另一個服務商面板。"
+  },
+  "statusPanelsReordered": {
+    "message": "已重新排序面板。"
+  },
+  "statusPromptDeleteFailed": {
+    "message": "刪除提示詞失敗。"
+  },
+  "statusPromptDeleted": {
+    "message": "已刪除提示詞。"
+  },
+  "statusPromptInserted": {
+    "message": "已將提示詞插入統一編輯器。"
+  },
+  "statusPromptSaveFailed": {
+    "message": "儲存提示詞失敗。"
+  },
+  "statusPromptSaved": {
+    "message": "已儲存提示詞。"
+  },
+  "statusPromptUpdated": {
+    "message": "已更新提示詞。"
+  },
+  "statusPromptsImportFailed": {
+    "message": "匯入提示詞失敗。"
+  },
+  "statusScrollSyncOff": {
+    "message": "已停用捲動同步。"
+  },
+  "statusScrollSyncOn": {
+    "message": "已啟用捲動同步。"
+  },
+  "statusSelectedTextLoaded": {
+    "message": "已將所選文字載入編輯器。"
+  },
+  "statusSentToPanels": {
+    "message": "已傳送至啟用中的面板。"
+  },
+  "statusSettingsExportFailed": {
+    "message": "匯出設定失敗。"
+  },
+  "statusSettingsExported": {
+    "message": "已匯出設定。"
+  },
+  "statusSettingsImportFailed": {
+    "message": "匯入設定失敗。"
+  },
+  "statusSettingsImportedMany": {
+    "message": "已匯入 $1 項設定。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusSettingsImportedOne": {
+    "message": "已匯入 $1 項設定。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusStopRequested": {
+    "message": "已要求停止啟用中的面板。"
+  },
+  "statusTempChatOff": {
+    "message": "已將支援的面板還原至一般對話 URL。"
+  },
+  "statusTempChatOn": {
+    "message": "已在支援的面板啟用暫時對話模式。"
+  },
+  "statusWorkspaceExportFailed": {
+    "message": "匯出工作區資料失敗。"
+  },
+  "statusWorkspaceExported": {
+    "message": "已匯出工作區資料。"
+  },
+  "tabAbout": {
+    "message": "關於"
+  },
+  "tabAppearance": {
+    "message": "外觀"
+  },
+  "tabData": {
+    "message": "資料"
+  },
+  "tabKeyboard": {
+    "message": "鍵盤"
+  },
+  "tabLibrary": {
+    "message": "提示詞庫"
+  },
+  "tabProviders": {
+    "message": "服務商"
+  },
+  "themeAuto": {
+    "message": "自動"
+  },
+  "themeDark": {
+    "message": "深色"
+  },
+  "themeDescription": {
+    "message": "淺色、深色或跟隨您的系統偏好。"
+  },
+  "themeLight": {
+    "message": "淺色"
+  },
+  "themeTitle": {
+    "message": "主題"
+  },
+  "variableApplyPrompt": {
+    "message": "套用提示詞"
+  },
+  "variableEnterPlaceholder": {
+    "message": "輸入 $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "variableModalDescription": {
+    "message": "在提示詞複製到統一編輯器之前，請先填入變數。"
+  },
+  "variableModalTitleDefault": {
+    "message": "提示詞變數"
+  },
+  "variableModalTitleUse": {
+    "message": "使用「$1」",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerAriaOpenTokenMeter": {
+    "message": "開啟用量面板"
+  },
+  "composerAriaCloseTokenMeter": {
+    "message": "關閉用量面板"
+  },
+  "composerTooltipTokenMeter": {
+    "message": "用量"
+  },
+  "usagePanelTitle": {
+    "message": "用量"
+  },
+  "usagePanelDragHint": {
+    "message": "拖曳可移動。雙擊重設位置。"
+  },
+  "usageAriaRefresh": {
+    "message": "重新整理用量"
+  },
+  "usageTooltipRefresh": {
+    "message": "重新整理"
+  },
+  "usageAriaClose": {
+    "message": "關閉用量面板"
+  },
+  "usageTooltipClose": {
+    "message": "關閉"
+  },
+  "usageUpdatedAgo": {
+    "message": "$1前更新",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageResetsIn": {
+    "message": "$1後重設",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageRemainingCount": {
+    "message": "剩餘 $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageWaiting": {
+    "message": "等待用量資料"
+  },
+  "usageUnsupported": {
+    "message": "該服務商不提供用量資訊"
+  },
+  "usageSignInRequired": {
+    "message": "登入該服務商以查看用量"
+  },
+  "usageLoadFailed": {
+    "message": "無法載入用量"
+  },
+  "usageNoLimitsReported": {
+    "message": "未回報任何限額"
+  },
+  "usageNoActivePanels": {
+    "message": "沒有作用中的面板"
+  },
+  "paneUsageStripTitle": {
+    "message": "面板上的用量列"
+  },
+  "paneUsageStripDescription": {
+    "message": "對於會回報方案用量的服務商，在每個面板底部顯示一個小用量列。它浮在面板之上，不會佔用聊天空間。"
+  },
+  "paneUsageStripAriaEnable": {
+    "message": "在面板上顯示用量列"
+  },
+  "paneUsageStripAriaDisable": {
+    "message": "隱藏面板上的用量列"
+  },
+  "usageAriaResizeRight": {
+    "message": "調整用量面板寬度"
+  },
+  "usageAriaResizeBottom": {
+    "message": "調整用量面板高度"
+  },
+  "usageAriaResizeCorner": {
+    "message": "調整用量面板大小"
+  },
+  "usagePercentRemaining": {
+    "message": "剩餘 $1%",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  }
+}

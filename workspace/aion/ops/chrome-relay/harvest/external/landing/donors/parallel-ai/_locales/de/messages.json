@@ -1,0 +1,960 @@
+{
+  "extensionName": {
+    "message": "Parallel AI"
+  },
+  "extensionDescription": {
+    "message": "Vergleiche KI-Assistenten in einem Fenster nebeneinander. Sende einen Prompt und prüfe Antworten schneller."
+  },
+  "actionDefaultTitle": {
+    "message": "Parallel AI öffnen"
+  },
+  "aboutBuildDate": {
+    "message": "Build-Datum:"
+  },
+  "aboutCheckVersion": {
+    "message": "Version prüfen"
+  },
+  "aboutCommit": {
+    "message": "Commit:"
+  },
+  "aboutManifestVersion": {
+    "message": "Manifest-Version:"
+  },
+  "aboutUnknown": {
+    "message": "Unbekannt"
+  },
+  "aboutUpToDate": {
+    "message": "Du nutzt $1.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateAvailable": {
+    "message": "Neuere Metadaten-Version verfügbar: $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateCheckDescription": {
+    "message": "Führt die Versionsprüfung anhand der lokalen Build-Metadaten aus."
+  },
+  "aboutUpdateCheckTitle": {
+    "message": "Update-Prüfung"
+  },
+  "aboutVersionDescription": {
+    "message": "Build- und Paketinformationen für dieses Extension-Bundle."
+  },
+  "aboutVersionTitle": {
+    "message": "Versionsinfo"
+  },
+  "appStatusReady": {
+    "message": "Bereit."
+  },
+  "commonCancel": {
+    "message": "Abbrechen"
+  },
+  "composerAriaAddPane": {
+    "message": "Bereich hinzufügen"
+  },
+  "composerAriaClearAll": {
+    "message": "Alles löschen"
+  },
+  "composerAriaDisableScrollSync": {
+    "message": "Scroll-Synchronisierung deaktivieren"
+  },
+  "composerAriaDisableTemporaryChats": {
+    "message": "Temporäre Chats deaktivieren"
+  },
+  "composerAriaEnableScrollSync": {
+    "message": "Scroll-Synchronisierung aktivieren"
+  },
+  "composerAriaEnableTemporaryChats": {
+    "message": "Temporäre Chats aktivieren"
+  },
+  "composerAriaFillAll": {
+    "message": "Alle befüllen"
+  },
+  "composerAriaNewChats": {
+    "message": "Neue Chats"
+  },
+  "composerAriaOpenLayout": {
+    "message": "Layout-Auswahl öffnen"
+  },
+  "composerAriaOpenPromptLibrary": {
+    "message": "Prompt-Bibliothek öffnen"
+  },
+  "composerAriaOpenSettings": {
+    "message": "Einstellungen öffnen"
+  },
+  "composerAriaResizeBottom": {
+    "message": "Composer von unten skalieren"
+  },
+  "composerAriaResizeLeft": {
+    "message": "Composer von links skalieren"
+  },
+  "composerAriaResizeRight": {
+    "message": "Composer von rechts skalieren"
+  },
+  "composerAriaResizeTop": {
+    "message": "Composer von oben skalieren"
+  },
+  "composerAriaSendAll": {
+    "message": "An alle senden"
+  },
+  "composerAriaStopAll": {
+    "message": "Alle stoppen"
+  },
+  "composerAriaSwitchToPopupMode": {
+    "message": "In Popup-Modus wechseln"
+  },
+  "composerAriaSwitchToTabMode": {
+    "message": "In Tab-Modus wechseln"
+  },
+  "composerAttachmentRemove": {
+    "message": "$1 entfernen",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerBarDragHint": {
+    "message": "Ziehen zum Verschieben. Doppelklick setzt Position zurück."
+  },
+  "composerPlaceholder": {
+    "message": "Frage überall alles…"
+  },
+  "composerPositionBottom": {
+    "message": "Unten"
+  },
+  "composerPositionDescription": {
+    "message": "Wo der schwebende Composer standardmäßig sitzen soll. Ziehe ihn an eine beliebige Stelle. Ein Doppelklick auf die Composer-Leiste setzt ihn auf diese Standardposition zurück."
+  },
+  "composerPositionLower": {
+    "message": "Unterer Bereich"
+  },
+  "composerPositionMiddle": {
+    "message": "Mitte"
+  },
+  "composerPositionTitle": {
+    "message": "Standardposition des Composers"
+  },
+  "composerTooltipAddPane": {
+    "message": "Bereich hinzufügen"
+  },
+  "composerTooltipAttachFiles": {
+    "message": "Dateien anhängen"
+  },
+  "composerTooltipClearAll": {
+    "message": "Alles löschen"
+  },
+  "composerTooltipFillAll": {
+    "message": "Alle befüllen"
+  },
+  "composerTooltipLayout": {
+    "message": "Layout"
+  },
+  "composerTooltipNewChats": {
+    "message": "Neue Chats"
+  },
+  "composerTooltipPopupMode": {
+    "message": "Popup-Modus"
+  },
+  "composerTooltipPromptLibrary": {
+    "message": "Prompt-Bibliothek"
+  },
+  "composerTooltipResizeHeight": {
+    "message": "Ziehen zum Ändern der Höhe. Doppelklick passt an den Inhalt an."
+  },
+  "composerTooltipResizeWidth": {
+    "message": "Ziehen zum Ändern der Breite. Doppelklick setzt die Breite zurück."
+  },
+  "composerTooltipSettings": {
+    "message": "Einstellungen"
+  },
+  "composerTooltipStopAllEsc": {
+    "message": "Alle stoppen (Esc)"
+  },
+  "composerTooltipTabMode": {
+    "message": "Tab-Modus"
+  },
+  "composerTooltipTemporaryChats": {
+    "message": "Temporäre Chats"
+  },
+  "confirmClearLibrary": {
+    "message": "Wirklich jeden gespeicherten Prompt in der Bibliothek löschen?"
+  },
+  "confirmDefault": {
+    "message": "Bestätigen"
+  },
+  "confirmDeletePrompt": {
+    "message": "„$1“ aus deiner Prompt-Bibliothek löschen?",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "connectorLinesAriaDisable": {
+    "message": "Verbindungslinien deaktivieren"
+  },
+  "connectorLinesAriaEnable": {
+    "message": "Verbindungslinien aktivieren"
+  },
+  "connectorLinesDescription": {
+    "message": "Zeigt die experimentellen animierten Verbindungen zwischen dem schwebenden Composer und den Provider-Prompts an.\n(Das Deaktivieren kann auf manchen Geräten die Performance verbessern – schalte es gerne aus, wenn du Ruckler bemerkst oder Animationen reduzieren möchtest.)"
+  },
+  "connectorLinesTitle": {
+    "message": "Schicke Verbindungslinien"
+  },
+  "dataBackupDescription": {
+    "message": "Exportiere deine aktuellen Einstellungen oder den vollständigen Workspace-Status inklusive gespeicherter Prompts."
+  },
+  "dataBackupTitle": {
+    "message": "Sichern und wiederherstellen"
+  },
+  "dataExportSettings": {
+    "message": "Einstellungen exportieren"
+  },
+  "dataExportWorkspace": {
+    "message": "Workspace exportieren"
+  },
+  "dataImportJson": {
+    "message": "JSON importieren"
+  },
+  "dataImportSettingsTitle": {
+    "message": "Einstellungs-JSON importieren"
+  },
+  "dataResetComposer": {
+    "message": "Composer-Position/-Größe zurücksetzen"
+  },
+  "dataResetLayout": {
+    "message": "Layout zurücksetzen"
+  },
+  "dataResetSettings": {
+    "message": "Einstellungen zurücksetzen"
+  },
+  "dataResetSettingsConfirmLabel": {
+    "message": "Einstellungen zurücksetzen"
+  },
+  "dataResetSettingsConfirmMessage": {
+    "message": "Damit werden alle Einstellungen (Theme, Provider, Layout, Tastenkürzel, Composer) auf die Standardwerte zurückgesetzt.\nDeine gespeicherten Prompts sind NICHT betroffen."
+  },
+  "dataResetSettingsConfirmTitle": {
+    "message": "Alle Einstellungen zurücksetzen?"
+  },
+  "dataWorkspaceActionsDescription": {
+    "message": "Setze einzelne Workspace-Elemente auf den Standard zurück oder setze die gesamte Extension zurück."
+  },
+  "dataWorkspaceActionsTitle": {
+    "message": "Workspace-Aktionen"
+  },
+  "enterCustomNewline": {
+    "message": "Zeilenumbruch einfügen"
+  },
+  "enterCustomSend": {
+    "message": "Nachricht senden"
+  },
+  "enterKeyBehaviorAria": {
+    "message": "Enter-Verhalten auswählen"
+  },
+  "enterKeyBehaviorDescription": {
+    "message": "Lege fest, wie Enter sich verhält, wenn die Extension Provider-Eingaben befüllt."
+  },
+  "enterKeyBehaviorTitle": {
+    "message": "Enter-Tasten-Verhalten"
+  },
+  "errorDefaultLibraryUnavailable": {
+    "message": "Die Standard-Prompt-Bibliothek ist nicht verfügbar."
+  },
+  "geminiAutoExtendedThinkingAriaDisable": {
+    "message": "Gemini Auto-Extended Thinking deaktivieren"
+  },
+  "geminiAutoExtendedThinkingAriaEnable": {
+    "message": "Gemini Auto-Extended Thinking aktivieren"
+  },
+  "geminiAutoExtendedThinkingDescription": {
+    "message": "Wechselt die Gemini-Denkstufe automatisch auf „Extended“, damit die Seite sie nicht auf „Standard“ zurücksetzt.\n(Temporärer Workaround für einen bekannten Bug in der Gemini-Weboberfläche. Experimentelle Funktion — gelegentliche Aussetzer möglich.)"
+  },
+  "geminiAutoExtendedThinkingTitle": {
+    "message": "Gemini auf Extended Thinking halten"
+  },
+  "googleModeAi": {
+    "message": "KI-Modus"
+  },
+  "googleModeAria": {
+    "message": "Google-Modus auswählen"
+  },
+  "googleModeSearch": {
+    "message": "Suche"
+  },
+  "keyboardShortcutDescriptionPrefix": {
+    "message": "Um dieses Tastenkürzel zu ändern oder zu deaktivieren, gib"
+  },
+  "keyboardShortcutDescriptionShortcut": {
+    "message": "Öffnet einen neuen Parallel-AI-Workspace."
+  },
+  "keyboardShortcutDescriptionSuffix": {
+    "message": "in einem neuen Tab in Chrome ein oder nutze den Button rechts, um die Chrome-Tastenkürzelseite zu öffnen und den Eintrag für Parallel AI zu bearbeiten."
+  },
+  "keyboardShortcutOpenChrome": {
+    "message": "Chrome-Tastenkürzel"
+  },
+  "keyboardShortcutOpenChromeTitle": {
+    "message": "Chrome-Tastenkürzelseite öffnen"
+  },
+  "keyboardShortcutTitle": {
+    "message": "Tastenkürzel"
+  },
+  "languageAriaChoose": {
+    "message": "Sprache wählen"
+  },
+  "languageDescription": {
+    "message": "Wähle die bevorzugte Sprache der Extension-Oberfläche."
+  },
+  "languageTitle": {
+    "message": "Sprache"
+  },
+  "layoutAriaSwitchTo": {
+    "message": "Zum Layout „$1“ wechseln",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "layoutModalDescription": {
+    "message": "Wähle die gesamte Panel-Anordnung. Die Größenanpasser im Workspace verfeinern das aktuelle Layout."
+  },
+  "layoutModalTitle": {
+    "message": "Layout"
+  },
+  "layoutSlots": {
+    "message": "$1 Plätze",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAddToFavorites": {
+    "message": "Zu Favoriten hinzufügen"
+  },
+  "libraryAllCategories": {
+    "message": "Alle Kategorien"
+  },
+  "libraryAriaAddFavorite": {
+    "message": "$1 zu Favoriten hinzufügen",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDelete": {
+    "message": "$1 löschen",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDragReorder": {
+    "message": "$1 ziehen, um Reihenfolge zu ändern",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaEdit": {
+    "message": "$1 bearbeiten",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaRemoveFavorite": {
+    "message": "$1 aus Favoriten entfernen",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryBadgeFavorite": {
+    "message": "Favorit"
+  },
+  "libraryClear": {
+    "message": "Bibliothek leeren"
+  },
+  "libraryClearConfirmLabel": {
+    "message": "Bibliothek leeren"
+  },
+  "libraryClearConfirmMessage": {
+    "message": "Damit werden alle gespeicherten Prompts in deiner Bibliothek dauerhaft gelöscht.\nDies kann nicht rückgängig gemacht werden."
+  },
+  "libraryClearConfirmTitle": {
+    "message": "Prompt-Bibliothek leeren?"
+  },
+  "libraryDeleteConfirmLabel": {
+    "message": "Löschen"
+  },
+  "libraryDeleteConfirmMessage": {
+    "message": "Damit wird „$1“ dauerhaft gelöscht.\nDies kann nicht rückgängig gemacht werden.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryDeleteConfirmTitle": {
+    "message": "Prompt löschen?"
+  },
+  "libraryDeletePrompt": {
+    "message": "Prompt löschen"
+  },
+  "libraryEditPrompt": {
+    "message": "Prompt bearbeiten"
+  },
+  "libraryEmptyDescription": {
+    "message": "Versuche einen anderen Filter, leere die Suche oder importiere die Standard-Bibliothek zum Einstieg."
+  },
+  "libraryEmptyTitle": {
+    "message": "Keine Prompts gefunden"
+  },
+  "libraryExportJson": {
+    "message": "JSON exportieren"
+  },
+  "libraryFilterAll": {
+    "message": "Alle"
+  },
+  "libraryFilterCategoryAria": {
+    "message": "Prompts nach Kategorie filtern"
+  },
+  "libraryFilterFavorites": {
+    "message": "Favoriten"
+  },
+  "libraryFilterRecent": {
+    "message": "Zuletzt"
+  },
+  "libraryImportDefaults": {
+    "message": "Standards importieren"
+  },
+  "libraryImportExportDescription": {
+    "message": "Importiere Starter-Prompts oder tausche Bibliotheken als JSON-Dateien aus."
+  },
+  "libraryImportExportTitle": {
+    "message": "Import und Export"
+  },
+  "libraryImportJson": {
+    "message": "JSON importieren"
+  },
+  "libraryImportJsonTitle": {
+    "message": "Prompt-Bibliothek (JSON) importieren"
+  },
+  "libraryImportPromptsJsonTitle": {
+    "message": "Prompts-JSON importieren"
+  },
+  "libraryModalDescription": {
+    "message": "Speichere wiederverwendbare Prompts, suche schnell und füge sie direkt in den vereinheitlichten Composer ein."
+  },
+  "libraryModalTitle": {
+    "message": "Prompt-Bibliothek"
+  },
+  "libraryNewPrompt": {
+    "message": "Neuer Prompt"
+  },
+  "libraryOpen": {
+    "message": "Bibliothek öffnen"
+  },
+  "libraryOverviewDescription": {
+    "message": "Deine gespeicherte Prompt-Bibliothek wird zur schnellen Wiederverwendung lokal in IndexedDB gespeichert."
+  },
+  "libraryOverviewTitle": {
+    "message": "Bibliotheksübersicht"
+  },
+  "libraryPromptCountMany": {
+    "message": "$1 gespeicherte Prompts",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryPromptCountOne": {
+    "message": "$1 gespeicherter Prompt",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryRemoveFromFavorites": {
+    "message": "Aus Favoriten entfernen"
+  },
+  "librarySearchPlaceholder": {
+    "message": "Prompts, Tags oder Inhalt suchen"
+  },
+  "libraryUse": {
+    "message": "Verwenden"
+  },
+  "multilineSendAriaDisable": {
+    "message": "Modifikator-Pflicht für mehrzeilige Prompts deaktivieren"
+  },
+  "multilineSendAriaEnable": {
+    "message": "Strg oder Befehl + Enter für mehrzeilige Prompts verlangen"
+  },
+  "multilineSendDescriptionPrefix": {
+    "message": "Wenn aktiviert, benötigen Prompts mit Zeilenumbrüchen (mehr als eine Zeile)"
+  },
+  "multilineSendDescriptionSuffix": {
+    "message": "zum Senden."
+  },
+  "multilineSendTitle": {
+    "message": "$1 + Enter für mehrzeilige Prompts verlangen",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "promptEditorAriaMarkFavorite": {
+    "message": "Prompt als Favorit markieren"
+  },
+  "promptEditorAriaRemoveFavorite": {
+    "message": "Prompt aus Favoriten entfernen"
+  },
+  "promptEditorCategory": {
+    "message": "Kategorie"
+  },
+  "promptEditorCategoryPlaceholder": {
+    "message": "Allgemein"
+  },
+  "promptEditorContent": {
+    "message": "Prompt-Inhalt"
+  },
+  "promptEditorContentPlaceholder": {
+    "message": "Schreibe hier deinen wiederverwendbaren Prompt"
+  },
+  "promptEditorDescription": {
+    "message": "Erstelle wiederverwendbare Prompts mit optionalen Tags, Kategorien und Variablen wie {topic}."
+  },
+  "promptEditorEditTitle": {
+    "message": "Prompt bearbeiten"
+  },
+  "promptEditorFavoriteDescription": {
+    "message": "Diesen Prompt im Favoriten-Filter anzeigen."
+  },
+  "promptEditorFavoriteLabel": {
+    "message": "Favorit"
+  },
+  "promptEditorNewTitle": {
+    "message": "Neuer Prompt"
+  },
+  "promptEditorSave": {
+    "message": "Prompt speichern"
+  },
+  "promptEditorTags": {
+    "message": "Tags"
+  },
+  "promptEditorTagsPlaceholder": {
+    "message": "Recherche, Planung, Schreiben"
+  },
+  "promptEditorTitle": {
+    "message": "Titel"
+  },
+  "promptEditorTitlePlaceholder": {
+    "message": "Prompt-Titel"
+  },
+  "promptEditorVariables": {
+    "message": "Variablen"
+  },
+  "promptEditorVariablesPlaceholder": {
+    "message": "Thema, Tonfall, Zielgruppe"
+  },
+  "providerAriaDisable": {
+    "message": "$1 deaktivieren",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaDragReorder": {
+    "message": "$1 ziehen, um Reihenfolge zu ändern",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaEnable": {
+    "message": "$1 aktivieren",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsModalDescription": {
+    "message": "Alle Steuerelemente befinden sich jetzt im Workspace anstelle einer separaten Optionsseite."
+  },
+  "settingsModalTitle": {
+    "message": "Einstellungen"
+  },
+  "sourceUrlAria": {
+    "message": "Platzierung der Quell-URL wählen"
+  },
+  "sourceUrlBeginning": {
+    "message": "URL am Anfang platzieren"
+  },
+  "sourceUrlDescription": {
+    "message": "Lege fest, ob ausgewählte URLs beim Importieren von Inhalten vorangestellt oder angehängt werden."
+  },
+  "sourceUrlEnd": {
+    "message": "URL am Ende platzieren"
+  },
+  "sourceUrlNone": {
+    "message": "Quell-URL nicht einfügen"
+  },
+  "sourceUrlTitle": {
+    "message": "Platzierung der Quell-URL"
+  },
+  "statusAttachmentReadyMany": {
+    "message": "$1 Anhänge bereit.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusAttachmentReadyOne": {
+    "message": "$1 Anhang bereit.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusCleared": {
+    "message": "Vereinheitlichte Eingabe und Provider-Entwürfe gelöscht."
+  },
+  "statusComposerFullReset": {
+    "message": "Composer-Position und -Größe zurückgesetzt."
+  },
+  "statusComposerHeightReset": {
+    "message": "Composer-Höhe zurückgesetzt."
+  },
+  "statusComposerPositionReset": {
+    "message": "Composer-Position zurückgesetzt."
+  },
+  "statusComposerWidthReset": {
+    "message": "Composer-Breite zurückgesetzt."
+  },
+  "statusDefaultImportFailed": {
+    "message": "Standard-Prompts konnten nicht importiert werden."
+  },
+  "statusDraftsAlreadySent": {
+    "message": "Befüllte Entwürfe bereits gesendet."
+  },
+  "statusFavoriteAdded": {
+    "message": "Zu Favoriten hinzugefügt."
+  },
+  "statusFavoriteFailed": {
+    "message": "Favorit konnte nicht aktualisiert werden."
+  },
+  "statusFavoriteRemoved": {
+    "message": "Aus Favoriten entfernt."
+  },
+  "statusFavoritesReorderFailed": {
+    "message": "Favoriten konnten nicht neu sortiert werden."
+  },
+  "statusFilledPanels": {
+    "message": "Aktive Panels befüllt."
+  },
+  "statusImageAttached": {
+    "message": "Bild an Composer angehängt."
+  },
+  "statusImageFetchFailed": {
+    "message": "Bild konnte nicht abgerufen werden."
+  },
+  "statusImportedSkippedSuffix": {
+    "message": ", $1 übersprungen",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusLayoutReset": {
+    "message": "Panel-Layout zurückgesetzt."
+  },
+  "statusLibraryClearFailed": {
+    "message": "Prompt-Bibliothek konnte nicht geleert werden."
+  },
+  "statusLibraryCleared": {
+    "message": "Prompt-Bibliothek geleert."
+  },
+  "statusLibraryExportFailed": {
+    "message": "Prompts konnten nicht exportiert werden."
+  },
+  "statusLibraryExported": {
+    "message": "Prompt-Bibliothek exportiert."
+  },
+  "statusLibraryLoadFailed": {
+    "message": "Prompt-Bibliothek konnte nicht geladen werden."
+  },
+  "statusNewChats": {
+    "message": "Neuen Chat in jedem Panel angefordert."
+  },
+  "statusNoContentToSend": {
+    "message": "Füge vor dem Senden einen Prompt oder Anhang hinzu."
+  },
+  "statusNoMoreProviders": {
+    "message": "Keine weiteren aktivierten Provider verfügbar."
+  },
+  "statusOnePanelMin": {
+    "message": "Mindestens ein Panel muss geöffnet bleiben."
+  },
+  "statusPanelAdded": {
+    "message": "Weiteres Provider-Panel hinzugefügt."
+  },
+  "statusPanelsReordered": {
+    "message": "Panels neu sortiert."
+  },
+  "statusPromptDeleteFailed": {
+    "message": "Prompt konnte nicht gelöscht werden."
+  },
+  "statusPromptDeleted": {
+    "message": "Prompt gelöscht."
+  },
+  "statusPromptInserted": {
+    "message": "Prompt in den vereinheitlichten Composer eingefügt."
+  },
+  "statusPromptSaveFailed": {
+    "message": "Prompt konnte nicht gespeichert werden."
+  },
+  "statusPromptSaved": {
+    "message": "Prompt gespeichert."
+  },
+  "statusPromptUpdated": {
+    "message": "Prompt aktualisiert."
+  },
+  "statusPromptsImportFailed": {
+    "message": "Prompts konnten nicht importiert werden."
+  },
+  "statusScrollSyncOff": {
+    "message": "Scroll-Synchronisierung deaktiviert."
+  },
+  "statusScrollSyncOn": {
+    "message": "Scroll-Synchronisierung aktiviert."
+  },
+  "statusSelectedTextLoaded": {
+    "message": "Ausgewählten Text in Composer geladen."
+  },
+  "statusSentToPanels": {
+    "message": "An aktive Panels gesendet."
+  },
+  "statusSettingsExportFailed": {
+    "message": "Einstellungen konnten nicht exportiert werden."
+  },
+  "statusSettingsExported": {
+    "message": "Einstellungen exportiert."
+  },
+  "statusSettingsImportFailed": {
+    "message": "Einstellungen konnten nicht importiert werden."
+  },
+  "statusSettingsImportedMany": {
+    "message": "$1 Einstellungen importiert.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusSettingsImportedOne": {
+    "message": "$1 Einstellung importiert.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusStopRequested": {
+    "message": "Stopp in aktiven Panels angefordert."
+  },
+  "statusTempChatOff": {
+    "message": "Unterstützte Panels auf normale Chat-URLs zurückgesetzt."
+  },
+  "statusTempChatOn": {
+    "message": "Temporärer Chat-Modus aktiviert, wo unterstützt."
+  },
+  "statusWorkspaceExportFailed": {
+    "message": "Workspace-Daten konnten nicht exportiert werden."
+  },
+  "statusWorkspaceExported": {
+    "message": "Workspace-Daten exportiert."
+  },
+  "tabAbout": {
+    "message": "Über"
+  },
+  "tabAppearance": {
+    "message": "Darstellung"
+  },
+  "tabData": {
+    "message": "Daten"
+  },
+  "tabKeyboard": {
+    "message": "Tastatur"
+  },
+  "tabLibrary": {
+    "message": "Prompt-Bibliothek"
+  },
+  "tabProviders": {
+    "message": "Provider"
+  },
+  "themeAuto": {
+    "message": "Auto"
+  },
+  "themeDark": {
+    "message": "Dunkel"
+  },
+  "themeDescription": {
+    "message": "Hell, dunkel oder Systemeinstellung folgen."
+  },
+  "themeLight": {
+    "message": "Hell"
+  },
+  "themeTitle": {
+    "message": "Theme"
+  },
+  "variableApplyPrompt": {
+    "message": "Prompt anwenden"
+  },
+  "variableEnterPlaceholder": {
+    "message": "$1 eingeben",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "variableModalDescription": {
+    "message": "Fülle die Variablen, bevor der Prompt in den vereinheitlichten Composer kopiert wird."
+  },
+  "variableModalTitleDefault": {
+    "message": "Prompt-Variablen"
+  },
+  "variableModalTitleUse": {
+    "message": "„$1“ verwenden",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerAriaOpenTokenMeter": {
+    "message": "Nutzungsanzeige öffnen"
+  },
+  "composerAriaCloseTokenMeter": {
+    "message": "Nutzungsanzeige schließen"
+  },
+  "composerTooltipTokenMeter": {
+    "message": "Nutzung"
+  },
+  "usagePanelTitle": {
+    "message": "Nutzung"
+  },
+  "usagePanelDragHint": {
+    "message": "Zum Verschieben ziehen. Doppelklick setzt die Position zurück."
+  },
+  "usageAriaRefresh": {
+    "message": "Nutzung aktualisieren"
+  },
+  "usageTooltipRefresh": {
+    "message": "Aktualisieren"
+  },
+  "usageAriaClose": {
+    "message": "Nutzungsanzeige schließen"
+  },
+  "usageTooltipClose": {
+    "message": "Schließen"
+  },
+  "usageUpdatedAgo": {
+    "message": "Vor $1 aktualisiert",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageResetsIn": {
+    "message": "Wird in $1 zurückgesetzt",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageRemainingCount": {
+    "message": "$1 übrig",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageWaiting": {
+    "message": "Warte auf Nutzungsdaten"
+  },
+  "usageUnsupported": {
+    "message": "Keine Nutzungsdaten von diesem Anbieter"
+  },
+  "usageSignInRequired": {
+    "message": "Bei diesem Anbieter anmelden, um die Nutzung zu sehen"
+  },
+  "usageLoadFailed": {
+    "message": "Nutzung konnte nicht geladen werden"
+  },
+  "usageNoLimitsReported": {
+    "message": "Keine Limits gemeldet"
+  },
+  "usageNoActivePanels": {
+    "message": "Keine aktiven Panels"
+  },
+  "paneUsageStripTitle": {
+    "message": "Nutzungsleiste auf Panels"
+  },
+  "paneUsageStripDescription": {
+    "message": "Zeigt eine kleine Nutzungsleiste unten in jedem Anbieter-Panel an, sofern der Anbieter seine Nutzung meldet. Sie schwebt über dem Panel und nimmt dem Chat keinen Platz weg."
+  },
+  "paneUsageStripAriaEnable": {
+    "message": "Nutzungsleiste auf Panels anzeigen"
+  },
+  "paneUsageStripAriaDisable": {
+    "message": "Nutzungsleiste auf Panels ausblenden"
+  },
+  "usageAriaResizeRight": {
+    "message": "Breite der Nutzungsanzeige ändern"
+  },
+  "usageAriaResizeBottom": {
+    "message": "Höhe der Nutzungsanzeige ändern"
+  },
+  "usageAriaResizeCorner": {
+    "message": "Nutzungsanzeige skalieren"
+  },
+  "usagePercentRemaining": {
+    "message": "$1% verbleibend",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  }
+}

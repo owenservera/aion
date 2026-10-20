@@ -1,0 +1,83 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  # Re-runs the registry half after a partial failure. A rerun of the release
+  # run uses the workflow as it was at the tag; dispatch uses main.
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # also uploads the .mcpb release asset below
+      id-token: write  # OIDC trusted publisher (npm)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+      - name: Upgrade npm (OIDC trusted publisher needs >= 11.5.1)
+        run: npm install -g npm@latest
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Python runtime deps
+        run: python -m pip install websockets
+      - name: Run tests
+        run: npm test
+        env:
+          CDPILOT_PYTHON: python
+      - name: Publish to npm (OIDC)
+        # Idempotent: a version already on npm is skipped, so a re-run can still
+        # reach the MCP Registry steps below.
+        run: |
+          V=$(node -p "require('./package.json').version")
+          if npm view cdpilot@"$V" version >/dev/null 2>&1; then
+            echo "cdpilot@$V is already on npm, skipping publish"
+          else
+            npm publish --access public --provenance
+          fi
+
+      - name: Sync server.json version with package.json
+        run: |
+          V=$(node -p "require('./package.json').version")
+          jq --arg v "$V" '.version = $v | .packages[0].version = $v' server.json > server.json.tmp
+          mv server.json.tmp server.json
+
+      - name: Wait for npm to show the new version
+        run: |
+          V=$(node -p "require('./package.json').version")
+          # 2026-09-27: 0.9.1 was accepted ("being processed") but not visible
+          # after 2 minutes, which failed the release before the MCP Registry.
+          for i in $(seq 1 60); do
+            if npm view cdpilot@"$V" version >/dev/null 2>&1; then
+              echo "npm registry has cdpilot@$V"
+              exit 0
+            fi
+            echo "waiting for npm registry to show cdpilot@$V ($i/60, 10s each)..."
+            sleep 10
+          done
+          echo "Timed out waiting for cdpilot@$V on npm" >&2
+          exit 1
+
+      - name: Install mcp-publisher (pinned v1.8.1)
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server to MCP Registry
+        run: ./mcp-publisher publish
+
+      - name: Build MCP Bundle (.mcpb)
+        run: bash scripts/build-mcpb.sh cdpilot.mcpb
+
+      - name: Attach .mcpb to the GitHub release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" cdpilot.mcpb --clobber --repo "${{ github.repository }}"

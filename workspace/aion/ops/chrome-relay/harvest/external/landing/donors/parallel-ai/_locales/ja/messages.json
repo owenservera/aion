@@ -1,0 +1,960 @@
+{
+  "extensionName": {
+    "message": "Parallel AI"
+  },
+  "extensionDescription": {
+    "message": "AIアシスタントを1つのウィンドウで横に並べて比較。1つのプロンプトを送信して、応答をすばやく確認できます。"
+  },
+  "actionDefaultTitle": {
+    "message": "Parallel AIを開く"
+  },
+  "aboutBuildDate": {
+    "message": "ビルド日:"
+  },
+  "aboutCheckVersion": {
+    "message": "バージョンを確認"
+  },
+  "aboutCommit": {
+    "message": "コミット:"
+  },
+  "aboutManifestVersion": {
+    "message": "マニフェストバージョン:"
+  },
+  "aboutUnknown": {
+    "message": "不明"
+  },
+  "aboutUpToDate": {
+    "message": "$1を使用中です。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateAvailable": {
+    "message": "新しいメタデータバージョンが利用可能です: $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateCheckDescription": {
+    "message": "ローカルのビルドメタデータを使用して、同梱のバージョンチェックを実行します。"
+  },
+  "aboutUpdateCheckTitle": {
+    "message": "更新の確認"
+  },
+  "aboutVersionDescription": {
+    "message": "この拡張機能パッケージのビルドおよびパッケージ情報です。"
+  },
+  "aboutVersionTitle": {
+    "message": "バージョン情報"
+  },
+  "appStatusReady": {
+    "message": "準備完了。"
+  },
+  "commonCancel": {
+    "message": "キャンセル"
+  },
+  "composerAriaAddPane": {
+    "message": "パネルを追加"
+  },
+  "composerAriaClearAll": {
+    "message": "すべてクリア"
+  },
+  "composerAriaDisableScrollSync": {
+    "message": "スクロール同期を無効化"
+  },
+  "composerAriaDisableTemporaryChats": {
+    "message": "一時チャットを無効化"
+  },
+  "composerAriaEnableScrollSync": {
+    "message": "スクロール同期を有効化"
+  },
+  "composerAriaEnableTemporaryChats": {
+    "message": "一時チャットを有効化"
+  },
+  "composerAriaFillAll": {
+    "message": "すべてに入力"
+  },
+  "composerAriaNewChats": {
+    "message": "新しいチャット"
+  },
+  "composerAriaOpenLayout": {
+    "message": "レイアウトピッカーを開く"
+  },
+  "composerAriaOpenPromptLibrary": {
+    "message": "プロンプトライブラリを開く"
+  },
+  "composerAriaOpenSettings": {
+    "message": "設定を開く"
+  },
+  "composerAriaResizeBottom": {
+    "message": "コンポーザーを下端からリサイズ"
+  },
+  "composerAriaResizeLeft": {
+    "message": "コンポーザーを左端からリサイズ"
+  },
+  "composerAriaResizeRight": {
+    "message": "コンポーザーを右端からリサイズ"
+  },
+  "composerAriaResizeTop": {
+    "message": "コンポーザーを上端からリサイズ"
+  },
+  "composerAriaSendAll": {
+    "message": "すべて送信"
+  },
+  "composerAriaStopAll": {
+    "message": "すべて停止"
+  },
+  "composerAriaSwitchToPopupMode": {
+    "message": "ポップアップモードに切り替え"
+  },
+  "composerAriaSwitchToTabMode": {
+    "message": "タブモードに切り替え"
+  },
+  "composerAttachmentRemove": {
+    "message": "$1を削除",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerBarDragHint": {
+    "message": "ドラッグして位置を変更。ダブルクリックで位置をリセット。"
+  },
+  "composerPlaceholder": {
+    "message": "どこでも何でも質問..."
+  },
+  "composerPositionBottom": {
+    "message": "最下部"
+  },
+  "composerPositionDescription": {
+    "message": "フローティングコンポーザーを既定で配置する場所です。ドラッグで任意の位置に移動できます。コンポーザーバーをダブルクリックすると、この既定位置にスナップして戻ります。"
+  },
+  "composerPositionLower": {
+    "message": "下寄り"
+  },
+  "composerPositionMiddle": {
+    "message": "中央"
+  },
+  "composerPositionTitle": {
+    "message": "コンポーザーの既定位置"
+  },
+  "composerTooltipAddPane": {
+    "message": "パネルを追加"
+  },
+  "composerTooltipAttachFiles": {
+    "message": "ファイルを添付"
+  },
+  "composerTooltipClearAll": {
+    "message": "すべてクリア"
+  },
+  "composerTooltipFillAll": {
+    "message": "すべてに入力"
+  },
+  "composerTooltipLayout": {
+    "message": "レイアウト"
+  },
+  "composerTooltipNewChats": {
+    "message": "新しいチャット"
+  },
+  "composerTooltipPopupMode": {
+    "message": "ポップアップモード"
+  },
+  "composerTooltipPromptLibrary": {
+    "message": "プロンプトライブラリ"
+  },
+  "composerTooltipResizeHeight": {
+    "message": "ドラッグして高さを変更。ダブルクリックでコンテンツに合わせる。"
+  },
+  "composerTooltipResizeWidth": {
+    "message": "ドラッグして幅を変更。ダブルクリックで幅をリセット。"
+  },
+  "composerTooltipSettings": {
+    "message": "設定"
+  },
+  "composerTooltipStopAllEsc": {
+    "message": "すべて停止 (Esc)"
+  },
+  "composerTooltipTabMode": {
+    "message": "タブモード"
+  },
+  "composerTooltipTemporaryChats": {
+    "message": "一時チャット"
+  },
+  "confirmClearLibrary": {
+    "message": "ライブラリに保存されたすべてのプロンプトを削除しますか?"
+  },
+  "confirmDefault": {
+    "message": "確認"
+  },
+  "confirmDeletePrompt": {
+    "message": "プロンプトライブラリから「$1」を削除しますか?",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "connectorLinesAriaDisable": {
+    "message": "コネクタラインを無効化"
+  },
+  "connectorLinesAriaEnable": {
+    "message": "コネクタラインを有効化"
+  },
+  "connectorLinesDescription": {
+    "message": "フローティングコンポーザーと各プロバイダーのプロンプトを結ぶ実験的なアニメーションリンクを表示します。\n(一部の端末ではパフォーマンスが向上する場合があるため、ラグを感じる場合や動きを減らしたい場合は無効化してください。)"
+  },
+  "connectorLinesTitle": {
+    "message": "ファンシーコネクタライン"
+  },
+  "dataBackupDescription": {
+    "message": "現在の設定、または保存されたプロンプトを含むワークスペース全体の状態をエクスポートします。"
+  },
+  "dataBackupTitle": {
+    "message": "バックアップと復元"
+  },
+  "dataExportSettings": {
+    "message": "設定をエクスポート"
+  },
+  "dataExportWorkspace": {
+    "message": "ワークスペースをエクスポート"
+  },
+  "dataImportJson": {
+    "message": "JSONをインポート"
+  },
+  "dataImportSettingsTitle": {
+    "message": "設定JSONをインポート"
+  },
+  "dataResetComposer": {
+    "message": "コンポーザーの位置/サイズをリセット"
+  },
+  "dataResetLayout": {
+    "message": "レイアウトをリセット"
+  },
+  "dataResetSettings": {
+    "message": "設定をリセット"
+  },
+  "dataResetSettingsConfirmLabel": {
+    "message": "設定をリセット"
+  },
+  "dataResetSettingsConfirmMessage": {
+    "message": "テーマ、プロバイダー、レイアウト、ショートカット、コンポーザーなど、すべての設定が既定値に戻ります。\n保存されたプロンプトには影響しません。"
+  },
+  "dataResetSettingsConfirmTitle": {
+    "message": "すべての設定をリセットしますか?"
+  },
+  "dataWorkspaceActionsDescription": {
+    "message": "ワークスペースの各要素を個別に既定値に戻したり、拡張機能全体をリセットしたりできます。"
+  },
+  "dataWorkspaceActionsTitle": {
+    "message": "ワークスペース操作"
+  },
+  "enterCustomNewline": {
+    "message": "改行を挿入"
+  },
+  "enterCustomSend": {
+    "message": "メッセージを送信"
+  },
+  "enterKeyBehaviorAria": {
+    "message": "Enterキーの動作を選択"
+  },
+  "enterKeyBehaviorDescription": {
+    "message": "拡張機能がプロバイダーの入力欄に文字を入力する際のEnterキーの動作を調整します。"
+  },
+  "enterKeyBehaviorTitle": {
+    "message": "Enterキーの動作"
+  },
+  "errorDefaultLibraryUnavailable": {
+    "message": "デフォルトのプロンプトライブラリは利用できません。"
+  },
+  "geminiAutoExtendedThinkingAriaDisable": {
+    "message": "Gemini自動Extended思考を無効化"
+  },
+  "geminiAutoExtendedThinkingAriaEnable": {
+    "message": "Gemini自動Extended思考を有効化"
+  },
+  "geminiAutoExtendedThinkingDescription": {
+    "message": "ページが「Standard」に戻すのを防ぐため、Geminiの思考レベルを自動的に「Extended」に切り替えます。\n(Geminiウェブインターフェースの既知のバグに対する暫定的な対処です。実験的機能 — 不具合が発生することがあります。)"
+  },
+  "geminiAutoExtendedThinkingTitle": {
+    "message": "GeminiをExtended思考に維持"
+  },
+  "googleModeAi": {
+    "message": "AIモード"
+  },
+  "googleModeAria": {
+    "message": "Googleモードを選択"
+  },
+  "googleModeSearch": {
+    "message": "検索"
+  },
+  "keyboardShortcutDescriptionPrefix": {
+    "message": "このショートカットを変更または無効化するには、Chromeの新しいタブで"
+  },
+  "keyboardShortcutDescriptionShortcut": {
+    "message": "新しいParallel AIワークスペースを開きます。"
+  },
+  "keyboardShortcutDescriptionSuffix": {
+    "message": "と入力するか、右側のボタンでChromeのキーボードショートカットページを開き、Parallel AIの項目を編集してください。"
+  },
+  "keyboardShortcutOpenChrome": {
+    "message": "Chromeのショートカット"
+  },
+  "keyboardShortcutOpenChromeTitle": {
+    "message": "Chromeのキーボードショートカットページを開く"
+  },
+  "keyboardShortcutTitle": {
+    "message": "キーボードショートカット"
+  },
+  "languageAriaChoose": {
+    "message": "言語を選択"
+  },
+  "languageDescription": {
+    "message": "拡張機能のUIで優先するロケールを選択します。"
+  },
+  "languageTitle": {
+    "message": "言語"
+  },
+  "layoutAriaSwitchTo": {
+    "message": "$1レイアウトに切り替え",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "layoutModalDescription": {
+    "message": "全体のパネル配置を選択します。ワークスペース内のリサイズハンドルで現在のレイアウトを微調整できます。"
+  },
+  "layoutModalTitle": {
+    "message": "レイアウト"
+  },
+  "layoutSlots": {
+    "message": "$1スロット",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAddToFavorites": {
+    "message": "お気に入りに追加"
+  },
+  "libraryAllCategories": {
+    "message": "すべてのカテゴリ"
+  },
+  "libraryAriaAddFavorite": {
+    "message": "$1をお気に入りに追加",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDelete": {
+    "message": "$1を削除",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDragReorder": {
+    "message": "$1をドラッグして並べ替え",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaEdit": {
+    "message": "$1を編集",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaRemoveFavorite": {
+    "message": "$1をお気に入りから削除",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryBadgeFavorite": {
+    "message": "お気に入り"
+  },
+  "libraryClear": {
+    "message": "ライブラリをクリア"
+  },
+  "libraryClearConfirmLabel": {
+    "message": "ライブラリをクリア"
+  },
+  "libraryClearConfirmMessage": {
+    "message": "ライブラリに保存されたすべてのプロンプトが完全に削除されます。\nこの操作は取り消せません。"
+  },
+  "libraryClearConfirmTitle": {
+    "message": "プロンプトライブラリをクリアしますか?"
+  },
+  "libraryDeleteConfirmLabel": {
+    "message": "削除"
+  },
+  "libraryDeleteConfirmMessage": {
+    "message": "「$1」が完全に削除されます。\nこの操作は取り消せません。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryDeleteConfirmTitle": {
+    "message": "プロンプトを削除しますか?"
+  },
+  "libraryDeletePrompt": {
+    "message": "プロンプトを削除"
+  },
+  "libraryEditPrompt": {
+    "message": "プロンプトを編集"
+  },
+  "libraryEmptyDescription": {
+    "message": "別のフィルターを試すか、検索をクリアするか、デフォルトライブラリをインポートして始めてください。"
+  },
+  "libraryEmptyTitle": {
+    "message": "プロンプトが見つかりません"
+  },
+  "libraryExportJson": {
+    "message": "JSONをエクスポート"
+  },
+  "libraryFilterAll": {
+    "message": "すべて"
+  },
+  "libraryFilterCategoryAria": {
+    "message": "プロンプトをカテゴリで絞り込む"
+  },
+  "libraryFilterFavorites": {
+    "message": "お気に入り"
+  },
+  "libraryFilterRecent": {
+    "message": "最近"
+  },
+  "libraryImportDefaults": {
+    "message": "デフォルトをインポート"
+  },
+  "libraryImportExportDescription": {
+    "message": "スターター用のプロンプトを取り込んだり、ライブラリをJSONファイルでやり取りしたりできます。"
+  },
+  "libraryImportExportTitle": {
+    "message": "インポートとエクスポート"
+  },
+  "libraryImportJson": {
+    "message": "JSONをインポート"
+  },
+  "libraryImportJsonTitle": {
+    "message": "プロンプトライブラリのJSONをインポート"
+  },
+  "libraryImportPromptsJsonTitle": {
+    "message": "プロンプトのJSONをインポート"
+  },
+  "libraryModalDescription": {
+    "message": "再利用可能なプロンプトを保存し、すばやく検索して、統合コンポーザーに挿入できます。"
+  },
+  "libraryModalTitle": {
+    "message": "プロンプトライブラリ"
+  },
+  "libraryNewPrompt": {
+    "message": "新規プロンプト"
+  },
+  "libraryOpen": {
+    "message": "ライブラリを開く"
+  },
+  "libraryOverviewDescription": {
+    "message": "保存されたプロンプトライブラリは、すばやく再利用できるようローカルのIndexedDBに保存されます。"
+  },
+  "libraryOverviewTitle": {
+    "message": "ライブラリの概要"
+  },
+  "libraryPromptCountMany": {
+    "message": "$1件の保存済みプロンプト",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryPromptCountOne": {
+    "message": "$1件の保存済みプロンプト",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryRemoveFromFavorites": {
+    "message": "お気に入りから削除"
+  },
+  "librarySearchPlaceholder": {
+    "message": "プロンプト、タグ、内容を検索"
+  },
+  "libraryUse": {
+    "message": "使用"
+  },
+  "multilineSendAriaDisable": {
+    "message": "複数行プロンプトで修飾キーを必須にする設定を無効化"
+  },
+  "multilineSendAriaEnable": {
+    "message": "複数行プロンプトでCtrlまたはCommand+Enterを必須にする"
+  },
+  "multilineSendDescriptionPrefix": {
+    "message": "有効にすると、改行を含むプロンプト(複数行)を送信するには"
+  },
+  "multilineSendDescriptionSuffix": {
+    "message": "が必要になります。"
+  },
+  "multilineSendTitle": {
+    "message": "複数行プロンプトで$1 + Enterを必須にする",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "promptEditorAriaMarkFavorite": {
+    "message": "プロンプトをお気に入りに登録"
+  },
+  "promptEditorAriaRemoveFavorite": {
+    "message": "プロンプトをお気に入りから削除"
+  },
+  "promptEditorCategory": {
+    "message": "カテゴリ"
+  },
+  "promptEditorCategoryPlaceholder": {
+    "message": "一般"
+  },
+  "promptEditorContent": {
+    "message": "プロンプト本文"
+  },
+  "promptEditorContentPlaceholder": {
+    "message": "再利用するプロンプトをここに入力してください"
+  },
+  "promptEditorDescription": {
+    "message": "タグ、カテゴリ、{topic}のような変数を任意で設定して、再利用可能なプロンプトを作成できます。"
+  },
+  "promptEditorEditTitle": {
+    "message": "プロンプトを編集"
+  },
+  "promptEditorFavoriteDescription": {
+    "message": "このプロンプトをお気に入りフィルターに表示します。"
+  },
+  "promptEditorFavoriteLabel": {
+    "message": "お気に入り"
+  },
+  "promptEditorNewTitle": {
+    "message": "新規プロンプト"
+  },
+  "promptEditorSave": {
+    "message": "プロンプトを保存"
+  },
+  "promptEditorTags": {
+    "message": "タグ"
+  },
+  "promptEditorTagsPlaceholder": {
+    "message": "リサーチ, 計画, ライティング"
+  },
+  "promptEditorTitle": {
+    "message": "タイトル"
+  },
+  "promptEditorTitlePlaceholder": {
+    "message": "プロンプトのタイトル"
+  },
+  "promptEditorVariables": {
+    "message": "変数"
+  },
+  "promptEditorVariablesPlaceholder": {
+    "message": "topic, tone, audience"
+  },
+  "providerAriaDisable": {
+    "message": "$1を無効化",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaDragReorder": {
+    "message": "$1をドラッグして並べ替え",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaEnable": {
+    "message": "$1を有効化",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsModalDescription": {
+    "message": "すべての設定項目は、別途のオプションページではなくワークスペース内に集約されました。"
+  },
+  "settingsModalTitle": {
+    "message": "設定"
+  },
+  "sourceUrlAria": {
+    "message": "ソースURLの配置を選択"
+  },
+  "sourceUrlBeginning": {
+    "message": "URLを先頭に配置"
+  },
+  "sourceUrlDescription": {
+    "message": "コンテンツをインポートする際に、選択したURLを先頭に付加するか末尾に追加するかを制御します。"
+  },
+  "sourceUrlEnd": {
+    "message": "URLを末尾に配置"
+  },
+  "sourceUrlNone": {
+    "message": "ソースURLを含めない"
+  },
+  "sourceUrlTitle": {
+    "message": "ソースURLの配置"
+  },
+  "statusAttachmentReadyMany": {
+    "message": "$1件の添付ファイルが準備できました。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusAttachmentReadyOne": {
+    "message": "$1件の添付ファイルが準備できました。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusCleared": {
+    "message": "統合入力欄と各プロバイダーの下書きをクリアしました。"
+  },
+  "statusComposerFullReset": {
+    "message": "コンポーザーの位置とサイズをリセットしました。"
+  },
+  "statusComposerHeightReset": {
+    "message": "コンポーザーの高さをリセットしました。"
+  },
+  "statusComposerPositionReset": {
+    "message": "コンポーザーの位置をリセットしました。"
+  },
+  "statusComposerWidthReset": {
+    "message": "コンポーザーの幅をリセットしました。"
+  },
+  "statusDefaultImportFailed": {
+    "message": "デフォルトプロンプトのインポートに失敗しました。"
+  },
+  "statusDraftsAlreadySent": {
+    "message": "入力済みの下書きはすでに送信されています。"
+  },
+  "statusFavoriteAdded": {
+    "message": "お気に入りに追加しました。"
+  },
+  "statusFavoriteFailed": {
+    "message": "お気に入りの更新に失敗しました。"
+  },
+  "statusFavoriteRemoved": {
+    "message": "お気に入りから削除しました。"
+  },
+  "statusFavoritesReorderFailed": {
+    "message": "お気に入りの並べ替えに失敗しました。"
+  },
+  "statusFilledPanels": {
+    "message": "アクティブなパネルに入力しました。"
+  },
+  "statusImageAttached": {
+    "message": "画像をコンポーザーに添付しました。"
+  },
+  "statusImageFetchFailed": {
+    "message": "その画像を取得できませんでした。"
+  },
+  "statusImportedSkippedSuffix": {
+    "message": "、$1件をスキップ",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusLayoutReset": {
+    "message": "パネルレイアウトをリセットしました。"
+  },
+  "statusLibraryClearFailed": {
+    "message": "プロンプトライブラリのクリアに失敗しました。"
+  },
+  "statusLibraryCleared": {
+    "message": "プロンプトライブラリをクリアしました。"
+  },
+  "statusLibraryExportFailed": {
+    "message": "プロンプトのエクスポートに失敗しました。"
+  },
+  "statusLibraryExported": {
+    "message": "プロンプトライブラリをエクスポートしました。"
+  },
+  "statusLibraryLoadFailed": {
+    "message": "プロンプトライブラリの読み込みに失敗しました。"
+  },
+  "statusNewChats": {
+    "message": "各パネルで新しいチャットをリクエストしました。"
+  },
+  "statusNoContentToSend": {
+    "message": "送信する前にプロンプトまたは添付ファイルを追加してください。"
+  },
+  "statusNoMoreProviders": {
+    "message": "他に有効なプロバイダーはありません。"
+  },
+  "statusOnePanelMin": {
+    "message": "少なくとも1つのパネルは開いたままにする必要があります。"
+  },
+  "statusPanelAdded": {
+    "message": "プロバイダーパネルを追加しました。"
+  },
+  "statusPanelsReordered": {
+    "message": "パネルを並べ替えました。"
+  },
+  "statusPromptDeleteFailed": {
+    "message": "プロンプトの削除に失敗しました。"
+  },
+  "statusPromptDeleted": {
+    "message": "プロンプトを削除しました。"
+  },
+  "statusPromptInserted": {
+    "message": "プロンプトを統合コンポーザーに挿入しました。"
+  },
+  "statusPromptSaveFailed": {
+    "message": "プロンプトの保存に失敗しました。"
+  },
+  "statusPromptSaved": {
+    "message": "プロンプトを保存しました。"
+  },
+  "statusPromptUpdated": {
+    "message": "プロンプトを更新しました。"
+  },
+  "statusPromptsImportFailed": {
+    "message": "プロンプトのインポートに失敗しました。"
+  },
+  "statusScrollSyncOff": {
+    "message": "スクロール同期を無効にしました。"
+  },
+  "statusScrollSyncOn": {
+    "message": "スクロール同期を有効にしました。"
+  },
+  "statusSelectedTextLoaded": {
+    "message": "選択したテキストをコンポーザーに読み込みました。"
+  },
+  "statusSentToPanels": {
+    "message": "アクティブなパネルに送信しました。"
+  },
+  "statusSettingsExportFailed": {
+    "message": "設定のエクスポートに失敗しました。"
+  },
+  "statusSettingsExported": {
+    "message": "設定をエクスポートしました。"
+  },
+  "statusSettingsImportFailed": {
+    "message": "設定のインポートに失敗しました。"
+  },
+  "statusSettingsImportedMany": {
+    "message": "$1件の設定をインポートしました。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusSettingsImportedOne": {
+    "message": "$1件の設定をインポートしました。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusStopRequested": {
+    "message": "アクティブなパネルで停止をリクエストしました。"
+  },
+  "statusTempChatOff": {
+    "message": "対応パネルを通常のチャットURLに戻しました。"
+  },
+  "statusTempChatOn": {
+    "message": "対応するパネルで一時チャットモードを有効にしました。"
+  },
+  "statusWorkspaceExportFailed": {
+    "message": "ワークスペースデータのエクスポートに失敗しました。"
+  },
+  "statusWorkspaceExported": {
+    "message": "ワークスペースデータをエクスポートしました。"
+  },
+  "tabAbout": {
+    "message": "情報"
+  },
+  "tabAppearance": {
+    "message": "外観"
+  },
+  "tabData": {
+    "message": "データ"
+  },
+  "tabKeyboard": {
+    "message": "キーボード"
+  },
+  "tabLibrary": {
+    "message": "プロンプトライブラリ"
+  },
+  "tabProviders": {
+    "message": "プロバイダー"
+  },
+  "themeAuto": {
+    "message": "自動"
+  },
+  "themeDark": {
+    "message": "ダーク"
+  },
+  "themeDescription": {
+    "message": "ライト、ダーク、またはシステム設定に追従します。"
+  },
+  "themeLight": {
+    "message": "ライト"
+  },
+  "themeTitle": {
+    "message": "テーマ"
+  },
+  "variableApplyPrompt": {
+    "message": "プロンプトを適用"
+  },
+  "variableEnterPlaceholder": {
+    "message": "$1を入力",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "variableModalDescription": {
+    "message": "プロンプトを統合コンポーザーにコピーする前に変数を入力してください。"
+  },
+  "variableModalTitleDefault": {
+    "message": "プロンプト変数"
+  },
+  "variableModalTitleUse": {
+    "message": "「$1」を使用",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerAriaOpenTokenMeter": {
+    "message": "使用量メーターを開く"
+  },
+  "composerAriaCloseTokenMeter": {
+    "message": "使用量メーターを閉じる"
+  },
+  "composerTooltipTokenMeter": {
+    "message": "使用量"
+  },
+  "usagePanelTitle": {
+    "message": "使用量"
+  },
+  "usagePanelDragHint": {
+    "message": "ドラッグで移動。ダブルクリックで位置をリセット。"
+  },
+  "usageAriaRefresh": {
+    "message": "使用量を更新"
+  },
+  "usageTooltipRefresh": {
+    "message": "更新"
+  },
+  "usageAriaClose": {
+    "message": "使用量パネルを閉じる"
+  },
+  "usageTooltipClose": {
+    "message": "閉じる"
+  },
+  "usageUpdatedAgo": {
+    "message": "$1前に更新",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageResetsIn": {
+    "message": "$1後にリセット",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageRemainingCount": {
+    "message": "残り $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageWaiting": {
+    "message": "使用量データを待っています"
+  },
+  "usageUnsupported": {
+    "message": "このプロバイダーは使用量情報を提供していません"
+  },
+  "usageSignInRequired": {
+    "message": "使用量を見るにはこのプロバイダーにログインしてください"
+  },
+  "usageLoadFailed": {
+    "message": "使用量を読み込めませんでした"
+  },
+  "usageNoLimitsReported": {
+    "message": "上限の報告はありません"
+  },
+  "usageNoActivePanels": {
+    "message": "アクティブなパネルがありません"
+  },
+  "paneUsageStripTitle": {
+    "message": "パネルに使用量バー"
+  },
+  "paneUsageStripDescription": {
+    "message": "プランの使用量を報告するプロバイダーについて、各パネルの下部に小さな使用量バーを表示します。パネルの上に重なって表示され、チャットのスペースを奪いません。"
+  },
+  "paneUsageStripAriaEnable": {
+    "message": "パネルに使用量バーを表示"
+  },
+  "paneUsageStripAriaDisable": {
+    "message": "パネルの使用量バーを非表示"
+  },
+  "usageAriaResizeRight": {
+    "message": "使用量パネルの幅を変更"
+  },
+  "usageAriaResizeBottom": {
+    "message": "使用量パネルの高さを変更"
+  },
+  "usageAriaResizeCorner": {
+    "message": "使用量パネルのサイズを変更"
+  },
+  "usagePercentRemaining": {
+    "message": "残り $1%",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  }
+}

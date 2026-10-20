@@ -1,0 +1,45 @@
+{
+  "name": "multi-ai-chat",
+  "version": "0.4.0",
+  "description": "Chrome Side Panel for reliable multi-AI workflows across ChatGPT, Claude, Gemini, and Grok",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "webpack --watch --mode development",
+    "assets:promo": "node scripts/generate-promo-tile.js",
+    "assets:screenshot": "node scripts/generate-store-screenshot.js",
+    "assets:store": "npm run assets:promo && npm run assets:screenshot",
+    "build": "webpack --mode production",
+    "check:version": "node scripts/check-version.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.mts\"",
+    "verify": "npm run typecheck && npm run test && npm run build && npm run check:version",
+    "clean": "rimraf dist"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/chrome": "^0.3.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "copy-webpack-plugin": "^14.0.0",
+    "css-loader": "^7.1.5",
+    "html-webpack-plugin": "^5.6.8",
+    "mini-css-extract-plugin": "^2.10.2",
+    "postcss": "^8.5.30",
+    "postcss-loader": "^8.1.1",
+    "rimraf": "^6.0.1",
+    "sharp": "^0.35.4",
+    "tailwindcss": "^4.3.3",
+    "ts-loader": "^9.6.2",
+    "typescript": "^6.0.3",
+    "webpack": "^5.112.0",
+    "webpack-cli": "^7.2.3"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}
