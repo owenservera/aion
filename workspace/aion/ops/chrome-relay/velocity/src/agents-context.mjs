@@ -31,15 +31,27 @@ function safeRead(root,rel,read=readFileSync){
  if(typeof value!=='string'||!value.trim())throw failure('CONTEXT_EMPTY');
  return {path:rel,text:value,sha256:createHash('sha256').update(value).digest('hex'),chars:value.length};
 }
-export function listAgents(catalog,registry={}){
+/**
+ * Project the role catalogue against the Bus registry.
+ *
+ * The registry is the ONLY binding/permission authority. When it could not be
+ * read (for example the Windows state ACL is unverified) the catalogue is
+ * still listed, but every row says UNKNOWN instead of pretending to know that
+ * an agent is unbound. `registryError` carries the honest reason.
+ */
+export function listAgents(catalog,registry={},{registryStatus='AVAILABLE',registryError=null}={}){
  if(!Array.isArray(catalog?.roles))throw failure('ROLE_CATALOG_UNAVAILABLE');
+ const known=registryStatus==='AVAILABLE';
+ const rows=Object.values(registry??{}).filter(a=>a?.role_id&&a.kind==='conversation');
  return catalog.roles.map(role=>{
-  const matches=Object.values(registry).filter(a=>a?.role_id===role.id&&a.kind==='conversation');
+  const matches=rows.filter(a=>a.role_id===role.id);
   const a=matches.length===1?matches[0]:null;
   return {id:role.id,code:role.code,alias:role.aliases?.find(x=>!/^[0-9]+$/.test(x))??role.id,
    purpose:role.purpose,bootstrap_path:role.bootstrap_path,sitrep_path:role.sitrep_path,
-   status:matches.length>1?'AMBIGUOUS':a?.status?.toUpperCase()??'UNBOUND',
-   agent_id:a?.agent_id??null,adapter:a?.binding?.adapter??null};
+   status:!known?'UNKNOWN':matches.length>1?'AMBIGUOUS':a?.status?.toUpperCase()??'UNBOUND',
+   registry_status:known?'AVAILABLE':'UNKNOWN',
+   registry_error:known?null:registryError??'REGISTRY_UNAVAILABLE',
+   agent_id:known?(a?.agent_id??null):null,adapter:known?(a?.binding?.adapter??null):null};
  });
 }
 export function loadAgentContext(catalog,alias,{root=REPO_ROOT,scope='both'}={}){

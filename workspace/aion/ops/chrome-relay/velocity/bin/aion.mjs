@@ -55,6 +55,19 @@ export async function main(argv,{
   try{parsed=parseCommand(argv);}catch(error){
     present(write,{ok:false,code:'BAD_COMMAND',reason:error.message},true);return 2;
   }
+  // The secured IPC envelope does not yet admit native options. Refuse here
+  // rather than silently discarding them while sending the text alone.
+  if(parsed.command==='send'&&parsed.send_options){
+    present(write,{ok:false,code:'NATIVE_OPTIONS_REQUIRE_DIRECT_LOCAL_BUS',delivery:'NOT_SENT',
+      message:'Native send options are currently supported through the direct local CLI only'},parsed.json);return 2;
+  }
+  if(parsed.command==='send'&&parsed.context){
+    present(write,{ok:false,code:'CONTEXT_REQUIRES_DIRECT_LOCAL_BUS',delivery:'NOT_SENT',
+      message:'The broker CLI does not compose role/project context; no text was sent'},parsed.json);return 2;
+  }
+  if(parsed.command==='dispose'){
+    present(write,{ok:false,code:'DISPOSE_REQUIRES_DIRECT_LOCAL_BUS',delivery:'NOT_SENT'},parsed.json);return 2;
+  }
   if(!socketPath){
     present(write,{ok:false,code:'RUNTIME_NOT_CONNECTED',delivery:'NOT_SENT',
       message:'AION_DEV_SOCKET not set; no request or send attempted'},parsed.json);return 3;

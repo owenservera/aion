@@ -34,7 +34,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     }
     return inspect(id);
   }
-  async function sendTo(to,text,nonce,grantRef,{expectedRevision=null}={}){
+  async function sendTo(to,text,nonce,grantRef,{expectedRevision=null,send_options=null}={}){
     // Preflight is read-only; the REAL Bus validates grants, locks and nonce under mutate().
     const state=await bus.store.read();
     // Existing Bus nonce index is the durable replay fence. A repeated nonce
@@ -64,6 +64,7 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     let accepted;
     try{
       accepted=await bus.ingestStructured({op:'send',to,text,nonce,
+        send_options,
         origin_kind:'operator_cli',origin_ref:'track-b-dev',
         target_guard:{revision:agent.revision,adapter:agent.binding.adapter,ref:agent.binding.ref}});
     }catch{
@@ -104,14 +105,14 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
     return response(true,'ADMITTED',{operation_id:id,state:'RESERVED'});
   }
 
-  async function sendAlias({alias,text,nonce}){
+  async function sendAlias({alias,text,nonce,send_options=null}){
       const state=await bus.store.read();
       const binding=resolveRole(alias,roleCatalog,state.agents);
       if(!binding.ok) return response(false,binding.reason,{delivery:'NOT_SENT'});
       const grant=selectGrant(state,binding.target,'send',new Date().toISOString());
       if(!grant.ok) return response(false,grant.reason,{delivery:'NOT_SENT'});
       return sendTo(binding.target,text,nonce,grant.grant.grant_id,{
-        expectedRevision:binding.revision});
+        expectedRevision:binding.revision,send_options});
     }
   return Object.freeze({
     sendAlias,
@@ -129,7 +130,9 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
               .map(c=>({operation_id:c.command_id,to:c.to,state:c.state}))};
         }
         case 'observe': return observeOperation(params.operation_id);
-        case 'send': return sendTo(params.to,params.text,params.nonce,params.grant_ref);
+        case 'send': return Object.hasOwn(params,'send_options')
+          ? response(false,'NATIVE_OPTIONS_UNSUPPORTED_OVER_IPC',{delivery:'NOT_SENT'})
+          : sendTo(params.to,params.text,params.nonce,params.grant_ref);
         case 'sendAlias': return sendAlias(params);
         case 'stop': {
           const killed=await bus.kill(params.reason);
