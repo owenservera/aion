@@ -16,6 +16,14 @@ We are buying back engineering time with discovered, plausibly working building 
 
 **Ranking:** effort eliminated × breadth of reuse ÷ adaptation difficulty. Prefer a module that saves weeks over ten minor features. A source path, what it replaces, AION seam, dependencies/license and major constraints suffice to nominate it; no pre-integration donor verification. Development decides which leapfrogs earn packaging and tests **only the selected integrated code**.
 
+## Development execution now — not another harvest round
+
+**Own P1's canonical receive contract and the actual product integration** while Integration Manager stages PACK-01/02. Target the accepted contract from PR #46: `extension/src/lib/conversation-contract.js` pure `aion.conversation.event/1` + `aion.conversation.snapshot/1` validation with binding vs page epoch vs message/revision vs observation cursor vs Bus operation ID correctly separated. Retain bounded content, explicit gap/completeness and pure data-only receive; protect existing Bus/effect authority.
+
+**Consume PACK-01** as receive cursor/terminal helpers and **PACK-02** as read-only observer helpers; these are staged supplier code, not accepted functionality. Integrate them at AION source seams, add and run AION-focused tests here (including 150 unseen retained / 100 page limit, epoch-matching ahead cursor, old response remount, empty assistant, untrusted command-looking received text). After contract and offline implementation, wire existing MV3→native host→IPC→in-memory CLI watch-only path and obtain owner-authorized Windows/live **I1** receipt. No Playwright/Puppeteer, automatic Send, duplicate Bus or private transcript persistence. PR #46 is candidate source to reconcile, **not** an automatic merge.
+
+**Separate leapfrog lane:** read Discovery's maximum three new CDP/parser/transport leads and select packaging only when one removes substantial development work without blocking I1. VOMEGA command semantics belongs later, not in the receive critical path.
+
 ## Immediate Development requests / ownership
 
 | Order | Existing requests | Development action | Integration Manager supply requested |
