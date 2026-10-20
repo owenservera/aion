@@ -13,14 +13,14 @@ const chat = () => ({manifest:{schema:'aion.bus.adapter/1',name:'chatgpt.com',
 const native = () => ({manifest:{schema:'aion.bus.adapter/1',name:'opencode-v2',
   kind:'executor',capabilities:{deliver:true,observe:true,cancel:true}}});
 const seed = () => ({schema:PLATFORM_SEED_SCHEMA, executable:false,edition:'example',
-  axes:{provider_family:['ai_chat_webapp']},provenance:{counts:{total_records:2}},
-  invariants:['Never dispatch from seed'], alias_policy:{runtime_id_renames:'NOT_AUTHORIZED'},
+  axes:{provider_family:['ai_conversation_webapp'],application_shape:['conversational_thread'],realization_mode:['browser_mediated']},provenance:{counts:{total_records:2}},
+  invariants:['Never dispatch from seed'], alias_policy:{runtime_id_renames:'NOT_AUTHORIZED',taxonomy_aliases:{ai_chat_webapp:'ai_conversation_webapp'}},
   semantic_capabilities:[
     {id:'conversation.send',effect:'EXTERNAL_MUTATION',status:'DESIGN'},
     {id:'conversation.observe_reply',effect:'READ',status:'DESIGN'},
     {id:'executor.prompt',effect:'EXTERNAL_MUTATION',status:'DESIGN'},
     {id:'operation.dispose',effect:'LOCAL_STATE_MUTATION',status:'DESIGN'}
-  ],provider_examples:[{provider_id:'chatgpt.com',status:'DONOR_ONLY',capabilities:[]}]});
+  ],provider_examples:[{provider_id:'chatgpt.com',application_family:'ai_conversation_webapp',application_shape:'conversational_thread',realization_mode:'browser_mediated',status:'DONOR_ONLY',capabilities:[]}]});
 const directive = () => ({schema:DESIGN_DIRECTIVE_SCHEMA,id:'APD-001',mode:'DESIGN_ONLY',
   verb:'SPECIFY_CAPABILITY',subject:'conversation.send',target:'track-b/semantic-contracts',
   inputs:['VF-0005'],required_outputs:['implementation packet'],constraints:['NO_LIVE_EFFECT'],
@@ -38,6 +38,12 @@ test('invalid seed or executable seed is rejected',()=>{
   assert.equal(validatePlatformSeed({...seed(),executable:true}).ok,false);
   assert.equal(validatePlatformSeed({...seed(),schema:'aion.bus/1'}).ok,false);
   assert.equal(validatePlatformSeed({...seed(),alias_policy:{runtime_id_renames:'ALLOWED'}}).ok,false);
+});
+test('legacy family aliases are explicit and provider records cannot drift to old names',()=>{
+  const old=seed();old.provider_examples[0].application_family='ai_chat_webapp';
+  assert.equal(validatePlatformSeed(old).code,'INVALID_PROVIDER_EXAMPLE');
+  const wrong=seed();wrong.alias_policy.taxonomy_aliases.ai_chat_webapp='unknown_family';
+  assert.equal(validatePlatformSeed(wrong).code,'INVALID_TAXONOMY_ALIASES');
 });
 test('unknown mutation risk cannot become READ and protected risk cannot be downgraded',()=>{
   const bad=seed();bad.semantic_capabilities[0].effect='READ';
@@ -67,6 +73,7 @@ test('design directives cannot sneak in browser effects, grants, unknown verbs o
 });
 test('known ChatGPT adapter projects semantics but never infers readiness, authority or effects',()=>{
   const v=projectAdapterSemantics(chat());
+  assert.equal(v.provider_id,'chatgpt.com');
   assert.equal(v.application_family,'ai_conversation_webapp');
   assert.equal(v.realization_mode,'browser_mediated');
   assert.deepEqual(v.capabilities.map(x=>x.semantic_id),['conversation.send','conversation.observe_reply']);
