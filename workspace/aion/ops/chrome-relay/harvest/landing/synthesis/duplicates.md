@@ -1,5 +1,5 @@
 # Cross-repo duplication, ancestry and divergence — seed batch C-001
-Status: hypothesis register only. Both donor commits and dirty states UNKNOWN in the 16 pre-capture findings; **no byte-level duplicate proof**. See [FINDINGS](../../FINDINGS.md) and [SCHEMA](../SCHEMA.md).
+Status: hypothesis register revised C-002. The 16 original local findings had UNKNOWN donor revisions; C-002 adds two pinned remote revisions, **without any proved cross-repo identical modules**. See [FINDINGS](../../FINDINGS.md) and [SCHEMA](../SCHEMA.md).
 
 ## Method: do not double-count correlated evidence
 Labels: EXACT_COPY requires identical captured bytes/hash and revisions; FORK_VARIANT requires ancestry or owner comparison with actual divergence; CONCEPT_OVERLAP means only similar terms/contracts; COUNTEREXAMPLE means incompatible or hazardous behavior; UNRESOLVED means insufficient source. Two source records are not two independent runtime confirmations, even if in different directories/repos.
@@ -30,3 +30,22 @@ Labels: EXACT_COPY requires identical captured bytes/hash and revisions; FORK_VA
 
 ## Required A/B handoff payload
 Pairs of landing VF-/VO- IDs, source repo/commit/dirty state, relative owning path, copied paths/hashes, call sites/tests, lineage certainty, diff summary, and any dangerous behavior (especially resend/requeue or selector guessing). Zero verified exact duplicates at C-001.
+
+## C-002 — remote fork/duplicate reconciliation (important correction)
+Pinned remote inputs change the evidence base: final@8a798f91d52574cb3d7db579da516bc1c4aee7b7 has VF-0001..0008; omega@79ee558d6c7ea77c20f220db2341adaa57b11d44 has VO-GH-0001..0027. **Omega's GitHub tree does not include the local-checkout Core/vivim-final-enhanced, BCP-dev or FullTest directories** cited in OMEGA-01..08. Hence the seed OMEGA-vs-FINAL same-file hypotheses above apply to those **unverified local snapshots**, not to the immutable remote Omega code just captured. Do **not** cite VO-GH-0001..0027 as a revalidation of those local folders.
+
+### Remote evidence relationships (none establishes exact cross-repo copy)
+| IDs / same-source groups | Relationship classification | Reason / follow-up |
+|---|---|---|
+| VF-0001 + VF-0002 | SAME OWNING MODULE, distinct provider records, not duplicate excerpts | Both from final seeds/providers/manifests.ts at same source revision; each captures a different named provider. File-level source hash matches, but excerpt-copy hashes differ. Do not deduplicate away either provider |
+| VF-0003 + VF-0004 | SAME OWNING MODULE, distinct UI archetype records | Both from final capability-shape-registry.ts; chat_app vs coding_ide are meaningfully distinct, and the latter excerpt starts search_engine. Not evidence of different operational runtimes |
+| VF-0006 + VF-0007 | SAME OWNING MODULE, contract vs concrete filter | Both from final capability-resolution.ts; distinct symbols; same file hash but different excerpt hashes. Together suggest design and implementation aspects, not two independent confirmations |
+| VF-0005 + VF-0008 vs VO-GH-0001/0005/0009/0015 | CONCEPT_OVERLAP, no proven source ancestry | Both describe multi-surface capability catalogs. Final's registry supports UI/CLI/MCP/API/workflow metadata; Omega derives routed names from booted composition and shares with CLI/MCP/chat. Different source paths and contracts |
+| VF-0006/0007 vs VO-GH-0002/0003/0007 | ADJACENT, not direct duplicate | Final resolves contextual UI capabilities; Omega tracks realization status/provenance and liveness. Filtered UI result, PROMOTED state and current actuation are three different things |
+| VF-0003/0004 vs VO-GH-0012/0013/0014 | ADJACENT generic UI vs browser fixture | Final shapes suggest UI archetype hints; Omega plugin is email fixture with pre-send bars; neither proves live ChatGPT |
+| VO-GH-0001 + 0002 + 0003 | SINGLE OWNERSHIP FACADES, not three implementations | Omega provider.ts re-exports ProviderClass from manifest.ts and RealizationStatus from vocabulary.ts; avoid counting facade as independent definition |
+| VO-GH-0005 + 0009 + 0015 | SHARED-DERIVATION DEPENDENCY | surface.ts claims common routed-op name derivation consumed by chat/CLI/MCP; resolve.ts documents caller-derived op set, SURFACES.md describes surface contract. One source of definition, multiple consumers |
+| VO-GH-0011 vs VO-GH-0009/0005 | TEST SOURCE, not passed test | Copied test file references logic, but B ran no tests; no evidence of T status |
+| OMEGA-01..08 (local reconnaissance) vs VO-GH-0001..0027 (remote) | **DIFFERENT CITATION ROOTS**; mapping UNKNOWN | Local paths absent from remote GitHub tree; no exact-content comparison possible. Do not consolidate by similar terms alone |
+
+**Crosswalk duplicate result:** 0 verified exact cross-repository duplicate modules, 0 verified ancestry links, 0 cross-repo independent runtime confirmations. Confirmed *same final-repo owning-file* groupings (3) and Omega facade/consumer relationships (2+), at pinned remote revisions. Exact excerpt hashes and common source file hashes are evidence of file/scoped copy provenance, not of branch ancestry. If further donor batches include the local directory trees, require their own source commit and dirty state before linking.
