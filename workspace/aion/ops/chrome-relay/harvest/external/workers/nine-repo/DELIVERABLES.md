@@ -4,16 +4,26 @@
 
 **Governance:** one `main`, Development/Harvest/Research as cooperating subprojects; Track A deprecated; runtime/Agent Fabric work out of scope. See [SITREP](SITREP.md), [BOOTSTRAP](BOOTSTRAP.md), [full historical charter](LAUNCH-PROMPT.md), [shared exchange](../../../EXCHANGE.md).
 
+## Active initial assignment — discovery and categorization for Development
+
+**First role: discover → classify → align.** Read the [Development Master](../../../DEVELOPMENT-MASTER.md), [machine index](../../../DEVELOPMENT-INDEX.json), and [single exchange](../../../EXCHANGE.jsonl) to understand current and foreseeable AION needs. Map existing internal source state separately from external observations. Group nine-repo findings by developer problem, not by which donor to import. This assignment does **not** ask Harvest to design or implement AION.
+
+**Delivery classes:** `METHOD_PATTERN`, `NEGATIVE_TEST_OR_FAILURE_MODE`, `SPECIFIC_PROTOCOL_CONTRACT_CANDIDATE` (only documented actual interoperability contracts), `NO_APPLICABLE_FINDING`, `UNASSESSED`. Preserve multiple distinct ideas with pin/path/confidence and explicit limits; **no forced primary donor, no external implementation owner, no automatic code reuse**.
+
+**Success now:** a concise categorized crosswalk for developer priorities I0 receive contract/identity, I1 observer/transport, and I2 Send correlation, then gaps across the remaining capability universe (19 P0/40 command/future candidates) in proportion to actual Development needs. The already-delivered AX-0016–0018 are source-inspected *methods and test counterexamples*, not imported code or adopted protocols. Their value is evidence; in-house Development owns design, source, tests and live proof.
+
+**Existing progress retained:** all nine repo source snapshots received breadth-first inspection; delivery handoff and 18-row exchange contain three specific evidence-backed offers. Do not discard or rerun this. The remaining rubric expands classification, not the scope of runtime implementation. Continue the WORKLOG and SITREP; no separate project board.
+
 ## Seed outcomes (not prescribed methods)
 
 | Seed | Deliverable / definition of done | Priority | Where it lands |
 |---|---|---|---|
 | D1 | **Nine-donor reality map:** all nine source snapshots checked; pinned revisions, actual capabilities, code entry points, unique value, licensing, overlaps and unknowns identified. | P0 | Worker-organized research under `external/landing/triage/`; short links in SITREP |
-| D2 | **Capability-to-approach map:** compare genuinely distinct approaches for important AION capabilities, including competing/complementary methods, conditions, evidence, and best-fit options. One primary *research owner* need not imply one implementation. | P0 | Existing triage/crosswalk evidence; exchange OFFER/GAP links |
+| D2 | **Needs-to-methodology classification:** align every useful method, failure mode, and selective protocol/contract candidate to exact AION DEV topics; compare alternatives without source-owner selection. | P0 | Existing triage/crosswalk evidence; exchange OFFER/GAP links |
 | D3 | **Development intelligence delivery:** concise evidence-backed OFFER/GAP records for current needs (first AX-0004 and AX-0006), plus actionable source paths, risks, acceptance and next action. | P0 | Shared `harvest/EXCHANGE.jsonl` |
 | D4 | **Development demand expansion:** identify missing current requirements, prerequisites, and future opportunities from code/research; label inferred NEEDs as **proposed**, not approved. | P1 | Shared exchange; no parallel backlog |
 | D5 | **Flexible exchange improvement:** when actual findings require, add optional multi-approach/dependency/partial-coverage representations, with compatibility for the existing six records. Avoid mandatory schema explosion. | P1 | `harvest/EXCHANGE.md` + `EXCHANGE.jsonl` |
-| D6 | **Selective high-leverage deep evidence:** choose the highest-impact implementation seams; inspect call paths/tests/license, compare reuse/adapt/rebuild, identify validation needed. | P1 | Existing `external/landing/` evidence and shared OFFERs |
+| D6 | **Selective high-leverage deep evidence:** inspect source/test/contract semantics to explain AION-relevant method choices and failure cases, not to recommend default donor code reuse. | P1 | Existing `external/landing/` evidence and shared OFFERs |
 | D7 | **Continuous custody and handoff:** verified commits, a concise current SITREP, decisions needed, open gaps, and next highest-value actions. | Continuous | `SITREP.md` and normal Git commits on `main` |
 
 **These are seed deliverables, not a fixed project plan.** The worker may split, combine, reprioritize, add, or retire deliverables as evidence evolves. Document material scope changes briefly in the SITREP. Do not request the owner's approval for ordinary reversible research organization. Do request approval before changing runtime authority, performing external effects, or making consequential architecture decisions.
@@ -60,4 +70,4 @@ No separate generated prompt or additional task-creation ritual is required.
 
 **New discovery with immediate implementation value:** Bridge's replay list selects the *last* N retained unconsumed items, potentially skipping earlier still-retained events without gap; an epoch-matching cursor ahead of latest also lacks explicit rejection. Both must be negative-tested by Development before borrowing its stream semantics.
 
-**Next instruction to resumed worker:** check current main and exchange first; tackle P1-B only where the data resolves a live Development decision. Do not burn time on recursive source inventories, empty cards, source re-clones, repeat C-003 crosswalk or provider cosmetics. Keep the seed D1–D7 flexible as circumstances change.
+**Next instruction to resumed worker:** check current main, Development index and exchange; prioritize categorizing what the nine-repo source evidence teaches each AION need, especially I0/I1/I2, and explicit unanswered requirements. Extend P1-B only when it changes useful discovery coverage. Do not select donor implementation winners, code-transplant targets, alternate command engines, or force all 19 P0s onto the current build critical path. Preserve evidence and progress already committed. Keep the seed D1–D7 flexible as circumstances change.
