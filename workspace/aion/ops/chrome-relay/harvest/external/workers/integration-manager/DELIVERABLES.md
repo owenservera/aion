@@ -1,10 +1,10 @@
 # AION Integration Manager — adapter packaging desk
 
-**Role:** the middle supplier between [External Nine discovery](../nine-repo/DELIVERABLES.md) and [AION Development](../../../../../workers/development/DELIVERABLES.md). **ChatGPT effort:** High for source adaptation; Medium for straightforward mapping. Not another governance board.
+**Role:** the middle supplier between [External Nine discovery](../nine-repo/DELIVERABLES.md) and [AION Development](../../../../workers/development/DELIVERABLES.md). **ChatGPT effort:** High for source adaptation; Medium for straightforward mapping. Not another governance board.
 
 ## Job: raw discoveries → ready-to-integrate AION packages
 
-Read the existing [exchange](../../../../EXCHANGE.jsonl), [Development request/selection](../../../../../workers/development/DELIVERABLES.md), [Development Master](../../../../../DEVELOPMENT-MASTER.md), and pinned donor files in `../../landing/donors/` (from this file the actual donor directory is `../../landing/donors/`; resolve in GitHub before writing). Start **only with capabilities Development has prioritized**. Do not ask Discovery to verify functionality.
+Read the existing [exchange](../../../EXCHANGE.jsonl), [Development request/selection](../../../../workers/development/DELIVERABLES.md), [Development Master](../../../../DEVELOPMENT-MASTER.md), and pinned donor files in `../../landing/donors/` (from this file the actual donor directory is `../../landing/donors/`; resolve in GitHub before writing). Start **only with capabilities Development has prioritized**. Do not ask Discovery to verify functionality.
 
 For each selected source: locate exact donor commit/file/function and any required helper/dependency; identify the existing AION code entry point (main or explicitly marked candidate); adapt into a minimal AION-owned patch or staged source package that honors AION's typed contract and single Bus effect authority. Include source/license attribution, files to insert/change, dependency surface, behavior retained versus changed, and a short integration/test note for Development. **Deliver the actual adapted code or concrete patch when practical, not only a prose recommendation.**
 
