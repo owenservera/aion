@@ -56,3 +56,20 @@ This section supersedes the C-001 provider-category UNKNOWN rows where new captu
 (2) **Realization mode** (API_NATIVE, BROWSER_MEDIATED, SIMULATOR). Add concrete provider identity, action, surface, runtime transport, current observation, authority and operation effect as separate dimensions. Do not overload Omega ProviderClass to encode ChatGPT-vs-IDE. Do not call two static ChatGPT/Claude manifests two successful integrations.
 
 Source-capture links: [VF-0001 card](https://github.com/owenservera/aion/blob/harvest/vivim-final-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-final/items/VF-0001/CARD.md), [VF-0004 card](https://github.com/owenservera/aion/blob/harvest/vivim-final-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-final/items/VF-0004/CARD.md), [VO-GH-0001 source](https://github.com/owenservera/aion/blob/harvest/omega-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-omega/items/VO-GH-0001/source/manifest.ts), [VO-GH-0012 source](https://github.com/owenservera/aion/blob/harvest/omega-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-omega/items/VO-GH-0012/source/plugin.json).
+
+## C-003 — final provider/implementation additions
+Final: `owenservera/vivim-final@8a798f91d52574cb3d7db579da516bc1c4aee7b7`, capture branch head `4454f9b913b4e3e5baeb8671daab127ca36030b3`, 27/27 `VF-0001..0027` COPIED_EXCERPT. Omega: `owenservera/vivim-omega@79ee558d6c7ea77c20f220db2341adaa57b11d44`, capture branch head `556aaaace61b3321c68c56bed1a8f7f96d697b8c`, 38 `VO-GH-0001..0038`, 26 copied, 12 flagged. No donor runtime tests or current-browser verification.
+
+| IDs | Family/type or semantic owner | Surface / realization / runtime | Evidence / authority distinction |
+|---|---|---|---|
+| VF-0010, VF-0025 | Two differing provider-plugin interfaces | Legacy and lifecycle-aware plugin contracts; canonical implementation owner unresolved | No proof of current supported instance; anti-detection/CDP forbidden transfer |
+| VF-0019, VF-0021 | Messaging provider archetypes / Claude specialized features | Static normalization and model feature declaration | Feature claims and model catalogs may be stale; no account entitlement proof |
+| VF-0012, VF-0015, VF-0023 | Conversation/message identities, ChatGPT message DAG | Some older backend REST/cookie-centric realization | Read-only schema distinctions only; no private APIs/credentials |
+| VF-0020, VF-0022 | Live registry abstraction and presentation control | Dynamic plugin extension and rendered Send button | Neither hot reload nor enabled UI presentation grants Send |
+| VO-GH-0028, VO-GH-0029 | Historical proof/promotion and versioned parser policy | Discovery verification pipeline, not browser actuation | Promotion does not imply current Send control readiness |
+| VO-GH-0030, VO-GH-0031, VO-GH-0033 | Inferred affordance and contract blueprint | Pure candidate selection/inference, not current live adapter | Ranked candidates and READ defaults cannot authorize external effect |
+| VO-GH-0032, VO-GH-0034 | Trace causality and pinned fixture parser | Simulated observation/mapping | No live DOM/network observation authorization |
+| VO-GH-0035..0037 | Resolution, chat persistence, provider read handlers | Local operation and registry data; sessions deferred | Does not establish linked browser session |
+| VO-GH-0038 | Browser-mediated **email fixture** | Four-gate simulated `message.send`, produces email vault row | Not real ChatGPT Send or Stop; no platform effect observed |
+
+The application **family** (AI chat, messaging app, coding IDE), provider **identity** (ChatGPT/Claude), provider **realization class** (API_NATIVE/BROWSER_MEDIATED/SIMULATOR), provider **adapter**, active **surface**, actual **runtime and transport**, semantic **capability**, present **readiness**, **authorization**, and operation **evidence** remain independent dimensions.
