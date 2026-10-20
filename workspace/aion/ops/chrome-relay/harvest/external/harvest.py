@@ -47,11 +47,9 @@ def manifest():
  return x
 def check_root(root):
  root=root.expanduser().resolve()
- repo=HERE
- while repo!=repo.parent:
-  if repo==root or root.is_relative_to(repo):
-   raise SystemExit("clone root must live OUTSIDE AION source checkout: "+str(root))
-  repo=repo.parent
+ source_root=Path(cmd("git","rev-parse","--show-toplevel",cwd=HERE)).resolve()
+ if root==source_root or root.is_relative_to(source_root):
+  raise SystemExit("clone root must live OUTSIDE AION source checkout: "+str(root))
  return root
 def clone(root,donors):
  root=check_root(root)
