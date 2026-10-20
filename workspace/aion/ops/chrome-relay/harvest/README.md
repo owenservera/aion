@@ -2,6 +2,16 @@
 
 **Repository-wide governing policy:** [REPOSITORY-GOVERNANCE.md](../../../../../REPOSITORY-GOVERNANCE.md). This page is a source/evidence guide, not a separate branch policy.
 
+
+## Development ⇄ Harvest / Research delivery
+
+**[Shared contract](EXCHANGE.md) · [Live NEED/OFFER/GAP/DECISION exchange](EXCHANGE.jsonl)** — both Development and Harvest publish the same fields and `topic` IDs on `main`. Harvest lanes keep detailed internal cards and offer one concise, evidence-linked decision to Development; Development exposes present and future needs with acceptance checks. No new parallel dev branches, registries or issue-per-card system.
+
+- Omega/VIVIM: [existing synthesis and prioritized recommendations](landing/synthesis/integration-queue.md).
+- VOMEGA: [semantic CLI retention assessment](landing/sources/vomega/RETENTION-ASSESSMENT.md).
+- Nine external repos: [lane-owned triage and delivery](external/DELIVERY.md) (**code-level triage pending**).
+- Internal research/command paths: [AION Command Space](../../command-space/) and current `velocity/research/`.
+
 ## Authority
 
 - **`main`** is the sole integrated AION baseline. The nine external donor source **snapshots** are under [`harvest/external/landing/donors/`](external/landing/donors/). Donor application code is reference material, not executable AION runtime.
