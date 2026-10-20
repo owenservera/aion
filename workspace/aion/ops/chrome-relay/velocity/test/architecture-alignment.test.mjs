@@ -44,7 +44,7 @@ test('accepted architecture freezes decision outcomes and chronological gates',(
     'PR #51','NOT YET merged']){
     assert.ok(d.includes(token),'missing canonical decision or gate: '+token);
   }
-  assert.match(d,/REJECTED.*one.*queue/i);
+  assert.match(d,/Bus as a unified message\\+command queue \\| \\*\\*REJECTED/i);
 });
 
 test('the canonical entry point is read-only architecture, not evidence of implemented chat',()=>{
