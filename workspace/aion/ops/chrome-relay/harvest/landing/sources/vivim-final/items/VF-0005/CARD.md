@@ -8,11 +8,11 @@
 
 **Source blob SHA1:** `f2e85870d976c2462d135defd0089e4efe35a0f7`
 
-**Whole-source SHA256:** `d9be30ac19496182084f20ec685ef8beb7885a8cefa2c6aab459597c6f2af6a7`
+**Whole-source SHA256:** `26eff63e051c3a04eb06379e1b5b522d5aa1c3f2a9c9577d8298af80667cd11e`
 
-**Excerpt SHA256:** `a539d3026717a409b51ebda95419e5e20ecc3c0e2bdb026b39e035d223ffb5fd`
+**Excerpt SHA256:** `f78d1b03b666650667e80362f140b4d5c4d1f09944dc0997910e6e5131710274`
 
-**Domains:** capability-semantics,multisurface,command-contracts | **Prior lead:** FINAL-05
+**Domains:** capability-semantics, multisurface, command-contracts | **Prior lead:** FINAL-05
 
 ## Source intelligence
 Send/read/edit/regenerate as shared semantics distinct from UI controls.
