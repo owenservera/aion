@@ -33,6 +33,7 @@ test('IPC CLI can inspect design seed with no broker and no transport',async()=>
   assert.equal(lines[0].schema,'aion.platform.inspect/1');
   assert.equal(lines[0].dispatchable,false);
   assert.equal(lines[0].providers.length,4);
+  assert.equal(lines[0].providers.find(x=>x.id==='chatgpt.com').application_family,'ai_conversation_webapp');
 });
 
 test('direct local capabilities adds read-only provider semantics without changing existing fields',async()=>{
