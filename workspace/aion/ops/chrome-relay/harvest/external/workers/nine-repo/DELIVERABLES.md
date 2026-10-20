@@ -8,11 +8,11 @@
 
 ## Active TODO — External Nine Discovery
 
-- [ ] Scout **Cereon MV3 CDP/session manager and bounded accessibility tree** against **cdpilot's CDP engine** for high-payoff browser diagnostics and control primitives; distinguish read-only inspection from effectful actions.
-- [ ] Cross-check VOMEGA NLCL's already captured parser/grounder assessment for any **new differentiated semantic-engine leapfrog**, without repeating existing harvest.
-- [ ] Find one unexpected major shortcut among transport, identity/recovery, provider adapters or other donor code, if it beats minor feature findings.
-- [ ] Publish **at most three strong leads** through existing triage/exchange: pinned source symbol/path, AION contract seam, work eliminated, dependencies/license, constraint, BREAKTHROUGH/HIGH/NORMAL.
-- [ ] Hand leads to Integration Manager; revisit Bridge/Multi-AI only for a specific missing source symbol requested by that manager.
+- [x] Scout **Cereon MV3 CDP/session manager and bounded accessibility tree** against **cdpilot's CDP engine** for high-payoff browser diagnostics and control primitives; distinguish read-only inspection from effectful actions.
+- [x] Cross-check VOMEGA NLCL's already captured parser/grounder assessment for any **new differentiated semantic-engine leapfrog**, without repeating existing harvest.
+- [x] Find one unexpected major shortcut among transport, identity/recovery, provider adapters or other donor code, if it beats minor feature findings.
+- [x] Publish **at most three strong leads** through existing triage/exchange: pinned source symbol/path, AION contract seam, work eliminated, dependencies/license, constraint, BREAKTHROUGH/HIGH/NORMAL.
+- [x] Hand leads to Integration Manager; revisit Bridge/Multi-AI only for a specific missing source symbol requested by that manager.
 
 **Done = actionable leapfrog intelligence. No donor tests, wiring verification, adapted code, AION verification or coverage-grid busywork. Thinking effort: High.**
 
@@ -107,3 +107,5 @@ No separate generated prompt or additional task-creation ritual is required.
 **New discovery with immediate implementation value:** Bridge's replay list selects the *last* N retained unconsumed items, potentially skipping earlier still-retained events without gap; an epoch-matching cursor ahead of latest also lacks explicit rejection. Both must be negative-tested by Development before borrowing its stream semantics.
 
 **Next instruction to resumed worker:** check current main, Development requests and exchange; find and categorize source functionality for the Integration Manager, especially I0/I1/I2. No testing or proof obligations. Prioritize actual useful source seams over catalog completeness. Extend P1-B only when it changes useful discovery coverage. Do not select donor implementation winners, code-transplant targets, alternate command engines, or force all 19 P0s onto the current build critical path. Preserve evidence and progress already committed. Keep the seed D1–D7 flexible as circumstances change.
+
+**Dispatch receipt — 2026-10-20 High-effort Discovery session:** bounded leapfrog source sweep **DELIVERED**. AX-0019 bounded DOM inspection, AX-0020 MV3 CDP diagnostics versus CDPilot frame route, AX-0021 experimental WebMCP native-tool discovery. [Source memo](../../landing/triage/LEAPFROG-DISCOVERY-2026-10-20.md) and [exchange](../../../EXCHANGE.jsonl). This completes this session's five checklist research/publication activities **only**; Integration Manager reading, selection, staging and Development tests are **not dispatched or confirmed by posting a file**. VOMEGA parser and Bridge transport not duplicated. No tests, wiring verification or adaptation. Next discovery only against a fresh Development/Integration Manager question.

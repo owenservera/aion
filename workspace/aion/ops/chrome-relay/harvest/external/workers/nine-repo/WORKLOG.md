@@ -60,3 +60,13 @@ Bridge `ObservedTurnJournal.list` filters entries beyond cursor then `slice(-saf
 ### Resume protocol
 
 Read live `main`, then `DELIVERABLES.md`, `SITREP.md`, this log, `harvest/EXCHANGE.jsonl` and the existing triage handoff. Re-fetch HEAD and check concurrent exchange edits before modifying. Advance only the next unproven Development-seam requirement. Append a new dated entry after useful work; keep short research details in triage and the **single shared outward exchange**.
+
+## Entry 002 — dispatched CDP/DOM/native-tool leapfrog sweep (2026-10-20)
+
+**Owner dispatch was actually sent in this Nine-Repo worker chat, High thinking effort.** Read latest `main` `DELIVERABLES.md`, SITREP, WORKLOG, Development Master/desk, Exchange, existing triage and VOMEGA retention. Inspected pinned Cereon `CdpSessionManager`, `CdpSession`, `NetworkObserver`, `AccessibilityTreeBuilder`, `ElementRegistry`, `OutputBudget`, local role/name/visibility utilities, constants, and CDPilot `_FrameRoute`/OOPIF, WebMCP discovery/call source. Compared rather than reused Bridge/Multi-AI and VOMEGA.
+
+**Delivered:** [single source memo](../../landing/triage/LEAPFROG-DISCOVERY-2026-10-20.md) and source-grounded AX-0019–0021 OFFERs in the **existing** `harvest/EXCHANGE.jsonl`. HIGH bounded DOM inspector, HIGH optional CDP diagnostics, HIGH conditional WebMCP page-tool discovery. No novel nine-repo parser or native IPC transport replacement established; no redundant offers. Five active Discovery TODOs completed for this bounded source publication, **not** Integration Manager execution or AION acceptance.
+
+**Actually done:** GitHub content reads and static source comparison, published evidence and Git objects. **Not done:** tests, donor verification, wiring checks, code adaptation, provider capability proof, Windows sync, explicit second-worker dispatch or Development adoption. Source pins Cereon `06da45090607dd9c9dc883ef5d523e9c99bcdb24` / CDPilot `234d8bf3d1c0144792654bf670f07f93ffd8a1d3`; MIT as source manifest states. No Playwright/Puppeteer.
+
+**Next:** Development/Integration Manager should *read* these 3 leads after PACK-01/02 and choose whether a small additional staged inspector is worth adapting; Discovery does not self-start next work by posting a TODO. Commits/HEAD details belong to Git receipts, not inferred file presence.
