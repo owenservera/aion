@@ -40,3 +40,24 @@
 **Read this file and the latest SITREP/BOOTSTRAP; inspect the current exchange and repository; independently organize and execute the highest-value seed deliverables, improving the shared interface when evidence justifies it, and commit verified results to `main`.**
 
 No separate generated prompt or additional task-creation ritual is required.
+
+## Worker-owned priorities and delivery state — 2026-10-20 batch 001
+
+**Current work selection:** maximize present Development leverage at I0/I1, not a horizontal tour of every feature. This is a refinement **inside the existing deliverables file**, not a separate PM queue. See [WORKLOG](WORKLOG.md) and [first-pass Development handoff](../../landing/triage/FIRST-PASS-DEV-HANDOFF.md).
+
+| Rank | Worker-chosen output | State | Completion evidence / precise next gate |
+|---|---|---|---|
+| **P0-A** | **Nine source reality sweep and role custody:** grounded nine pins, licenses, code seams, differentiated donor roles | **DELIVERED FIRST PASS** | [Role CSV](../../landing/triage/REPO-ROLES.csv) and [handoff](../../landing/triage/FIRST-PASS-DEV-HANDOFF.md). Remaining: full P0 operation-by-operation rubric and selected implementation-depth checks |
+| **P0-B** | **I0 receive correctness packet:** cursor/identity/terminal negative evidence, no silent loss | **SOURCE-DELIVERED; DEV VALIDATION OPEN** | AX-0016 and AX-0017; Bridge replay tail-truncation hazard surfaced; Development must implement own contract/tests |
+| **P0-C** | **I1 data-only receive transport offer:** SSE epoch/sequence and snapshot resume alternatives without importing second queue | **SOURCE-DELIVERED; DEV VALIDATION OPEN** | AX-0017; exact AION native IPC path unverified; preserve AX-0008 |
+| **P0-D** | **I2 send-correlation safety packet:** identity and false-confirmation negatives, no effect retries | **SOURCE-DELIVERED; GATED BY I1** | AX-0018; only pure patterns recommended, not runnable Send donor code |
+| **P1-A** | **Dev gap refinement and cross-approach comparison:** explicit existing P0 needs, original source, alternatives, tradeoffs | **FIRST PASS DELIVERED** | 3 OFFER records, AX-0004/0006 kept INVESTIGATING; schema v1.1 optional alternatives used without breaking changes |
+| **P1-B** | **Complete 19-P0 operation disposition/dedup rubric** and identify actual uncovered capabilities | **NEXT HARVEST** | Use Command Space P0 IDs as rubric; do not imply all 19 were tested across all nine |
+| **P2-A** | **Later provider/file/lifecycle seam follow-up** and licensing edge checks | **DEFERRED UNTIL I1–I3** | parallel-ai attachments; provider selectors; lifecycle and native route requirements AX-0011–0014; no premature runtime claims |
+| **Continuous** | **Worklog, custody, honest SITREP and Git reconciliation** | **ACTIVE** | [WORKLOG](WORKLOG.md), [SITREP](SITREP.md), commit evidence |
+
+**Progress against original seed D1–D7:** D1 first pass delivered/remaining exhaustive P0 coverage; D2 high-leverage choices delivered; D3 three Development-facing offers delivered; D4 existing Development needs consumed, novel risks surfaced (no duplicate NEED); D5 no schema rewrite necessary; D6 selected receive/dependency deep inspection and replay counterexample delivered; D7 verified remote Git files and resumption worklog, Windows synchronization explicitly unverified.
+
+**New discovery with immediate implementation value:** Bridge's replay list selects the *last* N retained unconsumed items, potentially skipping earlier still-retained events without gap; an epoch-matching cursor ahead of latest also lacks explicit rejection. Both must be negative-tested by Development before borrowing its stream semantics.
+
+**Next instruction to resumed worker:** check current main and exchange first; tackle P1-B only where the data resolves a live Development decision. Do not burn time on recursive source inventories, empty cards, source re-clones, repeat C-003 crosswalk or provider cosmetics. Keep the seed D1–D7 flexible as circumstances change.
