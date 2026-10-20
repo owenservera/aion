@@ -47,3 +47,33 @@ Provider/account/session binding context [OMEGA-04/08] + stream presentation [FI
 
 ## Safe integration process
 Source evidence -> crosswalk with contradictions and revisions -> Track B owner disposition -> separate implementation change with focused tests -> separately authorized runtime verification when relevant. All user-owned live state and current no-resend locks remain outside this research lane.
+
+## C-002 — refined seams against pinned remote donor evidence
+Remote citations: final@8a798f91d52574cb3d7db579da516bc1c4aee7b7 (VF-0001..0008, excerpt copies) and omega@79ee558d6c7ea77c20f220db2341adaa57b11d44 (VO-GH-0001..0027, 15 copied / 12 flagged). Current AION current-target authority unchanged. These are **conceptual opportunities, not assigned implementation milestones**.
+
+| Potential leverage | Exact remote capture IDs | Mapping into existing AION owners (no new product code here) | Boundary/decision |
+|---|---|---|---|
+| Two-axis provider model: AI chat / bespoke app family **plus** API_NATIVE / BROWSER_MEDIATED / SIMULATOR realization mode | VF-0001/0002/0003/0004; VO-GH-0001/0003/0007 | Future provider metadata and adapter introspection; current ChatGPT adapter keeps exact binding | Do **not** use Omega ProviderClass to mean chat vs IDE; do not treat static manifests as implemented provider support |
+| Semantic actions and one-source multi-surface catalog | VF-0005/0008; VO-GH-0005/0009/0015 | Existing AION Bus command registry/listing; optional read-only capability introspection | No replacement registry, second interpreter-to-executor path or assumption tools/list is ready-to-act |
+| Contextual rule resolution layered behind current physical Send observation | VF-0006/0007; VO-GH-0002/0007 | CENV-03/12, DATA-01..03, existing ping and page content.js | Final plan-tier/dependency filtering doesn't know real disabled/unique button; Omega PROMOTED doesn't grant action |
+| Read-only provider/app shape projection with explicit ambiguous outcome | VF-0003/0004; VO-GH-0006; VO-GH-0027 FLAGGED | CENV-01/03 and page observer, typed reason/freshness | Copy **concepts** not selectors or inferred priority winners; no generic browser framework prerequisite |
+| Evidence/provenance/status distinction | VO-GH-0002/0003/0004/0010; VF-0006 | DATA OperationEvidence and existing correlator/store | provenance OBSERVED/VERIFIED != fresh page observation; stage success != positive matching user turn |
+| Fail-closed fixture preflight lessons | VO-GH-0008/0012/0013/0014, VO-GH-0016/17 FLAGGED | Existing AION preflight/authority/readiness checks | EMAIL FIXTURE ONLY; no CDP, cookie, test fixture, resend logic or false claim of live chat support |
+| Deterministic command name selection and typed failure taxonomy | VO-GH-0005/0006/0009/0011; VF-0008 | Existing Bus parser/validator/result mapper | Copied test source ≠ passing test; interpreter doesn't execute; preserve AION exact target/grants |
+| Candidate verification pipeline without transplant | VO-GH-0018..0021/0026/0027 FLAGGED | Evidence intake only; review whether required/optional observations can help existing page-state projection | Do not adopt a new promotion machine, retry/repair loop or inferred Send based on confidence |
+
+### Strongest conceptual reuse chains (NOT priority assignments)
+1. VF-0005 semantic contract -> VF-0001/0002 provider declaration -> VF-0003/0004 app archetype -> VF-0006/0007 context filter -> existing AION CENV-03 real action observation -> existing Bus authorization -> CENV-07/08 effect evidence. Break the chain at any unproven step. Current donors cover the **model**, not an authorized, proven end-to-end operation.
+2. VO-GH-0001 provider realization mode + VO-GH-0003 evidence link + VO-GH-0007 status/liveness -> AION *separate* active binding/fresh UI observation. PROMOTED is proof-history context, not current readiness; detected drift does not self-authorize a Send retry.
+3. VO-GH-0005 shared names + VO-GH-0009 resolution + VO-GH-0006 negative outcomes -> existing Bus canonical command/result surfaces. Cross-surface consistency is useful; copying the whole Omega root/permission system would be a counterproductive architecture transplant.
+
+### Concrete conflicts for a Track B architect to decide later
+- **Filtering versus diagnostics:** VF-0007 omits candidates for failed tier/existential/dependency rules; CENV needs explicit null/false/reason on the **current exact bound** Send/Stop controls. Query/filter output cannot be substituted for current action observation.
+- **Lifecycle versus operation:** VO-GH-0002 realization PROMOTED/DEGRADED and VO-GH-0007 activeInComposition may coexist with an unresolved, possibly-submitted AION operation. No transitions across those state machines without independent facts.
+- **UI genericity versus safety:** VF-0003/0004 ranks selectors/discovery hints; AION requires a unique, fresh, unambiguous target. Ambiguity must not select highest priority.
+- **Fixture versus live effect:** VO-GH-0012 email fixture can demonstrate a contract shape but does not justify Chrome chat actuation, credential handling, CDP path, or claims of completed browser sends.
+
+### Next follow-up inputs from A/B
+- A: bind manifest/provider endpoint choices to real provider-specific adapter owners, rule evaluator / seeded values, and exact lifecycle send-reply tests. Preserve VF IDs and file hashes.
+- B: deep-read flagged discovery owner modules, fixture falsifier tests without secret copying, and real browser preflight/unknown-effect decisions; distinguish remote omega repo from earlier local Core/BCP-dev/FullTest tree.
+- C: ingest later batches only when they are published and fetched, and maintain a clear source-revision-indexed change log. Do not assume a cross-branch commit appears in the main landing tree until merged.
