@@ -2,14 +2,14 @@
 
 **Role:** the middle supplier between [External Nine discovery](../nine-repo/DELIVERABLES.md) and [AION Development](../../../../workers/development/DELIVERABLES.md). **ChatGPT effort:** High for source adaptation; Medium for straightforward mapping. Not another governance board.
 
-**Dispatch status (2026-10-20): SAVED_NOT_DISPATCHED.** This file being committed does **not** wake or task this ChatGPT worker. Start work only when the owner sends an instruction in the Integration Manager chat. First PACK-01, then PACK-02; deliver actual staged source, not another assessment. Report work-in-progress only after the dedicated worker responds.
+**Dispatch status (2026-10-20): WORKER_DISPATCH_RECEIVED → PACK-01/02 DELIVERED.** The owner sent the explicit PACK-01 then PACK-02 instruction in this dedicated session. Both code packs are committed to `main`. Staged delivery does **not** mean Development integrated or tested the code; a GitHub TODO alone still never dispatches another worker.
 
 ## Active TODO — Integration Manager
 
-- [ ] **PACK-01:** stage actual AION-adapted Bridge receive cursor/journal and terminal-evidence source files under `packs/PACK-01/`; preserve license and original SHA/path.
-- [ ] In PACK-01 correct silent tail-window replay omission and matching-epoch ahead cursor; map to existing AION P1 event/snapshot contract, not a new wire schema.
-- [ ] **PACK-02:** stage actual read-only Multi-AI Chat DOM/response helpers under `packs/PACK-02/`, matching AION P2 observer/profile seams; exclude Send/Enter/click/retry and private backend paths.
-- [ ] For each pack include exact destination files, dependency footprint and short integration/test notes; commit the **actual staged code** to main and update existing AX links.
+- [x] **PACK-01:** stage actual AION-adapted Bridge receive cursor/journal and terminal-evidence source files under `packs/PACK-01/`; preserve license and original SHA/path.
+- [x] In PACK-01 correct silent tail-window replay omission and matching-epoch ahead cursor; map to existing AION P1 event/snapshot contract, not a new wire schema.
+- [x] **PACK-02:** stage actual read-only Multi-AI Chat DOM/response helpers under `packs/PACK-02/`, matching AION P2 observer/profile seams; exclude Send/Enter/click/retry and private backend paths.
+- [x] For each pack include exact destination files, dependency footprint and short integration/test notes; commit the **actual staged code** to main and update existing AX links.
 - [ ] When Development selects a higher-value CDP/parser/transport leapfrog, prioritize its small staged code package over low-value completeness work.
 
 **Done = reusable staged code + exact insertion notes; no independent donor testing, AION test claims or runtime changes. Thinking effort: High.**
@@ -48,4 +48,4 @@ For each selected source: locate exact donor commit/file/function and any requir
 
 **First tangible output:** a staged code package for Development's highest-value selected leapfrog, initially PACK-01 unless a higher-payoff CDP, observer, parser, or transport accelerator supersedes it. Include exact insertion point and remaining Development decisions. Read any newer Development selection before creating further packages. Preserve license notices, no secrets/cookies/private transcripts, no Playwright/Puppeteer. Commit only scoped staging/documentation changes to `main` safely; no runtime status claims.
 
-**Status, 2026-10-20:** desk created; PACK-01/02/03 are **requested, not built, tested or integrated**. Keep progress here to a few lines after each actual delivery.
+**Status, 2026-10-20:** PACK-01 **staged** at `b06b0e54cb0c57f3dcdc1d6df7c2ef06973c2599`; PACK-02 **staged** at `5f72abda13010cdc3d5211895e232cf6f87f4906` (rebased after a concurrent Discovery main commit). Both contain real AION-adapted source and MIT notices; **no donor tests, AION tests, Windows run or live I1 receipt**. PACK-03 remains deferred. Development owns P1/P2 insertion and testing; see [SITREP](SITREP.md).
