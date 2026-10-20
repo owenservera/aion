@@ -10,6 +10,12 @@
 
 **Single request/delivery index:** `harvest/EXCHANGE.jsonl`, keyed by topic and existing AX/DEV IDs. No per-role tickets, process framework, or duplicate status database. Role folders hold the actual work and a short resumption note.
 
+## Primary objective: leapfrog AION, not fill a feature checklist
+
+We are buying back engineering time with discovered, plausibly working building blocks. A **leapfrog** removes an entire development problem or becomes useful across several AION subsystems: CDP/browser control and observation, DOM/accessibility snapshots, parsers and command compilers, native messaging/IPC and streaming transport, session/identity recovery, provider adaptation, effect-safe correlation. The nine-repo worker should **proactively surface** unexpected high-value primitives beyond predefined DEV/Command Space rows.
+
+**Ranking:** effort eliminated × breadth of reuse ÷ adaptation difficulty. Prefer a module that saves weeks over ten minor features. A source path, what it replaces, AION seam, dependencies/license and major constraints suffice to nominate it; no pre-integration donor verification. Development decides which leapfrogs earn packaging and tests **only the selected integrated code**.
+
 ## Immediate Development requests / ownership
 
 | Order | Existing requests | Development action | Integration Manager supply requested |
@@ -22,4 +28,4 @@
 
 **Current state, 2026-10-20:** 9 pinned donors available; 18 exchange records; AX-0016/17/18 are raw research offers, **not** integration packages; Development tests and I0–I3 runtime acceptance remain open. PR #46 is still an unmerged source candidate. No source/host changes are claimed by creation of this desk.
 
-**Next:** Integration Manager prepares PACK-01 first; Development continues source reconciliation and the I0 implementation/test seam rather than waiting for an exhaustive 19×9 donor grid. Update this file with a short done/next line only when something actually changes.
+**Next:** request high-leverage CDP/DOM/parsing/transport candidates from Discovery; choose the highest-return leapfrog for packaging alongside current I0/I1, with no exhaustive 19×9 prerequisite. Integration Manager prepares PACK-01 or supersedes it when Development selects a clearly better multiplier. Development owns integration/testing, not donor re-verification. Update this file with a short done/next line only when something actually changes.
