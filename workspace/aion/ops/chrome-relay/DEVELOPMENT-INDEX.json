@@ -76,6 +76,18 @@
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "control.cli",
+        "in_house_status": "IN_HOUSE_CANDIDATE_TO_RECONCILE",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -115,6 +127,18 @@
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "effects.bus",
+        "in_house_status": "IN_HOUSE_BASELINE_AND_CANDIDATE",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -145,10 +169,29 @@
       },
       "leverage": {
         "methodology_refs": [
-          "AX-0001"
+          "AX-0001",
+          "AX-0002",
+          "AX-0016"
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "session.bind",
+        "in_house_status": "IN_HOUSE_CANDIDATE_TO_RECONCILE",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0002",
+          "AX-0016"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "AION_BOUND_THREAD_IDENTITY",
+        "applicable_negative_tests": [
+          "binding/conversation/message/operation identity separation"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -183,10 +226,35 @@
         "methodology_refs": [
           "AX-0001",
           "AX-0002",
-          "AX-0007"
+          "AX-0007",
+          "AX-0016",
+          "AX-0017"
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "receive.contract",
+        "in_house_status": "IN_HOUSE_DESIGN_BUILD_PENDING",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0002",
+          "AX-0016",
+          "AX-0017"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "AION_EVENT_SNAPSHOT_V1_OWNED",
+        "applicable_negative_tests": [
+          "epoch mismatch",
+          "cursor before retained range",
+          "cursor after latest with same epoch",
+          "150 retained/100-limit silent replay loss",
+          "incomplete history",
+          "untrusted payload cannot authorize effects"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -221,10 +289,32 @@
         "methodology_refs": [
           "AX-0001",
           "AX-0004",
-          "AX-0006"
+          "AX-0006",
+          "AX-0016",
+          "AX-0018"
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "receive.browser",
+        "in_house_status": "IN_HOUSE_DESIGN_BUILD_PENDING",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0016",
+          "AX-0018"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [
+          "orphan assistant",
+          "same-text duplicate",
+          "remounted response",
+          "unmatched user turn"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -264,10 +354,29 @@
         "methodology_refs": [
           "AX-0001",
           "AX-0004",
-          "AX-0008"
+          "AX-0008",
+          "AX-0017"
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "receive.transport",
+        "in_house_status": "IN_HOUSE_DESIGN_BUILD_PENDING",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0017"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "AION_DATA_ONLY_NATIVE_IPC_OWNED",
+        "applicable_negative_tests": [
+          "truncated replay must emit gap or paginate",
+          "ahead-of-stream cursor with matching epoch",
+          "data-only receive must not reach Bus Send"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -298,10 +407,30 @@
       },
       "leverage": {
         "methodology_refs": [
-          "AX-0001"
+          "AX-0001",
+          "AX-0016",
+          "AX-0017"
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "receive.inbox",
+        "in_house_status": "IN_HOUSE_DESIGN_BUILD_PENDING",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0016",
+          "AX-0017"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [
+          "watch-only never sends",
+          "gap reload uses authoritative snapshot"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -340,10 +469,30 @@
       "leverage": {
         "methodology_refs": [
           "AX-0004",
-          "AX-0009"
+          "AX-0009",
+          "AX-0018"
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "send.browser",
+        "in_house_status": "IN_HOUSE_LEGACY_REPLACEMENT_PENDING",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0018"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [
+          "prepared composer is not successful Send",
+          "unique observed user turn",
+          "ambiguous reply not checked",
+          "unknown-effect never retried"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -378,10 +527,32 @@
         "methodology_refs": [
           "AX-0001",
           "AX-0004",
-          "AX-0010"
+          "AX-0010",
+          "AX-0016",
+          "AX-0017"
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "receive.recover",
+        "in_house_status": "IN_HOUSE_DESIGN_BUILD_PENDING",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0016",
+          "AX-0017"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "AION_CURSOR_CHECKPOINT_ONLY_OPTIONAL",
+        "applicable_negative_tests": [
+          "lost cursor",
+          "epoch reset",
+          "noncontiguous replay",
+          "no-resend after uncertain effect"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -416,6 +587,21 @@
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "provider.opencode",
+        "in_house_status": "IN_HOUSE_CANDIDATE_TO_RECONCILE",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "OPEN_CODE_NATIVE_SSE_ACP_CANDIDATE",
+        "applicable_negative_tests": [
+          "exact native session identity",
+          "SSE loss vs resnapshot"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -446,6 +632,18 @@
         "methodology_refs": [],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "machine.windows",
+        "in_house_status": "IN_HOUSE_CANDIDATE_TO_RECONCILE",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -483,10 +681,27 @@
       "leverage": {
         "methodology_refs": [
           "AX-0004",
-          "AX-0011"
+          "AX-0011",
+          "AX-0002"
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "provider.family",
+        "in_house_status": "IN_HOUSE_RESEARCH_AND_STAGED_CONCEPTS",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0002"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [
+          "different providers do not share assumed selectors, effects or entitlements"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -521,6 +736,18 @@
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "chat.lifecycle",
+        "in_house_status": "FUTURE_CAPABILITY_RESEARCH",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -555,6 +782,18 @@
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "file.tools",
+        "in_house_status": "IN_HOUSE_NATIVE_PILOT_PLUS_RESEARCH",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -594,6 +833,21 @@
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "native.paths",
+        "in_house_status": "FUTURE_CAPABILITY_RESEARCH",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "PROVIDER_NATIVE_ACP_MCP_API_CANDIDATES",
+        "applicable_negative_tests": [
+          "same web conversation vs new native session",
+          "entitlement distinct from documentation"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -635,6 +889,23 @@
         ],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "semantic.command.compile",
+        "in_house_status": "FUTURE_CAPABILITY_RESEARCH",
+        "external_methodology_or_test_evidence_ids": [
+          "AX-0003"
+        ],
+        "external_research_status": "SOURCE_REVIEW_CANDIDATES",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [
+          "ambiguous command refuses",
+          "missing required identity remains unresolved"
+        ],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -667,6 +938,18 @@
         "methodology_refs": [],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "evidence.tests",
+        "in_house_status": "IN_HOUSE_BASELINE_AND_CANDIDATE",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     },
     {
@@ -699,6 +982,18 @@
         "methodology_refs": [],
         "protocol_contract_candidates": [],
         "code_reuse_authorized": false
+      },
+      "discovery_classification": {
+        "dev_need_topic": "agents.fabric",
+        "in_house_status": "PARKED",
+        "external_methodology_or_test_evidence_ids": [],
+        "external_research_status": "NO_MATCHING_DELIVERY_YET",
+        "protocol_contract_class": "NONE",
+        "applicable_negative_tests": [],
+        "implementation_owner": "AION_DEVELOPMENT",
+        "leverage_is_optional": true,
+        "adoption_decision": "NOT_SELECTED_FROM_HARVEST",
+        "next_phase": "DISCOVERY_AND_CLASSIFICATION"
       }
     }
   ],
@@ -1205,5 +1500,93 @@
       ]
     },
     "promotion_rule": "No harvest finding, protocol proposal, donor test or research P0 row promotes implementation, executable route, grant or live verification."
+  },
+  "discovery": {
+    "current_phase": "DISCOVERY_AND_CATEGORIZATION",
+    "owner": "AION_DEVELOPMENT",
+    "purpose": "First match AION's present/future engineering needs to truthful in-house state; categorize external findings as methodological/test intelligence or selective protocol-contract research. Do NOT implement, import or rank donor code as a default.",
+    "tracked_at_utc": "2026-10-20",
+    "no_implementation_change": true,
+    "selection_policy": "Categorize coverage and evidence before judging approaches; no automatic adoption or runtime route selection.",
+    "categories": {
+      "in_house": [
+        "IN_HOUSE_BASELINE_AND_CANDIDATE",
+        "IN_HOUSE_CANDIDATE_TO_RECONCILE",
+        "IN_HOUSE_DESIGN_BUILD_PENDING",
+        "IN_HOUSE_LEGACY_REPLACEMENT_PENDING",
+        "IN_HOUSE_NATIVE_PILOT_PLUS_RESEARCH",
+        "IN_HOUSE_RESEARCH_AND_STAGED_CONCEPTS",
+        "FUTURE_CAPABILITY_RESEARCH",
+        "PARKED"
+      ],
+      "external": [
+        "METHOD_PATTERN",
+        "NEGATIVE_TEST_OR_FAILURE_MODE",
+        "SPECIFIC_PROTOCOL_CONTRACT_CANDIDATE",
+        "NO_APPLICABLE_FINDING",
+        "UNASSESSED"
+      ],
+      "evidence": [
+        "UNVERIFIED",
+        "DOC_ONLY",
+        "CODE_INSPECTED",
+        "REPORTED_TEST",
+        "EXECUTED_TEST",
+        "LIVE_ACCEPTED"
+      ]
+    },
+    "inputs": [
+      "REPOSITORY-GOVERNANCE.md",
+      "workspace/aion/ops/chrome-relay/DEVELOPMENT-MASTER.md",
+      "workspace/aion/ops/chrome-relay/harvest/EXCHANGE.jsonl",
+      "workspace/aion/ops/chrome-relay/harvest/external/landing/triage/FIRST-PASS-DEV-HANDOFF.md",
+      "workspace/aion/ops/command-space/CORE-OPERATIONS.csv"
+    ],
+    "gate_policy": "Harvest discovery supports I0/P2/P3/P4 and future R5; no harvest assignment is a blocker. Roadmap remains a reference for mapping needs, not authorization to code during discovery.",
+    "handoff_examples": [
+      {
+        "offer_id": "AX-0016",
+        "classifications": [
+          "METHOD_PATTERN",
+          "NEGATIVE_TEST_OR_FAILURE_MODE"
+        ],
+        "impact_areas": [
+          "DEV-03",
+          "DEV-04",
+          "DEV-05",
+          "DEV-09"
+        ],
+        "status": "SOURCE_OBSERVED_NOT_AION_INTEGRATED",
+        "protocol_adopted": false
+      },
+      {
+        "offer_id": "AX-0017",
+        "classifications": [
+          "METHOD_PATTERN",
+          "NEGATIVE_TEST_OR_FAILURE_MODE"
+        ],
+        "impact_areas": [
+          "DEV-04",
+          "DEV-06",
+          "DEV-07",
+          "DEV-09"
+        ],
+        "status": "SOURCE_OBSERVED_NOT_AION_INTEGRATED",
+        "protocol_adopted": false
+      },
+      {
+        "offer_id": "AX-0018",
+        "classifications": [
+          "METHOD_PATTERN",
+          "NEGATIVE_TEST_OR_FAILURE_MODE"
+        ],
+        "impact_areas": [
+          "DEV-05",
+          "DEV-08"
+        ],
+        "status": "SOURCE_OBSERVED_NOT_AION_INTEGRATED",
+        "protocol_adopted": false
+      }
+    ]
   }
 }
