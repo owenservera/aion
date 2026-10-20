@@ -38,6 +38,17 @@ async function setup(t) {
 async function admit(w,options,nonce='native-options-001',to='opencode') {
   return w.bus.ingestStructured({op:'send',to,text:'hello',nonce,send_options:options});
 }
+test('nullable native model preserves default selection for fresh and reused sessions',async t=>{
+  for(const reuse of [false,true]){
+    const w=await setup(t);
+    if(reuse)w.sessions.get('ses_existing').model=null;
+    else w.client.createSession=async()=>({data:{id:'ses_new',model:null,location:{directory:w.cwd}}});
+    const a=await admit(w,reuse?{session:'ses_existing'}:{});
+    assert.equal((await w.bus.dispatch(a.command_id)).state,'SUBMISSION_OBSERVED');
+    assert.equal(w.calls.filter(c=>c[0]==='prompt').length,1);
+    assert.equal((await w.bus.readCommand(a.command_id)).executor_selection.id,null);
+  }
+});
 test('native HTTP create/catalog/get/prompt contracts omit permission overrides',async()=>{
   const calls=[];
   const client=createOpenCodeHttpClient({baseUrl:'http://127.0.0.1:4096',fetch:async(url,init)=>{

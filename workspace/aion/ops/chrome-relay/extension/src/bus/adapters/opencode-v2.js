@@ -78,7 +78,7 @@ function catalogRows(body) {
 function selectionOf(session) {
   const selection = { agent: session?.agent ?? null, providerID: session?.model?.providerID ?? null,
     id: session?.model?.id ?? null, variant: session?.model?.variant ?? null };
-  if (session?.model !== undefined && !isPlain(session.model)) throw new TypeError('invalid session model');
+  if (session?.model != null && !isPlain(session.model)) throw new TypeError('invalid session model');
   if (Object.values(selection).some(v => v !== null && (typeof v !== 'string' || !v || v.length > 128 || /[\x00-\x1f]/.test(v)))) throw new TypeError('invalid session selection');
   return selection;
 }
@@ -316,7 +316,7 @@ export function createOpenCodeV2Adapter({ client, name = OPENCODE_V2_ADAPTER, ma
           if (actual?.location?.directory !== undefined && !sameSessionDirectory(actual.location.directory, req.grant.cwd)) {
             return { outcome: 'not_sent', reason: REASON.GRANT_SCOPE, detail: 'created session location differs from grant cwd', session_ref: sessionID };
           }
-          if (actual?.model !== undefined && !isPlain(actual.model)) throw new TypeError('invalid created model shape');
+          if (actual?.model != null && !isPlain(actual.model)) throw new TypeError('invalid created model shape');
           if (mismatch(actual)) throw new TypeError('created session settings differ from requested settings');
           if (sessionID && incomplete(actual)) actual = (await nativeRequest(() => client.session({ sessionID })))?.data;
           if (incomplete(actual) || mismatch(actual) || (sessionID && actual?.id !== sessionID)) throw new TypeError('created session settings are not confirmed');
