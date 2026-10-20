@@ -1,0 +1,835 @@
+{
+  "schema": "aion.development.index/1",
+  "purpose": "Top-down development integration join index; not a second capability registry, runtime authority, grant store or Harvest queue.",
+  "captured_utc": "2026-10-20",
+  "authority": {
+    "git": "REPOSITORY-GOVERNANCE.md",
+    "effect": "existing Node Bus/grants",
+    "architecture": "track-b/platform-local-candidate-20261020:workspace/aion/ops/chrome-relay/velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md",
+    "exchange": "workspace/aion/ops/chrome-relay/harvest/EXCHANGE.jsonl",
+    "command_catalog": "workspace/aion/ops/command-space/aion_command_matrix.csv",
+    "proof": "workspace/aion/STATE.json"
+  },
+  "evidence_model": {
+    "status_axes": [
+      "source_state",
+      "integrated_main",
+      "offline_or_live_proof",
+      "adoption"
+    ],
+    "non_equivalences": [
+      "donor source != accepted implementation",
+      "unit tests != live operation",
+      "catalog P0 != capability support",
+      "native API chat != existing web chat",
+      "positive receive != authorization to Send"
+    ],
+    "live_proof_gate": [
+      "I1",
+      "I2",
+      "I3"
+    ]
+  },
+  "inspected": {
+    "main_baseline": "8b5c4c7dc1f902d086c5473c6ea8213fb1d6f6fe",
+    "candidate_branch": "track-b/platform-local-candidate-20261020",
+    "candidate_head": "75d71cd3dcabed720db68ef04dda065a3f0f0ed2",
+    "main_candidate_diff_at_capture": {
+      "candidate_ahead": 208,
+      "candidate_behind": 22
+    },
+    "note": "Refs drift; recompare before merging or changing status"
+  },
+  "areas": [
+    {
+      "id": "DEV-01",
+      "topic": "control.cli",
+      "title": "CLI, commands, role aliases and opt-in context",
+      "status_axes": {
+        "source_state": "CANDIDATE_SOURCE",
+        "offline_or_live_proof": "OFFLINE_REPORTED",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "R0",
+      "source_refs": [
+        "velocity/bin/aion-local.mjs"
+      ],
+      "exchange_ids": [
+        "AX-0005"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-02",
+      "topic": "effects.bus",
+      "title": "Single effect authority, grant, journal and no-resend",
+      "status_axes": {
+        "source_state": "PARTIAL_MAIN_AND_CANDIDATE",
+        "offline_or_live_proof": "OFFLINE_REPORTED",
+        "integrated_main": "PARTIAL",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "R0",
+      "source_refs": [
+        "bus/; extension/src/bus/; velocity/src/local-runtime.mjs"
+      ],
+      "exchange_ids": [
+        "AX-0002"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-03",
+      "topic": "session.bind",
+      "title": "Exact web thread/account/tab binding and scoped authority",
+      "status_axes": {
+        "source_state": "CANDIDATE_SOURCE",
+        "offline_or_live_proof": "OFFLINE_REPORTED",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "I0",
+      "source_refs": [
+        "velocity/src/browser/preflight.mjs"
+      ],
+      "exchange_ids": [
+        "AX-0001"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-04",
+      "topic": "receive.contract",
+      "title": "Event/1 + snapshot/1 shared type validators",
+      "status_axes": {
+        "source_state": "ACCEPTED_DESIGN",
+        "offline_or_live_proof": "NO_IMPLEMENTATION_RECEIPT",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "I0",
+      "source_refs": [
+        "extension/src/lib/conversation-contract.js (proposed)"
+      ],
+      "exchange_ids": [
+        "AX-0001",
+        "AX-0002"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-05",
+      "topic": "receive.browser",
+      "title": "Chrome read-only observer, page epoch and revisions",
+      "status_axes": {
+        "source_state": "ACCEPTED_DESIGN",
+        "offline_or_live_proof": "NO_IMPLEMENTATION_RECEIPT",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "P2",
+      "source_refs": [
+        "extension/src/providers/chatgpt/observer.js (proposed)"
+      ],
+      "exchange_ids": [
+        "AX-0001",
+        "AX-0004",
+        "AX-0006"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-06",
+      "topic": "receive.transport",
+      "title": "Native data-only push hints and scoped read-only snapshots",
+      "status_axes": {
+        "source_state": "ACCEPTED_DESIGN",
+        "offline_or_live_proof": "NO_IMPLEMENTATION_RECEIPT",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "P3",
+      "source_refs": [
+        "velocity/src/native-host/; velocity/src/transport/"
+      ],
+      "exchange_ids": [
+        "AX-0001",
+        "AX-0004"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-07",
+      "topic": "receive.inbox",
+      "title": "Watch-only REPL, live external messages and in-memory text",
+      "status_axes": {
+        "source_state": "ACCEPTED_DESIGN",
+        "offline_or_live_proof": "NO_IMPLEMENTATION_RECEIPT",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "P4",
+      "source_refs": [
+        "velocity/src/conversation/inbox.mjs (proposed)"
+      ],
+      "exchange_ids": [
+        "AX-0001"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-08",
+      "topic": "send.browser",
+      "title": "Exact ChatGPT user turn actuation and checked reply",
+      "status_axes": {
+        "source_state": "LEGACY_ATTEMPT_AND_ACCEPTED_REBUILD",
+        "offline_or_live_proof": "LIVE_EXTENSION_FAILED",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "P6",
+      "source_refs": [
+        "extension/src/providers/chatgpt/actuator.js (proposed)"
+      ],
+      "exchange_ids": [
+        "AX-0004"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-09",
+      "topic": "receive.recover",
+      "title": "Restart, cursor gap, unknown effect and no replay",
+      "status_axes": {
+        "source_state": "ACCEPTED_DESIGN",
+        "offline_or_live_proof": "NO_IMPLEMENTATION_RECEIPT",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "P7",
+      "source_refs": [
+        "velocity/src/conversation/checkpoint.mjs (optional)"
+      ],
+      "exchange_ids": [
+        "AX-0001",
+        "AX-0004"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-10",
+      "topic": "provider.opencode",
+      "title": "OpenCode V2 and ACP native adapter + ConversationSource",
+      "status_axes": {
+        "source_state": "CANDIDATE_SOURCE",
+        "offline_or_live_proof": "NATIVE_LOCAL_REPORTED",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "P5",
+      "source_refs": [
+        "velocity/src/engines/; velocity/src/conversation/opencode-source.mjs (proposed)"
+      ],
+      "exchange_ids": [],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-11",
+      "topic": "machine.windows",
+      "title": "Isolated Chrome dev profile, native host, UIA evaluation, CLI install",
+      "status_axes": {
+        "source_state": "CANDIDATE_SOURCE",
+        "offline_or_live_proof": "WINDOWS_HOST_REPORTED_EXTENSION_UNLOADED",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "I1",
+      "source_refs": [
+        "velocity/src/browser/setup.mjs; velocity/src/native-host/"
+      ],
+      "exchange_ids": [],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-12",
+      "topic": "provider.family",
+      "title": "Webapp provider-family metadata and browser adaptors",
+      "status_axes": {
+        "source_state": "RESEARCH_AND_CANDIDATE_INSPECTION",
+        "offline_or_live_proof": "NO_LIVE_PROOF",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "R5",
+      "source_refs": [
+        "velocity/src/platform/semantics.mjs; harvest/landing/synthesis/"
+      ],
+      "exchange_ids": [
+        "AX-0004"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-13",
+      "topic": "chat.lifecycle",
+      "title": "Create/open/rename/edit/steer/regenerate/stop/model/thinking",
+      "status_axes": {
+        "source_state": "RESEARCH_ONLY",
+        "offline_or_live_proof": "NOT_RESEARCHED_LIVE",
+        "integrated_main": "RESEARCH_ONLY",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "R5",
+      "source_refs": [
+        "../command-space/CORE-OPERATIONS.csv"
+      ],
+      "exchange_ids": [],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-14",
+      "topic": "file.tools",
+      "title": "Attachments, tools/artifacts, native OpenCode files",
+      "status_axes": {
+        "source_state": "NATIVE_CANDIDATE_AND_RESEARCH",
+        "offline_or_live_proof": "NATIVE_LOCAL_REPORTED",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "R5",
+      "source_refs": [
+        "velocity/src/engines/; ../command-space/aion_command_matrix.csv"
+      ],
+      "exchange_ids": [],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-15",
+      "topic": "native.paths",
+      "title": "Provider APIs, ChatGPT Apps/MCP, route fidelity/entitlements",
+      "status_axes": {
+        "source_state": "RESEARCH_ONLY",
+        "offline_or_live_proof": "NOT_RESEARCHED_LIVE",
+        "integrated_main": "RESEARCH_ONLY",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "R5",
+      "source_refs": [
+        "../command-space/ROUTE-ORIGINS.csv; ../command-space/AION-INTEGRATION.md"
+      ],
+      "exchange_ids": [],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-16",
+      "topic": "semantic.command.compile",
+      "title": "NLCL deterministic parser/ground/validate as optional typed frontend",
+      "status_axes": {
+        "source_state": "RESEARCH_ONLY",
+        "offline_or_live_proof": "CODE_INSPECTED_DONOR_ONLY",
+        "integrated_main": "RESEARCH_ONLY",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "R6",
+      "source_refs": [
+        "harvest/landing/sources/vomega/RETENTION-ASSESSMENT.md"
+      ],
+      "exchange_ids": [
+        "AX-0003",
+        "AX-0005"
+      ],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-17",
+      "topic": "evidence.tests",
+      "title": "Source receipts, full selftest, negatives, independent live acceptance",
+      "status_axes": {
+        "source_state": "PARTIAL_MAIN_AND_CANDIDATE",
+        "offline_or_live_proof": "HISTORIC_SNAPSHOT_REPORTS_ONLY",
+        "integrated_main": "PARTIAL",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "R0",
+      "source_refs": [
+        "velocity/test/; extension/test/; bridge/test/; bus/"
+      ],
+      "exchange_ids": [],
+      "approaches": [],
+      "decision_refs": []
+    },
+    {
+      "id": "DEV-18",
+      "topic": "agents.fabric",
+      "title": "Future multi-agent runtime integration and long-term control",
+      "status_axes": {
+        "source_state": "ON_HOLD",
+        "offline_or_live_proof": "NOT_ACTIVE",
+        "integrated_main": "NOT_ASSERTED",
+        "adoption": "NOT_AUTOMATIC"
+      },
+      "roadmap_gate": "PARKED",
+      "source_refs": [
+        "https://github.com/owenservera/aion/pull/35"
+      ],
+      "exchange_ids": [],
+      "approaches": [],
+      "decision_refs": []
+    }
+  ],
+  "integrations": [
+    {
+      "id": "EDGE-01",
+      "from_topic": "control.cli",
+      "to_topic": "effects.bus",
+      "contract": "command admission; grant; immutable op ID",
+      "guardrail": "SINGLE_WRITER",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-02",
+      "from_topic": "effects.bus",
+      "to_topic": "send.browser",
+      "contract": "one deliver and durable outcome; no automatic resend",
+      "guardrail": "SINGLE_EFFECT",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-03",
+      "from_topic": "session.bind",
+      "to_topic": "receive.browser",
+      "contract": "bound conversation -> authorized read",
+      "guardrail": "READ_ONLY",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-04",
+      "from_topic": "receive.browser",
+      "to_topic": "receive.transport",
+      "contract": "bounded untrusted page event -> data only",
+      "guardrail": "DATA_ONLY",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-05",
+      "from_topic": "receive.transport",
+      "to_topic": "receive.inbox",
+      "contract": "pushed hints + read snapshots; gap recovery",
+      "guardrail": "DATA_ONLY",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-06",
+      "from_topic": "send.browser",
+      "to_topic": "receive.browser",
+      "contract": "post-send observed user turn + candidate reply",
+      "guardrail": "CORRELATED_EVIDENCE",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-07",
+      "from_topic": "provider.opencode",
+      "to_topic": "receive.inbox",
+      "contract": "native SSE and snapshot into typed read model",
+      "guardrail": "NATIVE_SESSION_FIDELITY",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-08",
+      "from_topic": "native.paths",
+      "to_topic": "provider.family",
+      "contract": "native research informs design; no auto route",
+      "guardrail": "RESEARCH_ONLY",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-09",
+      "from_topic": "semantic.command.compile",
+      "to_topic": "effects.bus",
+      "contract": "pure typed compiler; Bus alone authorizes",
+      "guardrail": "FUTURE_ONLY",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-10",
+      "from_topic": "machine.windows",
+      "to_topic": "send.browser",
+      "contract": "one selected actuation method on exact target",
+      "guardrail": "ONE_ACTUATOR_PER_ATTEMPT",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-11",
+      "from_topic": "evidence.tests",
+      "to_topic": "effects.bus",
+      "contract": "tests and receipts determine acceptance state",
+      "guardrail": "PROOF_REQUIRED",
+      "implementation": "MIXED_OR_PENDING"
+    },
+    {
+      "id": "EDGE-12",
+      "from_topic": "chat.lifecycle",
+      "to_topic": "provider.family",
+      "contract": "provider-specific capabilities; no inferred support",
+      "guardrail": "RESEARCH_ONLY",
+      "implementation": "MIXED_OR_PENDING"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "DEC-01",
+      "topic": "effects.bus",
+      "status": "ACCEPTED",
+      "choice": "Node Bus is sole effect writer; no second effect queue",
+      "authority": "accepted design 12 M6",
+      "alternatives": [
+        {
+          "approach_id": "BUS-A",
+          "description": "Reuse existing Bus/ledger",
+          "status": "SELECTED"
+        },
+        {
+          "approach_id": "BUS-B",
+          "description": "Introduce parallel agent queue",
+          "status": "REJECTED"
+        }
+      ]
+    },
+    {
+      "id": "DEC-02",
+      "topic": "receive.transport",
+      "status": "ACCEPTED",
+      "choice": "Push data-only hints plus pull authoritative snapshots",
+      "authority": "accepted design 12",
+      "alternatives": [
+        {
+          "approach_id": "RX-A",
+          "description": "Data-only push plus snapshot",
+          "status": "SELECTED"
+        },
+        {
+          "approach_id": "RX-B",
+          "description": "Polling as primary transport",
+          "status": "REJECTED",
+          "note": "Permitted read-only degraded fallback"
+        }
+      ]
+    },
+    {
+      "id": "DEC-03",
+      "topic": "send.browser",
+      "status": "ACCEPTED_WITH_EXPLORE",
+      "choice": "One actuator per authorized effect; evaluate on evidence",
+      "authority": "accepted design 12 M4",
+      "alternatives": [
+        {
+          "approach_id": "TX-A",
+          "description": "Direct DOM Send",
+          "status": "PROPOSED",
+          "evidence": "Needs live positive effect proof"
+        },
+        {
+          "approach_id": "TX-B",
+          "description": "Native UIA",
+          "status": "DEFERRED",
+          "evidence": "Prior isolated UIA Send; not full CLI"
+        },
+        {
+          "approach_id": "TX-C",
+          "description": "Chrome debugger / CDP",
+          "status": "DEFERRED",
+          "evidence": "Research only, not production selection"
+        }
+      ]
+    },
+    {
+      "id": "DEC-04",
+      "topic": "native.paths",
+      "status": "ACCEPTED",
+      "choice": "API session and Apps/MCP ingress never impersonate existing bound chat thread",
+      "authority": "accepted design 12; Command Space route origins",
+      "alternatives": [
+        {
+          "approach_id": "ROUTE-A",
+          "description": "Verified same-web-session adapter",
+          "status": "SELECTED_FOR_MVP"
+        },
+        {
+          "approach_id": "ROUTE-B",
+          "description": "New provider API session as replacement",
+          "status": "REJECTED"
+        }
+      ]
+    },
+    {
+      "id": "DEC-05",
+      "topic": "semantic.command.compile",
+      "status": "DEFERRED",
+      "choice": "Pure semantic compiler optional; never transplant donor CLI/router",
+      "authority": "VOMEGA retention assessment; exchange AX-0003",
+      "alternatives": [
+        {
+          "approach_id": "NLC-A",
+          "description": "Pure parse/ground/validate ahead of Bus",
+          "status": "PROPOSED"
+        },
+        {
+          "approach_id": "NLC-B",
+          "description": "Donor independent router/executor",
+          "status": "REJECTED"
+        }
+      ]
+    },
+    {
+      "id": "DEC-06",
+      "topic": "control.cli",
+      "status": "ACCEPTED",
+      "choice": "Interactive clean text and memory-only transcript; scoped explicit binding",
+      "authority": "accepted design 12 M1–M3",
+      "alternatives": []
+    },
+    {
+      "id": "DEC-07",
+      "topic": "provider.family",
+      "status": "DEFERRED",
+      "choice": "Keep compatible metadata and code contract; no global taxonomy migration",
+      "authority": "issue #38 and accepted design 12",
+      "alternatives": [
+        {
+          "approach_id": "FAM-A",
+          "description": "Additive aliases and provider-family metadata",
+          "status": "PROPOSED"
+        },
+        {
+          "approach_id": "FAM-B",
+          "description": "One-time global Bus migration",
+          "status": "REJECTED_FOR_MVP"
+        }
+      ]
+    },
+    {
+      "id": "DEC-08",
+      "topic": "evidence.tests",
+      "status": "ACCEPTED",
+      "choice": "I0→I1→I2→I3 live proof gates; no snapshot transfer",
+      "authority": "accepted design 12 and repository governance",
+      "alternatives": []
+    },
+    {
+      "id": "DEC-09",
+      "topic": "agents.fabric",
+      "status": "ON_HOLD",
+      "choice": "Agent runtime expansion parked",
+      "authority": "REPOSITORY-GOVERNANCE.md",
+      "alternatives": []
+    }
+  ],
+  "roadmap": [
+    {
+      "id": "R0",
+      "acceptance": "reconcile candidate vs latest main; isolate unique source and actual test run",
+      "depends_on": [],
+      "status": "OPEN",
+      "receipt_refs": []
+    },
+    {
+      "id": "I0",
+      "acceptance": "shared event/1 snapshot/1 typed contract, negative tests, hermetic fixtures",
+      "depends_on": [
+        "R0"
+      ],
+      "status": "OPEN",
+      "receipt_refs": []
+    },
+    {
+      "id": "P2",
+      "acceptance": "Chrome read-only observer",
+      "depends_on": [
+        "I0"
+      ],
+      "status": "OPEN",
+      "receipt_refs": []
+    },
+    {
+      "id": "P3",
+      "acceptance": "data-only host IPC push + snapshot",
+      "depends_on": [
+        "I0"
+      ],
+      "status": "OPEN",
+      "receipt_refs": []
+    },
+    {
+      "id": "P4",
+      "acceptance": "watch-only CLI inbox",
+      "depends_on": [
+        "I0"
+      ],
+      "status": "OPEN",
+      "receipt_refs": []
+    },
+    {
+      "id": "P5",
+      "acceptance": "OpenCode native ConversationSource",
+      "depends_on": [
+        "I0"
+      ],
+      "status": "OPEN",
+      "receipt_refs": []
+    },
+    {
+      "id": "I1",
+      "acceptance": "authorized exact-bound live watch-only incoming message",
+      "depends_on": [
+        "P2",
+        "P3",
+        "P4"
+      ],
+      "status": "UNVERIFIED",
+      "receipt_refs": []
+    },
+    {
+      "id": "P6",
+      "acceptance": "one chosen browser Send and two real correlated turns",
+      "depends_on": [
+        "I1"
+      ],
+      "status": "OPEN",
+      "receipt_refs": []
+    },
+    {
+      "id": "I2",
+      "acceptance": "same bound web conversation two-turn verification",
+      "depends_on": [
+        "P6"
+      ],
+      "status": "UNVERIFIED",
+      "receipt_refs": []
+    },
+    {
+      "id": "P7",
+      "acceptance": "no-replay recovery and checkpoint tests",
+      "depends_on": [
+        "I2"
+      ],
+      "status": "OPEN",
+      "receipt_refs": []
+    },
+    {
+      "id": "I3",
+      "acceptance": "restart/gap/unknown-effect live recovery receipt",
+      "depends_on": [
+        "P7"
+      ],
+      "status": "UNVERIFIED",
+      "receipt_refs": []
+    },
+    {
+      "id": "P8",
+      "acceptance": "retire legacy observers only after full regression proof",
+      "depends_on": [
+        "I3"
+      ],
+      "status": "BLOCKED",
+      "receipt_refs": []
+    },
+    {
+      "id": "R5",
+      "acceptance": "second-provider/session fidelity pilot",
+      "depends_on": [
+        "I3"
+      ],
+      "status": "LATER",
+      "receipt_refs": []
+    },
+    {
+      "id": "R6",
+      "acceptance": "optional semantic and advanced command expansion",
+      "depends_on": [
+        "R5"
+      ],
+      "status": "LATER",
+      "receipt_refs": []
+    }
+  ],
+  "harvest_sources": [
+    {
+      "lane": "omega-vivim",
+      "home": "workspace/aion/ops/chrome-relay/harvest/landing/synthesis/",
+      "exchange_topics": [
+        "receive.identity"
+      ],
+      "detail": "65-record crosswalk; research only"
+    },
+    {
+      "lane": "vomega",
+      "home": "workspace/aion/ops/chrome-relay/harvest/landing/sources/vomega/",
+      "exchange_topics": [
+        "semantic.command.compile"
+      ],
+      "detail": "6 KEEP/5 ADAPT NLCL assessment"
+    },
+    {
+      "lane": "external-nine",
+      "home": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/",
+      "exchange_topics": [
+        "external-nine.capability-ownership",
+        "receive.identity"
+      ],
+      "detail": "9 source snapshots; no verified code-level capability owner"
+    },
+    {
+      "lane": "research",
+      "home": "workspace/aion/ops/command-space/",
+      "exchange_topics": [
+        "native.paths",
+        "chat.lifecycle"
+      ],
+      "detail": "40 operations, 25 routes, 1000 researched mappings; not executable"
+    }
+  ],
+  "extensions": {
+    "area_optional_fields": [
+      "upstream_revision",
+      "file_owner",
+      "tests",
+      "license_risk",
+      "fidelity",
+      "differentiating_value",
+      "selected_approach_id",
+      "decision_refs",
+      "security_impact",
+      "updated_utc"
+    ],
+    "approach_record": {
+      "approach_id": "stable opaque ID",
+      "description": "pattern or implementation route",
+      "origin": "AION|DONOR|PROVIDER_NATIVE|EXPERIMENT",
+      "evidence_refs": [],
+      "tradeoffs": [],
+      "fidelity": "UNKNOWN|SAME_WEB_CONVERSATION|NEW_API_SESSION|LOCAL_RUNTIME",
+      "license_risk": "UNKNOWN",
+      "status": "PROPOSED|EXPERIMENTING|SELECTED|REJECTED|DEFERRED",
+      "decision_ref": null
+    },
+    "permitted_new_areas": true,
+    "require_evidence_for_promotion": true
+  }
+}
