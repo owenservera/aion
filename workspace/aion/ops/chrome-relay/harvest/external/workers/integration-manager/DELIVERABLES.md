@@ -18,6 +18,14 @@ For each selected source: locate exact donor commit/file/function and any requir
 
 **Integration handoff:** put source/patch/dependency evidence in this worker folder under a small `packs/PACK-xx/` folder **only when material exists**; append a concise OFFER or reference the existing AX record in the **one** `harvest/EXCHANGE.jsonl` index. No second request queue, schema, PM system, or compulsory templates.
 
+## Active build assignment — deliver code now (2026-10-20)
+
+**First, PACK-01 / I0: executable staged source, not a recommendation.** Read the accepted contract in `velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md` on PR #46 and source `chatgpt-bridge/src/bridge/observedTurns/observedTurnJournal.js`, `src/bridge/observation/turnEvidence.js`, and their minimal dependencies from the pinned donor snapshot. Stage a **pure, bounded** AION-shaped cursor/journal/observation-classifier module under `packs/PACK-01/`, preserving module licensing. Use AION's declared event/snapshot identity fields; where P1's implementation is missing, expose a small pure adapter boundary **without inventing a second canonical schema**. Correct cursor-ahead-of-latest *even when epoch matches*, retain contiguous ascending replay or emit explicit gap, cap text and mark unknown history honestly. Include short notes with exact AION insertion point `extension/src/lib/conversation-contract.js` and the source tests Development should adapt. **Do not test**, touch authoritative runtime or claim completion without actual code committed.
+
+**Second, PACK-02 / I1: stage usable read-only ChatGPT page helpers.** Adapt `multi-ai-chat/src/content/responseTracking.ts`, the read-side selectors/incomplete-assistant methods from `chatgptDom.ts`, and only the independently useful passive-turn classification from Bridge, into `packs/PACK-02/`. Target AION's eventual `extension/src/providers/chatgpt/{observer,profile}.js`, with exact-bound conversation/page epoch, message key/revision, no false old/empty/remounted assistant, explicit incomplete/unknown and bounded DOM coverage. **Do not import Send controls, click/Enter logic, entire donor routers, private API access, native host runtime or effect Bus**. Native IPC P3/P4 integration belongs to Development.
+
+**Done means:** substantive code files in PACK-01 and PACK-02 with pinned source/attribution, dependencies, AION insertion paths and a brief test/unknown handoff. Commit on current `main` with conflict checks. Do not hold a package for an independent donor verification phase; source-inspected donor functionality is our starting assumption. Report code delivered versus not delivered accurately. Work may proceed in parallel only where edit paths do not collide. **No new queue or general-purpose framework.**
+
 ## Initial packaging order
 
 | Pack | Sources already discovered | AION adaptation to prepare | Guardrail |
