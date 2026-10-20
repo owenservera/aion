@@ -15,13 +15,14 @@
 2. Track B candidate and validation gates: [PR #46](https://github.com/owenservera/aion/pull/46).
 3. External donor snapshots: [nine source directories](external/landing/donors/), imported by [PR #54](https://github.com/owenservera/aion/pull/54) and trimmed by [PR #55](https://github.com/owenservera/aion/pull/55).
 4. External donor canonical catalog: [source manifest](external/sources.json), [reference tables](external/reference/), [triage guide](external/02-REPO-PRIORITIZATION.md) and [evidence protocol](external/03-EVIDENCE-AND-PROMOTION.md), integrated via [PR #57](https://github.com/owenservera/aion/pull/57). Old scaffold [PR #52](https://github.com/owenservera/aion/pull/52) closed as superseded; custody receipts [PR #53](https://github.com/owenservera/aion/pull/53) merged in the external harvest branch.
-5. Crosswalk evidence: [PR #41](https://github.com/owenservera/aion/pull/41) (merged into Track B implementation, not main); source capture branches: [PR #37](https://github.com/owenservera/aion/pull/37), [PR #40](https://github.com/owenservera/aion/pull/40), [PR #42](https://github.com/owenservera/aion/pull/42). These remain distinct research until adoption.
+5. **Harvest research on main:** [Omega, VIVIM Final, VOMEGA source snapshots](landing/sources/) merged via [PR #58](https://github.com/owenservera/aion/pull/58); [65-record crosswalk synthesis](landing/synthesis/) merged via [PR #61](https://github.com/owenservera/aion/pull/61). Old capture PRs #37/#40/#42 are closed as superseded; historical branches preserved. These are research, not adopted runtime code.
+6. **Command Space supporting catalog on main:** [universal command space](../../command-space/) from PRs #47, #59, #60. P0 draft #51 is superseded after all nine files were SHA-verified on main.
 
 ## Working order (owner direction, 2026-10-20)
 
 1. **Build on Track B candidate #46**, using its existing `velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md` for current build order. Keep `main` as the integrated baseline; development priority does not imply live acceptance.
-2. **Use the established Omega / VIVIM corpus now** through `harvest/landing/synthesis/` on Track B. Disposition useful capabilities into the build rather than opening another parallel registry or restarting research.
-3. **Treat the Command Space registry from merged PR #47 and draft expansion #51 as supporting catalog work**, not a competing development lane or a gate ahead of Track B.
+2. **Use the established Omega / VIVIM corpus now** through `harvest/landing/synthesis/` on `main` and Track B. Disposition useful capabilities into the build rather than opening another parallel registry or restarting research.
+3. **Treat the complete P0 Command Space catalog on `main` (PRs #47, #59 and #60) as supporting research**, not a competing development lane or a runtime capability gate.
 4. **Advance the nine-repo harvest only for concrete build needs.** Reuse the snapshots and canonical manifest/reference tables on `main`, with custody records from #53. The superseded clone-first scaffold PR #52 is closed.
 5. **Consolidate accepted changes into `main`, then retire superseded PRs/branches after checking unique work.** Do not merge every stacked PR merely to reduce the open count. Keep local tracking refs synchronized with remote; preserve local-only work until accounted for.
 
