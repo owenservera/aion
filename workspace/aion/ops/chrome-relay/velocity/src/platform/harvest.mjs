@@ -1,7 +1,7 @@
 // AION donor corpus integrity audit, read-only and entirely local.
 // Hash checks prove copied landing bytes match the recorded capture hashes;
 // they DO NOT prove donor runtime functionality or current website behavior.
-import {readFileSync} from 'node:fs';
+import {readFileSync,realpathSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {resolve,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -13,10 +13,14 @@ const idPattern = /^(?:VF-\d{4}|VO-GH-\d{4})$/;
 const sha256 = body => createHash('sha256').update(body).digest('hex');
 
 export function auditHarvestLedger(ledgerText, {
-  repoRoot=root,readCopy=path=>readFileSync(path)
+  repoRoot=root,readCopy=path=>{
+    const actual=realpathSync(path),base=realpathSync(repoRoot);
+    if(!actual.startsWith(base+sep))throw new Error('unsafe source path');
+    return readFileSync(actual);
+  }
 }={}) {
   const issues=[],counts={COPIED_EXCERPT:0,COPIED_MODULE:0,FLAGGED:0};
-  let matching=0,missing=0,mismatched=0,approved=0;
+  let matching=0,lineEndingNormalized=0,missing=0,mismatched=0,approved=0;
   if(typeof ledgerText!=='string'||ledgerText.length>15_000_000) return {
     schema:'aion.platform.harvest-audit/1',ok:false,code:'INVALID_LEDGER',issues:['invalid_ledger']};
   const lines=ledgerText.split(/\r?\n/).filter(Boolean);
@@ -52,6 +56,8 @@ export function auditHarvestLedger(ledgerText, {
       const body=readCopy(absolute);
       const hash=sha256(body);
       if(hash===item.copy_sha256_reported)matching++;
+      else if (sha256(Buffer.from(body.toString('utf8').replace(/\r\n/g,'\n')))
+        ===item.copy_sha256_reported) {matching++;lineEndingNormalized++;}
       else {mismatched++;issues.push(item.id+':hash_mismatch')}
     }catch{missing++;issues.push(item.id+':copy_unreadable')}
   }
@@ -61,7 +67,7 @@ export function auditHarvestLedger(ledgerText, {
   return {schema:'aion.platform.harvest-audit/1',ok,
     code:ok?'LANDING_HASHES_MATCH':'HARVEST_REVIEW_REQUIRED',
     records:seen.size,counts,copied,flagged:counts.FLAGGED,
-    checked_copies:matching+mismatched+missing,matching,missing,mismatched,
+    checked_copies:matching+mismatched+missing,matching,line_ending_normalized:lineEndingNormalized,missing,mismatched,
     research_approval_flags:approved,live_provider_verification:'NOT_ESTABLISHED',
     execution_authority:false,issues:issues.slice(0,80)};
 }
