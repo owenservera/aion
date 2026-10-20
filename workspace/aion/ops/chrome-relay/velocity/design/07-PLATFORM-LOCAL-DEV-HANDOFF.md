@@ -12,7 +12,7 @@
 2. src/platform/inspect.mjs — new local read-only commands: aion platform inspect, aion platform validate, aion platform harvest. They do not launch the Bus, engine, browser or native host.
 3. src/platform/harvest.mjs — audit the 65-record crosswalk ledger and verify **reported landing-copy SHA256** for each of the 53 copied records. This does NOT independently validate donor runtime functionality or original checkout dirty state.
 4. bin/aion-local.mjs, bin/aion.mjs, src/broker/core.mjs — preserve existing commands and add read-only platform introspection. Existing aion capabilities output retains its fields and includes optional additive platform description from currently loaded adapters.
-5. Tests: platform-semantics.test.mjs (14), platform-harvest.test.mjs (8), platform-cli.integration.test.mjs (5). Only the first 22 were executed in isolated Node 22 staging before push; the last 5 and the full current repository suite require checkout testing.
+5. Tests: platform-semantics.test.mjs (15), platform-harvest.test.mjs (8), platform-cli.integration.test.mjs (5). Only the first 23 were executed in isolated Node 22 staging before push; the last 5 and the full current repository suite require checkout testing.
 6. Full Harvest C-004 evidence: 27 Final copied records, 26 Omega copied records, 12 Omega flagged-only records, plus 65-row crosswalk ledger and prioritized integration queue. Earlier 16 reconnaissance findings overlap; do not add them to the count.
 
 **Migration choice for this candidate:** compatible **metadata overlay only**, no persisted Bus/Chrome/agent identity migration and no second authoritative taxonomy. The existing aion.bus/1 ledger/grants/registry, immutable operation IDs, browser journal, CENV Send/Stop evidence requirements and aion.result/1 stay authoritative. Application family and provider realization mode remain independent axes. Reject fail-open rules, post-dispatch automatic resend and selector-ranked ambiguous control activation.
@@ -49,7 +49,7 @@ A detached worktree should get a unique local task branch before changing source
 | Gate | Operator work | Required receipt |
 | --- | --- | --- |
 | L0 — Source and state | Record current HEAD, Windows/Node/Chrome/OpenCode versions, worktree status, exact Track B host/extension identity | SHA + sanitized UTC state |
-| L1 — Platform integrity | Run platform validate/inspect/harvest and focused new tests | Seed inert; 65 ledger records; 53 hash checks; 27 platform tests with exact pass/fail |
+| L1 — Platform integrity | Run platform validate/inspect/harvest and focused new tests | Seed inert; 65 ledger records; 53 hash checks; 28 platform tests with exact pass/fail |
 | L2 — Full offline | Run full current-head aion selftest | All suites and pass/fail/skip counts; do not reuse old 1,082-test receipts |
 | L3 — Native runtime | Read-only connections; actual OpenCode actions only after scoped owner admission | Correlated native readback or UNRUN/BLOCKED |
 | L4 — Chrome read-only | Run preflight browser, confirm B-only dev profile, exact binding, grant and unresolved operations | READY or exact BLOCKED/UNKNOWN; no modification |
