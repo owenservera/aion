@@ -1,67 +1,51 @@
-# External Nine Worker — verified launch SITREP
+# AION External Nine — verified current worker SITREP
 
-**Observed:** 2026-10-20 · **Source:** GitHub remote `owenservera/aion` · **Checked HEAD:** `8ad81dc4a035be1a5297164bd41ce8649320df9a` · **Scope:** static remote inspection only. This is a bootstrap snapshot, **not** a claim that the nine-repo code harvest has been executed.
+**Observation:** 2026-10-20; **source:** GitHub remote `owenservera/aion`, `main`; **observed main before this report:** `77e6f7223ba372ff4cb68b5eaf4c6327dfcb01c6`. **Worker charter:** [DELIVERABLES.md](DELIVERABLES.md) · **work history:** [WORKLOG.md](WORKLOG.md). Remote source inspection/research **only**; not proof of current Windows local workspace or live AION browser behavior.
 
-## Executive state
+## Executive state: nine-repo intelligence has begun delivering to Development
 
-- **Governance:** `main` is the sole permanent integration/development branch. Track A deprecated; Track B is Development workstream, not a permanent parallel track. Windows local workspace remains human-controlled master. Source snapshots/research on `main` are not runtime authorization.
-- **Worker operating contract:** [DELIVERABLES.md](DELIVERABLES.md) now defines seed outcomes and autonomous organization on `main`. [LAUNCH-PROMPT.md](LAUNCH-PROMPT.md) is retained as reference context, not the primary execution prompt.
-- **Source custody:** all **nine donor source directories exist on `main`** under `external/landing/donors/`: `cdpilot`, `cereon-browser-operator`, `chatall`, `chatgpt-bridge`, `chatgpt-web2api`, `chathub`, `council`, `multi-ai-chat`, `parallel-ai`. Exact upstream pinned SHAs and licenses require confirmation against custody records during the worker pass. Existing `sources.json` still contains stale `clone_status=PENDING_NOT_EXECUTED`; **do not mistake this metadata for the actual current directory state**.
-- **Shared contract:** `harvest/EXCHANGE.md` and `harvest/EXCHANGE.jsonl` exist; six seeded JSONL records. The shared exchange is the outward request/delivery interface, **not proof of six completed implementation tasks**.
-- **Prior intelligence:** `harvest/landing/synthesis/integration-queue.md` is C-003 with 27 VIVIM Final + 38 Omega/VIVIM source records and prioritized recommendations. VOMEGA retention assessment is source-observed, with 6 KEEP + 5 ADAPT NLCL module candidates, **not drop-in or live-validated**.
-- **Nine-repo status:** source snapshots available; full cross-repo role allocation, approach comparison, code-level evidence cards and Development-ready offers **not independently verified complete**. The worker must inspect rather than presume.
-- **Current open PRs at observation:** #33 (Track B velocity), #34 (Track B local engines), #35 (Agent Fabric, on hold), #46 (Track B candidate). #46 is **draft**, head `track-b/platform-local-candidate-20261020`, base `track-b/implementation-rounds-20261019`, head SHA `75d71cd3dcabed720db68ef04dda065a3f0f0ed2`. These historical branch relationships are not an instruction to develop on those branches.
-- **Runtime state caution:** `workspace/aion/STATE.json` is dated **2026-10-19**, contains historical local Windows test/authorization claims and a source freeze. Do not infer today's Windows status or change runtime based on it; current owner scope for this worker is **research and delivery, not agent runtime implementation**.
+- **Governance:** one `main`, Track A deprecated; Development (former Track B) owns runtime, Harvest supplies evidence and research. No new permanent branch, registry, host grant, runner or agent fabric work.
+- **Donor custody:** 9/9 source directories exist on `main`, 2,484 pinned tracked files per merged [PR #54](https://github.com/owenservera/aion/pull/54); original pinned SHAs/licenses per merged [PR #53](https://github.com/owenservera/aion/pull/53). Previously stale `external/sources.json` now explicitly records imported SHA and license for all 9; sources not re-cloned.
+- **Inspection:** 9/9 source root trees plus representative code paths and selected unit tests inspected; **not** all files exhaustively reviewed, no test executed. [Nine donor source roles](../../landing/triage/REPO-ROLES.csv) and [Development first-pass handoff](../../landing/triage/FIRST-PASS-DEV-HANDOFF.md) now exist in the established `external/landing/triage/` folder.
+- **Development requests:** `harvest/EXCHANGE.jsonl` now **18** schema-valid entries (15 pre-existing, 3 source-backed new OFFERs). All original records preserved; AX-0004 and AX-0006 advanced to **INVESTIGATING**, *not CLOSED/ACCEPTED*.
+- **New deliveries:** AX-0016 `receive.identity` — Bridge passive turn journal and multi-source alternatives; AX-0017 `receive.transport` — epoch/cursor/SSE comparison and replay omission hazard; AX-0018 `send.correlation` — matching-user-turn negative checks and unsafe Send fallback boundaries. Each has source paths, options, risks, acceptance, and next Development action.
+- **Worker-owned deliverables:** D1..D7 seed objectives refined into source-backed I0/I1/I2 deliveries in [DELIVERABLES.md](DELIVERABLES.md). No redundant PM system. Shared schema already supported optional multiple `candidate_approaches`, so **no schema rewrite required**.
 
-## Immediate Development exchange (verified seeded entries)
+## Highest value Development action now
 
-| ID | Kind | Topic | Current meaning |
+| Rank | Need | Supply today | What remains Development's job |
 |---|---|---|---|
-| AX-0001 | NEED · P0 | `receive.identity` | Reliable two-way conversation/message/operation identity, cursor/gap handling |
-| AX-0002 | OFFER · P1 | `receive.identity` | Existing Omega/VIVIM identity and evidence vocabulary, research only |
-| AX-0003 | OFFER · P1 | `semantic.command.compile` | VOMEGA deterministic NLCL parser/validator candidate, research only |
-| AX-0004 | NEED · P0 | `external-nine.capability-ownership` | First-pass nine-donor capability ownership/deduplication |
-| AX-0005 | NEED · P2 | `semantic.command.compile` | Future typed, authorized semantic CLI |
-| AX-0006 | GAP · P0 | `receive.identity` | External donor primary receive implementation still unverified |
+| **1 · I0** | `receive.contract` AX-0007: typed event/1, snapshot/1, bound identity, completeness | Bridge journal / terminal evidence, multi-ai-chat late-turn guards, AX-0016/0017 | Implement AION-owned validators and fail-closed negative fixtures (no donor runtime transplant) |
+| **2 · I1** | `receive.transport` AX-0008: read-only watcher and push/snapshot | Bridge epoch:sequence reset/gap/SSE semantics as research pattern, AX-0017 | Prove AION native IPC + authoritative snapshot and zero Bus effect reachability from incoming text |
+| **3 · I2 later** | `send.correlation` AX-0009 | Multi-ai-chat confirmation helpers, backend-anchor comparison, AX-0018 | After I1: select exactly one authorized actuator, independently observe user + assistant turn and no unknown-effect retry |
+| **4 · post-I1** | `provider.family`, `file.tools`, `chat.lifecycle` | Multi-ai-chat, parallel-ai, Council, generic CDP donor roles | Schedule bounded provider/lifecycle experiments only after ChatGPT I1–I3 gates |
 
-**Worker first response should advance AX-0004 and AX-0006**, then surface any missing proposed Development needs and real alternative approaches under canonical topics.
+## Source-backed decisions and approach alternatives (NOT architecture acceptance)
 
-## What is already integrated — do not repeat
+- **Receive cursor and passive observations:** `chatgpt-bridge` provisional research primary, MIT, upstream `0ffdae90239988f253058c05253226152acd55d2`; code: `src/bridge/observedTurns/observedTurnJournal.js`, `src/bridge/coordinator/passiveObservationRouter.js`, `src/bridge/observation/turnEvidence.js`, `src/http/observedTurnStream.js`.
+- **Same-turn correlation alternative:** `chatgpt-web2api` MIT `497527dceabfa3f95961e23c291e618c5570f1ac`, `src/chatgpt_web2api/turn_anchor.py`; captured user message ID and `end_turn` checks; private/backend fidelity makes it a **research-only alternative**, not approved Send/receive runtime.
+- **DOM and provider family:** `multi-ai-chat` MIT `cdcf6a7fb05609b219fd85395a116f26476a7f92`, `responseTracking.ts` / `sendConfirmation.ts`, plus per-provider content modules. Complement: `parallel-ai` for attachments, Council for simple config. Auto-submit/Enter fallbacks remain unsafe.
+- **Generic diagnostics:** `cdpilot` CDP CLI and `cereon-browser-operator` MV3 debugger fanout are different tooling patterns; neither supplies exact web conversation identity or permission to create a second actuator.
+- **Explicit limits:** ChatHub is GPL-3.0 and its provider-private route is unsuitable for copy without review; ChatALL browser/API integration ≠ existing provider-side web conversation; lifecycle, model, thinking and attachments remain research-only until independently demonstrated.
 
-- External nine donor source snapshots merged via PR #54; selected source/catalog documentation via #57.
-- Omega, VIVIM Final and VOMEGA research source trees merged via #58.
-- Command Space P0 additions and updated matrix/guides merged via #47, #59 and #60.
-- Existing synthesis/crosswalk merged via #61.
-- Governance and shared exchange established on `main`.
-- Prior source captures, old branches and draft PRs are **historical provenance**. No re-clone, re-import, new parallel branch program, duplicate registry or reharvest of the 65-row crosswalk.
+## New hazard discovered — P0-negative-test candidate
 
-## Risks and precedence corrections discovered during bootstrap
+Bridge `ObservedTurnJournal.list({afterSequence,limit})` selects `filter(...).slice(-safeLimit)`, so if the retained unseen window exceeds requested limit, it **can skip the earlier retained events** without producing a gap; the SSE replay invokes this method. `classifyCursor` also rejects ahead-of-stream sequence only when the epoch is empty. These are **code-inspected possible correctness defects**, not runtime-confirmed bugs. First AION test cases: 150 unseen retained messages + limit 100 (must refuse or page contiguously); same-epoch cursor ahead of latest (must not appear fully recovered). Details: [handoff](../../landing/triage/FIRST-PASS-DEV-HANDOFF.md) and AX-0017.
 
-1. `external/02-REPO-PRIORITIZATION.md` still references the old `harvest/external-browser-donors-20261020` scaffold branch, a Worker 1 custody prerequisite, and a new triage PR to that branch. **Superseded** by `REPOSITORY-GOVERNANCE.md`, `external/DELIVERY.md`, and the saved worker charter: work from current `main`, preserve unique evidence, commit/reconcile to `main`.
-2. `external/03-EVIDENCE-AND-PROMOTION.md` says one primary donor/one capability. Interpret as **primary research owner and deduplication default**, not prohibition on multiple valid implementations; compare meaningful competing/complementary approaches.
-3. `external/sources.json` is an older planning manifest; verify current donor directories and actual pinned revisions from Git evidence before updating stale custody fields.
-4. `STATE.json` reflects a prior runtime snapshot, not a fresh test result. Keep runtime implementation and agent fabric on hold under the owner's current instruction.
-5. `EXCHANGE.jsonl` offers marked `SOURCE_OBSERVED` represent cited research, not live AION acceptance. Proposed Development needs must remain explicitly proposed.
+## Verified Git writes and custody
 
-## Launch readiness and boundaries
+1. `49768fc` triage handoff; `ca140de` structured 9-role CSV.
+2. `f96e9de` initial AX-0016–18 OFFERs + AX-0004/6 progress; `89c5d23` updated AX-0017 with replay hazard.
+3. `1f83109` reconciled pinned donor custody `sources.json`.
+4. `ccfa63a` added explicit replay counterexample to triage; `7c4e7ae` new worker worklog; `77e6f72` self-prioritized deliverables.
 
-**Ready:** prompt, source directories, existing crosswalk, VOMEGA assessment, common exchange, repo policy and source-research protocols.
+The verification pass fetched the remote exchange and checked **18 parseable records / required fields present**, **9 structured role rows**, **9 manifest entries with 40-character upstream SHA**, worklog existence and the risk addition to AX-0017. Commits were returned by GitHub write operations. No local Windows sync, offline tests or live test receipts.
 
-**Pending:** full nine-donor source-level sweep; module/approach ownership map; comparative engineering evidence; licenses/compatibility assessment; gap analysis; first Development OFFER/GAP/proposed NEED delivery; evidence-driven exchange extension; deep-harvest prioritization.
+## Open items / resumption
 
-**Verification limits:** GitHub file/PR metadata checked; no local Windows checkout inspection, donor execution, offline tests or live browser tests performed during this SITREP.
+- **AX-0004 remains open:** nine donor role survey is delivered; all 19 current Command Space P0 commands still need systematic nine-donor MATCH/PARTIAL/UNKNOWN/NOT_APPLICABLE mapping, selectively where worthwhile for Development.
+- **AX-0006 remains open:** no donor has shown an integrated AION event/1 + snapshot/1 identity and real thread proof; Bridge is a provisional *research owner*, not accepted implementation.
+- **Next three:** (1) Development consume AX-0016/17 and run I0 synthetic negative fixture designs; (2) External Nine fill high-impact P0 command rubric gaps, inspect additional source only when needed for a bounded Development decision; (3) after I1, prepare I2 Send correlation acceptance/no-resend evidence.
+- **Safety:** no host effects, no source execution, no Playwright/Puppeteer, no cookies/credentials/private transcript publication, no donor runtime or Agent Fabric promotion.
 
-## Source-of-truth pointers
-
-- [Seed deliverables — primary worker entry](DELIVERABLES.md)
-- [Historical detailed charter](LAUNCH-PROMPT.md)
-- [Worker bootstrap](BOOTSTRAP.md)
-- [Repository governance](../../../../../../../../REPOSITORY-GOVERNANCE.md)
-- [Shared exchange contract](../../../EXCHANGE.md) and [records](../../../EXCHANGE.jsonl)
-- [External lane delivery](../../DELIVERY.md)
-- [External prioritization](../../02-REPO-PRIORITIZATION.md)
-- [Source manifest](../../sources.json)
-- [Existing integration queue](../../../landing/synthesis/integration-queue.md)
-- [VOMEGA retention assessment](../../../landing/sources/vomega/RETENTION-ASSESSMENT.md)
-
-**Next:** read [DELIVERABLES.md](DELIVERABLES.md) and [BOOTSTRAP.md](BOOTSTRAP.md), self-organize the first useful deliverable, then execute and report evidence.
+**Worker resume:** reread live `main` then [DELIVERABLES](DELIVERABLES.md), [WORKLOG](WORKLOG.md), `harvest/EXCHANGE.jsonl`, current Development Master and triage; compare against this observation before adding/updating an offer.
