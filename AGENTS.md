@@ -1,6 +1,6 @@
 # AGENTS.md — read this first (ChatGPT, Claude, local Windows agents)
 
-You are working on AION. Current operating model: **Windows-driven development**. The owner's Windows machine is the master; local agents run code there; ChatGPT (AION role) and Claude collaborate through this repo. Decision: `workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md`.
+**Updated 2026-10-20 precedence:** [REPOSITORY-GOVERNANCE.md](REPOSITORY-GOVERNANCE.md) governs main-only development and the Dev/Harvest/Research workstreams. Track B source may be authored via GitHub, but the **owner's Windows local machine remains master for actual runtime/live execution and acceptance**. Start with [Development Master](workspace/aion/ops/chrome-relay/DEVELOPMENT-MASTER.md) and [shared exchange](workspace/aion/ops/chrome-relay/harvest/EXCHANGE.md); the accepted bidirectional CLI technical design is file 12 under the draft Track B PR #46. The older [2026-10-17 Windows-driven decision](workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md) remains historical machine execution context, not a standing source-authoring freeze. Existing safety, grants, unknown-effect locks and independent live proof rules below remain unchanged.
 
 ## Read order (about 5 minutes)
 1. `workspace/aion/STATE.json` — current snapshot. Check `live_execution_authorized` and `m1_verified` before acting.
