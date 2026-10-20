@@ -1,5 +1,8 @@
 # AION Track B — parallel chat launch prompts (2026-10-20)
 
+> **OWNER OVERRIDE (2026-10-20): Chat A MUST follow [issue #43's clean-rebuild direction](https://github.com/owenservera/aion/issues/43), which supersedes the CENV repair-first instructions below. Preserve the existing Bus/grants/CLI envelope, but build a small fresh Chrome provider vertical slice rather than debugging/refactoring legacy Chrome internals sequentially. Keep B/C ownership unchanged. The desired result is local testability, not exhaustive legacy restoration.
+
+
 These are **three parallel lanes inside the existing Track B project**, not new versions of AION. Each starts from the same **integrated source baseline**: owenservera/aion branch track-b/platform-local-candidate-20261020. Each operates in its own branch/worktree and opens a PR back **to that candidate branch**, not directly to main. The owner's Windows master stays authoritative; no GitHub issue/comment automatically wakes an agent. Never claim live tests without exact receipts.
 
 ## CHAT A — Current Chrome CENV repair | GitHub #43
