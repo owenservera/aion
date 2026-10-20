@@ -49,3 +49,27 @@ Pinned remote inputs change the evidence base: final@8a798f91d52574cb3d7db579da5
 | OMEGA-01..08 (local reconnaissance) vs VO-GH-0001..0027 (remote) | **DIFFERENT CITATION ROOTS**; mapping UNKNOWN | Local paths absent from remote GitHub tree; no exact-content comparison possible. Do not consolidate by similar terms alone |
 
 **Crosswalk duplicate result:** 0 verified exact cross-repository duplicate modules, 0 verified ancestry links, 0 cross-repo independent runtime confirmations. Confirmed *same final-repo owning-file* groupings (3) and Omega facade/consumer relationships (2+), at pinned remote revisions. Exact excerpt hashes and common source file hashes are evidence of file/scoped copy provenance, not of branch ancestry. If further donor batches include the local directory trees, require their own source commit and dirty state before linking.
+
+## C-003 — final candidate overlap / divergence ledger
+Final: `owenservera/vivim-final@8a798f91d52574cb3d7db579da516bc1c4aee7b7`, capture branch head `4454f9b913b4e3e5baeb8671daab127ca36030b3`, 27/27 `VF-0001..0027` COPIED_EXCERPT. Omega: `owenservera/vivim-omega@79ee558d6c7ea77c20f220db2341adaa57b11d44`, capture branch head `556aaaace61b3321c68c56bed1a8f7f96d697b8c`, 38 `VO-GH-0001..0038`, 26 copied, 12 flagged. No donor runtime tests or current-browser verification.
+
+| Evidence relationship | Classification and caution |
+|---|---|
+| VF-0006/0007/0026 | **Same Final owning capability-resolution.ts:** contract, filter, malformed-rule **fail-open implementation**. Do not count as three confirmations of safe resolution |
+| VF-0008/0009 | **Same Final unified-registry.ts:** registry schema vs exported implementation; basic validation does not establish grants |
+| VF-0016/0024 | **Implementation plus test expecting its unsafe resend**: the test corroborates intended behavior, *not* safe idempotency |
+| VF-0013/0027 vs older OMEGA-01 local findings | Session transition vs audit concepts; remote Omega is a different citation root |
+| VF-0014/0017 vs VO-GH-0032 | Observation event/timing vs causal fixture trace; concept overlap not duplicate |
+| VF-0015/0023 vs VO-GH-0010/0036 | Message and conversation identity vs storage; different operational scopes |
+| VF-0010/0025 | **Competing versions of Final provider plugin interface**, canonical registration unresolved; track as true internal divergence |
+| VF-0003/0004 vs VO-GH-0030/0033 | Heuristic shape/discovery concepts with independent source owner, not proven shared code or safe auto-control ranking |
+| VF-0020/0021 vs VO-GH-0002/0007/0028/0029 | Extension/feature declarations vs realization/proof lifecycle; adjacent but different readiness meanings |
+| VF-0026 vs VO-GH-0031 | Two **different fail-open/default-risk hazards**; not duplicate implementation, both reject for authority-bearing action |
+| VF-0011/0018 vs VO-GH-0005/0009/0035 | Typed command/confirmation and shared routed name resolution; complementary layers |
+| VO-GH-0018 and VO-GH-0028/0029 | Flagged top-level verification owner plus copied evaluator/policy *submodules*; do not treat the flag as a third read |
+| VO-GH-0020 and VO-GH-0030/0031 | Flagged mapping entrypoint plus captured solver/blueprint; entrypoint still unread |
+| VO-GH-0019 and VO-GH-0032; VO-GH-0021 and VO-GH-0033 | Flagged entrypoints vs captured pure helpers; partial coverage only |
+| VO-GH-0016 vs VO-GH-0038 | Flagged browser owning module vs excerpt of four-gate fixture Send: **not** a full module read |
+| VO-GH-0012/0013/0014/0034/0038 | One Omega browser-email **fixture** family with manifest/design/parser/implementation; do not count as five independent live browsers |
+
+**Exact cross-repo byte-equality / common ancestry still unproven.** Each source has its own pinned GitHub revision; earlier local Omega Core/BCP-dev/FullTest findings remain separate. Similar vocabulary and repeated modules do not establish independent proof.
