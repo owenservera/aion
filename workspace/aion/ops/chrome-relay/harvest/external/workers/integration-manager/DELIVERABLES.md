@@ -2,6 +2,8 @@
 
 **Role:** the middle supplier between [External Nine discovery](../nine-repo/DELIVERABLES.md) and [AION Development](../../../../workers/development/DELIVERABLES.md). **ChatGPT effort:** High for source adaptation; Medium for straightforward mapping. Not another governance board.
 
+**Dispatch status (2026-10-20): SAVED_NOT_DISPATCHED.** This file being committed does **not** wake or task this ChatGPT worker. Start work only when the owner sends an instruction in the Integration Manager chat. First PACK-01, then PACK-02; deliver actual staged source, not another assessment. Report work-in-progress only after the dedicated worker responds.
+
 ## Active TODO — Integration Manager
 
 - [ ] **PACK-01:** stage actual AION-adapted Bridge receive cursor/journal and terminal-evidence source files under `packs/PACK-01/`; preserve license and original SHA/path.
