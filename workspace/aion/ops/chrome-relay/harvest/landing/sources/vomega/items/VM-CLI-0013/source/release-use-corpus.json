@@ -1,0 +1,53 @@
+{
+  "corpusVersion": 0,
+  "status": "SEED — red baseline recorded 2026-10-05 against nlcl-pure 0.1.0 (roadmap task CMD-02). Not a frozen command schema.",
+  "purpose": "Determinism corpus for the first-release USE command system (seed-docs/FIRST-PRODUCT-RELEASE-DESIGN.md §16). Each case records the release expectation and the observed baseline. baseline=fail cases run as test.failing: when an adaptation task makes one pass, the suite errors until the case is promoted to baseline=pass.",
+  "candidateFrames": [
+    {
+      "note": "Test-local CANDIDATE frame for prompt.send@1. Frames are compiled constants in nlcl-pure today; CMD-03 replaces this injection with capability-contributed language data.",
+      "op": "prompt.send@1",
+      "verbs": ["ask", "send", "use", "have", "prompt", "tell"],
+      "title": "send a prompt",
+      "family": "/",
+      "slots": [
+        { "role": "prompt", "kind": "content", "patient": true, "required": true, "payloadKey": "prompt" },
+        { "role": "account", "kind": "entity", "entityTypes": ["account"], "preps": ["to", "using", "with", "on", "via"], "required": true, "payloadKey": "accountId", "family": "@" }
+      ],
+      "reading": "Send {prompt} using {account}",
+      "examples": ["send 'why did this test fail?' to work Claude"]
+    }
+  ],
+  "worlds": {
+    "three-accounts": {
+      "ops": [{ "op": "prompt.send@1", "risk": "EXTERNAL_MUTATION", "provider": "provider.webapp", "title": "send a prompt" }],
+      "entities": [
+        { "id": "account:claude-work", "type": "account", "label": "Claude · work", "names": ["claude work", "work claude", "claude"] },
+        { "id": "account:claude-personal", "type": "account", "label": "Claude · personal", "names": ["claude personal", "personal claude", "claude"] },
+        { "id": "account:chatgpt-personal", "type": "account", "label": "ChatGPT · personal", "names": ["chatgpt", "chatgpt personal"] }
+      ]
+    },
+    "three-accounts-personal-prior": {
+      "extends": "three-accounts",
+      "priors": { "v": 1, "entities": [{ "entityId": "account:claude-personal", "type": "account", "uses": 50, "lastUsedAt": 1, "score": 0.99 }] }
+    }
+  },
+  "cases": [
+    { "id": "P1", "category": "paraphrase-equivalence", "world": "three-accounts", "input": "ask work Claude 'review this'", "expect": { "op": "prompt.send@1", "account": "account:claude-work", "prompt": "review this" }, "baseline": "fail", "observed": "captured by surface.assist recognizer (verb 'ask')", "task": "CMD-04" },
+    { "id": "P2", "category": "paraphrase-equivalence", "world": "three-accounts", "input": "send 'review this' to work Claude", "expect": { "op": "prompt.send@1", "account": "account:claude-work", "prompt": "review this" }, "baseline": "pass" },
+    { "id": "P3", "category": "paraphrase-equivalence", "world": "three-accounts", "input": "use work Claude for 'review this'", "expect": { "op": "prompt.send@1", "account": "account:claude-work", "prompt": "review this" }, "baseline": "fail", "observed": "addressee consumed as prompt patient; account unresolved", "task": "CMD-04" },
+    { "id": "P4", "category": "paraphrase-equivalence", "world": "three-accounts", "input": "have work Claude answer 'review this'", "expect": { "op": "prompt.send@1", "account": "account:claude-work", "prompt": "review this" }, "baseline": "fail", "observed": "addressee consumed as prompt patient; account unresolved", "task": "CMD-04" },
+    { "id": "P5", "category": "paraphrase-equivalence", "world": "three-accounts", "input": "ask chatgpt 'what does this error mean'", "expect": { "op": "prompt.send@1", "account": "account:chatgpt-personal", "prompt": "what does this error mean" }, "baseline": "fail", "observed": "captured by surface.assist recognizer", "task": "CMD-04" },
+    { "id": "E1", "category": "explicit-target-precedence", "world": "three-accounts-personal-prior", "input": "send 'review this' to work claude", "expect": { "op": "prompt.send@1", "account": "account:claude-work" }, "baseline": "pass" },
+    { "id": "E2", "category": "explicit-target-precedence", "world": "three-accounts", "input": "send 'x' to claude personal", "expect": { "op": "prompt.send@1", "account": "account:claude-personal" }, "baseline": "pass" },
+    { "id": "A1", "category": "ambiguity-preservation", "world": "three-accounts", "input": "send 'review this' to claude", "expect": { "status": "ambiguous", "alternativesInclude": ["account:claude-work", "account:claude-personal"] }, "baseline": "pass" },
+    { "id": "A2", "category": "ambiguity-preservation", "world": "three-accounts-personal-prior", "input": "send 'review this' to claude", "expect": { "status": "ambiguous", "alternativesInclude": ["account:claude-work", "account:claude-personal"] }, "baseline": "pass", "observed": "priors rank but do not decide — ambiguity preserved" },
+    { "id": "U1", "category": "unknown-capability", "world": "three-accounts", "input": "send 'x' to Gemini", "expect": { "account": null, "d1StateNot": ["ready"] }, "baseline": "pass", "observed": "nlcl still reports status 'ok' with the required account slot unresolved (\"gemini\" grounded to nothing) — that nlcl defect is CMD-06's, unfixed. D1-005's validator recomputes satisfiability from the declaration, so the corpus now asserts the D1 READY law (d1StateNot) instead of nlcl's status.", "task": "CMD-06" },
+    { "id": "U2", "category": "unknown-capability", "world": "three-accounts", "input": "summarize this with Gemini", "expect": { "op": null }, "baseline": "pass" },
+    { "id": "S1", "category": "authority-separation", "world": "three-accounts", "input": "send 'x' to work claude", "expect": { "op": "prompt.send@1", "effectGate": "consent" }, "baseline": "pass", "observed": "interpretation projects a consent gate; it grants nothing" },
+    { "id": "R1", "category": "replay", "world": "three-accounts", "input": "send 'review this' to claude", "expect": { "deterministic": true }, "baseline": "pass" },
+    { "id": "O1", "category": "orientation", "world": "three-accounts", "input": "what accounts do I have?", "expect": { "opNot": "prompt.send@1", "statusNot": ["unknown"] }, "baseline": "fail", "observed": "verb collision: 'have' selects prompt.send", "task": "CMD-07" },
+    { "id": "O2", "category": "orientation", "world": "three-accounts", "input": "what can I do?", "expect": { "statusNot": ["unknown"] }, "baseline": "fail", "observed": "only 'what can you do' is a help phrase", "task": "HLP-03" },
+    { "id": "G1", "category": "registration", "world": "three-accounts", "input": "add my ChatGPT account", "expect": { "opNot": "prompt.send@1", "statusNot": ["unknown"] }, "baseline": "fail", "observed": "no registration family exists", "task": "CMD-07" },
+    { "id": "H1", "category": "help", "world": "three-accounts", "input": "help", "expect": { "op": "surface.help" }, "baseline": "pass" }
+  ]
+}
