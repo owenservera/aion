@@ -62,3 +62,9 @@ test('platform harvest CLI is read-only, does not load the semantic seed or Bus'
   assert.equal(lines[0].schema,'aion.platform.harvest-audit/1');
   assert.equal(lines[0].matching,1);
 });
+
+test('Windows CRLF checkout normalization is explicit, not false source corruption',()=>{
+  const r=probe(ledger(copied()),{readCopy:()=>Buffer.from('controlled donor excerpt\r\n')});
+  assert.equal(r.ok,true);assert.equal(r.matching,1);
+  assert.equal(r.line_ending_normalized,1);
+});
