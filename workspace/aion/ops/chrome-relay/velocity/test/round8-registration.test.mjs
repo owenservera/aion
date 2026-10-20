@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,readFileSync,existsSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {parseRegistryValue,queryDevRegistration,verifyOwnedRegistration} from '../src/browser/registration.mjs';
@@ -72,4 +72,59 @@ test('unrecognized registration query is an error, not a safe overwrite',()=>{
  const plan=planBrowserSetup({stateDir:join(tmp(),'owner'),platform:'win32'});
  const run=(_program,args)=>args.includes('/ve')?{status:0,stdout:'unrecognized value'}:{status:0};
  assert.throws(()=>queryDevRegistration(plan,{run}),{code:'REGISTRY_QUERY_UNREADABLE'});
+});
+
+// --- file registration (Linux/macOS): the registered artifact is a COPY of
+// the owned source manifest, so BOTH files must be exactly our dev manifest.
+function filePlan(){
+ const root=tmp();
+ return planBrowserSetup({stateDir:join(root,'owner'),platform:'linux',
+   userHostDir:join(root,'NativeMessagingHosts')});
+}
+test('an owned file registration may be re-applied and uninstalled',()=>{
+ const plan=filePlan();
+ const first=applyBrowserSetup(plan);
+ assert.equal(verifyOwnedRegistration(plan,{expectedId:first.extension_id}).owned,true);
+ assert.equal(applyBrowserSetup(plan).extension_id,first.extension_id,'re-apply keeps the identity');
+ const registered=JSON.parse(readFileSync(plan.registration.path,'utf8'));
+ const source=JSON.parse(readFileSync(plan.hostManifest,'utf8'));
+ assert.deepEqual(registered,source,'the installed copy is the owned source manifest');
+ const removed=uninstallBrowserSetup(plan);
+ assert.equal(existsSync(plan.registration.path),false);
+ assert.equal(removed.track_a_touched,false);
+ assert.equal(existsSync(plan.keyPath),true,'dev key kept so the ID stays stable');
+});
+test('a foreign file registration is never overwritten',()=>{
+ const plan=filePlan();
+ mkdirSync(join(plan.registration.path,'..'),{recursive:true});
+ const foreign={name:'com.aion.relay.dev',type:'stdio',path:'/opt/somebody-else/host',
+   allowed_origins:['chrome-extension://'+('d'.repeat(32))+'/']};
+ writeFileSync(plan.registration.path,JSON.stringify(foreign));
+ assert.throws(()=>applyBrowserSetup(plan),{code:'FOREIGN_DEV_REGISTRATION'});
+ assert.deepEqual(JSON.parse(readFileSync(plan.registration.path,'utf8')),foreign,'foreign file untouched');
+ assert.equal(existsSync(plan.hostManifest),false,'no owned manifest was written');
+ assert.equal(existsSync(plan.extensionDir),false,'nothing was installed');
+});
+test('a tampered registered copy is refused even when the owned source is intact',()=>{
+ const plan=filePlan();
+ const first=applyBrowserSetup(plan);
+ const registered=JSON.parse(readFileSync(plan.registration.path,'utf8'));
+ registered.allowed_origins=['chrome-extension://'+('c'.repeat(32))+'/'];
+ writeFileSync(plan.registration.path,JSON.stringify(registered));
+ assert.throws(()=>verifyOwnedRegistration(plan,{expectedId:first.extension_id}),{code:'FOREIGN_DEV_REGISTRATION'});
+ assert.throws(()=>applyBrowserSetup(plan),{code:'FOREIGN_DEV_REGISTRATION'});
+ assert.throws(()=>uninstallBrowserSetup(plan),{code:'FOREIGN_DEV_REGISTRATION'});
+ assert.deepEqual(JSON.parse(readFileSync(plan.registration.path,'utf8')),registered,'forged copy not rewritten');
+});
+test('a tampered owned source manifest is refused even when the registered copy is intact',()=>{
+ const plan=filePlan();
+ const first=applyBrowserSetup(plan);
+ const source=JSON.parse(readFileSync(plan.hostManifest,'utf8'));
+ source.allowed_origins=['chrome-extension://'+('e'.repeat(32))+'/'];
+ writeFileSync(plan.hostManifest,JSON.stringify(source));
+ assert.throws(()=>verifyOwnedRegistration(plan,{expectedId:first.extension_id}),{code:'FOREIGN_DEV_REGISTRATION'});
+ assert.throws(()=>applyBrowserSetup(plan),{code:'FOREIGN_DEV_REGISTRATION'});
+ assert.throws(()=>uninstallBrowserSetup(plan),{code:'FOREIGN_DEV_REGISTRATION'});
+ assert.equal(JSON.parse(readFileSync(plan.registration.path,'utf8')).allowed_origins[0],
+   `chrome-extension://${first.extension_id}/`,'registered copy untouched');
 });

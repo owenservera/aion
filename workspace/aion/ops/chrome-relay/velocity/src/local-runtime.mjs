@@ -9,7 +9,7 @@ import {discoverOpenCodeService} from '../../bus/opencode-service.js';
 import {createOpenCodeHttpClient,createOpenCodeV2Adapter} from '../../extension/src/bus/adapters/opencode-v2.js';
 import {createOpenCodeConnector} from './engines/connection.mjs';
 import {probeAcpBinary} from './engines/acp.mjs';
-import {assertPrivateStateDir} from './security.mjs';
+import {assertPrivateStateDirAsync} from './security.mjs';
 import {createCommandPlane} from './broker/core.mjs';
 import {createEventStream} from './broker/events.mjs';
 import {selectGrant} from '../../extension/src/bus/grants.js';
@@ -53,7 +53,7 @@ export async function openLocal({withEngine=false,engineChoice=null,stateFile=lo
   // No implicit use of the stable ~/.aion/bus/state.json or Chrome journal.
   if(state===resolve(join(homedir(),'.aion','bus','state.json')))
     throw Object.assign(new Error('stable Bus state is forbidden'),{code:'STABLE_STATE_FORBIDDEN'});
-  assertPrivateStateDir(state);
+  await assertPrivateStateDirAsync(state);
   // One validated read chooses the existing owner-bound engine. No invisible
   // ACP/V2 fallback: the Bus binding selects the transport deterministically.
   let selected=engineChoice;

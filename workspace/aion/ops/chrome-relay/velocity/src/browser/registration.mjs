@@ -36,19 +36,44 @@ export function queryDevRegistration(plan,{run}={}){
   if(typeof file!=='string'||!file)throw refusal('REGISTRATION_PLAN_INVALID');
   return existsSync(file)?{exists:true,path:file}:{exists:false,path:null};
 }
-export function verifyOwnedRegistration(plan,{run,expectedId,read=readFileSync}={}){
-  const current=queryDevRegistration(plan,{run});
-  if(!current.exists)return {exists:false,owned:false};
-  if(resolve(current.path)!==resolve(plan.hostManifest))
-    throw refusal('FOREIGN_DEV_REGISTRATION');
+const DEV_HOST_NAME='com.aion.relay.dev';
+function readManifest(read,path){
   let manifest;
-  try{manifest=JSON.parse(read(plan.hostManifest,'utf8'));}
+  try{manifest=JSON.parse(read(path,'utf8'));}
   catch{throw refusal('DEV_MANIFEST_UNREADABLE');}
-  if(manifest?.name!=='com.aion.relay.dev'||manifest?.type!=='stdio'
-    ||resolve(manifest.path??'')!==resolve(plan.launcher)
+  return manifest;
+}
+/** The dev host manifest contract: OUR launcher, OUR extension id, one origin. */
+function assertOwnedDevManifest(manifest,{expectedId,launcher}){
+  if(manifest?.name!==DEV_HOST_NAME||manifest?.type!=='stdio'
+    ||resolve(manifest.path??'')!==resolve(launcher)
     ||!Array.isArray(manifest.allowed_origins)
     ||manifest.allowed_origins.length!==1
     ||manifest.allowed_origins[0]!==`chrome-extension://${expectedId}/`)
     throw refusal('FOREIGN_DEV_REGISTRATION');
+}
+export function verifyOwnedRegistration(plan,{run,expectedId,read=readFileSync}={}){
+  const current=queryDevRegistration(plan,{run});
+  if(!current.exists)return {exists:false,owned:false};
+  const registry=plan?.registration?.kind==='registry';
+  // (1) WHERE the registration points. It must be exactly the artifact this
+  //     plan owns: for a registry the HKCU value names the owned state-dir
+  //     manifest; for a file registration it is the owned copy installed in the
+  //     user's host-manifest directory (NOT the state-dir source, which is a
+  //     separate file).
+  const registeredPath=registry?plan.hostManifest:plan.registration?.path;
+  if(typeof registeredPath!=='string'||!registeredPath)
+    throw refusal('REGISTRATION_PLAN_INVALID');
+  if(resolve(current.path)!==resolve(registeredPath))
+    throw refusal('FOREIGN_DEV_REGISTRATION');
+  // (2) WHAT the registered artifact contains - the copy Chrome would read.
+  assertOwnedDevManifest(readManifest(read,current.path),{expectedId,launcher:plan.launcher});
+  // (3) WHAT the owned source contains - the state-dir manifest this plan owns.
+  //     A file registration installs a COPY, so the registered copy and the
+  //     owned source are two different files: BOTH must be exactly our dev
+  //     manifest, and the owned receipt (src/browser/setup.mjs) pins the same
+  //     extension id, host name and manifest path.
+  if(resolve(current.path)!==resolve(plan.hostManifest))
+    assertOwnedDevManifest(readManifest(read,plan.hostManifest),{expectedId,launcher:plan.launcher});
   return {exists:true,owned:true};
 }

@@ -11,11 +11,26 @@ import {extensionIdFromSpki,planBrowserSetup,applyBrowserSetup,uninstallBrowserS
 import {PINNED_EXTENSION_ID} from '../../bridge/bin/aion-relay-host.mjs';
 import {main} from '../bin/aion-local.mjs';
 import {encodeNativeFrame,createNativeFrameDecoder} from '../../bridge/src/framing.js';
+import {privateStateDir} from '../fixtures/private-state-dir.mjs';
 
 const STABLE_MANIFEST=resolve(dirname(fileURLToPath(import.meta.url)),'..','..','extension','manifest.json');
 const tmp=()=>mkdtempSync(join(tmpdir(),'aion-b7setup-'));
 const sha=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
 const okRun=calls=>(cmd,args)=>{calls.push([cmd,...args]);return {status:0};};
+// An in-memory reg.exe stand-in: the real HKCU key is never touched.
+function stubRegRunner(){
+  const reg=new Map();
+  return (cmd,args)=>{
+    if(cmd!=='reg')throw Error('unexpected process');
+    if(args[0]==='query'){
+      if(!reg.has(args[1]))return {status:1,stdout:'',stderr:'not found'};
+      return {status:0,stdout:'    (Default)    REG_SZ    '+reg.get(args[1])};
+    }
+    if(args[0]==='add'){reg.set(args[1],args[args.indexOf('/d')+1]);return {status:0};}
+    if(args[0]==='delete'){reg.delete(args[1]);return {status:0};}
+    throw Error('unexpected reg command');
+  };
+}
 
 test('ID algorithm reproduces the pinned Track A ID from its own manifest key',()=>{
   const key=JSON.parse(readFileSync(STABLE_MANIFEST,'utf8')).key;
@@ -95,16 +110,37 @@ test('built dev worker module graph loads and opens the dev port with a hello',a
   assert.deepEqual(posted.slice(0,2),[{name:'com.aion.relay.dev'},{type:'aion.b.hello'}]);
 });
 
-test('generated launcher starts the host exactly as Chrome would and refuses a foreign origin',async()=>{
-  const stateDir=join(tmp(),'track-b');
-  const plan=planBrowserSetup({stateDir,platform:'linux',userHostDir:join(tmp(),'nm')});
-  const {extension_id}=applyBrowserSetup(plan);
-  const launch=origin=>spawn(plan.launcher,[`chrome-extension://${origin}/`],{stdio:['pipe','pipe','pipe']});
+test('generated launcher starts the host exactly as Chrome would and refuses a foreign origin',async t=>{
+  // The launcher is the file Chrome really executes. On Windows that is the
+  // generated .cmd, run through cmd.exe exactly the way Chrome runs it (a
+  // POSIX .sh cannot be executed on Windows at all - spawn would fail EFTYPE).
+  const WIN=process.platform==='win32';
+  // The host writes its session token into the state dir: it must be
+  // owner-private in the PRODUCTION sense (Windows: native private DACL).
+  const stateDir=privateStateDir('aion-b7launch-');
+  const plan=WIN?planBrowserSetup({stateDir,platform:'win32'})
+    :planBrowserSetup({stateDir,platform:'linux',userHostDir:join(tmp(),'nm')});
+  const {extension_id}=WIN?applyBrowserSetup(plan,{run:stubRegRunner()}):applyBrowserSetup(plan);
+  const children=new Set();
+  const launch=origin=>{
+    const child=WIN
+      ?spawn(process.env.ComSpec||'cmd.exe',['/d','/s','/c',`""${plan.launcher}" "chrome-extension://${origin}/""`],
+        {windowsVerbatimArguments:true,stdio:['pipe','pipe','pipe']})
+      :spawn(plan.launcher,[`chrome-extension://${origin}/`],{stdio:['pipe','pipe','pipe']});
+    children.add(child);
+    child.on('exit',()=>children.delete(child));
+    return child;
+  };
+  // Never leave a launcher/host process behind: a failed assertion must not
+  // hang the whole suite.
+  t.after(()=>{for(const c of children){try{c.kill();}catch{}}});
   const good=launch(extension_id);let ready=null;
   const dec=createNativeFrameDecoder({onMessage:m=>{if(m.type==='aion.b.ready')ready=m;}});
   good.stdout.on('data',c=>dec.push(c));
   good.stdin.write(encodeNativeFrame({type:'aion.b.hello'}));
-  for(let i=0;i<300&&!ready;i++)await new Promise(r=>setTimeout(r,10));
+  // The host verifies the private state dir on startup (Windows ACL check):
+  // allow a slow host to get there, but never longer than the check needs.
+  for(let i=0;i<12000&&!ready;i++)await new Promise(r=>setTimeout(r,10));
   assert.ok(ready?.session_id,'host ready via generated launcher');
   good.stdin.end();assert.equal(await new Promise(r=>good.once('exit',r)),0);
   const bad=launch('cccccccccccccccccccccccccccccccc');

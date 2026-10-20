@@ -2,10 +2,10 @@
 // fake worker. No Chrome, no ChatGPT, no Windows claim.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,chmodSync,existsSync,readFileSync,writeFileSync} from 'node:fs';
-import {tmpdir} from 'node:os';
+import {existsSync,readFileSync,writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {PassThrough} from 'node:stream';
+import {privateStateDir} from '../fixtures/private-state-dir.mjs';
 import {startHostEndpoint,connectHost,SESSION_FILE} from '../src/transport/local-ipc.mjs';
 import {runDevHost,PING} from '../src/native-host/relay.mjs';
 import {createRemoteCall} from '../src/browser/remote-call.mjs';
@@ -13,7 +13,9 @@ import {createDevLink} from '../extension-dev/dev-link.js';
 import {encodeNativeFrame,createNativeFrameDecoder} from '../../bridge/src/framing.js';
 
 const DEV_ID='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-const privateDir=()=>{const d=mkdtempSync(join(tmpdir(),'aion-b7-'));chmodSync(d,0o700);return d;};
+// The IPC endpoint holds a bearer token, so the state directory must be
+// owner-private in the PRODUCTION sense (Windows: native private DACL).
+const privateDir=()=>privateStateDir('aion-b7-');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 // A fake Chrome+worker: reads host stdout frames, answers via host stdin.
@@ -30,22 +32,32 @@ function fakeWorker({answer}){
   stdout.on('data',c=>dec.push(c));
   return {stdin,stdout,seen,hello:()=>stdin.write(encodeNativeFrame({type:'aion.b.hello'})),close:()=>stdin.end()};
 }
-async function startHost(answer){
+async function startHost(answer,t){
   const stateDir=privateDir();
   const w=fakeWorker({answer});
   const host=await runDevHost({argv:[`chrome-extension://${DEV_ID}/`],stdin:w.stdin,stdout:w.stdout,
     stateDir,expectedExtensionId:DEV_ID});
   assert.equal(host.ok,true);
+  // Never leave the endpoint listening: a failed assertion must not hang the
+  // whole suite (a live pipe server keeps the event loop alive forever).
+  const stop=async()=>{try{await host.endpoint?.close();}catch{}
+    try{w.close();}catch{} try{await host.shutdown('test');}catch{}};
+  t?.after(()=>{void stop();});
   w.hello();
-  for(let i=0;i<100&&!host.endpoint;i++)await sleep(10);
+  // The endpoint opens only after the private-state ACL check passed. On
+  // Windows that check starts PowerShell, so allow a slow host to get there.
+  for(let i=0;i<12000&&!host.endpoint;i++)await sleep(10);
   assert.ok(host.endpoint,'endpoint opened after worker hello');
-  return {stateDir,w,host};
+  return {stateDir,w,host,stop};
 }
 
-test('IPC: authenticated request, wrong token refused, missing host is pre-write',async()=>{
+test('IPC: authenticated request, wrong token refused, missing host is pre-write',async t=>{
   const dir=privateDir();
   await assert.rejects(connectHost({stateDir:dir}),{code:'HOST_NOT_RUNNING'});
   const ep=await startHostEndpoint({stateDir:dir,onRequest:async m=>({echo:m.call_type})});
+  // A live pipe server keeps the event loop alive: always close it, even when
+  // an assertion below fails.
+  t.after(()=>{void ep.close();});
   const s=JSON.parse(readFileSync(join(dir,SESSION_FILE),'utf8'));
   assert.equal(s.ipc_auth,'SESSION_TOKEN');
   const link=await connectHost({stateDir:dir});
@@ -58,9 +70,10 @@ test('IPC: authenticated request, wrong token refused, missing host is pre-write
   assert.equal(existsSync(join(dir,SESSION_FILE)),false,'own session file removed');
 });
 
-test('IPC: timeout after write reports written=true (outcome unknown)',async()=>{
+test('IPC: timeout after write reports written=true (outcome unknown)',async t=>{
   const dir=privateDir();
   const ep=await startHostEndpoint({stateDir:dir,onRequest:()=>new Promise(()=>{})});
+  t.after(()=>{void ep.close();});
   const link=await connectHost({stateDir:dir});
   await assert.rejects(link.request('x',{},{timeoutMs:50}),e=>e.code==='HOST_TIMEOUT_OUTCOME_UNKNOWN'&&e.written===true);
   link.close();await ep.close();
@@ -75,8 +88,8 @@ test('host refuses Track A or mismatched origin before opening anything',async()
     expectedExtensionId:'kgjfielmhcdlggjppmliabpiljnonhki'}),/Track A/);
 });
 
-test('relay: CLI call reaches worker once and returns its result; disallowed call never forwarded',async()=>{
-  const {stateDir,w,host}=await startHost(async m=>m.call_type===PING?{ok:true,pong:true}:{ok:true,tabs:[],got:m.payload});
+test('relay: CLI call reaches worker once and returns its result; disallowed call never forwarded',async t=>{
+  const {stateDir,w,host}=await startHost(async m=>m.call_type===PING?{ok:true,pong:true}:{ok:true,tabs:[],got:m.payload},t);
   const link=await connectHost({stateDir});
   assert.equal(link.session.extension_id,DEV_ID);
   assert.deepEqual(await link.request(PING,{}),{ok:true,pong:true});
@@ -89,8 +102,8 @@ test('relay: CLI call reaches worker once and returns its result; disallowed cal
   assert.equal(existsSync(join(stateDir,SESSION_FILE)),false);
 });
 
-test('relay: Chrome closes mid-submit -> submit UNCERTAIN, never a no-send claim',async()=>{
-  const {stateDir,w,host}=await startHost(async()=>undefined); // worker never answers
+test('relay: Chrome closes mid-submit -> submit UNCERTAIN, never a no-send claim',async t=>{
+  const {stateDir,w,host}=await startHost(async()=>undefined,t); // worker never answers
   const call=createRemoteCall({link:await connectHost({stateDir})});
   const pending=call('aion/chatgpt-submit',{tab_id:1,text:'x'});
   await sleep(30);w.close();

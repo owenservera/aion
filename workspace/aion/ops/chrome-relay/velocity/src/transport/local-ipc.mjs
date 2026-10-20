@@ -16,7 +16,7 @@ import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {readFileSync,writeFileSync,renameSync,rmSync,chmodSync} from 'node:fs';
 import {join} from 'node:path';
 import {createFrameDecoder,encodeFrame} from './framing.mjs';
-import {assertPrivateStateDir} from '../security.mjs';
+import {assertPrivateStateDirAsync} from '../security.mjs';
 
 export const SESSION_FILE='host-session.json';
 export const SESSION_SCHEMA='aion.b.host-session/1';
@@ -55,7 +55,7 @@ function tokenOk(expected,given){
  */
 export async function startHostEndpoint({stateDir,onRequest,platform=process.platform,meta={}}){
   if(typeof onRequest!=='function')throw new TypeError('onRequest required');
-  assertPrivateStateDir(join(stateDir,'bus.json')); // never place a bearer token in a public folder
+  await assertPrivateStateDirAsync(join(stateDir,'bus.json')); // never place a bearer token in a public folder
   const session_id=randomBytes(12).toString('hex');
   const token=randomBytes(32).toString('hex');
   const endpoint=endpointFor({stateDir,platform,id:session_id});
@@ -100,7 +100,7 @@ export async function startHostEndpoint({stateDir,onRequest,platform=process.pla
 
 /** Connect and authenticate. Rejects with HOST_NOT_RUNNING / HOST_UNREACHABLE before any request. */
 export async function connectHost({stateDir,timeoutMs=3000,readSessionImpl=readSession}){
-  assertPrivateStateDir(join(stateDir,'bus.json'));
+  await assertPrivateStateDirAsync(join(stateDir,'bus.json'));
   const s=readSessionImpl(stateDir);
   const socket=net.createConnection(s.endpoint);
   socket.on('error',()=>{});

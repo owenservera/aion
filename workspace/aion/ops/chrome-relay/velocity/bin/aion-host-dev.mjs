@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {runDevHost} from '../src/native-host/relay.mjs';
-import {assertPrivateStateDir} from '../src/security.mjs';
+import {assertPrivateStateDirAsync} from '../src/security.mjs';
 
 export function loadDevHostConfig(argv){
   const i=argv.indexOf('--config');
@@ -19,7 +19,7 @@ export function loadDevHostConfig(argv){
 async function main(argv=process.argv.slice(2)){
   const log=e=>process.stderr.write(JSON.stringify({host:'com.aion.relay.dev',...e})+'\n');
   let config;
-  try{config=loadDevHostConfig(argv);assertPrivateStateDir(join(config.state_dir,'bus.json'));}
+  try{config=loadDevHostConfig(argv);await assertPrivateStateDirAsync(join(config.state_dir,'bus.json'));}
   catch(e){log({event:'startup_refused',code:e.code??'CONFIG_INVALID'});process.exitCode=1;return;}
   const r=await runDevHost({argv,stdin:process.stdin,stdout:process.stdout,stateDir:config.state_dir,
     expectedExtensionId:config.extension_id,log});
