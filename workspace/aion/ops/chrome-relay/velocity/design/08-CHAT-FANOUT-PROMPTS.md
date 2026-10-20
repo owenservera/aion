@@ -1,5 +1,7 @@
 # AION Track B — parallel chat launch prompts (2026-10-20)
 
+> **HISTORICAL ALLOCATIONS / SUPERSEDED:** These are the *prior* Chat A/B/C job briefs, not current engineering authority. Use [12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md](12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md) P1–P8 for exclusive file ownership and I0–I3 gates. The current first deliverable is a watch-only receiving CLI; Chat A repair-first brief is obsolete. Never dispatch based on this file's older assignment text.
+
 > **OWNER OVERRIDE (2026-10-20): Chat A MUST follow [issue #43's clean-rebuild direction](https://github.com/owenservera/aion/issues/43), which supersedes the CENV repair-first instructions below. Preserve the existing Bus/grants/CLI envelope, but build a small fresh Chrome provider vertical slice rather than debugging/refactoring legacy Chrome internals sequentially. Keep B/C ownership unchanged. The desired result is local testability, not exhaustive legacy restoration.
 
 
