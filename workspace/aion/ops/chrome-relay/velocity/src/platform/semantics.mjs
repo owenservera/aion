@@ -7,14 +7,14 @@ export const DESIGN_DIRECTIVE_SCHEMA = 'aion.platform.directive/0.1';
 
 const profiles = Object.freeze({
   'chatgpt.com': Object.freeze({
-    provider: 'chatgpt.com', application_family: 'ai_conversation_webapp',
+    provider_id: 'chatgpt.com', application_family: 'ai_conversation_webapp',
     application_shape: 'conversational_thread', realization_mode: 'browser_mediated',
     kind: 'conversation', meanings: Object.freeze({
       deliver: 'conversation.send', observe: 'conversation.observe_reply'
     })
   }),
   'opencode-v2': Object.freeze({
-    provider: 'opencode', application_family: 'native_agent_runtime',
+    provider_id: 'opencode', application_family: 'native_agent_runtime',
     application_shape: 'coding_ide', realization_mode: 'api_native',
     kind: 'executor', meanings: Object.freeze({
       deliver: 'executor.prompt', observe: 'operation.observe'
@@ -79,6 +79,16 @@ export function validatePlatformSeed(seed) {
     return result(false, 'INVALID_SEED_SHAPE');
   if (seed.alias_policy.runtime_id_renames !== 'NOT_AUTHORIZED')
     return result(false, 'RUNTIME_ID_REWRITE_FORBIDDEN');
+  for (const axis of ['provider_family','application_shape','realization_mode']) {
+    const values=seed.axes[axis];
+    if(!Array.isArray(values) || !values.length || values.length>64
+      || values.some(v=>!validId(v)) || new Set(values).size!==values.length)
+      return result(false,'INVALID_SEED_AXES');
+  }
+  if(!record(seed.alias_policy.taxonomy_aliases)
+    || Object.entries(seed.alias_policy.taxonomy_aliases).some(([oldName,newName])=>
+      !validId(oldName) || !seed.axes.provider_family.includes(newName) || oldName===newName))
+    return result(false,'INVALID_TAXONOMY_ALIASES');
   if (seed.semantic_capabilities.length > 512 || seed.provider_examples.length > 512)
     return result(false, 'SEED_LIMIT_EXCEEDED');
   const ids = new Set();
@@ -92,6 +102,9 @@ export function validatePlatformSeed(seed) {
   for (const p of seed.provider_examples) {
     if (!record(p) || !validId(p.provider_id) || providers.has(p.provider_id)
       || typeof p.status !== 'string' || !Array.isArray(p.capabilities)
+      || !seed.axes.provider_family.includes(p.application_family)
+      || !seed.axes.application_shape.includes(p.application_shape)
+      || !seed.axes.realization_mode.includes(p.realization_mode)
       || p.capabilities.some(id => !ids.has(id))) return result(false, 'INVALID_PROVIDER_EXAMPLE');
     providers.add(p.provider_id);
   }
@@ -121,7 +134,7 @@ export function projectAdapterSemantics(adapter) {
   })) : [];
   return {
     schema: 'aion.platform.provider/1', adapter: name,
-    provider: structurallyValid ? profile.provider : null,
+    provider_id: structurallyValid ? profile.provider_id : null,
     application_family: structurallyValid ? profile.application_family : 'unknown',
     application_shape: structurallyValid ? profile.application_shape : 'unknown',
     realization_mode: structurallyValid ? profile.realization_mode : 'unknown',
@@ -156,7 +169,9 @@ export function inspectPlatformSeed(seed) {
     semantic_capabilities: seed.semantic_capabilities.map(c => ({
       id: c.id, effect: c.effect, status: c.status
     })),
-    providers: seed.provider_examples.map(p => ({id: p.provider_id, status: p.status})),
+    providers: seed.provider_examples.map(p => ({id: p.provider_id,
+      application_family:p.application_family,application_shape:p.application_shape,
+      realization_mode:p.realization_mode,status: p.status})),
     dispatchable: false
   });
 }
