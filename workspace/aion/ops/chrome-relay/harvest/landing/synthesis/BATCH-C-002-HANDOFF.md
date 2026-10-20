@@ -55,3 +55,27 @@ Final PR #40 head `4454f9b913b4e3e5baeb8671daab127ca36030b3`: **27 Final capture
 - No merge of PR #37, #40 or #41 performed; Crosswalk links independent source inventories by stable IDs and exact commits.
 - No product/spec/grant writes. No donor tests, Windows checkout access or live browser operations by Crosswalk.
 - Prioritized queue is recommendations only, not approved architecture or implementation authorization.
+
+---
+
+# C-004 charter continuation — source-index completeness and architecture decision packet
+
+**2026-10-20, Worker C; remote GitHub only.** PR #37 Omega and PR #40 Final remain at final reported commits and are open/draft/mergeable at inspection; Crosswalk PR #41 open. No source/Track B product/spec changes.
+
+## Executed
+1. Retrieved pinned final donor indexes (VF-0001..0027, VO-GH-0001..0038) and audited unique IDs, capture statuses and five same-file groups; no repeated IDs, 65 total. Confirmed 27 Final excerpt records, 26 Omega copied records and 12 Omega flagged records.
+2. Inspected actual captured source excerpts for the highest-risk cross-repo semantics: VF-0016, VF-0024, VF-0026 and Omega VO-GH-0030/0031/0028/0038. Source confirms donor auto-resend with a two-call test, malformed-rule pass-through, deterministic ranking of ambiguous candidates, missing-risk READ default, evidence-backed **historical** promotion, and simulated email vault write (not live ChatGPT Send).
+3. Recomputed SHA-256 of the two high-impact captured files VF-0026 and VO-GH-0030 against the index: **both matched**. Attempted wider hash validation but GitHub connected-call quota stopped the run. Do **not** claim that all 53 copied records were independently hash-verified by C.
+4. Added [crosswalk-ledger.jsonl](crosswalk-ledger.jsonl) with one machine-readable record per candidate (donor revision, capture commit/status, source path/lines, worker-reported hashes, source-read marker, primary seam, transfer warning, no integration approval).
+5. Fixed explicit missing-ID mentions in [capability-map.md](capability-map.md): VO-GH-0029, VO-GH-0031, VO-GH-0033, VO-GH-0037. Their underlying families were previously represented by shorthand but had not been explicitly enumerated.
+6. Computed index-source grouping: five same-path groups (four Final and one Omega); no identical recorded `source_sha256` crossing the two donor repos. Ancestry remains UNKNOWN; absence of a matched hash is not proof of unrelated code.
+7. Updated [integration-queue.md](integration-queue.md) with four strategic alternatives (incremental metadata, global migration, dual registry, donor transplant), reversible recommendation **A: incremental metadata**, implementation entrypoint ownership and six negative-case falsifiers. These are **not binding development instructions**.
+
+## Decisions held, not taken
+- No merging PRs #37/#40/#41, source modifications, Windows/browsers, local tests, live operations, design-migration changes or permission grants.
+- **Recommended:** keep current CENV three state axes and immutable Bus execution; integrate app-family and realization-mode metadata incrementally if development owner accepts, with current readiness/authority/effect still separate.
+- **Rejected donor behavior:** resend after uncertain effect, malformed-condition allowing effect, default READ for inferred mutation, confidence-ranked ambiguous actuation, fixture proof as real Send.
+- **Remaining review:** active Final provider plugin owner VF-0010 vs VF-0025, Omega flagged entrypoints VO-GH-0016..0027, true cross-repo ancestry, separate real-provider adapter case. These are not prerequisites for existing Chrome repair.
+
+## Verification summary
+C-004 research records: 65/65 uniquely indexed and categorized in ledger, two independently hash-checked captures, five verified matching *source-index path* groups, 0 known identical source hashes across repositories. No C-run code tests or real-provider tests; documentation checks and GitHub commit receipts only.
