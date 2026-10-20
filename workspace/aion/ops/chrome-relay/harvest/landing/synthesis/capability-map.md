@@ -96,3 +96,25 @@ Source revisions: final@8a798f91d52574cb3d7db579da516bc1c4aee7b7 and omega@79ee5
 - **Source coverage is not usage coverage:** exact file captures, schema implementation and true remote effect must be tracked on different axes. Source status COPIED_MODULE never implies test passed.
 
 Separate source inventories remain on the independent branches: [VF index](https://github.com/owenservera/aion/blob/harvest/vivim-final-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-final/index.jsonl) and [VO index](https://github.com/owenservera/aion/blob/harvest/omega-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-omega/index.jsonl).
+
+## C-003 — exhaustive final index delta and coverage
+Final: `owenservera/vivim-final@8a798f91d52574cb3d7db579da516bc1c4aee7b7`, capture branch head `4454f9b913b4e3e5baeb8671daab127ca36030b3`, 27/27 `VF-0001..0027` COPIED_EXCERPT. Omega: `owenservera/vivim-omega@79ee558d6c7ea77c20f220db2341adaa57b11d44`, capture branch head `556aaaace61b3321c68c56bed1a8f7f96d697b8c`, 38 `VO-GH-0001..0038`, 26 copied, 12 flagged. No donor runtime tests or current-browser verification.
+
+**Final second-batch copied IDs (19):** VF-0009 unified registry execution; VF-0010 legacy provider plugin; VF-0011 command context/preconditions; VF-0012 conversation/artifact normalization; VF-0013 session transitions; VF-0014 observation tap; VF-0015 message identity; VF-0016 unsafe send retry; VF-0017 stream observation; VF-0018 NL confirmation; VF-0019 messaging app families; VF-0020 live-capability versioning; VF-0021 Claude feature declaration; VF-0022 SendButton presentation; VF-0023 ChatGPT message DAG; VF-0024 unsafe retry regression test (read, not run); VF-0025 alternative provider interface; VF-0026 malformed existential rule fail-open; VF-0027 state transition audit.
+
+**Omega second-batch copied IDs (11):** VO-GH-0028 verification evaluator; 0029 promotion policy; 0030 candidate solver; 0031 blueprint/risk default; 0032 causal trace; 0033 UI inference; 0034 fixture parser; 0035 computation resolve; 0036 chat store; 0037 provider read handlers (sessions deferred); 0038 fixture browser Send excerpt. The remaining **12 flagged** records VO-GH-0016..0027 do not become COPIED by virtue of these partial helper/owner captures.
+
+### Updated coverage / gaps
+| Domain | New source IDs | Coverage now / remaining unknown |
+|---|---|---|
+| Provider family, interface and specialized features | VF-0010/0019/0021/0025 | Captured declarations; competing interface versions, active production owners and current model support UNKNOWN |
+| Live capability filtering | VF-0020/0026; VO-GH-0028/0029 | Captured rules/proof policy with fail-open risk; AION present-page truth unproven |
+| Command interpretation and surfaces | VF-0009/0011/0018; VO-GH-0035 | Source code/schema available; distinct authorization/execution still required |
+| Observation/event and causal trace | VF-0014/0017/0027; VO-GH-0032 | Bounded source excerpts/helpers; no current-provider positive submission and reply-completion proof |
+| Conversation and message identity | VF-0012/0015/0023; VO-GH-0036/0037 | Donor normalization/store; no exact browser conversation binding |
+| Unknown-effect / retries | VF-0016/0024; VO-GH-0038 | One **unsafe** retry implementation/test and one **simulated email** send. Neither can be adopted as AION Send path |
+| UI discovery and conflict resolution | VF-0022; VO-GH-0030/0031/0033 | Candidate selection and source UI presentation, not exactly-one real Send control |
+| Browser fixture and parser tests | VO-GH-0034/0038 | Fixture-only, no live browser evidence |
+| Additional source owners | VO-GH-0016..0027 | 12 flagged; the captured second-batch helpers do not prove full entrypoint behavior |
+
+**Total indexed donor candidate coverage C-003: 65 IDs = 27 Final captured excerpts + 26 Omega copied records + 12 Omega flagged-only.** The original 16 FINDINGS research leads remain a separate, overlapping earlier inventory; they are not 16 more unique validated components. No donor tests executed by Crosswalk.
