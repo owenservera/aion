@@ -45,6 +45,11 @@
 
 **H3 / after I1** — Development choose a single explicit Send actuator, record before/after unique user node, then independently check the paired assistant with no uncertain-effect replay. Harvest offers multi-ai-chat pure checks and Web2API comparison only; **never copy the unsafe action orchestration**.
 
+
+## High-value source-level counterexample — do **not** copy Bridge replay blindly
+
+`chatgpt-bridge/src/bridge/observedTurns/observedTurnJournal.js:43-49` computes `filter(sequence > after).slice(-safeLimit)`: if retained unconsumed turns exceed the response limit, it returns the **newest** N, silently omitting earlier retained turns. `src/http/observedTurnStream.js:49` calls that list during SSE replay, while `classifyCursor` only checks whether the request is before the *retained* range, not whether pagination skips within the retained range. **Code-inspected potential loss mode, not executed proof.** Add a negative fixture with 150 retained turns, `afterSequence=0`, `limit=100` and require explicit gap/pagination rather than marking contiguous replay. Further, `classifyCursor` checks `after>latest` only if the supplied epoch is empty; test an ahead-of-stream cursor **with matching epoch** too. AION should use ascending bounded pages or refuse coverage, never interpret a tail window as complete history.
+
 ## Risks, outstanding decisions and exclusions
 
 - **AX-0004:** first-pass nine-repo roles and duplicates are evidenced; full 19-P0-by-donor command rubric and all relevant code paths are **not yet completed**. Keep NEED in investigation until acceptance.
