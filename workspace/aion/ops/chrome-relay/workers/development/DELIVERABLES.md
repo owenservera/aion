@@ -6,24 +6,25 @@
 
 **The owner must manually send a task to each worker's dedicated chat. A GitHub TODO, commit, or link NEVER dispatches/wakes a worker.** Never describe a task as executing without an actual worker reply or artifact. Every Development SITREP/proposal must show **order, owner, assigned deliverable, dependency, actual status, and user's next dispatch action**. Always separate `SAVED_NOT_DISPATCHED` → `SENT_BY_OWNER` → `WORKER_ACKNOWLEDGED` → `WORK_IN_PROGRESS` → `DELIVERED` → `DEV_INTEGRATED_TESTED`; don't advance on assumption. Prefer short concrete tables, not new tracking systems.
 
-**Current dispatch picture (2026-10-20; update from real worker replies, not this file):**
+**Current execution and manual dispatch (2026-10-20; factual receipts only):**
 
-| Order | Owner | Assignment | Dependency | Status | User action |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Integration Manager | PACK-01: adapt Bridge journal/cursor code | None; can start | **SAVED_NOT_DISPATCHED** | Send dedicated worker a one-line instruction to read its DELIVERABLES and execute PACK-01 |
-| 2 (parallel) | External Nine Discovery | CDP / browser-inspection / parser leapfrog leads | None; can start alongside PACK-01 | **SAVED_NOT_DISPATCHED** | Send dedicated worker a one-line instruction to read its DELIVERABLES and execute Discovery TODOs |
-| 3 | Integration Manager | PACK-02: adapt Multi-AI read-only DOM helpers | Same worker after PACK-01 (or parallel internally) | **SAVED_NOT_DISPATCHED** | Included in Integration Manager dispatch; request source code, not prose |
-| 4 | Development (here) | Implement canonical receive contract; integrate code from PACK-01/02; run AION tests | Actual package delivery for integration; contract can start independently | **QUEUED / NO IMPLEMENTATION RECEIPT** | No external chat needed |
-| 5 | Development + owner-authorized local agent | Live I1 watch-only external ChatGPT message appears in CLI | Working integrated I0/I1 path | **BLOCKED** | Dispatch local live test only when Development requests it |
+| Order | Owner | Work | Actual status | Owner's next dispatch |
+| --- | --- | --- | --- | --- |
+| 1 | Integration Manager | PACK-01 Bridge journal and terminal-evidence adaptation | **DELIVERED** `b06b0e5` | None, complete |
+| 2 | Integration Manager | PACK-02 read-only ChatGPT observer/profile adaptation | **DELIVERED** `5f72abd`; SITREP `dd772a5` | None, complete |
+| 3 (parallel) | Nine-Repo Discovery | CDP/parser/transport leapfrog research | **PROGRESS UNCONFIRMED HERE**; worker is a separate ChatGPT chat | Request its final SHA/SITREP only if not already received |
+| 4 | Development (this chat) | P1 contract + PACK-01/02 pure source integration | **SOURCE COMMITTED** `e006692` (eight files) | Already executing here; no second prompt |
+| 5 | Development (this chat) | Full Node extension/offline regression; browser/host/CLI watch-only path | **FOCUSED V8 TESTS 7/7**, Node/CI full run **NOT VERIFIED** (GitHub Actions `startup_failure`, no jobs); **P3/P4 NOT WIRED** | No external worker dispatch; continue implementation |
+| 6 | Owner-authorized local Windows agent | Live watch-only I1 receive in exact ChatGPT web thread | **BLOCKED** until P3/P4 wired and tested | Do **not** dispatch yet; Development will supply specific live test request |
 
-**Owner dispatch wording:** Integration Manager: “Read your DELIVERABLES.md, build and commit actual PACK-01 then PACK-02 adapted code, report SHA. High thinking effort.” Discovery: “Read your DELIVERABLES.md, execute the CDP/parser/transport leapfrog discovery TODOs, post at most three source-backed leads. No tests. High thinking effort.” These are messages to send, **not sent messages**.
+**Evidence limits:** The 7/7 receipt ran actual committed AION JS source and committed test cases in an isolated V8 harness with browser API polyfills. It is **not** a native Node suite, GitHub CI receipt, Chrome runtime acceptance, or Windows proof. GitHub workflow run [39467497887](https://github.com/owenservera/aion/actions/runs/39467497887) returned `startup_failure` with no jobs; this is not a failing test assertion. The existing `velocity/` runtime is still on PR #46 candidate, not `main`. No live observer-to-host-to-CLI path has been claimed.
 
 ## Active TODO — Development
 
-- [ ] Define/implement the canonical `aion.conversation.event/1` and `snapshot/1` contract at the accepted P1 path; separate binding, page epoch, message/revision, cursor and Bus operation ID.
+- [x] Define/implement the canonical `aion.conversation.event/1` and `snapshot/1` contract at the accepted P1 path; separate binding, page epoch, message/revision, cursor and Bus operation ID.
 - [ ] Reconcile relevant AION main source with unmerged PR #46 without a wholesale merge.
-- [ ] Integrate PACK-01 cursor/journal adaptation and PACK-02 read-only DOM observer adaptation when **real code** is delivered.
-- [ ] Run AION-specific offline tests: contiguous replay/gaps, ahead-of-stream cursor, wrong/old message, empty assistant, and command-looking received text never reaching Bus effects.
+- [x] Place and compose PACK-01/02 as AION-owned pure P1/P2 source modules on main (`e006692`); **not yet wired into the content-script/host/CLI**.
+- [ ] Complete full native Node/extension tests and regression after wiring; 7 focused AION tests already passed in a V8 harness against committed code; GitHub CI did not start jobs.
 - [ ] Wire and test watch-only CLI receive from the exact bound ChatGPT thread; obtain an authorized real I1 receipt before moving to Send.
 - [ ] Review Discovery's best CDP/parser/transport leapfrogs and request new packages **only if** they eliminate meaningful product build work without blocking I1.
 
@@ -61,6 +62,6 @@ We are buying back engineering time with discovered, plausibly working building 
 
 **Decision economy:** select a small useful module or method quickly, favor adapting working donor code over rebuilding generically when it fits, and test once at the AION seam. An external source is not required to be independently reverified before packaging; repo presence is a strong starting assumption, not a production receipt. Security/licensing and exact conversation fidelity must survive adaptation. Only Development changes authoritative runtime and claims test results.
 
-**Current state, 2026-10-20:** 9 pinned donors available; 18 exchange records; AX-0016/17/18 are raw research offers, **not** integration packages; Development tests and I0–I3 runtime acceptance remain open. PR #46 is still an unmerged source candidate. No source/host changes are claimed by creation of this desk.
+**Current state, 2026-10-20:** PACK-01/02 source delivered and composed into AION P1/P2 on main `e006692`; watch-only P3/P4 IPC/CLI integration and I1 acceptance are still pending. PR #46's Velocity runtime remains unmerged. No Windows host/browser effects have run.
 
 **Next:** request high-leverage CDP/DOM/parsing/transport candidates from Discovery; choose the highest-return leapfrog for packaging alongside current I0/I1, with no exhaustive 19×9 prerequisite. Integration Manager prepares PACK-01 or supersedes it when Development selects a clearly better multiplier. Development owns integration/testing, not donor re-verification. Update this file with a short done/next line only when something actually changes.
