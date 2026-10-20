@@ -1,0 +1,215 @@
+import { makeEvent } from '../requestState.js';
+import { hubActivityToCanonicalEvent } from '../adapters/hubObservationAdapter.js';
+import { RequestEventType } from '../state/requestEvents.js';
+import { isRequestRuntimeFinished } from './requestRuntimeProjection.js';
+
+/**
+ * Reconciles a newly connected content executor with the canonical request
+ * reducer. It never resubmits an ambiguous write and never owns a lease.
+ */
+export class RequestReattachmentCoordinator {
+  constructor({ pending, lifecycle, eventBus = null, sendCommand = null }) {
+    this.pending = pending;
+    this.lifecycle = lifecycle;
+    this.eventBus = eventBus;
+    this.sendCommand = sendCommand;
+  }
+
+  canonicalProjectionForState(state) {
+    const canonical = this.lifecycle.getState(state.requestId);
+    const last = canonical?.lastObservation?.data || {};
+    const observation = last.observation || {};
+    const submittedUserTurnKey = String(
+      canonical?.response?.userTurnKey
+      || last.submittedUserTurnKey
+      || (last.responseBoundaryEstablished ? observation.turn?.userKey : '')
+      || '',
+    );
+    const scopedAssistantTurnKey = last.scopedToRequest === true && last.responseBoundaryEstablished === true
+      ? String(last.turnKey || observation.turn?.key || '')
+      : '';
+    return {
+      responseEpoch: Math.max(0, Number(canonical?.response?.epoch) || 0),
+      submittedUserTurnKey,
+      submittedUserTurnIndex: Number(observation.turn?.userIndex ?? observation.activeRequest?.submittedUserTurnIndex ?? -1),
+      assistantTurnKey: String(scopedAssistantTurnKey || state.progress?.assistantTurnKey || ''),
+      assistantTurnIndex: Number(last.turnIndex ?? observation.turn?.index ?? state.progress?.assistantTurnIndex ?? -1),
+      sentAt: Number(observation.activeRequest?.sentAt || state.progress?.sentAt || 0),
+      submittedPromptText: String(state.promptPayload?.message || ''),
+    };
+  }
+
+  promptSubmitted(state) {
+    return this.lifecycle.getState(state.requestId)?.submission === 'submitted';
+  }
+
+  rehydrateClientProjection(state, client) {
+    if (!this.sendCommand || isRequestRuntimeFinished(state) || !this.promptSubmitted(state)) return;
+    const projection = this.canonicalProjectionForState(state);
+    if (!projection.submittedUserTurnKey) return;
+    const observerId = String(client.tabObservation?.observerId || 'ready');
+    const key = `${observerId}:${projection.responseEpoch}:${projection.submittedUserTurnKey}:${projection.assistantTurnKey}`;
+    if (state.lastProjectionHydrationKey === key || state.projectionHydrationInFlight === key) return;
+    state.projectionHydrationInFlight = key;
+    void this.sendCommand('request.resume', {
+      requestId: state.requestId,
+      projection,
+    }, {
+      sourceClientId: state.clientId,
+      timeoutMs: 12_000,
+      request: this.lifecycle.requestIdentity(state),
+    }).then((response = {}) => {
+      const boundaryStatus = String(response.boundaryStatus || 'matched');
+      if (boundaryStatus === 'rebound') {
+        this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.RESPONSE_BOUNDARY_REBOUND, {
+          submittedUserTurnKey: String(response.submittedUserTurnKey || ''),
+          submittedUserTurnIndex: Number(response.submittedUserTurnIndex ?? -1),
+          previousSubmittedUserTurnKey: projection.submittedUserTurnKey,
+          evidence: response.boundaryEvidence || null,
+          message: 'Submitted user-turn identity was rebound after content reload using exact prompt evidence.',
+        }, 'browser_reconnect'));
+      } else if (boundaryStatus === 'missing') {
+        this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.RESPONSE_BOUNDARY_LOST, {
+          submittedUserTurnKey: projection.submittedUserTurnKey,
+          submittedUserTurnIndex: projection.submittedUserTurnIndex,
+          evidence: response.boundaryEvidence || null,
+          reasonCode: 'SUBMITTED_TURN_MISSING_AFTER_RELOAD',
+          message: 'The submitted user turn disappeared after content reload; repeating prompt.submit would be ambiguous and is forbidden.',
+        }, 'browser_reconnect'));
+        return;
+      }
+      state.lastProjectionHydrationKey = key;
+      this.eventBus?.emitDebug({
+        type: 'request.projection.rehydrated',
+        requestId: state.requestId,
+        data: {
+          clientId: state.clientId,
+          observerId,
+          responseEpoch: projection.responseEpoch,
+          boundaryStatus,
+        },
+      });
+    }).catch((error) => {
+      this.eventBus?.emitDebug({
+        type: 'request.projection.rehydrate_failed',
+        requestId: state.requestId,
+        data: { clientId: state.clientId, message: error.message || String(error) },
+      });
+    }).finally(() => {
+      if (state.projectionHydrationInFlight === key) state.projectionHydrationInFlight = '';
+    });
+  }
+
+  #reattachSubmittedState(state, clientId, client, activeRequest) {
+    if (activeRequest?.requestId !== state.requestId) return false;
+    const now = Date.now();
+    state.lastHeartbeatAt = now;
+    const heartbeatEvent = hubActivityToCanonicalEvent(state.requestId, clientId, client, {}, now);
+    if (heartbeatEvent) this.lifecycle.ingestRequestTransition(state, heartbeatEvent);
+    if (client.tabObservation?.generation?.state === 'active') state.generationActivityAt = now;
+    if (now - (state.lastReattachAt || 0) < 1_000) {
+      this.rehydrateClientProjection(state, client);
+      return true;
+    }
+
+    state.lastReattachAt = now;
+    this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.CONNECTION_CHANGED, {
+      connected: true,
+      connection: 'connected',
+      clientId,
+    }, 'browser_reconnect'));
+    this.lifecycle.emitRequestEvent(state, makeEvent('request.reattached', {
+      requestId: state.requestId,
+      clientId,
+      responseEpoch: Number(this.lifecycle.getState(state.requestId)?.response?.epoch || 0),
+    }));
+    state.callbacks.onStatus?.('reattached', { requestId: state.requestId, clientId, activeRequest });
+    this.rehydrateClientProjection(state, client);
+    return true;
+  }
+
+  #recoverUnsubmittedReload(state, clientId, activeRequest = null) {
+    if (!state.promptPayload) return false;
+    const now = Date.now();
+    if (now - (state.lastUnsubmittedReloadRecoveryAt || 0) < 1_000) return false;
+    state.lastUnsubmittedReloadRecoveryAt = now;
+    const canonical = this.lifecycle.getState(state.requestId);
+    const effectId = String(canonical?.effect?.browser?.activeId || `${state.requestId}:prompt.submit:unconfirmed`);
+    const effectType = String(canonical?.effect?.browser?.activeType || 'prompt.submit');
+    this.lifecycle.ingestRequestTransition(state, this.lifecycle.canonicalEvent(state, RequestEventType.EFFECT_UNCERTAIN, {
+      effectId,
+      effectType,
+      effectDomain: 'browser',
+      idempotencyKey: effectId,
+      code: 'PROMPT_SUBMISSION_UNCERTAIN_AFTER_RELOAD',
+      message: 'Content runtime reloaded before prompt submission could be proved; automatic resend is forbidden.',
+      recoveryTimeoutMs: 30_000,
+      recoverable: true,
+      evidence: { clientId, activeRequestId: activeRequest?.requestId || '' },
+    }, 'browser_reconnect'));
+    this.lifecycle.emitRequestEvent(state, makeEvent('prompt.reconcile_required_after_navigation', {
+      requestId: state.requestId,
+      clientId,
+      effectId,
+    }));
+    return true;
+  }
+
+  handleClientReady(client = {}) {
+    if (client.compatible === false || client.compatibility?.compatible === false) return;
+    const clientId = String(client.id || '');
+    if (!clientId) return;
+    for (const state of this.pending.values()) {
+      if (isRequestRuntimeFinished(state) || state.clientId !== clientId) continue;
+      const activeRequest = client.tabObservation?.activeRequest || client.activeRequest || null;
+      if (this.promptSubmitted(state)) {
+        state.awaitingReattachAfterReload = activeRequest?.requestId !== state.requestId;
+        this.#reattachSubmittedState(state, clientId, client, activeRequest);
+        continue;
+      }
+
+      // Reload before a proved prompt submission is an uncertain write boundary.
+      // Never resend the prompt from readiness handling: reconciliation must
+      // prove whether the original effect happened or fail recoverably.
+      this.#recoverUnsubmittedReload(state, clientId, activeRequest);
+    }
+  }
+
+  handleClientChanged(client = {}) {
+    if (client.compatible === false || client.compatibility?.compatible === false) return;
+    const clientId = String(client.id || '');
+    if (!clientId) return;
+    for (const state of this.pending.values()) {
+      if (isRequestRuntimeFinished(state) || state.clientId !== clientId) continue;
+      const activeRequest = client.tabObservation?.activeRequest || client.activeRequest || null;
+      if (this.promptSubmitted(state)) {
+        state.awaitingReattachAfterReload = activeRequest?.requestId !== state.requestId;
+        this.#reattachSubmittedState(state, clientId, client, activeRequest);
+        continue;
+      }
+      this.#recoverUnsubmittedReload(state, clientId, activeRequest);
+    }
+  }
+
+  handleClientActivity(clientIdValue = '', client = {}, payload = {}) {
+    const clientId = String(clientIdValue || client?.id || '');
+    if (!clientId || client?.compatible === false || client?.compatibility?.compatible === false) return;
+    const observation = payload?.observation && typeof payload.observation === 'object'
+      ? payload.observation
+      : payload?.tabObservation && typeof payload.tabObservation === 'object'
+        ? payload.tabObservation
+        : client?.tabObservation || null;
+    const activeRequest = observation?.activeRequest || client?.activeRequest || payload?.activeRequest || null;
+    if (!activeRequest?.requestId) return;
+
+    for (const state of this.pending.values()) {
+      if (isRequestRuntimeFinished(state) || state.clientId !== clientId || !this.promptSubmitted(state)
+        || !state.awaitingReattachAfterReload) continue;
+      const reattached = this.#reattachSubmittedState(state, clientId, {
+        ...client,
+        tabObservation: observation || client?.tabObservation || null,
+      }, activeRequest);
+      if (reattached) state.awaitingReattachAfterReload = false;
+    }
+  }
+}

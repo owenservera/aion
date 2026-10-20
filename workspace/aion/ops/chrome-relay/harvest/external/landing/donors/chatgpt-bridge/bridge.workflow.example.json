@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "id": "chatgpt-bridge-self-hosted",
+  "enabled": true,
+  "projectRoot": ".",
+  "watch": {
+    "mode": "auto",
+    "sessionId": "",
+    "clientId": "",
+    "includeLatest": false,
+    "bindOnFirstVerifiedArtifact": true,
+    "refreshIntervalMs": 0
+  },
+  "artifact": {
+    "expected": "zip",
+    "requireSingleCandidate": true
+  },
+  "projectContext": {
+    "enabled": true,
+    "mode": "identity",
+    "syncOnStart": true,
+    "syncAfterBind": true,
+    "fallbackFiles": [
+      "package.json",
+      "AGENT.MD",
+      "README.md"
+    ]
+  },
+  "verification": {
+    "requiredFiles": [
+      "package.json",
+      "src/index.js",
+      "tools/chrome-bridge-extension/manifest.json"
+    ],
+    "packageName": "chatgpt-browser-bridge-node",
+    "minProjectFileOverlap": 0.15,
+    "commands": [],
+    "requireProjectIdentity": false,
+    "identityFallbackFiles": [
+      "package.json",
+      "AGENT.MD",
+      "README.md"
+    ]
+  },
+  "apply": {
+    "sync": true,
+    "requireCleanGit": false,
+    "rollbackOnFailure": true,
+    "protectedPaths": [
+      ".git/**",
+      ".env*",
+      ".bridge-data/**",
+      "node_modules/**"
+    ],
+    "allowedWarningCodes": [
+      "NO_REFERENCE_MANIFEST_FOR_SYNC"
+    ],
+    "commands": [
+      "npm test",
+      "npm run check"
+    ]
+  },
+  "remediation": {
+    "enabled": true,
+    "maxAttempts": 2,
+    "sameChat": true,
+    "outputTailLines": 250
+  },
+  "commit": {
+    "mode": "block",
+    "required": false,
+    "beginMarker": "COMMIT_MESSAGE_BEGIN",
+    "endMarker": "COMMIT_MESSAGE_END",
+    "style": "detailed"
+  },
+  "extensionUpdate": {
+    "enabled": true,
+    "sourceDir": "tools/chrome-bridge-extension",
+    "targetDir": "",
+    "reloadTabs": true,
+    "backupRetention": 5,
+    "rollbackOnReloadFailure": true
+  },
+  "daemonRestart": {
+    "enabled": true,
+    "mode": "exit",
+    "delayMs": 1000,
+    "exitCode": 75,
+    "required": false
+  },
+  "automation": {
+    "enabled": true,
+    "trigger": "manual",
+    "restartPolicy": "ask",
+    "session": {
+      "policy": "current"
+    },
+    "maxCycles": 5,
+    "continueAfterFailure": true,
+    "stepTimeoutMs": 7200000,
+    "steps": [
+      {
+        "name": "Full test suite",
+        "command": "npm test",
+        "cwd": ".",
+        "timeoutMs": 7200000,
+        "continueOnFailure": true
+      },
+      {
+        "name": "Source checks",
+        "command": "npm run check",
+        "cwd": ".",
+        "timeoutMs": 1200000,
+        "continueOnFailure": true
+      },
+      {
+        "name": "Real browser E2E",
+        "command": "npm run test:e2e -- --report-dir \"$WORKFLOW_REPORT_DIR/e2e\"",
+        "cwd": ".",
+        "timeoutMs": 7200000,
+        "continueOnFailure": true
+      }
+    ],
+    "turn": {
+      "timeoutMs": 7200000,
+      "pollIntervalMs": 1000,
+      "approvalTimeoutMs": 86400000,
+      "model": "",
+      "effort": "high",
+      "sourceClientId": ""
+    },
+    "diagnostics": {
+      "reportDir": ".bridge-data/workflow-runs",
+      "keepReports": 5,
+      "include": [],
+      "maxIncludedBytes": 536870912
+    },
+    "project": {
+      "mode": "package",
+      "useGitignore": true,
+      "snapshotPolicy": "always",
+      "force": true
+    },
+    "onFailure": {
+      "action": "chatgpt-repair",
+      "prompt": "",
+      "attachProject": true,
+      "attachDiagnostics": true,
+      "applyResult": true,
+      "output": {
+        "expected": "zip",
+        "required": true
+      }
+    }
+  }
+}

@@ -1,0 +1,437 @@
+import '../../../tools/chrome-bridge-extension/shared/commandManifest.js';
+import { makeRequestId } from '../../protocol.js';
+import { abortError } from '../requestState.js';
+import { TransferAccumulator, receiveInlineTransfer } from '../transferIntegrity.js';
+
+
+function commandDefinition(type = '') {
+  return globalThis.ChatGptBridgeCommandManifest?.commandDefinition?.(type) || null;
+}
+
+function commandModeForType(type = '') {
+  const definition = commandDefinition(type);
+  if (!definition) throw new Error(`Unsupported browser command type: ${String(type || 'missing')}`);
+  return definition.mode;
+}
+
+function isEffectTerminalPayload(payload = {}) {
+  return payload?.type === 'request.effect.succeeded'
+    || payload?.type === 'request.effect.failed'
+    || payload?.type === 'request.effect.uncertain'
+    || payload?.type === 'request.effect.cancelled';
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+/**
+ * Owns server-to-extension command correlation.
+ *
+ * Request lease identity is supplied by the canonical request state. The Hub
+ * does not create, cache, validate, or release leases. Standalone commands are
+ * sent without a request envelope and therefore cannot become browser
+ * requests accidentally.
+ */
+export class BridgeCommandRegistry {
+  #closed = false;
+
+  constructor({ hub, eventBus = null }) {
+    this.hub = hub;
+    this.eventBus = eventBus;
+    this.commands = new Map();
+    this.releaseBarriers = new Map();
+  }
+
+  get size() { return this.commands.size; }
+  has(commandId) { return this.commands.has(commandId); }
+
+  handleResponse(clientId, payload) {
+    const command = this.commands.get(payload.commandId);
+    if (!command || (command.clientId && command.clientId !== clientId)) return false;
+
+    if (command.mode === 'release' && (payload.type === 'lease.released' || payload.type === 'lease.quarantined')) {
+      this.#remove(payload.commandId);
+      if (payload.type === 'lease.quarantined') {
+        const error = new Error(payload.message || payload.reason || 'Browser tab release could not be proven');
+        error.code = String(payload.code || 'BROWSER_TAB_QUARANTINED');
+        error.retryable = false;
+        error.recoverable = true;
+        error.quarantined = true;
+        command.reject(error);
+      } else {
+        command.resolve({
+          ...payload,
+          released: true,
+          sourceClientId: payload.sourceClientId || command.sourceClientId || command.clientId,
+          commandClientId: command.clientId,
+        });
+      }
+      return true;
+    }
+
+    if (command.mode === 'release'
+      && payload.type === 'command.rejected'
+      && payload.preDispatchRejected === true
+      && payload.code === 'BROWSER_TAB_QUARANTINED'
+      && String(payload.requestId || '') === String(command.request?.requestId || '')) {
+      this.#remove(payload.commandId);
+      const error = new Error(payload.message || 'Browser rejected the stale release before dispatch');
+      error.code = payload.code;
+      error.preDispatchRejected = true;
+      command.reject(error);
+      return true;
+    }
+
+    if (command.mode === 'release') return false;
+
+    if (command.mode === 'effect' && isEffectTerminalPayload(payload)) {
+      this.#remove(payload.commandId);
+      if (payload.type === 'request.effect.succeeded') {
+        const physicalResult = payload.result && typeof payload.result === 'object' ? payload.result : {};
+        command.resolve({
+          ...payload,
+          ...physicalResult,
+          type: payload.effectType || command.requestType,
+          sourceClientId: payload.sourceClientId || command.sourceClientId || command.clientId,
+          commandClientId: command.clientId,
+        });
+        return true;
+      }
+      const uncertain = payload.type === 'request.effect.uncertain';
+      const cancelled = payload.type === 'request.effect.cancelled';
+      const error = new Error(payload.message || payload.error?.message || `${command.requestType} browser effect did not succeed`);
+      error.code = String(payload.code || payload.error?.code || (uncertain ? 'BROWSER_EFFECT_UNCERTAIN' : cancelled ? 'BROWSER_EFFECT_CANCELLED' : 'BROWSER_EFFECT_FAILED'));
+      error.retryable = Boolean(payload.retryable || uncertain);
+      error.recoverable = Boolean(payload.recoverable || uncertain);
+      error.uncertain = uncertain;
+      error.cancelled = cancelled;
+      error.evidence = payload.evidence && typeof payload.evidence === 'object' ? payload.evidence : null;
+      command.reject(error);
+      return true;
+    }
+
+    if (command.mode === 'effect' && payload.type !== 'command.error' && payload.type !== 'command.rejected') {
+      return false;
+    }
+
+    const resultType = payload.type === 'command.result'
+      ? String(payload.resultType || '')
+      : payload.type === 'command.progress'
+        ? String(payload.progressType || '')
+        : '';
+    const result = resultType ? { ...payload, type: resultType } : payload;
+
+    try {
+      if (result.type === 'page.layout.chunk') {
+        if (command.requestType !== 'debug.layout.capture') throw new Error('Unexpected layout transfer');
+        command.transfer ||= new TransferAccumulator(result, 'utf8');
+        command.transfer.append(result, result.content);
+        return true;
+      }
+
+      if (result.type === 'artifact.data.started') {
+        if (!['artifact.fetch', 'artifact.image.read'].includes(command.requestType) || command.chunkMeta) throw new Error('Unexpected or duplicate artifact transfer');
+        if (command.artifactId && result.artifactId !== command.artifactId) throw new Error('Artifact identity mismatch');
+        if (!(result.filePath || result.filename)) command.transfer = new TransferAccumulator(result, 'base64');
+        command.chunkMeta = {
+          name: result.name,
+          mime: result.mime,
+          artifactId: result.artifactId,
+          totalChunks: result.totalChunks,
+          encodedSize: result.encodedSize,
+          filePath: result.filePath || result.filename || '',
+          size: result.size || 0,
+          downloadId: result.downloadId ?? null,
+          browserDownloadStartTime: result.browserDownloadStartTime || '',
+          browserDownloadEndTime: result.browserDownloadEndTime || '',
+          browserCaptureStartedAt: result.browserCaptureStartedAt || 0,
+          browserCapturedAt: result.browserCapturedAt || 0,
+          browserExpectedNames: Array.isArray(result.browserExpectedNames) ? result.browserExpectedNames : [],
+          captureSource: result.captureSource || '',
+        };
+        this.eventBus?.emitDebug({ type: 'protocol.in.artifact.data.started', data: { commandId: result.commandId, artifactId: result.artifactId, totalChunks: result.totalChunks, encodedSize: result.encodedSize } });
+        return true;
+      }
+
+      if (result.type === 'artifact.data.chunk') {
+        if (!command.transfer || result.artifactId !== command.chunkMeta?.artifactId) throw new Error('Unexpected artifact chunk');
+        command.transfer.append(result, result.contentBase64);
+        if ((Number(result.index) || 0) % 10 === 0) {
+          this.eventBus?.emitDebug({ type: 'protocol.in.artifact.data.chunk', data: { commandId: result.commandId, index: result.index, totalChunks: result.totalChunks, size: String(result.contentBase64 || '').length } });
+        }
+        return true;
+      }
+
+      if (payload.type === 'command.progress') {
+        this.eventBus?.emitDebug({
+          type: 'protocol.in.command.progress',
+          data: { commandId: result.commandId, requestType: command.requestType, progressType: result.type },
+        });
+        return true;
+      }
+
+      if (result.type === 'page.layout.captured') {
+        if (command.requestType !== 'debug.layout.capture') throw new Error('Unexpected layout result');
+        this.#remove(result.commandId);
+        let html = String(result.html || '');
+        if (result.chunked === true) {
+          if (!command.transfer) throw new Error('Missing layout chunks');
+          html = command.transfer.finish(result);
+          if (html.length !== result.htmlLength) throw new Error('Layout length mismatch');
+        } else if (command.transfer) {
+          throw new Error('Layout transfer mode changed');
+        } else {
+          html = receiveInlineTransfer(result, html, 'utf8');
+          if (html.length !== result.htmlLength) throw new Error('Layout length mismatch');
+        }
+        command.resolve({
+          ...result,
+          type: 'page.layout.captured',
+          html,
+          sourceClientId: result.sourceClientId || command.sourceClientId || command.clientId,
+          commandClientId: command.clientId,
+        });
+        return true;
+      }
+
+      if (result.type === 'artifact.data.done') {
+        this.#remove(result.commandId);
+        if (!['artifact.fetch', 'artifact.image.read'].includes(command.requestType)) throw new Error('Unexpected artifact result');
+        if (command.artifactId && result.artifactId !== command.artifactId) throw new Error('Artifact identity mismatch');
+        if (command.chunkMeta && result.artifactId !== command.chunkMeta.artifactId) throw new Error('Artifact identity changed');
+        const filePath = result.filePath || result.filename || '';
+        if (command.transfer && filePath) throw new Error('Artifact transfer mode changed');
+        if (command.transfer && Object.hasOwn(result, 'contentBase64')) throw new Error('Mixed artifact transfer modes');
+        if (filePath && (result.contentBase64 || result.transferId || Number(result.encodedSize) > 0 || Number(result.totalChunks) > 0)) throw new Error('Mixed artifact transfer modes');
+        if (command.chunkMeta?.filePath && command.chunkMeta.filePath !== filePath) throw new Error('Artifact download path changed');
+        const contentBase64 = command.transfer ? command.transfer.finish(result)
+          : filePath ? '' : receiveInlineTransfer(result, result.contentBase64, 'base64');
+        command.resolve({
+          type: 'artifact.data',
+          sourceClientId: result.sourceClientId || command.sourceClientId || command.clientId,
+          commandClientId: command.clientId,
+          commandId: result.commandId,
+          artifactId: result.artifactId || command.chunkMeta?.artifactId,
+          name: result.name || command.chunkMeta?.name,
+          mime: result.mime || command.chunkMeta?.mime,
+          contentBase64,
+          transferId: result.transferId,
+          sha256: result.sha256,
+          encodedSize: contentBase64.length,
+          filePath: result.filePath || result.filename || command.chunkMeta?.filePath || '',
+          size: result.size || command.chunkMeta?.size || 0,
+          captureSource: result.captureSource || command.chunkMeta?.captureSource || '',
+          downloadId: result.downloadId ?? command.chunkMeta?.downloadId ?? null,
+          browserDownloadStartTime: result.browserDownloadStartTime || command.chunkMeta?.browserDownloadStartTime || '',
+          browserDownloadEndTime: result.browserDownloadEndTime || command.chunkMeta?.browserDownloadEndTime || '',
+          browserCaptureStartedAt: result.browserCaptureStartedAt || command.chunkMeta?.browserCaptureStartedAt || 0,
+          browserCapturedAt: result.browserCapturedAt || command.chunkMeta?.browserCapturedAt || 0,
+          browserExpectedNames: Array.isArray(result.browserExpectedNames) ? result.browserExpectedNames : command.chunkMeta?.browserExpectedNames || [],
+        });
+        return true;
+      }
+      if ((command.transfer || ['artifact.fetch', 'artifact.image.read', 'debug.layout.capture'].includes(command.requestType))
+        && !['command.error', 'command.rejected'].includes(result.type) && !result.error) throw new Error('Unexpected transfer terminal result');
+    } catch (cause) {
+      this.#remove(result.commandId);
+      const error = new Error(cause.message);
+      error.code = 'TRANSFER_INTEGRITY_INVALID';
+      command.reject(error);
+      return true;
+    }
+
+    this.#remove(result.commandId);
+    if (result.type === 'command.error' || result.type === 'command.rejected' || result.type === 'lease.quarantined' || result.error) {
+      const error = new Error(result.message || result.error?.message || result.error || 'Browser extension command failed');
+      error.code = String(result.code || result.error?.code || 'BROWSER_COMMAND_FAILED');
+      error.retryable = Boolean(result.retryable || result.uncertain);
+      error.recoverable = Boolean(result.recoverable || result.uncertain);
+      error.uncertain = Boolean(result.uncertain);
+      error.submissionStatus = result.submissionStatus;
+      error.evidence = result.evidence && typeof result.evidence === 'object' ? result.evidence : null;
+      command.reject(error);
+      return true;
+    }
+    command.resolve({ ...result, sourceClientId: result.sourceClientId || command.sourceClientId || command.clientId, commandClientId: command.clientId });
+    return true;
+  }
+
+  async send(type, payload = {}, options = {}) {
+    if (this.#closed) throw new Error('Bridge shutting down');
+    if (options.signal?.aborted) throw abortError(options.signal.reason || 'Command cancelled');
+    const validation = globalThis.ChatGptBridgeCommandManifest?.validateCommandPayload?.(type, { ...payload, type }, {
+      requestScoped: Boolean(options.request),
+    });
+    if (!validation?.valid) {
+      const error = new Error(validation?.errors?.join('; ') || `Unsupported browser command type: ${String(type || 'missing')}`);
+      error.code = 'BROWSER_COMMAND_INVALID';
+      throw error;
+    }
+
+    const commandId = options.commandId || makeRequestId();
+    const timeoutMs = Number(options.timeoutMs) || 30_000;
+    const sourceClientId = String(options.sourceClientId || options.clientId || payload.sourceClientId || '');
+    if (type !== 'request.release' && type !== 'command.cancel') {
+      await this.waitForReleaseBarrier(sourceClientId, timeoutMs);
+    }
+    if (this.#closed) throw new Error('Bridge shutting down');
+    if (options.signal?.aborted) throw abortError(options.signal.reason || 'Command cancelled');
+    if (this.commands.has(commandId)) {
+      const error = new Error(`Browser command identity is already in use: ${commandId}`);
+      error.code = 'BROWSER_COMMAND_ID_IN_USE';
+      throw error;
+    }
+
+    const dispatch = () => new Promise((resolve, reject) => {
+      const command = {
+        commandId,
+        requestType: type,
+        mode: commandModeForType(type),
+        clientId: '',
+        resolve,
+        reject,
+        timer: null,
+        transfer: null,
+        chunkMeta: null,
+        artifactId: ['artifact.fetch', 'artifact.image.read'].includes(type) ? payload.artifact?.id : '',
+        sourceClientId,
+        request: options.request || null,
+        abortSignal: options.signal || null,
+        abortHandler: null,
+      };
+      const timer = setTimeout(() => {
+        if (this.commands.get(commandId) !== command) return;
+        const error = new Error(`Timed out waiting for ${type} response after ${timeoutMs}ms`);
+        void this.#cancelBeforeReject(command, error, 'server_command_timeout');
+      }, timeoutMs);
+      timer.unref?.();
+      command.timer = timer;
+      this.commands.set(commandId, command);
+      if (options.signal) {
+        command.abortHandler = () => {
+          if (this.commands.get(commandId) !== command) return;
+          void this.#cancelBeforeReject(
+            command,
+            abortError(String(options.signal.reason || 'Command cancelled')),
+            'server_command_aborted',
+          );
+        };
+        options.signal.addEventListener('abort', command.abortHandler, { once: true });
+      }
+
+      try {
+        const commandPayload = { ...payload, type, commandId };
+        let sent;
+        if (sourceClientId && typeof this.hub.sendToClientWithDelivery === 'function') {
+          sent = type === 'extension.reload'
+            && options.allowIncompatibleReload === true
+            && typeof this.hub.sendReloadControlToClient === 'function'
+            ? { client: this.hub.sendReloadControlToClient(sourceClientId, commandPayload, { request: options.request || null }) }
+            : this.hub.sendToClientWithDelivery(sourceClientId, commandPayload, { request: options.request || null });
+        } else if (typeof this.hub.sendToActiveWithDelivery === 'function') {
+          sent = this.hub.sendToActiveWithDelivery(commandPayload, { request: options.request || null });
+        } else {
+          sent = { client: this.hub.sendToActive(commandPayload) };
+        }
+        command.clientId = sent.client.id;
+        command.sourceClientId = sourceClientId || sent.client.id;
+        if (type === 'request.release' && this.commands.get(commandId) === command) this.#beginReleaseBarrier(command.clientId, commandId);
+        Promise.resolve(sent.delivered).catch((error) => {
+          if (this.commands.get(commandId) !== command) return;
+          this.#remove(commandId);
+          reject(error);
+        });
+      } catch (err) {
+        this.#remove(commandId);
+        reject(err);
+        return;
+      }
+    });
+
+    return await dispatch();
+  }
+
+  close(reason = 'Bridge shutting down') {
+    this.#closed = true;
+    for (const command of this.commands.values()) {
+      this.#remove(command.commandId);
+      command.reject(new Error(reason));
+    }
+    this.commands.clear();
+    for (const barrier of this.releaseBarriers.values()) barrier.resolve();
+    this.releaseBarriers.clear();
+  }
+
+  isReleasePending(clientId = '') {
+    return this.releaseBarriers.has(String(clientId || ''));
+  }
+
+  async waitForReleaseBarrier(clientId = '', timeoutMs = 30_000) {
+    const id = String(clientId || '');
+    if (!id) return;
+    const barrier = this.releaseBarriers.get(id);
+    if (!barrier) return;
+    const limit = Math.max(1_000, Math.min(Number(timeoutMs) || 30_000, 10_500));
+    let timer = null;
+    try {
+      await Promise.race([
+        barrier.promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`Timed out waiting for browser release on ${id} after ${limit}ms`)), limit);
+          timer.unref?.();
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  #beginReleaseBarrier(clientId, commandId) {
+    const id = String(clientId || '');
+    if (!id) return;
+    const gate = deferred();
+    this.releaseBarriers.set(id, { ...gate, commandId });
+  }
+
+  #settleReleaseBarrier(command) {
+    if (command?.requestType !== 'request.release') return;
+    const id = String(command.clientId || command.sourceClientId || '');
+    const barrier = this.releaseBarriers.get(id);
+    if (!barrier || barrier.commandId !== command.commandId) return;
+    this.releaseBarriers.delete(id);
+    barrier.resolve();
+  }
+
+  async #cancelBeforeReject(command, error, reason) {
+    if (!command || this.commands.get(command.commandId) !== command || command.cancelling) return;
+    command.cancelling = true;
+    if (command.requestType !== 'command.cancel') {
+      try {
+        await this.send('command.cancel', {
+          targetCommandId: command.commandId,
+          reason,
+        }, {
+          sourceClientId: String(command.clientId || command.sourceClientId || ''),
+          timeoutMs: 5_000,
+        });
+      } catch {
+        // Cancellation is best effort, but the original command is not exposed
+        // as timed out until the cancellation attempt itself has settled.
+      }
+    }
+    if (this.commands.get(command.commandId) !== command) return;
+    this.#remove(command.commandId);
+    command.reject(error);
+  }
+
+  #remove(commandId) {
+    const command = this.commands.get(commandId);
+    if (command?.timer) clearTimeout(command.timer);
+    if (command?.abortHandler) command.abortSignal.removeEventListener('abort', command.abortHandler);
+    this.commands.delete(commandId);
+    this.#settleReleaseBarrier(command);
+  }
+}

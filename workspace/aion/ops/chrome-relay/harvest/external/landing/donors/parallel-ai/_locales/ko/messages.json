@@ -1,0 +1,960 @@
+{
+  "extensionName": {
+    "message": "Parallel AI"
+  },
+  "extensionDescription": {
+    "message": "한 창에서 여러 AI 어시스턴트를 나란히 비교합니다. 하나의 프롬프트를 전송하고 응답을 더 빠르게 검토합니다."
+  },
+  "actionDefaultTitle": {
+    "message": "Parallel AI 열기"
+  },
+  "aboutBuildDate": {
+    "message": "빌드 날짜:"
+  },
+  "aboutCheckVersion": {
+    "message": "버전 확인"
+  },
+  "aboutCommit": {
+    "message": "커밋:"
+  },
+  "aboutManifestVersion": {
+    "message": "Manifest 버전:"
+  },
+  "aboutUnknown": {
+    "message": "알 수 없음"
+  },
+  "aboutUpToDate": {
+    "message": "현재 $1 버전을 사용 중입니다.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateAvailable": {
+    "message": "최신 메타데이터 버전이 있습니다: $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "aboutUpdateCheckDescription": {
+    "message": "로컬 빌드 메타데이터를 사용하여 패키지 버전 확인을 실행합니다."
+  },
+  "aboutUpdateCheckTitle": {
+    "message": "업데이트 확인"
+  },
+  "aboutVersionDescription": {
+    "message": "이 확장 프로그램 번들의 빌드 및 패키지 정보입니다."
+  },
+  "aboutVersionTitle": {
+    "message": "버전 정보"
+  },
+  "appStatusReady": {
+    "message": "준비됨."
+  },
+  "commonCancel": {
+    "message": "취소"
+  },
+  "composerAriaAddPane": {
+    "message": "패널 추가"
+  },
+  "composerAriaClearAll": {
+    "message": "모두 지우기"
+  },
+  "composerAriaDisableScrollSync": {
+    "message": "스크롤 동기화 비활성화"
+  },
+  "composerAriaDisableTemporaryChats": {
+    "message": "임시 채팅 비활성화"
+  },
+  "composerAriaEnableScrollSync": {
+    "message": "스크롤 동기화 활성화"
+  },
+  "composerAriaEnableTemporaryChats": {
+    "message": "임시 채팅 활성화"
+  },
+  "composerAriaFillAll": {
+    "message": "모두 채우기"
+  },
+  "composerAriaNewChats": {
+    "message": "새 채팅"
+  },
+  "composerAriaOpenLayout": {
+    "message": "레이아웃 선택기 열기"
+  },
+  "composerAriaOpenPromptLibrary": {
+    "message": "프롬프트 라이브러리 열기"
+  },
+  "composerAriaOpenSettings": {
+    "message": "설정 열기"
+  },
+  "composerAriaResizeBottom": {
+    "message": "아래쪽 가장자리에서 컴포저 크기 조정"
+  },
+  "composerAriaResizeLeft": {
+    "message": "왼쪽 가장자리에서 컴포저 크기 조정"
+  },
+  "composerAriaResizeRight": {
+    "message": "오른쪽 가장자리에서 컴포저 크기 조정"
+  },
+  "composerAriaResizeTop": {
+    "message": "위쪽 가장자리에서 컴포저 크기 조정"
+  },
+  "composerAriaSendAll": {
+    "message": "모두 전송"
+  },
+  "composerAriaStopAll": {
+    "message": "모두 중지"
+  },
+  "composerAriaSwitchToPopupMode": {
+    "message": "팝업 모드로 전환"
+  },
+  "composerAriaSwitchToTabMode": {
+    "message": "탭 모드로 전환"
+  },
+  "composerAttachmentRemove": {
+    "message": "$1 제거",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerBarDragHint": {
+    "message": "드래그하여 위치를 변경합니다. 더블 클릭하면 위치가 초기화됩니다."
+  },
+  "composerPlaceholder": {
+    "message": "어디서든 무엇이든 물어보세요..."
+  },
+  "composerPositionBottom": {
+    "message": "맨 아래"
+  },
+  "composerPositionDescription": {
+    "message": "플로팅 컴포저가 기본으로 표시될 위치입니다. 드래그하여 원하는 곳으로 옮길 수 있습니다. 컴포저 바를 더블 클릭하면 이 기본 위치로 되돌아갑니다."
+  },
+  "composerPositionLower": {
+    "message": "아래쪽"
+  },
+  "composerPositionMiddle": {
+    "message": "가운데"
+  },
+  "composerPositionTitle": {
+    "message": "기본 컴포저 위치"
+  },
+  "composerTooltipAddPane": {
+    "message": "패널 추가"
+  },
+  "composerTooltipAttachFiles": {
+    "message": "파일 첨부"
+  },
+  "composerTooltipClearAll": {
+    "message": "모두 지우기"
+  },
+  "composerTooltipFillAll": {
+    "message": "모두 채우기"
+  },
+  "composerTooltipLayout": {
+    "message": "레이아웃"
+  },
+  "composerTooltipNewChats": {
+    "message": "새 채팅"
+  },
+  "composerTooltipPopupMode": {
+    "message": "팝업 모드"
+  },
+  "composerTooltipPromptLibrary": {
+    "message": "프롬프트 라이브러리"
+  },
+  "composerTooltipResizeHeight": {
+    "message": "드래그하여 높이를 조정합니다. 더블 클릭하면 내용에 맞게 맞춰집니다."
+  },
+  "composerTooltipResizeWidth": {
+    "message": "드래그하여 너비를 조정합니다. 더블 클릭하면 너비가 초기화됩니다."
+  },
+  "composerTooltipSettings": {
+    "message": "설정"
+  },
+  "composerTooltipStopAllEsc": {
+    "message": "모두 중지 (Esc)"
+  },
+  "composerTooltipTabMode": {
+    "message": "탭 모드"
+  },
+  "composerTooltipTemporaryChats": {
+    "message": "임시 채팅"
+  },
+  "confirmClearLibrary": {
+    "message": "라이브러리에 저장된 모든 프롬프트를 삭제할까요?"
+  },
+  "confirmDefault": {
+    "message": "확인"
+  },
+  "confirmDeletePrompt": {
+    "message": "프롬프트 라이브러리에서 \"$1\"을(를) 삭제할까요?",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "connectorLinesAriaDisable": {
+    "message": "연결선 비활성화"
+  },
+  "connectorLinesAriaEnable": {
+    "message": "연결선 활성화"
+  },
+  "connectorLinesDescription": {
+    "message": "플로팅 컴포저와 공급자 프롬프트 사이를 잇는 실험적인 애니메이션 링크를 표시합니다.\n(일부 기기에서는 끄면 성능이 향상될 수 있으므로 끊김이 보이거나 동작을 줄이고 싶다면 비활성화하세요.)"
+  },
+  "connectorLinesTitle": {
+    "message": "화려한 연결선"
+  },
+  "dataBackupDescription": {
+    "message": "현재 설정 또는 저장된 프롬프트를 포함한 워크스페이스 전체 상태를 내보냅니다."
+  },
+  "dataBackupTitle": {
+    "message": "백업 및 복원"
+  },
+  "dataExportSettings": {
+    "message": "설정 내보내기"
+  },
+  "dataExportWorkspace": {
+    "message": "워크스페이스 내보내기"
+  },
+  "dataImportJson": {
+    "message": "JSON 가져오기"
+  },
+  "dataImportSettingsTitle": {
+    "message": "설정 JSON 가져오기"
+  },
+  "dataResetComposer": {
+    "message": "컴포저 위치/크기 재설정"
+  },
+  "dataResetLayout": {
+    "message": "레이아웃 재설정"
+  },
+  "dataResetSettings": {
+    "message": "설정 재설정"
+  },
+  "dataResetSettingsConfirmLabel": {
+    "message": "설정 재설정"
+  },
+  "dataResetSettingsConfirmMessage": {
+    "message": "모든 설정(테마, 공급자, 레이아웃, 단축키, 컴포저)을 기본값으로 되돌립니다.\n저장된 프롬프트는 영향을 받지 않습니다."
+  },
+  "dataResetSettingsConfirmTitle": {
+    "message": "모든 설정을 재설정할까요?"
+  },
+  "dataWorkspaceActionsDescription": {
+    "message": "개별 워크스페이스 요소를 기본값으로 되돌리거나 확장 프로그램 전체를 재설정합니다."
+  },
+  "dataWorkspaceActionsTitle": {
+    "message": "워크스페이스 작업"
+  },
+  "enterCustomNewline": {
+    "message": "줄바꿈 삽입"
+  },
+  "enterCustomSend": {
+    "message": "메시지 전송"
+  },
+  "enterKeyBehaviorAria": {
+    "message": "Enter 키 동작 선택"
+  },
+  "enterKeyBehaviorDescription": {
+    "message": "확장 프로그램이 공급자 입력란을 채울 때 Enter 키가 어떻게 동작할지 조정합니다."
+  },
+  "enterKeyBehaviorTitle": {
+    "message": "Enter 키 동작"
+  },
+  "errorDefaultLibraryUnavailable": {
+    "message": "기본 프롬프트 라이브러리를 사용할 수 없습니다."
+  },
+  "geminiAutoExtendedThinkingAriaDisable": {
+    "message": "Gemini 자동 Extended 사고 비활성화"
+  },
+  "geminiAutoExtendedThinkingAriaEnable": {
+    "message": "Gemini 자동 Extended 사고 활성화"
+  },
+  "geminiAutoExtendedThinkingDescription": {
+    "message": "페이지가 'Standard'로 되돌아가는 것을 방지하기 위해 Gemini의 사고 수준을 자동으로 'Extended'로 전환합니다.\n(Gemini 웹 인터페이스의 알려진 버그에 대한 임시 해결책입니다. 실험적 기능 — 가끔 오작동할 수 있습니다.)"
+  },
+  "geminiAutoExtendedThinkingTitle": {
+    "message": "Gemini를 Extended 사고로 유지"
+  },
+  "googleModeAi": {
+    "message": "AI 모드"
+  },
+  "googleModeAria": {
+    "message": "Google 모드 선택"
+  },
+  "googleModeSearch": {
+    "message": "검색"
+  },
+  "keyboardShortcutDescriptionPrefix": {
+    "message": "이 단축키를 변경하거나 비활성화하려면 Chrome의 새 탭에서 다음을 입력하세요:"
+  },
+  "keyboardShortcutDescriptionShortcut": {
+    "message": "새 Parallel AI 워크스페이스를 엽니다."
+  },
+  "keyboardShortcutDescriptionSuffix": {
+    "message": "또는 오른쪽 버튼으로 Chrome의 키보드 단축키 페이지를 열어 Parallel AI 항목을 편집하세요."
+  },
+  "keyboardShortcutOpenChrome": {
+    "message": "Chrome 단축키"
+  },
+  "keyboardShortcutOpenChromeTitle": {
+    "message": "Chrome의 키보드 단축키 페이지 열기"
+  },
+  "keyboardShortcutTitle": {
+    "message": "키보드 단축키"
+  },
+  "languageAriaChoose": {
+    "message": "언어 선택"
+  },
+  "languageDescription": {
+    "message": "확장 프로그램 UI가 사용할 언어를 선택합니다."
+  },
+  "languageTitle": {
+    "message": "언어"
+  },
+  "layoutAriaSwitchTo": {
+    "message": "$1 레이아웃으로 전환",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "layoutModalDescription": {
+    "message": "전체 패널 배치를 선택합니다. 워크스페이스 내부의 크기 조정 핸들로 현재 레이아웃을 세부 조정할 수 있습니다."
+  },
+  "layoutModalTitle": {
+    "message": "레이아웃"
+  },
+  "layoutSlots": {
+    "message": "$1개 슬롯",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAddToFavorites": {
+    "message": "즐겨찾기에 추가"
+  },
+  "libraryAllCategories": {
+    "message": "모든 카테고리"
+  },
+  "libraryAriaAddFavorite": {
+    "message": "$1을(를) 즐겨찾기에 추가",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDelete": {
+    "message": "$1 삭제",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaDragReorder": {
+    "message": "$1을(를) 드래그하여 순서 변경",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaEdit": {
+    "message": "$1 편집",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryAriaRemoveFavorite": {
+    "message": "$1을(를) 즐겨찾기에서 제거",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryBadgeFavorite": {
+    "message": "즐겨찾기"
+  },
+  "libraryClear": {
+    "message": "라이브러리 비우기"
+  },
+  "libraryClearConfirmLabel": {
+    "message": "라이브러리 비우기"
+  },
+  "libraryClearConfirmMessage": {
+    "message": "라이브러리에 저장된 모든 프롬프트가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다."
+  },
+  "libraryClearConfirmTitle": {
+    "message": "프롬프트 라이브러리를 비울까요?"
+  },
+  "libraryDeleteConfirmLabel": {
+    "message": "삭제"
+  },
+  "libraryDeleteConfirmMessage": {
+    "message": "\"$1\"이(가) 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryDeleteConfirmTitle": {
+    "message": "프롬프트를 삭제할까요?"
+  },
+  "libraryDeletePrompt": {
+    "message": "프롬프트 삭제"
+  },
+  "libraryEditPrompt": {
+    "message": "프롬프트 편집"
+  },
+  "libraryEmptyDescription": {
+    "message": "다른 필터를 시도하거나 검색을 지우거나 기본 라이브러리를 가져와서 시작하세요."
+  },
+  "libraryEmptyTitle": {
+    "message": "프롬프트를 찾을 수 없음"
+  },
+  "libraryExportJson": {
+    "message": "JSON 내보내기"
+  },
+  "libraryFilterAll": {
+    "message": "전체"
+  },
+  "libraryFilterCategoryAria": {
+    "message": "카테고리별 프롬프트 필터링"
+  },
+  "libraryFilterFavorites": {
+    "message": "즐겨찾기"
+  },
+  "libraryFilterRecent": {
+    "message": "최근"
+  },
+  "libraryImportDefaults": {
+    "message": "기본값 가져오기"
+  },
+  "libraryImportExportDescription": {
+    "message": "시작 프롬프트를 가져오거나 라이브러리를 JSON 파일로 주고받습니다."
+  },
+  "libraryImportExportTitle": {
+    "message": "가져오기 및 내보내기"
+  },
+  "libraryImportJson": {
+    "message": "JSON 가져오기"
+  },
+  "libraryImportJsonTitle": {
+    "message": "프롬프트 라이브러리 JSON 가져오기"
+  },
+  "libraryImportPromptsJsonTitle": {
+    "message": "프롬프트 JSON 가져오기"
+  },
+  "libraryModalDescription": {
+    "message": "재사용 가능한 프롬프트를 저장하고 빠르게 검색하여 통합 컴포저에 다시 삽입합니다."
+  },
+  "libraryModalTitle": {
+    "message": "프롬프트 라이브러리"
+  },
+  "libraryNewPrompt": {
+    "message": "새 프롬프트"
+  },
+  "libraryOpen": {
+    "message": "라이브러리 열기"
+  },
+  "libraryOverviewDescription": {
+    "message": "저장된 프롬프트 라이브러리는 빠른 재사용을 위해 IndexedDB에 로컬로 저장됩니다."
+  },
+  "libraryOverviewTitle": {
+    "message": "라이브러리 개요"
+  },
+  "libraryPromptCountMany": {
+    "message": "저장된 프롬프트 $1개",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryPromptCountOne": {
+    "message": "저장된 프롬프트 $1개",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "libraryRemoveFromFavorites": {
+    "message": "즐겨찾기에서 제거"
+  },
+  "librarySearchPlaceholder": {
+    "message": "프롬프트, 태그 또는 내용 검색"
+  },
+  "libraryUse": {
+    "message": "사용"
+  },
+  "multilineSendAriaDisable": {
+    "message": "여러 줄 프롬프트에 대한 수정자 키 요구 비활성화"
+  },
+  "multilineSendAriaEnable": {
+    "message": "여러 줄 프롬프트에 Ctrl 또는 Command Enter 요구"
+  },
+  "multilineSendDescriptionPrefix": {
+    "message": "활성화하면 줄바꿈이 포함된(여러 줄) 프롬프트를 전송할 때 다음 키가 필요합니다:"
+  },
+  "multilineSendDescriptionSuffix": {
+    "message": "전송하려면 누르세요."
+  },
+  "multilineSendTitle": {
+    "message": "여러 줄 프롬프트에 $1 + Enter 요구",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "promptEditorAriaMarkFavorite": {
+    "message": "프롬프트를 즐겨찾기로 표시"
+  },
+  "promptEditorAriaRemoveFavorite": {
+    "message": "프롬프트를 즐겨찾기에서 제거"
+  },
+  "promptEditorCategory": {
+    "message": "카테고리"
+  },
+  "promptEditorCategoryPlaceholder": {
+    "message": "일반"
+  },
+  "promptEditorContent": {
+    "message": "프롬프트 내용"
+  },
+  "promptEditorContentPlaceholder": {
+    "message": "재사용할 프롬프트를 여기에 작성하세요"
+  },
+  "promptEditorDescription": {
+    "message": "선택적인 태그, 카테고리, {topic}과 같은 변수를 사용하여 재사용 가능한 프롬프트를 만듭니다."
+  },
+  "promptEditorEditTitle": {
+    "message": "프롬프트 편집"
+  },
+  "promptEditorFavoriteDescription": {
+    "message": "즐겨찾기 필터에 이 프롬프트를 표시합니다."
+  },
+  "promptEditorFavoriteLabel": {
+    "message": "즐겨찾기"
+  },
+  "promptEditorNewTitle": {
+    "message": "새 프롬프트"
+  },
+  "promptEditorSave": {
+    "message": "프롬프트 저장"
+  },
+  "promptEditorTags": {
+    "message": "태그"
+  },
+  "promptEditorTagsPlaceholder": {
+    "message": "리서치, 기획, 글쓰기"
+  },
+  "promptEditorTitle": {
+    "message": "제목"
+  },
+  "promptEditorTitlePlaceholder": {
+    "message": "프롬프트 제목"
+  },
+  "promptEditorVariables": {
+    "message": "변수"
+  },
+  "promptEditorVariablesPlaceholder": {
+    "message": "주제, 톤, 대상"
+  },
+  "providerAriaDisable": {
+    "message": "$1 비활성화",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaDragReorder": {
+    "message": "$1을(를) 드래그하여 순서 변경",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "providerAriaEnable": {
+    "message": "$1 활성화",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsModalDescription": {
+    "message": "이제 모든 컨트롤이 별도의 옵션 페이지가 아닌 워크스페이스 내에 있습니다."
+  },
+  "settingsModalTitle": {
+    "message": "설정"
+  },
+  "sourceUrlAria": {
+    "message": "소스 URL 위치 선택"
+  },
+  "sourceUrlBeginning": {
+    "message": "URL을 앞에 배치"
+  },
+  "sourceUrlDescription": {
+    "message": "콘텐츠를 가져올 때 선택한 URL을 앞에 붙일지 뒤에 붙일지 제어합니다."
+  },
+  "sourceUrlEnd": {
+    "message": "URL을 끝에 배치"
+  },
+  "sourceUrlNone": {
+    "message": "소스 URL을 포함하지 않음"
+  },
+  "sourceUrlTitle": {
+    "message": "소스 URL 위치"
+  },
+  "statusAttachmentReadyMany": {
+    "message": "첨부 파일 $1개가 준비되었습니다.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusAttachmentReadyOne": {
+    "message": "첨부 파일 $1개가 준비되었습니다.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusCleared": {
+    "message": "통합 입력란과 공급자 초안을 지웠습니다."
+  },
+  "statusComposerFullReset": {
+    "message": "컴포저 위치와 크기를 재설정했습니다."
+  },
+  "statusComposerHeightReset": {
+    "message": "컴포저 높이를 재설정했습니다."
+  },
+  "statusComposerPositionReset": {
+    "message": "컴포저 위치를 재설정했습니다."
+  },
+  "statusComposerWidthReset": {
+    "message": "컴포저 너비를 재설정했습니다."
+  },
+  "statusDefaultImportFailed": {
+    "message": "기본 프롬프트를 가져오지 못했습니다."
+  },
+  "statusDraftsAlreadySent": {
+    "message": "채워진 초안을 이미 전송했습니다."
+  },
+  "statusFavoriteAdded": {
+    "message": "즐겨찾기에 추가되었습니다."
+  },
+  "statusFavoriteFailed": {
+    "message": "즐겨찾기를 업데이트하지 못했습니다."
+  },
+  "statusFavoriteRemoved": {
+    "message": "즐겨찾기에서 제거되었습니다."
+  },
+  "statusFavoritesReorderFailed": {
+    "message": "즐겨찾기 순서를 변경하지 못했습니다."
+  },
+  "statusFilledPanels": {
+    "message": "활성 패널을 채웠습니다."
+  },
+  "statusImageAttached": {
+    "message": "이미지를 컴포저에 첨부했습니다."
+  },
+  "statusImageFetchFailed": {
+    "message": "해당 이미지를 가져올 수 없습니다."
+  },
+  "statusImportedSkippedSuffix": {
+    "message": ", $1개 건너뜀",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusLayoutReset": {
+    "message": "패널 레이아웃을 재설정했습니다."
+  },
+  "statusLibraryClearFailed": {
+    "message": "프롬프트 라이브러리를 비우지 못했습니다."
+  },
+  "statusLibraryCleared": {
+    "message": "프롬프트 라이브러리를 비웠습니다."
+  },
+  "statusLibraryExportFailed": {
+    "message": "프롬프트를 내보내지 못했습니다."
+  },
+  "statusLibraryExported": {
+    "message": "프롬프트 라이브러리를 내보냈습니다."
+  },
+  "statusLibraryLoadFailed": {
+    "message": "프롬프트 라이브러리를 불러오지 못했습니다."
+  },
+  "statusNewChats": {
+    "message": "각 패널에서 새 채팅을 요청했습니다."
+  },
+  "statusNoContentToSend": {
+    "message": "전송하기 전에 프롬프트나 첨부 파일을 추가하세요."
+  },
+  "statusNoMoreProviders": {
+    "message": "추가로 활성화된 공급자가 없습니다."
+  },
+  "statusOnePanelMin": {
+    "message": "최소 하나의 패널은 열려 있어야 합니다."
+  },
+  "statusPanelAdded": {
+    "message": "다른 공급자 패널을 추가했습니다."
+  },
+  "statusPanelsReordered": {
+    "message": "패널 순서를 변경했습니다."
+  },
+  "statusPromptDeleteFailed": {
+    "message": "프롬프트를 삭제하지 못했습니다."
+  },
+  "statusPromptDeleted": {
+    "message": "프롬프트를 삭제했습니다."
+  },
+  "statusPromptInserted": {
+    "message": "통합 컴포저에 프롬프트를 삽입했습니다."
+  },
+  "statusPromptSaveFailed": {
+    "message": "프롬프트를 저장하지 못했습니다."
+  },
+  "statusPromptSaved": {
+    "message": "프롬프트를 저장했습니다."
+  },
+  "statusPromptUpdated": {
+    "message": "프롬프트를 업데이트했습니다."
+  },
+  "statusPromptsImportFailed": {
+    "message": "프롬프트를 가져오지 못했습니다."
+  },
+  "statusScrollSyncOff": {
+    "message": "스크롤 동기화를 비활성화했습니다."
+  },
+  "statusScrollSyncOn": {
+    "message": "스크롤 동기화를 활성화했습니다."
+  },
+  "statusSelectedTextLoaded": {
+    "message": "선택한 텍스트를 컴포저에 불러왔습니다."
+  },
+  "statusSentToPanels": {
+    "message": "활성 패널로 전송했습니다."
+  },
+  "statusSettingsExportFailed": {
+    "message": "설정을 내보내지 못했습니다."
+  },
+  "statusSettingsExported": {
+    "message": "설정을 내보냈습니다."
+  },
+  "statusSettingsImportFailed": {
+    "message": "설정을 가져오지 못했습니다."
+  },
+  "statusSettingsImportedMany": {
+    "message": "설정 $1개를 가져왔습니다.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusSettingsImportedOne": {
+    "message": "설정 $1개를 가져왔습니다.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusStopRequested": {
+    "message": "활성 패널에서 중지를 요청했습니다."
+  },
+  "statusTempChatOff": {
+    "message": "지원되는 패널을 일반 채팅 URL로 되돌렸습니다."
+  },
+  "statusTempChatOn": {
+    "message": "지원되는 곳에서 임시 채팅 모드를 활성화했습니다."
+  },
+  "statusWorkspaceExportFailed": {
+    "message": "워크스페이스 데이터를 내보내지 못했습니다."
+  },
+  "statusWorkspaceExported": {
+    "message": "워크스페이스 데이터를 내보냈습니다."
+  },
+  "tabAbout": {
+    "message": "정보"
+  },
+  "tabAppearance": {
+    "message": "모양"
+  },
+  "tabData": {
+    "message": "데이터"
+  },
+  "tabKeyboard": {
+    "message": "키보드"
+  },
+  "tabLibrary": {
+    "message": "프롬프트 라이브러리"
+  },
+  "tabProviders": {
+    "message": "공급자"
+  },
+  "themeAuto": {
+    "message": "자동"
+  },
+  "themeDark": {
+    "message": "다크"
+  },
+  "themeDescription": {
+    "message": "라이트, 다크 또는 시스템 환경설정을 따릅니다."
+  },
+  "themeLight": {
+    "message": "라이트"
+  },
+  "themeTitle": {
+    "message": "테마"
+  },
+  "variableApplyPrompt": {
+    "message": "프롬프트 적용"
+  },
+  "variableEnterPlaceholder": {
+    "message": "$1 입력",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "variableModalDescription": {
+    "message": "프롬프트가 통합 컴포저로 복사되기 전에 변수를 채웁니다."
+  },
+  "variableModalTitleDefault": {
+    "message": "프롬프트 변수"
+  },
+  "variableModalTitleUse": {
+    "message": "\"$1\" 사용",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "composerAriaOpenTokenMeter": {
+    "message": "사용량 미터 열기"
+  },
+  "composerAriaCloseTokenMeter": {
+    "message": "사용량 미터 닫기"
+  },
+  "composerTooltipTokenMeter": {
+    "message": "사용량"
+  },
+  "usagePanelTitle": {
+    "message": "사용량"
+  },
+  "usagePanelDragHint": {
+    "message": "드래그하여 이동. 더블 클릭으로 위치 초기화."
+  },
+  "usageAriaRefresh": {
+    "message": "사용량 새로고침"
+  },
+  "usageTooltipRefresh": {
+    "message": "새로고침"
+  },
+  "usageAriaClose": {
+    "message": "사용량 패널 닫기"
+  },
+  "usageTooltipClose": {
+    "message": "닫기"
+  },
+  "usageUpdatedAgo": {
+    "message": "$1 전 업데이트됨",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageResetsIn": {
+    "message": "$1 후 초기화",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageRemainingCount": {
+    "message": "$1 남음",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "usageWaiting": {
+    "message": "사용량 데이터를 기다리는 중"
+  },
+  "usageUnsupported": {
+    "message": "이 제공자는 사용량 정보를 제공하지 않습니다"
+  },
+  "usageSignInRequired": {
+    "message": "사용량을 보려면 이 제공자에 로그인하세요"
+  },
+  "usageLoadFailed": {
+    "message": "사용량을 불러오지 못했습니다"
+  },
+  "usageNoLimitsReported": {
+    "message": "보고된 한도 없음"
+  },
+  "usageNoActivePanels": {
+    "message": "활성 패널 없음"
+  },
+  "paneUsageStripTitle": {
+    "message": "패널에 사용량 막대"
+  },
+  "paneUsageStripDescription": {
+    "message": "요금제 사용량을 보고하는 제공자에 한해 각 패널 하단에 작은 사용량 막대를 표시합니다. 패널 위에 떠 있으며 채팅 공간을 차지하지 않습니다."
+  },
+  "paneUsageStripAriaEnable": {
+    "message": "패널에 사용량 막대 표시"
+  },
+  "paneUsageStripAriaDisable": {
+    "message": "패널의 사용량 막대 숨기기"
+  },
+  "usageAriaResizeRight": {
+    "message": "사용량 패널 너비 조정"
+  },
+  "usageAriaResizeBottom": {
+    "message": "사용량 패널 높이 조정"
+  },
+  "usageAriaResizeCorner": {
+    "message": "사용량 패널 크기 조정"
+  },
+  "usagePercentRemaining": {
+    "message": "$1% 남음",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  }
+}

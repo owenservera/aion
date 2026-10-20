@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.egg-info/
+dist/
+build/
+.auth_token
+captured_*.json
+sentinel_flow.json
+.chrome-profile/
+
+# Local server logs (REST proxy / SSE server dev output)
+.rest-proxy.log
+.sse-server.log
+
+
+# ChatGPT collaboration binding (local only)
+.chatgpt-collaboration.json

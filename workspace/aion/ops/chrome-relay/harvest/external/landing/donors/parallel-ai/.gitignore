@@ -1,0 +1,35 @@
+node_modules
+dist
+.vite
+coverage
+.claude/settings.local.json
+.notes/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Env / logs
+.env
+.env.local
+.env.*.local
+*.log
+
+# Chrome Web Store submission zips (regenerable from dist/)
+parallel-ai-v*.zip
+
+# Playwright / E2E artifacts
+tests/e2e/.artifacts/
+playwright-report/
+test-results/
+
+# Agent session transcripts (contain account emails and local paths)
+codex-session-*.md
+
+# Hand-made release bundles (regenerable from dist/)
+release-*/

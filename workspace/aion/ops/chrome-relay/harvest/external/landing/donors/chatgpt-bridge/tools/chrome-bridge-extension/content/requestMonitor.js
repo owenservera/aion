@@ -1,0 +1,122 @@
+// Active request monitoring facade over the single tab-observation kernel.
+// Loaded as a classic MV3 content script before content.js.
+(() => {
+  'use strict';
+
+  function createRequestMonitor(deps = {}) {
+    const {
+      diagnostic,
+      findChatMain,
+      findTurnByKey,
+      getActiveRequest,
+      refreshRequestTurnAnchors,
+      schedulePageStatus,
+      scheduleTabObservation,
+      send,
+      setActiveRequest,
+      subscribeTabObservation,
+    } = deps;
+    let observationSubscription = null;
+
+    function findChatObservationRoot(request = null) {
+      const anchoredTurn = findTurnByKey(request?.assistantTurnKey || request?.submittedUserTurnKey || '');
+      return anchoredTurn?.closest?.('main')
+        || anchoredTurn?.closest?.('[role="main"]')
+        || findChatMain()
+        || null;
+    }
+
+    function syncExecutionProjection(request, observation = null) {
+      if (!request || !observation) return;
+      const active = observation.activeRequest;
+      if (active?.requestId && active.requestId !== request.requestId) return;
+      const submittedUserTurnKey = String(request.submittedUserTurnKey || '');
+      const observedUserTurnKey = String(observation.turn?.userKey || '');
+      const observedAssistantTurnKey = String(observation.turn?.key || '');
+      const observedUserTurnIndex = Number(observation.turn?.userIndex ?? -1);
+      const observedAssistantTurnIndex = Number(observation.turn?.index ?? -1);
+      const boundaryMatches = Boolean(
+        submittedUserTurnKey
+        && observedUserTurnKey === submittedUserTurnKey
+        && (observedAssistantTurnIndex < 0
+          || observedUserTurnIndex < 0
+          || observedAssistantTurnIndex > observedUserTurnIndex)
+      );
+      // Keys survive virtualization; indices describe only this DOM sample.
+      if (boundaryMatches && observedAssistantTurnKey && (
+        observedAssistantTurnKey !== request.assistantTurnKey
+        || observedAssistantTurnIndex !== request.assistantTurnIndex
+        || observedUserTurnIndex !== request.submittedUserTurnIndex
+      )) {
+        request.update('request.anchor_updated', {
+          assistantTurnKey: observedAssistantTurnKey,
+          assistantTurnIndex: observedAssistantTurnIndex,
+          submittedUserTurnIndex: observedUserTurnIndex,
+        });
+      }
+      request.update('request.observation_cursor_updated', {
+        lastObservationRevision: Number(observation.revision) || 0,
+        lastObservationEpoch: String(observation.observerId || ''),
+        lastObservationAt: Number(observation.observedAt) || Date.now(),
+      });
+    }
+
+    function ensureObservationSubscription() {
+      if (observationSubscription) return;
+      observationSubscription = subscribeTabObservation?.((observation) => {
+        const request = getActiveRequest();
+        if (!request) return;
+        syncExecutionProjection(request, observation);
+      }) || null;
+    }
+
+    function attachDomObserver(request) {
+      const root = findChatObservationRoot(request);
+      ensureObservationSubscription();
+      diagnostic(root ? 'dom_monitor.shared_kernel_attached' : 'dom_schema.chat_root_missing', {
+        requestId: String(request?.requestId || ''),
+        tagName: root?.tagName || '',
+        testId: root?.getAttribute?.('data-testid') || '',
+        sharedObservationKernel: true,
+      });
+      return Boolean(root);
+    }
+
+    function scheduleCollect(request, reason = 'request.changed', delayMs = 0) {
+      if (!request || getActiveRequest()?.requestId !== request.requestId) return;
+      scheduleTabObservation(reason, delayMs);
+    }
+
+    function collectAndEmit(request, reason = 'request.changed') {
+      if (!request || getActiveRequest()?.requestId !== request.requestId) return;
+      if (request.turnCaptureArmed) refreshRequestTurnAnchors(request);
+      scheduleTabObservation(reason, 0);
+    }
+
+    function startDomMonitor(request) {
+      attachDomObserver(request);
+      scheduleCollect(request, 'request.monitor.started', 0);
+      diagnostic('dom_monitor.started', { requestId: String(request?.requestId || ''), sharedObservationKernel: true });
+    }
+
+    function releaseRequest(request, reason = 'server_release') {
+      if (!request || getActiveRequest()?.requestId !== request.requestId) return false;
+      setActiveRequest(null);
+      schedulePageStatus('page.changed', 0);
+      scheduleTabObservation('request.released', 0);
+      diagnostic('request.released', { requestId: request.requestId, reason, owner: 'server_canonical_release' });
+      return true;
+    }
+
+    return Object.freeze({
+      attachDomObserver,
+      collectAndEmit,
+      findChatObservationRoot,
+      releaseRequest,
+      scheduleCollect,
+      startDomMonitor,
+    });
+  }
+
+  globalThis.ChatGptRequestMonitor = Object.freeze({ createRequestMonitor });
+})();

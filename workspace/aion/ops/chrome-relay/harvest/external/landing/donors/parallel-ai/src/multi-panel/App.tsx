@@ -1,0 +1,730 @@
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+
+import {
+  PromptEditorModal,
+  PromptLibraryModal,
+  VariableInputModal,
+} from "@/multi-panel/components/PromptLibraryModal";
+import { ConnectorOverlay } from "@/multi-panel/components/ConnectorOverlay";
+import { FloatingComposer } from "@/multi-panel/components/FloatingComposer";
+import { selectFirstPromptBlank } from "@/multi-panel/components/HighlightedComposerInput";
+import { LayoutModal } from "@/multi-panel/components/LayoutModal";
+import { PanelWorkspace } from "@/multi-panel/components/PanelWorkspace";
+import { SettingsModal } from "@/multi-panel/components/SettingsModal";
+import { TokenMeterPanel } from "@/multi-panel/components/TokenMeterPanel";
+import { OnboardingTour } from "@/multi-panel/onboarding/OnboardingTour";
+import { useOnboardingTour } from "@/multi-panel/onboarding/useOnboardingTour";
+import { ChangelogToast } from "@/multi-panel/whats-new/ChangelogToast";
+import { useChangelog } from "@/multi-panel/whats-new/useChangelog";
+import { useComposerDraftController } from "@/multi-panel/hooks/useComposerDraftController";
+import { useComposerFrameController } from "@/multi-panel/hooks/useComposerFrameController";
+import { useConnectorController } from "@/multi-panel/hooks/useConnectorController";
+import { useMeterFrameController } from "@/multi-panel/hooks/useMeterFrameController";
+import { usePanelLayoutController } from "@/multi-panel/hooks/usePanelLayoutController";
+import { usePendingActionController } from "@/multi-panel/hooks/usePendingActionController";
+import { usePromptLibraryController } from "@/multi-panel/hooks/usePromptLibraryController";
+import { useProviderActionsController } from "@/multi-panel/hooks/useProviderActionsController";
+import { useProviderFramesController } from "@/multi-panel/hooks/useProviderFramesController";
+import { useProviderTitleTracker } from "@/multi-panel/hooks/useProviderTitleTracker";
+import { useProviderUrlTracker } from "@/multi-panel/hooks/useProviderUrlTracker";
+import { useProviderUsageController } from "@/multi-panel/hooks/useProviderUsageController";
+import { useWorkspaceUrlController } from "@/multi-panel/hooks/useWorkspaceUrlController";
+import { useVersionCheck } from "@/multi-panel/hooks/useVersionCheck";
+import { useWorkspaceDataController } from "@/multi-panel/hooks/useWorkspaceDataController";
+import { useWorkspaceFramingReady } from "@/multi-panel/hooks/useWorkspaceFramingReady";
+import { useProviderContext } from "@/shared/contexts/ProviderContext";
+import { useSettingsContext } from "@/shared/contexts/SettingsContext";
+import { useTranslation } from "@/shared/contexts/I18nContext";
+import { matchesEnterKeyModifiers } from "@/shared/lib/enter-key";
+import {
+  getPanelUrl,
+  resizePanelProviders,
+} from "@/multi-panel/lib/panel-layout";
+import { runtimeAsset } from "@/multi-panel/lib/runtime";
+import { getInitialWorkspaceState } from "@/multi-panel/lib/workspace-state";
+import { resolveWorkspaceTitle } from "@/multi-panel/lib/workspace-title";
+import { DEFAULT_LAYOUT } from "@/shared/lib/layouts";
+import { DEFAULT_PANEL_PROVIDERS } from "@/shared/lib/constants";
+import { DEFAULT_FOCUS_MODAL_WIDTH } from "@/shared/lib/settings";
+import { getLayoutColumnCount } from "@/shared/lib/layouts";
+import { getProviderById, type Provider, type ProviderId } from "@/shared/lib/providers";
+import type {
+  SettingsTab,
+} from "@/multi-panel/types";
+
+const CONNECTOR_MASK_ID = "composer-connector-mask";
+
+export function App() {
+  const workspaceFramingReady = useWorkspaceFramingReady();
+  const { providers, reorderProvider, setGoogleMode, toggleProvider } = useProviderContext();
+  const {
+    loaded,
+    resetAllSettings,
+    resolvedTheme,
+    settings,
+    updateSetting,
+    updateSettings,
+  } = useSettingsContext();
+  const { checking, runCheck, updateStatus, versionInfo } = useVersionCheck();
+  const { supportedLanguages, t } = useTranslation();
+  const readyStatus = t("appStatusReady", "Ready.");
+
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [layoutModalOpen, setLayoutModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(readyStatus);
+  const [temporaryChatEnabled, setTemporaryChatEnabled] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
+  const [focusedSlotIndex, setFocusedSlotIndex] = useState<number | null>(null);
+  // Parsed once at mount from the tab URL (?s=); drives launch-time restore.
+  const [restoredWorkspace] = useState(() => getInitialWorkspaceState());
+  // Whether restore was applied at hydration. Stable for the tab's lifetime so a
+  // later resume toggle can't retroactively restore, and so a restored tab never
+  // mirrors its per-tab layout/panels into the global (fresh-tab) defaults.
+  const [isRestoredTab, setIsRestoredTab] = useState(false);
+
+  const statusTimeoutRef = useRef<number | null>(null);
+  const frameRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
+  const mainCanvasRef = useRef<HTMLElement | null>(null);
+
+  function showStatus(message: string) {
+    setStatusMessage(message);
+
+    if (statusTimeoutRef.current !== null) {
+      window.clearTimeout(statusTimeoutRef.current);
+    }
+
+    statusTimeoutRef.current = window.setTimeout(() => {
+      setStatusMessage(readyStatus);
+    }, 3200);
+  }
+
+  const {
+    attachments,
+    handleComposerDrop,
+    handleComposerPaste,
+    handleFilesSelected,
+    hasDraftContent,
+    prompt,
+    setAttachments,
+    setPrompt,
+  } = useComposerDraftController({ showStatus });
+
+  const {
+    beginComposerDragFromHeader,
+    beginComposerResize,
+    composerDragging,
+    composerHeight,
+    composerInputRef,
+    composerOffset,
+    composerRef,
+    composerShellRef,
+    composerWidth,
+    applyDefaultComposerPosition,
+    fitComposerToContent,
+    focusComposerInput,
+    hydrateComposerFrame,
+    resetComposerHeight,
+    resetComposerPosition,
+    resetComposerToDefaults,
+    resetComposerWidth,
+  } = useComposerFrameController({
+    attachmentCount: attachments.length,
+    isHydrated,
+    prompt,
+    settings,
+    showStatus,
+    updateSetting,
+    updateSettings,
+  });
+
+  const {
+    filteredPromptLibraryItems,
+    handleApplyPromptVariables,
+    handleClearPromptLibrary,
+    handleDeletePrompt,
+    handleExportPromptLibrary,
+    handleImportDefaultPromptLibrary,
+    handleImportPromptFile,
+    handleQuickInsertPrompt,
+    handleReorderFavorites,
+    handleSavePromptEditor,
+    handleToggleFavorite,
+    handleUsePrompt,
+    closePromptEditor,
+    openPromptEditor,
+    promptCategories,
+    promptEditorOpen,
+    promptEditorState,
+    promptQuickPickOpen,
+    quickPickItems,
+    refreshPromptLibrary,
+    promptLibraryCategory,
+    promptLibraryFilter,
+    promptLibraryItems,
+    promptLibraryOpen,
+    promptLibrarySearch,
+    setPromptEditorState,
+    setPromptLibraryCategory,
+    setPromptLibraryFilter,
+    setPromptLibraryOpen,
+    setPromptLibrarySearch,
+    setPromptQuickPickOpen,
+    setVariablePrompt,
+    setVariableValues,
+    variablePrompt,
+    variableValues,
+  } = usePromptLibraryController({
+    assetUrl: runtimeAsset,
+    loaded,
+    onPromptInserted: () => {
+      window.requestAnimationFrame(() => {
+        fitComposerToContent();
+        const input = composerInputRef.current;
+        if (input) {
+          selectFirstPromptBlank(input);
+        }
+      });
+    },
+    setPrompt,
+    showStatus,
+  });
+  const {
+    handleExportSettings,
+    handleExportWorkspaceData,
+    handleImportSettingsFile,
+  } = useWorkspaceDataController({
+    refreshPromptLibrary,
+    showStatus,
+  });
+  const {
+    addPanel,
+    beginPanelDrag,
+    hydratePanelLayout,
+    horizontalPanelGroupRefs,
+    layout,
+    panelDragSourceIndex,
+    panelDragTargetIndex,
+    panelProviders,
+    panelSlotRefs,
+    removePanel,
+    resetHorizontalPanelLayout,
+    resetVerticalPanelLayout,
+    setLayout,
+    setPanelProviders,
+    slotProviders,
+    switchPanelProvider,
+    verticalPanelGroupRef,
+  } = usePanelLayoutController({
+    enabledProviders: settings.enabledProviders,
+    isHydrated,
+    isRestoredTab,
+    showStatus,
+    updateSetting,
+  });
+  const {
+    armConnectorDispatch,
+    connectorOccluderModels,
+    connectorPathModels,
+    getFilledConnectorProviderIds,
+    getReusableDraftConnectorProviderIds,
+    hasActiveProviderGeneration,
+    queueConnectorLayoutRefresh,
+    resetConnectorVisuals,
+    settleConnectorSubmissions,
+  } = useConnectorController({
+    attachments,
+    composerRef,
+    composerShellRef,
+    connectorOverlayEnabled: settings.connectorOverlayEnabled,
+    frameRefs,
+    googleProviderMode: settings.googleProviderMode,
+    layout,
+    panelProviders,
+    panelSlotRefs,
+    prompt,
+    scrollSyncEnabled: settings.scrollSyncEnabled,
+    slotProviders,
+    temporaryChatEnabled,
+  });
+  const {
+    loadingProviders,
+    postToProvider,
+    refreshProvider,
+    registerFrameHost,
+    requestProviderInputAnchor,
+  } = useProviderFramesController({
+    frameRefs,
+    googleProviderMode: settings.googleProviderMode,
+    isHydrated,
+    onProviderFrameLoad: () => focusComposerInput(80, { onlyIfRestorable: true }),
+    panelProviders,
+    queueConnectorLayoutRefresh,
+    resolvedTheme,
+    temporaryChatEnabled,
+    restoredUrlByProvider: restoredWorkspace?.urls,
+    resumeEnabled: isRestoredTab,
+    workspaceFramingReady,
+  });
+  const {
+    clearPanels,
+    dispatchPrompt,
+    openNewChatEverywhere,
+    stopGeneratingEverywhere,
+    toggleScrollSync,
+    toggleTemporaryChat,
+  } = useProviderActionsController({
+    armConnectorDispatch,
+    attachments,
+    getFilledConnectorProviderIds,
+    getReusableDraftConnectorProviderIds,
+    panelProviders,
+    postToProvider,
+    prompt,
+    requestProviderInputAnchor,
+    resetConnectorVisuals,
+    scrollSyncEnabled: settings.scrollSyncEnabled,
+    settleConnectorSubmissions,
+    setAttachments,
+    setPrompt,
+    setTemporaryChatEnabled,
+    showStatus,
+    temporaryChatEnabled,
+    updateSetting,
+  });
+  usePendingActionController({
+    isHydrated,
+    setAttachments,
+    setPrompt,
+    showStatus,
+  });
+  const { urlByProvider } = useProviderUrlTracker({ frameRefs });
+  const { titleByProvider } = useProviderTitleTracker({ frameRefs });
+  const { refreshing, requestUsageRefresh, usageByProvider } = useProviderUsageController({
+    frameRefs,
+    panelProviders,
+  });
+  const {
+    beginMeterDragFromHeader,
+    beginMeterResize,
+    centerMeter,
+    closeMeter,
+    meterDragging,
+    meterMaximized,
+    meterOpen,
+    meterPosition,
+    meterResizing,
+    meterShellRef,
+    meterSize,
+    toggleMeter,
+    toggleMeterMaximize,
+  } = useMeterFrameController({
+    isHydrated,
+    settings,
+    updateSetting,
+    updateSettings,
+  });
+
+  useWorkspaceUrlController({
+    isHydrated,
+    layout,
+    panelProviders,
+    urlByProvider,
+    baselineUrls: restoredWorkspace?.urls ?? {},
+  });
+
+  const onboardingTour = useOnboardingTour({
+    ready: loaded && isHydrated,
+    context: {
+      activePanelCount: slotProviders.filter(Boolean).length,
+      promptQuickPickOpen,
+    },
+    actions: {
+      openPromptQuickPick: () => setPromptQuickPickOpen(true),
+      closePromptQuickPick: () => setPromptQuickPickOpen(false),
+    },
+  });
+
+  // Gate on the tour being idle so a "what's new" toast never stacks on the
+  // first-run onboarding overlay.
+  const changelog = useChangelog({
+    ready: loaded && isHydrated && onboardingTour.phase === "idle",
+  });
+
+  useEffect(() => {
+    document.title = resolveWorkspaceTitle(
+      panelProviders,
+      titleByProvider,
+      temporaryChatEnabled,
+      urlByProvider,
+    );
+  }, [panelProviders, titleByProvider, temporaryChatEnabled, urlByProvider]);
+
+  useEffect(() => {
+    if (focusedSlotIndex === null) {
+      return;
+    }
+    const slotProvider = slotProviders[focusedSlotIndex];
+    if (!slotProvider) {
+      setFocusedSlotIndex(null);
+    }
+  }, [focusedSlotIndex, slotProviders]);
+
+  const focusedProviderId =
+    focusedSlotIndex !== null ? slotProviders[focusedSlotIndex] ?? null : null;
+  const focusedProvider = focusedProviderId ? getProviderById(focusedProviderId) ?? null : null;
+
+  const activeMeterProviders: Provider[] = [
+    ...new Set(slotProviders.filter(Boolean) as ProviderId[]),
+  ].flatMap((providerId) => getProviderById(providerId) ?? []);
+
+  useEffect(() => {
+    if (focusedSlotIndex === null) {
+      return;
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setFocusedSlotIndex(null);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [focusedSlotIndex]);
+
+  function handleOpenFocusedInTab() {
+    if (!focusedProvider) {
+      return;
+    }
+    const fallbackUrl = getPanelUrl(
+      focusedProvider,
+      settings.googleProviderMode,
+      temporaryChatEnabled,
+    );
+    const targetUrl = urlByProvider[focusedProvider.id] ?? fallbackUrl;
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+  }
+
+  function handleResetLayout() {
+    const nextPanelProviders = resizePanelProviders(
+      [...DEFAULT_PANEL_PROVIDERS],
+      settings.enabledProviders,
+      DEFAULT_LAYOUT,
+    );
+    setLayout(DEFAULT_LAYOUT);
+    setPanelProviders(nextPanelProviders);
+    void updateSettings({
+      currentLayout: DEFAULT_LAYOUT,
+      focusModalWidth: DEFAULT_FOCUS_MODAL_WIDTH,
+      panelProviders: nextPanelProviders,
+    });
+    showStatus(t("statusLayoutReset", "Panel layout reset."));
+  }
+
+  useEffect(() => {
+    if (!loaded || isHydrated) {
+      return;
+    }
+
+    setIsRestoredTab(Boolean(restoredWorkspace));
+    hydratePanelLayout(
+      restoredWorkspace?.layout ?? settings.currentLayout,
+      restoredWorkspace?.panels ?? settings.panelProviders,
+      settings.enabledProviders,
+    );
+    hydrateComposerFrame();
+    setIsHydrated(true);
+  }, [
+    hydrateComposerFrame,
+    isHydrated,
+    loaded,
+    restoredWorkspace,
+    settings.composerSize,
+    settings.currentLayout,
+    settings.enabledProviders,
+    settings.panelProviders,
+    hydratePanelLayout,
+  ]);
+
+  function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) {
+      if (event.key === "Escape" && hasActiveProviderGeneration) {
+        event.preventDefault();
+        stopGeneratingEverywhere();
+      }
+      return;
+    }
+
+    const hasSendModifier = event.ctrlKey || event.metaKey;
+    const isMultilinePrompt =
+      settings.requireModifierForMultilineSend && event.currentTarget.value.includes("\n");
+
+    if (isMultilinePrompt) {
+      if (!hasSendModifier) {
+        return;
+      }
+
+      event.preventDefault();
+      void dispatchPrompt(undefined, true);
+      return;
+    }
+
+    if (matchesEnterKeyModifiers(event, settings.enterKeyBehavior.sendModifiers)) {
+      event.preventDefault();
+      void dispatchPrompt(undefined, true);
+      return;
+    }
+
+    if (!matchesEnterKeyModifiers(event, settings.enterKeyBehavior.newlineModifiers)) {
+      return;
+    }
+
+    if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+      return;
+    }
+
+    event.preventDefault();
+    const target = event.currentTarget;
+    const start = target.selectionStart ?? target.value.length;
+    const end = target.selectionEnd ?? target.value.length;
+    const nextValue = `${target.value.slice(0, start)}\n${target.value.slice(end)}`;
+    setPrompt(nextValue);
+    requestAnimationFrame(() => {
+      target.selectionStart = start + 1;
+      target.selectionEnd = start + 1;
+    });
+  }
+
+  const composerStatus = statusMessage !== "Ready." ? statusMessage : null;
+  return (
+    <div className="parallel-ai-app relative h-full overflow-hidden">
+      <PanelWorkspace
+        focusModalWidth={settings.focusModalWidth}
+        focusedSlotIndex={focusedSlotIndex}
+        googleMode={settings.googleProviderMode}
+        horizontalPanelGroupRefs={horizontalPanelGroupRefs}
+        layout={layout}
+        loadingProviders={loadingProviders}
+        mainCanvasRef={mainCanvasRef}
+        onBeginPanelDrag={beginPanelDrag}
+        onCloseFocus={() => setFocusedSlotIndex(null)}
+        onCommitFocusModalWidth={(width) => void updateSetting("focusModalWidth", width)}
+        onFocusPanel={setFocusedSlotIndex}
+        onOpenFocusedInTab={handleOpenFocusedInTab}
+        onRefreshProvider={refreshProvider}
+        onRegisterFrameHost={registerFrameHost}
+        onRemovePanel={(index) => {
+          removePanel(index);
+          if (focusedSlotIndex === index) {
+            setFocusedSlotIndex(null);
+          }
+        }}
+        onResetHorizontalPanelLayout={resetHorizontalPanelLayout}
+        onResetVerticalPanelLayout={resetVerticalPanelLayout}
+        onSwitchPanelProvider={switchPanelProvider}
+        panelDragSourceIndex={panelDragSourceIndex}
+        panelDragTargetIndex={panelDragTargetIndex}
+        panelSlotRefs={panelSlotRefs}
+        providerOptions={providers}
+        slotProviders={slotProviders}
+        temporaryChatEnabled={temporaryChatEnabled}
+        usageByProvider={usageByProvider}
+        usageStripEnabled={settings.paneUsageStripEnabled}
+        verticalPanelGroupRef={verticalPanelGroupRef}
+      />
+      <div className="pointer-events-none absolute inset-0 z-20">
+        <ConnectorOverlay
+          maskId={CONNECTOR_MASK_ID}
+          occluders={connectorOccluderModels}
+          paths={connectorPathModels}
+        />
+
+        <FloatingComposer
+          attachments={attachments}
+          composerDragging={composerDragging}
+          composerHeight={composerHeight}
+          composerInputRef={composerInputRef}
+          composerOffset={composerOffset}
+          composerRef={composerRef}
+          composerShellRef={composerShellRef}
+          composerStatus={composerStatus}
+          composerWidth={composerWidth}
+          hasDraftContent={hasDraftContent}
+          onAddPanel={addPanel}
+          onBeginComposerDragFromHeader={beginComposerDragFromHeader}
+          onBeginComposerResize={beginComposerResize}
+          onClearPanels={clearPanels}
+          onDispatchPrompt={dispatchPrompt}
+          onDrop={handleComposerDrop}
+          onFilesSelected={handleFilesSelected}
+          onKeyDown={handleComposerKeyDown}
+          onClosePromptQuickPick={() => setPromptQuickPickOpen(false)}
+          onOpenLayoutModal={() => setLayoutModalOpen(true)}
+          onOpenNewChats={openNewChatEverywhere}
+          onOpenPromptLibrary={() => setPromptLibraryOpen(true)}
+          onOpenPromptQuickPick={() => setPromptQuickPickOpen(true)}
+          onOpenSettings={() => setSettingsModalOpen(true)}
+          onPaste={handleComposerPaste}
+          onPromptChange={setPrompt}
+          onQuickInsertPrompt={(promptRecord) => void handleQuickInsertPrompt(promptRecord)}
+          onRemoveAttachment={(attachmentId) =>
+            setAttachments((current) => current.filter((item) => item.id !== attachmentId))
+          }
+          onResetComposerHeight={resetComposerHeight}
+          onResetComposerPosition={resetComposerPosition}
+          onResetComposerWidth={resetComposerWidth}
+          onStopGeneration={stopGeneratingEverywhere}
+          onToggleScrollSync={toggleScrollSync}
+          onToggleTemporaryChat={toggleTemporaryChat}
+          prompt={prompt}
+          promptLibraryOpen={promptLibraryOpen}
+          promptQuickPickFavorites={quickPickItems.favorites}
+          promptQuickPickOpen={promptQuickPickOpen}
+          promptQuickPickRecents={quickPickItems.recents}
+          scrollSyncEnabled={settings.scrollSyncEnabled}
+          stopGenerationActive={hasActiveProviderGeneration}
+          temporaryChatEnabled={temporaryChatEnabled}
+          tokenMeterOpen={meterOpen}
+          onToggleTokenMeter={toggleMeter}
+        />
+
+        <TokenMeterPanel
+          activeProviders={activeMeterProviders}
+          meterDragging={meterDragging}
+          meterPosition={meterPosition}
+          meterResizing={meterResizing}
+          meterShellRef={meterShellRef}
+          meterSize={meterSize}
+          maximized={meterMaximized}
+          onBeginMeterDragFromHeader={beginMeterDragFromHeader}
+          onBeginMeterResize={beginMeterResize}
+          onCenter={centerMeter}
+          onClose={closeMeter}
+          onToggleMaximize={toggleMeterMaximize}
+          onRefresh={() => requestUsageRefresh(undefined, { force: true })}
+          open={meterOpen}
+          refreshing={refreshing}
+          usageByProvider={usageByProvider}
+        />
+      </div>
+
+      <LayoutModal
+        currentLayout={layout}
+        onClose={() => setLayoutModalOpen(false)}
+        onSelectLayout={(nextLayout) => {
+          const nextPanelProviders = resizePanelProviders(
+            panelProviders,
+            settings.enabledProviders,
+            nextLayout,
+          );
+          setLayout(nextLayout);
+          setPanelProviders(nextPanelProviders);
+          void updateSettings({
+            currentLayout: nextLayout,
+            panelProviders: nextPanelProviders,
+          });
+          setLayoutModalOpen(false);
+        }}
+        open={layoutModalOpen}
+      />
+
+      <SettingsModal
+        assetUrl={runtimeAsset}
+        checking={checking}
+        onClearPromptLibrary={handleClearPromptLibrary}
+        onClose={() => setSettingsModalOpen(false)}
+        onExportPromptLibrary={handleExportPromptLibrary}
+        onExportSettings={handleExportSettings}
+        onExportWorkspaceData={handleExportWorkspaceData}
+        onImportDefaultPromptLibrary={handleImportDefaultPromptLibrary}
+        onImportPromptFile={handleImportPromptFile}
+        onImportSettingsFile={handleImportSettingsFile}
+        onReorderProvider={reorderProvider}
+        onOpenPromptLibrary={() => setPromptLibraryOpen(true)}
+        onReplayTour={() => {
+          setSettingsModalOpen(false);
+          void onboardingTour.start();
+        }}
+        onResetAllSettings={resetAllSettings}
+        onResetComposer={resetComposerToDefaults}
+        onResetLayout={handleResetLayout}
+        onRunVersionCheck={runCheck}
+        onSetDefaultComposerPosition={applyDefaultComposerPosition}
+        onSetGoogleMode={setGoogleMode}
+        onSettingsTabChange={setSettingsTab}
+        onToggleProvider={toggleProvider}
+        onUpdateSetting={updateSetting}
+        open={settingsModalOpen}
+        promptCount={promptLibraryItems.length}
+        providers={providers}
+        settings={settings}
+        settingsTab={settingsTab}
+        supportedLanguages={supportedLanguages}
+        updateStatus={updateStatus}
+        versionInfo={versionInfo}
+      />
+      <PromptLibraryModal
+        categories={promptCategories}
+        currentFilter={promptLibraryFilter}
+        onCategoryChange={setPromptLibraryCategory}
+        onClose={() => setPromptLibraryOpen(false)}
+        onCreate={() => openPromptEditor()}
+        onDelete={(promptRecord) => void handleDeletePrompt(promptRecord)}
+        onEdit={(promptRecord) => openPromptEditor(promptRecord)}
+        onExport={() => void handleExportPromptLibrary()}
+        onFilterChange={setPromptLibraryFilter}
+        onImportDefaults={() => void handleImportDefaultPromptLibrary()}
+        onImportFile={(file) => void handleImportPromptFile(file)}
+        onReorderFavorites={(sourceId, targetId) => void handleReorderFavorites(sourceId, targetId)}
+        onSearchChange={setPromptLibrarySearch}
+        onToggleFavorite={(promptRecord) => void handleToggleFavorite(promptRecord)}
+        onUse={(promptRecord) => void handleUsePrompt(promptRecord)}
+        open={promptLibraryOpen}
+        prompts={filteredPromptLibraryItems}
+        searchQuery={promptLibrarySearch}
+        selectedCategory={promptLibraryCategory}
+        statusMessage={composerStatus}
+      />
+
+      <PromptEditorModal
+        draft={promptEditorState}
+        onChange={(updates) =>
+          setPromptEditorState((current) => ({
+            ...current,
+            ...updates,
+          }))
+        }
+        onClose={closePromptEditor}
+        onSave={() => void handleSavePromptEditor()}
+        open={promptEditorOpen}
+      />
+
+      <VariableInputModal
+        onApply={() => void handleApplyPromptVariables()}
+        onChange={(variable, value) =>
+          setVariableValues((current) => ({
+            ...current,
+            [variable]: value,
+          }))
+        }
+        onClose={() => {
+          setVariablePrompt(null);
+          setVariableValues({});
+        }}
+        open={Boolean(variablePrompt)}
+        prompt={variablePrompt}
+        values={variableValues}
+      />
+
+      <OnboardingTour tour={onboardingTour} />
+      <ChangelogToast changelog={changelog} />
+    </div>
+  );
+}
