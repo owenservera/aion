@@ -1,7 +1,7 @@
 {
   "schema": "aion.external-harvest.sources/1",
   "created_utc": "2026-10-20",
-  "source_scope": "Public upstream repos; cloned by opt-in runner, no auto promotion",
+  "source_scope": "Pinned upstream tracked-source snapshots already imported into AION main; donor execution not authorized",
   "owner": "AION external donor harvest",
   "source_inputs": [
     "https://github.com/owenservera/aion/pull/51",
@@ -23,7 +23,11 @@
       "risk_notes": "review unsafe resend and Enter fallback",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "cdcf6a7fb05609b219fd85395a116f26476a7f92",
+      "license": "MIT",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/multi-ai-chat",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     },
     {
       "id": "chatgpt-bridge",
@@ -39,7 +43,11 @@
       "risk_notes": "ChatGPT-only; validate identity, license, and Windows before code promotion",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "0ffdae90239988f253058c05253226152acd55d2",
+      "license": "MIT",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/chatgpt-bridge",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     },
     {
       "id": "parallel-ai",
@@ -54,7 +62,11 @@
       "risk_notes": "iframe quirks; forbid private endpoint/cookie transplant",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "944276d8146d11d5719a83cc550de31e4354a1c4",
+      "license": "MIT",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/parallel-ai",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     },
     {
       "id": "council",
@@ -68,7 +80,11 @@
       "risk_notes": "README claims only; source-check before promotion",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "92845be5e8c1c30e2012c59fc51008aaaf11572e",
+      "license": "MIT",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/council",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     },
     {
       "id": "chathub",
@@ -83,7 +99,11 @@
       "risk_notes": "local client history not provider history",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "852efba00ca7f2888093510b3add33f3ee01dc9b",
+      "license": "GPL-3.0",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/chathub",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     },
     {
       "id": "chatall",
@@ -98,7 +118,11 @@
       "risk_notes": "Electron app local features not provider operations",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "6d089c2ab72dde2ba1010cc1e910ceb766458546",
+      "license": "Apache-2.0",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/chatall",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     },
     {
       "id": "chatgpt-web2api",
@@ -113,7 +137,11 @@
       "risk_notes": "do not transplant private backend or credentials; retry audit",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "497527dceabfa3f95961e23c291e618c5570f1ac",
+      "license": "MIT",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/chatgpt-web2api",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     },
     {
       "id": "cdpilot",
@@ -128,7 +156,11 @@
       "risk_notes": "generic browser automation, not provider-specific verified semantics",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "234d8bf3d1c0144792654bf670f07f93ffd8a1d3",
+      "license": "MIT",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/cdpilot",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     },
     {
       "id": "cereon-browser-operator",
@@ -142,7 +174,14 @@
       "risk_notes": "extra debugger permissions; security and licensing review",
       "ref_policy": "default_branch_tip_at_capture",
       "expected_reuse": "RESEARCH_ONLY",
-      "clone_status": "PENDING_NOT_EXECUTED"
+      "clone_status": "IMPORTED_PINNED_ON_MAIN",
+      "pinned_upstream_sha": "06da45090607dd9c9dc883ef5d523e9c99bcdb24",
+      "license": "MIT",
+      "aion_source_root": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/cereon-browser-operator",
+      "execution_status": "NOT_EXECUTED_BY_NINE_REPO_WORKER"
     }
-  ]
+  ],
+  "custody_evidence": "https://github.com/owenservera/aion/pull/53",
+  "import_evidence": "https://github.com/owenservera/aion/pull/54",
+  "updated_utc": "2026-10-20"
 }
