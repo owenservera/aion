@@ -1,5 +1,8 @@
 # AION Track B — executable build roadmap v1
 
+> **PRECEDENCE NOTICE (2026-10-20):** This is an earlier plan, not the current Track B build authority. Follow **[12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md](12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md)** for accepted owner decisions, P1–P8 file ownership and I0–I3 gates. Review PR #50 is merged; do not treat older CENV/strategic packet priorities as mandatory or operate a second runtime registry. Historical evidence remains valuable.
+
+
 **State:** PLAN / NO WINDOWS EXECUTION. **Delivery repository:** `owenservera/aion`, isolated branch `track-b/velocity-command-plane-20261019`, [draft PR #33](https://github.com/owenservera/aion/pull/33).  
 **Parent issue:** [Track B #32](https://github.com/owenservera/aion/issues/32). **Independent acceptance:** [Track A #31](https://github.com/owenservera/aion/issues/31).  
 **Architecture:** [00](00-SOLUTION-ARCHITECTURE.md) · [contracts](01-PROTOCOL-AND-STATE-CONTRACTS.md) · [acceptance](03-VALIDATION-AND-ACCEPTANCE.md) · [docs](04-CONTEXT7-SOURCES.md).
