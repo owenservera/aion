@@ -4,7 +4,13 @@
 
 **Governance:** one `main`, Development/Harvest/Research as cooperating subprojects; Track A deprecated; runtime/Agent Fabric work out of scope. See [SITREP](SITREP.md), [BOOTSTRAP](BOOTSTRAP.md), [full historical charter](LAUNCH-PROMPT.md), [shared exchange](../../../EXCHANGE.md).
 
-## Active initial assignment — discovery and categorization for Development
+## Current owner instruction — discovery only (2026-10-20)
+
+**Discover, categorize and source-map; do not verify.** Identify actual functions, modules, tests already present, dependencies, alternative approaches, license and donor commit/path; align to existing AION DEV topics and integration contracts. Do **not** run donor tests, prove their original wiring, validate AION behavior, adapt code, construct integration packages, or choose production implementation. Treat mature repository functionality as **likely working at source** unless there is contrary evidence; record uncertainty rather than investigating functionality by test. Deliver useful raw source intelligence directly to the [Integration Manager](../integration-manager/DELIVERABLES.md) by existing source refs/AX topics. The manager adapts code; [Development](../../../../../workers/development/DELIVERABLES.md) alone integrates and tests.
+
+**No ceremony:** continue using this file, the existing triage evidence, and the single exchange. No new rubric is required merely for completeness; discover the next high-value source path Development requests. Keep existing D1–D7 history below as seed guidance, not a testing mandate.
+
+## Prior assignment — discovery and categorization for Development
 
 **First role: discover → classify → align.** Read the [Development Master](../../../DEVELOPMENT-MASTER.md), [machine index](../../../DEVELOPMENT-INDEX.json), and [single exchange](../../../EXCHANGE.jsonl) to understand current and foreseeable AION needs. Map existing internal source state separately from external observations. Group nine-repo findings by developer problem, not by which donor to import. This assignment does **not** ask Harvest to design or implement AION.
 
@@ -34,7 +40,7 @@
 2. **Choose:** decide the next highest-value bounded deliverable based on Development demand, gaps and expected leverage. Record current focus in SITREP; no separate task board.
 3. **Investigate:** inspect donor source and documentation; independently choose depth, research order, comparison method and supporting file layout. Prefer existing triage/evidence folders; create a new subfolder only when genuinely needed.
 4. **Deliver:** update the single shared exchange with useful, grounded OFFER/GAP/proposed NEED records **as soon as findings are useful**, not only at the end.
-5. **Verify:** check provenance, compatibility, JSONL validity, changed paths, and Git commit/push result. Do not claim tests or local/live validation not performed.
+5. **Check publication only:** keep accurate source refs, manifests, JSONL validity and Git commit result. **No donor function/runtime verification.**
 6. **Adapt:** use new findings to update requirements, priorities, approach comparisons, evidence depth and—only when warranted—the shared schema.
 7. **Resume:** update SITREP with progress and next actions so another session can continue without another giant prompt.
 
@@ -70,4 +76,4 @@ No separate generated prompt or additional task-creation ritual is required.
 
 **New discovery with immediate implementation value:** Bridge's replay list selects the *last* N retained unconsumed items, potentially skipping earlier still-retained events without gap; an epoch-matching cursor ahead of latest also lacks explicit rejection. Both must be negative-tested by Development before borrowing its stream semantics.
 
-**Next instruction to resumed worker:** check current main, Development index and exchange; prioritize categorizing what the nine-repo source evidence teaches each AION need, especially I0/I1/I2, and explicit unanswered requirements. Extend P1-B only when it changes useful discovery coverage. Do not select donor implementation winners, code-transplant targets, alternate command engines, or force all 19 P0s onto the current build critical path. Preserve evidence and progress already committed. Keep the seed D1–D7 flexible as circumstances change.
+**Next instruction to resumed worker:** check current main, Development requests and exchange; find and categorize source functionality for the Integration Manager, especially I0/I1/I2. No testing or proof obligations. Prioritize actual useful source seams over catalog completeness. Extend P1-B only when it changes useful discovery coverage. Do not select donor implementation winners, code-transplant targets, alternate command engines, or force all 19 P0s onto the current build critical path. Preserve evidence and progress already committed. Keep the seed D1–D7 flexible as circumstances change.
