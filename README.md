@@ -12,6 +12,11 @@
 2. **[STATE.json — Current canonical machine-readable state](workspace/aion/STATE.json)**
 3. **[STATE-PROTOCOL — How to record verified changes without losing history](workspace/aion/STATE-PROTOCOL.md)**
 
+## Active Development map (Track B)
+- [AION Development Master — architecture, implementation evidence, integrations, decisions, roadmap and Harvest demand](workspace/aion/ops/chrome-relay/DEVELOPMENT-MASTER.md)
+- [Machine-readable development index](workspace/aion/ops/chrome-relay/DEVELOPMENT-INDEX.json) · [shared Development ⇄ Harvest exchange](workspace/aion/ops/chrome-relay/harvest/EXCHANGE.jsonl)
+- The main-only governance policy supersedes historical branch routing; the technical bidirectional CLI design is accepted, with I1/I2/I3 live proof still outstanding. Do not treat the index as a route engine.
+
 ## Architecture and experiments
 - [Decision: Windows-driven dev with local agents (2026-10-17)](workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md)
 - [Windows dev plane — architecture proposal v0.2 (not installed)](workspace/aion/canon/ARCHITECTURE-WINDOWS-DEV-v0.2-PROPOSAL.md)
