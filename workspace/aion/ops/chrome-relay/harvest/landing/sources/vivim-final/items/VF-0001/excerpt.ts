@@ -1,0 +1,51 @@
+  {
+    $schema: 'https://vivim.app/cap-store/v1/provider-manifest.schema.json',
+    provider: {
+      slug: 'chatgpt',
+      display_name: 'ChatGPT',
+      description: "OpenAI's ChatGPT assistant",
+      category: 'ai',
+      provider_type: 'llm',
+      website_url: 'https://chatgpt.com',
+      documentation_url: 'https://platform.openai.com/docs',
+      auth_type: 'browser',
+      has_multi_account: true,
+      profile_strategy: 'per_account',
+      fleet_config: {
+        port_range: [9252, 9280],
+        extra_args: ['--no-first-run'],
+      },
+      capabilities: [
+        'select_model',
+        'send_message',
+        'edit_message',
+        'regenerate_response',
+        'upload_file',
+        'create_new_chat',
+        'navigate_chat',
+        'delete_chat',
+        'rename_chat',
+        'browse_with_bing',
+      ],
+      accessTier: 'free',
+    },
+    endpoints: [
+      {
+        label: 'Landing',
+        url: 'https://chatgpt.com',
+        endpoint_type: 'landing',
+        is_default: true,
+      },
+      {
+        label: 'Chat',
+        url: 'https://chatgpt.com',
+        endpoint_type: 'chat',
+        selector: {
+          composer: '#prompt-textarea',
+          send_button: "[data-testid='send-button']",
+        },
+        composer_type: 'textarea',
+        send_method: 'both',
+        content_editable: false,
+      },
+      {
