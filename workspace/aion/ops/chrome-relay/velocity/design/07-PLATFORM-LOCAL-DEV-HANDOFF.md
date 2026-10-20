@@ -1,5 +1,8 @@
 # AION Platform / Track B — integrated local-development candidate
 
+> **OWNER BUILD PRIORITY OVERRIDE (2026-10-20):** The current Chrome implementation may be **replaced cleanly**, not repaired in a long sequence, as long as the existing Bus/grants/operation identity/no-resend and public command contract remain intact. See [Track B Chrome rebuild issue #43](https://github.com/owenservera/aion/issues/43). Offline tests should validate the replacement end-to-end; real Chrome verification is still required before claims of live readiness. No legacy compatibility cleanup is a prerequisite unless it directly affects that result.
+
+
 **Date:** 2026-10-20. **Status:** CODE COMMITTED / ISOLATED NODE TESTS PASS / FULL REPO + WINDOWS + LIVE CHROME NOT YET VERIFIED.
 
 **Scope:** The existing Chrome Extension Track B workstream, including AION Platform semantics, CLI/read-only interfaces, donor evidence, native OpenCode/ACP adapters and future capability design. This is a test candidate, **not** a release or M1 acceptance.
