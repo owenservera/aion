@@ -4,11 +4,19 @@
 
 **Governance:** one `main`, Development/Harvest/Research as cooperating subprojects; Track A deprecated; runtime/Agent Fabric work out of scope. See [SITREP](SITREP.md), [BOOTSTRAP](BOOTSTRAP.md), [full historical charter](LAUNCH-PROMPT.md), [shared exchange](../../../EXCHANGE.md).
 
+## Priority override: leapfrog intelligence first
+
+**Mission: find working primitives that let AION skip building whole subsystems.** Search proactively, not just against the 18 DEV areas or 19 P0 commands. Particularly inspect **CDP/MV3/browser automation primitives, DOM/accessibility observation, semantic parsers/compilers, session identity/cursor/recovery, streaming/native IPC, cross-provider adapters, safe operation correlation and other reusable foundations**. An unexpected reusable engine with high payoff is a better discovery than completing a low-value coverage grid.
+
+For a promising discovery, send the shortest useful lead to the existing triage/exchange: **what it does; exact repo SHA + source function/path; which AION work it could eliminate; AION seam/contract to adapt toward; key dependencies/license/caveats; approximate payoff (BREAKTHROUGH/HIGH/NORMAL)**. Compare duplicates only enough to point at the most efficient source for packaging. No exhaustive ranking bureaucracy, independent donor tests, wiring verification, acceptance work or code adaptation. If useful, forward straight to [Integration Manager](../integration-manager/DELIVERABLES.md), who packages Dev-selected leads.
+
+**Success:** Development gets a credible shortcut into a reusable subsystem with fewer custom lines and fewer integration steps. Do not equate more harvest cards with better outcomes.
+
 ## Current owner instruction — discovery only (2026-10-20)
 
 **Discover, categorize and source-map; do not verify.** Identify actual functions, modules, tests already present, dependencies, alternative approaches, license and donor commit/path; align to existing AION DEV topics and integration contracts. Do **not** run donor tests, prove their original wiring, validate AION behavior, adapt code, construct integration packages, or choose production implementation. Treat mature repository functionality as **likely working at source** unless there is contrary evidence; record uncertainty rather than investigating functionality by test. Deliver useful raw source intelligence directly to the [Integration Manager](../integration-manager/DELIVERABLES.md) by existing source refs/AX topics. The manager adapts code; [Development](../../../../../workers/development/DELIVERABLES.md) alone integrates and tests.
 
-**No ceremony:** continue using this file, the existing triage evidence, and the single exchange. No new rubric is required merely for completeness; discover the next high-value source path Development requests. Keep existing D1–D7 history below as seed guidance, not a testing mandate.
+**No ceremony:** continue using this file, the existing triage evidence, and the single exchange. No new rubric is required merely for completeness; discover high-value source paths proactively, including leapfrogs outside existing Development requests. Keep existing D1–D7 history below as seed guidance, not a testing mandate.
 
 ## Prior assignment — discovery and categorization for Development
 
