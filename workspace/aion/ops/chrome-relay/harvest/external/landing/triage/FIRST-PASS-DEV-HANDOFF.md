@@ -4,6 +4,25 @@
 
 ## Development first: I0 / I1 before feature harvesting
 
+### Owner scope update and source-review correction — 2026-10-20
+
+The owner now requests deep investigation of the **full command set**, not only the initial watch slice or P0 subset. Earlier I1-only harvesting restrictions below are historical prioritization, not the current research boundary. Preserve source custody and AION's existing execution model; the owner is not asking for another independent command server.
+
+**Important correction:** “not proven” must not be interpreted as “no implementation source exists.” The earlier lifecycle/model/thinking/steer coverage statements are incomplete. Parent directly confirmed the following routes in the captured MIT `chatgpt-bridge` at `0ffdae90239988f253058c05253226152acd55d2` (`landing/donors/chatgpt-bridge/`):
+- `src/routes.js:550`: `POST /requests/:requestId/steer`.
+- `src/routes.js:564,568`: `GET /models`, `GET /efforts`.
+- `src/routes.js:594-627`: file list/upload/from-path/download/delete routes.
+- `src/routes.js:650-666`: session list/new/select/delete routes.
+- `src/routes.js:948,958`: session messages and `/chat` routes.
+
+These are source-backed provider-specific functionality, not just generic CDP/UIA primitives. Next inspect their handler-to-browser implementations (`browserBridge.js`, extension composer/attachment/session/resume command modules), exact semantics, dependencies, retries and test fixtures. A route name alone does not establish working end-to-end behavior or AION integration. No exact P0 coverage total is accepted yet. Rename, message-edit and response-regenerate were not found in the bounded pass; treat them as **not located**, not exhaustive absence.
+
+The existing `ops/command-space/EXTERNAL-IMPLEMENTATIONS-COVERAGE.*` comparison covered only five donors and omitted Bridge/CDPilot/Cereon; it cannot support an all-nine negative claim. Read source beyond those summaries. Cereon's bounded accessibility tree/element registry/CDP session manager and CDPilot's frame-routing/WebMCP tools are captured reusable foundations, not a verified complete ChatGPT command implementation. Cereon's tool count must not be confused with the AION P0 count. GPL source requires compatibility review, not an unsupported blanket “incompatible” claim.
+
+**Scope counts verified locally:** `ops/command-space/CORE-OPERATIONS.csv` has **29 semantic operations: 19 P0 and 10 P1**. `aion_command_matrix.csv` has **40 distinct commands / 1,000 mapping rows**. Reconcile the core subset with the full matrix; do not restrict the next investigation to the owner's earlier “18” shorthand.
+
+**Own-repo bodies also inspected:** Omega `vivim-omega/items/VO-GH-0008/source/session.ts` at `79ee558d6c7ea77c20f220db2341adaa57b11d44` (capture-reference/session-record pattern); VIVIM `vivim-final/items/VF-0014/excerpt.ts` and `VF-0017/excerpt.ts` at `8a798f91d52574cb3d7db579da516bc1c4aee7b7` (observation stub/stream-event vocabulary); VOMEGA `vomega/items/VM-CLI-0019/source/session.ts` and `VM-CLI-0028/source/boot.ts` at `12c853259f60cf3a883c7fb1c9f329d696606d64` (revision/world-digest stale-result rejection and fail-closed boot). This bounded pass found no missing email extractor or Windows-startup shortcut; it does not establish their value across the full 40-command scope. Compare them again where a concrete full-set capability warrants it; preserve the existing captures instead of cloning/regenerating everything.
+
 1. **I0 `receive.contract` (AX-0007):** take *ideas* from `chatgpt-bridge/src/bridge/observedTurns/observedTurnJournal.js:16-42` (streamEpoch, monotonic sequence, retained-from, reset/gap); `src/bridge/observation/turnEvidence.js:33-73` (terminal evidence requires more than stop/idle); and `multi-ai-chat/src/content/responseTracking.ts:36-59` (reject late/orphan answers without current-turn confirmation). Adopt only into AION's already-selected event/1 + snapshot/1 validators, with distinct binding/conversation/message/operation identities and explicit incomplete-history handling. Donor source is **not** an I0 contract.
 2. **I1 `receive.transport` (AX-0008):** `chatgpt-bridge/src/http/observedTurnStream.js:3-51` encodes epoch:sequence SSE IDs, gap/reset/ready events; `test/remoteBrowserBridgeInitialCursor.test.js:22-93` contains synthetic cursor-restoration tests. This is a **pattern** for resumability, **not** an AION Chrome native-messaging implementation. The AION MV3→native host→CLI hop must remain **read-only data**. Compare push hint + authoritative snapshot, not full unbounded transcript broadcast.
 3. **I2 `send.correlation` (AX-0009, **after I1**):** `multi-ai-chat/src/content/sendConfirmation.ts:1-59` supplies prompt-match and user-turn confirmation helpers, with negative tests in `test/sendConfirmation.test.mts`. `chatgpt-web2api/src/chatgpt_web2api/turn_anchor.py:73-109,516-566` uses captured user-message ID first and refuses ambiguous/unready backend mapping; **backend/private ChatGPT access is NOT recommended for transplant**. Preserve AION's single selected actuator, one effect per op, original Bus grants/ledger, never retry unknown effect.
