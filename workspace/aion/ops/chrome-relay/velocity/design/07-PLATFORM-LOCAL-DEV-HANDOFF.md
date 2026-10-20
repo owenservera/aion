@@ -3,6 +3,8 @@
 > **OWNER BUILD PRIORITY OVERRIDE (2026-10-20):** The current Chrome implementation may be **replaced cleanly**, not repaired in a long sequence, as long as the existing Bus/grants/operation identity/no-resend and public command contract remain intact. See [Track B Chrome rebuild issue #43](https://github.com/owenservera/aion/issues/43). Offline tests should validate the replacement end-to-end; real Chrome verification is still required before claims of live readiness. No legacy compatibility cleanup is a prerequisite unless it directly affects that result.
 
 
+**ARCHITECTURAL PRECEDENCE:** Read [12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md](12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md) first. This older Windows handoff remains useful for source/test commands but its repair-first sequencing, one-shot Send objective and old team allocations are superseded. Current acceptance is I0 contract → I1 watch-only receive → I2 two-way Send → I3 recovery. Do not assert live success from this historical handoff.
+
 **Date:** 2026-10-20. **Status:** CODE COMMITTED / ISOLATED NODE TESTS PASS / FULL REPO + WINDOWS + LIVE CHROME NOT YET VERIFIED.
 
 **Scope:** The existing Chrome Extension Track B workstream, including AION Platform semantics, CLI/read-only interfaces, donor evidence, native OpenCode/ACP adapters and future capability design. This is a test candidate, **not** a release or M1 acceptance.
