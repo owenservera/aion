@@ -12,6 +12,8 @@
 - Nine external repos: [lane-owned triage and delivery](external/DELIVERY.md) (**code-level triage pending**).
 - Internal research/command paths: [AION Command Space](../../command-space/) and current `velocity/research/`.
 
+**Development target and priorities:** [master map](../DEVELOPMENT-MASTER.md) + [structured joins](../DEVELOPMENT-INDEX.json). The index points at source/evidence and exchange IDs, not a parallel queue. New present/future NEEDs AX-0007–AX-0015 are in the same exchange file.
+
 ## Authority
 
 - **`main`** is the sole integrated AION baseline. The nine external donor source **snapshots** are under [`harvest/external/landing/donors/`](external/landing/donors/). Donor application code is reference material, not executable AION runtime.
