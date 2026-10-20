@@ -1,5 +1,8 @@
 # AION Platform — predesigned implementation packets (design v0.1)
 
+> **PRECEDENCE NOTICE (2026-10-20):** This is an earlier plan, not the current Track B build authority. Follow **[12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md](12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md)** for accepted owner decisions, P1–P8 file ownership and I0–I3 gates. Review PR #50 is merged; do not treat older CENV/strategic packet priorities as mandatory or operate a second runtime registry. Historical evidence remains valuable.
+
+
 **Status:** PROPOSED, NOT DISPATCHED, NOT ACCEPTED_FOR_BUILD. 2026-10-20. This is **one Track B** strategy initiative. Governing design: [semantic master and command protocol](05-AION-PLATFORM-SEMANTIC-GOVERNANCE.md); machine seed [JSON](platform-semantic-seed.json); actual current repair [CENV work order](../../OPENCODE-BUILD-ORDER.md). Parent #32; strategic decision #38; PR #39. C-003 source crosswalk head `7fcd334a` and queue 01–12 in [Harvest PR #41](https://github.com/owenservera/aion/pull/41).
 
 These packets prepare independent implementation choices without overriding current AION code, Windows local master, A/B isolation, exact grants or live browser requirements. The implementation owner may accept, postpone or reject each only after checking actual current branch/head and file ownership. **Do not auto-run** from GitHub documents.
