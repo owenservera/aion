@@ -8,7 +8,7 @@ The registry is a capability/evidence **catalog**, not a permission grant or a c
 
 1. Identify the product, official documentation, exact surface, and transport. Add a new provider only if the product is meaningfully distinct from an existing one; a model name alone isn't a new provider.
 2. Give each new native path a distinct combination of `provider + surface + native_path + transport`. Do not confuse official APIs with web sessions or plugin ingress with remote conversation control.
-3. For all 22 semantic commands, add a row for the route. Default unsupported/unknown coverage to `UNKNOWN` and AION implementation to `PENDING` (or `PLANNED` only where design work is recorded). Do not default to DOCUMENTED.
+3. For all 40 current semantic commands, add a row for the route (consult CORE-OPERATIONS.csv; count from matrix rather than hardcoding for future additions). Default unsupported/unknown coverage to `UNKNOWN` and AION implementation to `PENDING` (or `PLANNED` only where design work is recorded). Do not default to DOCUMENTED.
 4. Enter primary-source `documentation_url`, `confidence`, and `notes` describing what is and is not supported. A date and source revision should be included in notes when rechecking.
 5. Rebuild SQLite, run `--check`, review the Git CSV diff, and submit the changed file. Only publish claims corroborated by that evidence.
 
@@ -48,3 +48,7 @@ Existing CSV enumerations do not cover explicit `UNSUPPORTED` or `BLOCKED`; repr
 - All source links and status promotions have reproducible receipts.
 
 Scope stays intentionally lean: one CSV, one derived SQLite file, one router lookup adapter later; no new bus, scheduler, or database service.
+
+## P0 coverage discipline
+
+Every P0 semantic ID from [CORE-OPERATIONS.csv](CORE-OPERATIONS.csv) must have a provider-route row for every cataloged route. The `priority=P0` column is an **investigation and implementation priority**, not a claim of official support or actual AION realization. A provider worker should document `UNKNOWN` explicitly instead of inventing a browser control or API. The [route origins](ROUTE-ORIGINS.csv) file distinguishes our own browser-mediated route from provider-published native endpoints and plugin ingress. See [worker launch board](WORKER-LAUNCH.md) for research and authorized CDP reconnaissance protocol.

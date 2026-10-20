@@ -1,8 +1,19 @@
 # AION Universal Command Space
 
-**Version:** 0.1.0 (2026-10-20) · **Status:** seeded research registry, not a live capability oracle.
+**Version:** 0.2.0 P0 baseline (2026-10-20) · **Status:** seeded research registry, not a live capability oracle.
 
-This is AION's one-stop, provider-neutral inventory of semantic commands and candidate execution routes: **13 providers, 22 commands, 25 documented or proposed routes, and 550 provider/command/route mappings**. It distinguishes what an external product documents from what AION implements and what was actually verified on this account.
+This is AION's one-stop, provider-neutral inventory of semantic commands and candidate execution routes: **13 providers, 40 commands, 25 documented or proposed routes, and 1,000 provider/command/route mappings**. It distinguishes what an external product documents from what AION implements and what was actually verified on this account.
+
+
+## P0 command-space baseline and provider research (v0.2)
+
+**[CORE-OPERATIONS.csv](CORE-OPERATIONS.csv)** defines the canonical baseline: **19 P0 operations**, **10 P1 additions**, explicit effect/risk classes and distinguishing behavior. P0 covers create/open/rename chat, send, read full reply, observe/stream, history, recover, bind, model list/select, thinking level, stop generation, mid-turn steer, edit/regenerate and attach. **The existing `priority` column in [aion_command_matrix.csv](aion_command_matrix.csv) is the P0/P1/P2 flag for each provider route; P0 means research/build priority, never verified support.** Each new command/route mapping begins UNKNOWN native support, PENDING AION implementation and NOT_RESEARCHED verification, without inferring browser availability.
+
+**[ROUTE-ORIGINS.csv](ROUTE-ORIGINS.csv)** gives a separate 25-row provenance overlay: `AION_CUSTOM_BROWSER`, `PROVIDER_NATIVE_CANDIDATE`, `APP_PLUGIN_INGRESS`. The native capability and our own custom adapter may coexist; `ChatGPT Apps/MCP ingress` is not outbound control of an existing chatgpt.com session. The route overlay is research classification, **not** an executable routing registry.
+
+**[WORKER-LAUNCH.md](WORKER-LAUNCH.md)** supplies two complete reusable prompts and exact assignment lists for **13 per-provider native-documentation workers and 9 webapp CDP-reconnaissance workers**. CDP is explicitly restricted to authorized isolated testing/research; it is not a new runtime production default, and Playwright/Puppeteer/Orca remain excluded.
+
+Validate source relationships with `python validate_baseline.py`; regenerate SQLite with `python build_sqlite.py`, then `python build_sqlite.py --check`. Runtime read/Send grants and actual browser verification remain separate from this catalog.
 
 ## Files
 
