@@ -4,6 +4,8 @@
 
 **Governance:** one `main`, Development/Harvest/Research as cooperating subprojects; Track A deprecated; runtime/Agent Fabric work out of scope. See [SITREP](SITREP.md), [BOOTSTRAP](BOOTSTRAP.md), [full historical charter](LAUNCH-PROMPT.md), [shared exchange](../../../EXCHANGE.md).
 
+**Dispatch status (2026-10-20): SAVED_NOT_DISPATCHED.** A GitHub file or TODO does **not** activate this ChatGPT session. The owner must send the instruction in this worker's dedicated chat. When dispatched, scout CDP/parser/transport leapfrogs **in parallel** with Integration Manager's PACK-01/02. No donor verification, testing or code adaptation.
+
 ## Active TODO — External Nine Discovery
 
 - [ ] Scout **Cereon MV3 CDP/session manager and bounded accessibility tree** against **cdpilot's CDP engine** for high-payoff browser diagnostics and control primitives; distinguish read-only inspection from effectful actions.
