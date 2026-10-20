@@ -8,6 +8,7 @@ import {pathToFileURL} from 'node:url';
 import {parseCommand,DEFAULT_WAIT_MS} from '../src/commands.mjs';
 import {makeControlRequest} from '../src/control.mjs';
 import {requestUnix} from '../src/transport/unix.mjs';
+import {runPlatformInspect} from '../src/platform/inspect.mjs';
 
 const nextId=()=>('req_'+randomBytes(12).toString('hex'));
 const sleep=ms=>new Promise(done=>setTimeout(done,ms));
@@ -51,6 +52,7 @@ export async function main(argv,{
   socketPath=process.env.AION_DEV_SOCKET,write=line=>process.stdout.write(line+'\n'),
   transport=requestUnix
 }={}){
+  if(argv?.[0]==='platform')return runPlatformInspect(argv.slice(1),{print:write});
   let parsed;
   try{parsed=parseCommand(argv);}catch(error){
     present(write,{ok:false,code:'BAD_COMMAND',reason:error.message},true);return 2;
