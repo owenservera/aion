@@ -25,6 +25,7 @@ import { addAgent, bindAgent, renderTree, retireAgent, setPaused, unbindAgent } 
 import { appendEvent, createBusStore, transition } from './ledger.js';
 import { consumeGrant, createGrant, revokeGrant, selectGrant } from './grants.js';
 import { validateParsed } from './validate.js';
+import { normalizeSendOptions } from './adapters/opencode-v2.js';
 
 const ACTIVE = [S.DISPATCHED, S.SUBMISSION_OBSERVED, S.UNRESOLVED];
 
@@ -81,6 +82,7 @@ export function createBus(options = {}) {
     if (!REPLY_TOKEN.test(command.reply_token)) refuse(REASON.ADAPTER_ERROR, 'reply token shape');
     command.adapter = agent.binding.adapter;
     command.binding_ref = agent.binding.ref.slice(0, 128);
+    command.binding_revision = agent.revision;
     transition(command, S.RESERVED, at);
   }
 
@@ -168,11 +170,19 @@ export function createBus(options = {}) {
    * CLI). Same validation, same reservation; no arm check because there is no
    * chat turn — the caller must present the owner grant id explicitly.
    */
-  async function ingestStructured({ op, to = null, text = null, nonce, origin_kind = ORIGIN.MCP_INGRESS, origin_ref, target_guard = null }) {
+  async function ingestStructured({ op, to = null, text = null, nonce, origin_kind = ORIGIN.MCP_INGRESS, origin_ref, target_guard = null, send_options = null }) {
+    let sendOptions = null;
+    if (send_options !== null) {
+      try { sendOptions = normalizeSendOptions(send_options); }
+      catch { return { accepted: false, reason: REASON.BAD_VALUE, detail: 'invalid native send options' }; }
+    }
     const body = [`op: ${op}`, to ? `to: ${to}` : null, text !== null ? `text: <<\n${text}\n>>` : null, `nonce: ${nonce}`].filter(Boolean).join('\n');
     const { result } = await store.mutate((draft, { now: at }) => {
       const parsed = parseCommanderReply(`\`\`\`AION_CMD_V1\n${body}\n\`\`\``, draft.config);
       if (!parsed.ok) return { accepted: false, reason: parsed.reason, detail: parsed.detail };
+      if (sendOptions && (parsed.command.op !== 'send' || draft.agents[parsed.command.to]?.binding?.adapter !== 'opencode-v2')) {
+        return { accepted: false, reason: REASON.OP_NOT_SUPPORTED, detail: 'native send options require OpenCode V2' };
+      }
       // Track B optional restrictive precondition. Resolved target identity
       // must remain unchanged THROUGH the durable reservation. The guard
       // cannot grant permissions or bypass existing Bus validation.
@@ -201,6 +211,7 @@ export function createBus(options = {}) {
         return { accepted: false, reason: verdict.reason, detail: verdict.detail, command_id: command.command_id };
       }
       transition(command, S.VALIDATED, at);
+      if (sendOptions) command.send_options = structuredClone(sendOptions);
       let t = parsed.command.text;
       if (parsed.command.op === 'status') t = statusText(draft, parsed.command.to);
       if (parsed.command.op === 'cancel') t = 'cancel';
@@ -222,6 +233,12 @@ export function createBus(options = {}) {
       if (!ACTIVE.includes(c.state)) return { state: c.state, changed: false };
       const from = c.state;
       if (outcome.session_ref && c.executor_ref === null) c.executor_ref = outcome.session_ref;
+      if (!observing && c.adapter === 'opencode-v2' && typeof outcome.evidence?.prompt_id === 'string'
+        && /^[A-Za-z0-9_.:-]{1,128}$/.test(outcome.evidence.prompt_id)) c.executor_prompt_id = outcome.evidence.prompt_id;
+      if (!observing && c.adapter === 'opencode-v2' && Object.hasOwn(outcome.evidence ?? {}, 'session_agent')) {
+        c.executor_selection = { agent: outcome.evidence.session_agent, providerID: outcome.evidence.session_provider,
+          id: outcome.evidence.session_model, variant: outcome.evidence.session_variant };
+      }
       switch (outcome.outcome) {
         case 'reply': {
           const max = draft.config.max_report_excerpt_chars;
@@ -289,7 +306,8 @@ export function createBus(options = {}) {
       // retarget between reserve and dispatch; NEVER send to a new binding.
       // binding_ref is already persisted in the existing Bus schema.
       if (!agent?.binding || agent.binding.adapter !== c.adapter
-        || agent.binding.ref !== c.binding_ref) {
+        || agent.binding.ref !== c.binding_ref
+        || (c.binding_revision !== undefined && agent.revision !== c.binding_revision)) {
         transition(c, S.HALTED, at, { reason: REASON.BINDING_CHANGED,
           detail: 'target binding differs from the reserved operation' });
         c.text = null;
@@ -306,11 +324,13 @@ export function createBus(options = {}) {
         grant: { grant_id: c.grant_id, cwd: draft.grants[c.grant_id]?.cwd ?? null },
         origin: { commander_name: commander?.name ?? null, chain_id: c.chain_id, hop: c.hop },
         cancel_target: null,
+        ...(c.send_options ? { send_options: structuredClone(c.send_options) } : {}),
       };
       if (c.op === 'cancel') {
         const target = Object.values(draft.commands).filter((x) => x.to === c.to && x.op === 'send' && ACTIVE.includes(x.state))
           .sort((a, b) => a.created_utc.localeCompare(b.created_utc)).pop();
-        req.cancel_target = target ? { command_id: target.command_id, correlation_id: target.correlation_id, executor_ref: target.executor_ref } : null;
+        req.cancel_target = target ? { command_id: target.command_id, correlation_id: target.correlation_id, executor_ref: target.executor_ref,
+          ...(target.send_options ? { send_options: structuredClone(target.send_options) } : {}) } : null;
       }
       transition(c, S.DISPATCHED, at);
       c.attempted = true;
@@ -351,6 +371,8 @@ export function createBus(options = {}) {
     let raw;
     try {
       raw = await adapter.observe({ command_id: c.command_id, correlation_id: c.correlation_id, reply_token: c.reply_token, executor_ref: c.executor_ref,
+        ...(c.executor_prompt_id ? { executor_prompt_id: c.executor_prompt_id } : {}),
+        ...(c.send_options ? { send_options: structuredClone(c.send_options) } : {}),
         binding: { ref: agent?.binding?.ref ?? null, label: agent?.binding?.label ?? null }, kind: c.op === 'report' ? 'report' : 'command' });
     } catch (error) {
       raw = { outcome: 'pending', reason: REASON.ADAPTER_ERROR, detail: String(error?.message ?? error).slice(0, 200) };

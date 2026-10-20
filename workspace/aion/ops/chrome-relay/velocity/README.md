@@ -2,7 +2,38 @@
 
 **NO GITHUB ACTIONS.** GitHub holds source and receipts only; it does not execute or coordinate commands. The software runs locally using Node 22, the existing AION Bus, existing durable file storage and existing engine adapters. No hosted CI, Cloud Browser, Slack, Docker, Playwright, Puppeteer or Orca.
 
-**Status (2026-10-19, round 8):** COMMITTED; fresh local regression still required. Last VERIFIED full offline selftest was Opus's round 7 at `1347253`: 965 tests, 963 pass, 2 pre-existing skips, 0 fail on Node 22 / Linux (velocity 92, bus 10, extension 736, bridge 127, plus bus demo). **Those numbers do not claim a test run at the newer round 8 head.** The Chrome leg of `aion send <role>` is wired end to end in source and proven offline with a spawned host process, a real file ledger and a fake worker. **Not yet:** WINDOWS VERIFIED, REAL CHROME VERIFIED, real ChatGPT Send.
+**Windows integration in progress (2026-10-20):** The initial Windows run at `ece79a895cea163ba0672f7660c2e8f0547cdc38` executed 994 tests: **973 passed, 13 failed, 8 skipped**, plus three passing offline demos. Repairs and integration tests are in progress; these baseline numbers are not a final-head receipt. Native agent discovery and optional PM context are read-only projections, not new registries or execution authority. Real Chrome and native-provider acceptance must be recorded separately from offline tests.
+
+### Optional project context preview
+
+```powershell
+$Aion = '.\workspace\aion\ops\chrome-relay\velocity\bin\aion.ps1'
+pwsh -NoProfile -File $Aion agents
+pwsh -NoProfile -File $Aion context chief --scope brief
+pwsh -NoProfile -File $Aion context chief --project hq --scope brief
+# If Projects PM is not a sibling of this checkout:
+pwsh -NoProfile -File $Aion context chief --project hq --pm-root 'C:\path\001.PROJECTS.PM'
+```
+
+Project preview adds the selected PM project's allowlisted registry/evidence fields to the role context. It reads only `config/projects.json`, optional `config/sources.json`, and optional `out/current.json`; it never runs PM collection or changes its files. Missing/stale evidence remains labelled unknown/stale. Preview performs no send and creates no grant. AION is not currently a project ID in the inspected PM registry; do not invent an `aion` entry. Ordinary sends still attach no context unless explicitly requested.
+
+### Native OpenCode options (direct local CLI)
+
+The existing OpenCode adapter creates a fresh native session for each ordinary send. Optional flags expose native features without recreating OpenCode agents or permissions:
+
+```text
+aion send opencode "Review this file" --file README.md
+aion send opencode "Do this work" --agent <native-agent-id>
+aion send opencode "Do this work" --model <provider/id> --variant <catalog-variant>
+aion send opencode "Continue this exact thread" --session <native-session-id>
+aion send opencode "Start a linked child" --parent <native-session-id> --agent <native-agent-id>
+```
+
+Select real agent/model/variant IDs from the native engine, not these placeholders. Explicit selections are validated; there is no model/provider fallback. Reusing a session retains its native agent/model and refuses overrides; use `--parent` for a newly configured child. The session location must match the finite grant's cwd. Files must resolve within that directory, have a supported text/image extension, and fit the bounded size limit; path checks do not constitute a secret-content scanner or an atomic file snapshot. Do not attach credentials. Native options are refused on Chrome, ACP and the optional broker IPC rather than silently discarded. Thinking controls are native model **variants**, not a new AION reasoning setting.
+
+Optional project egress is explicit: preview first, then `aion send chief "Status" --context brief --project hq`. The complete selected context must fit one 2,000-character message or the command refuses before dispatch. It is never split into multiple sends.
+
+For uncertain results use `aion observe <operation-id> --follow`; never resend to reconcile. The local `aion dispose <operation-id> --saw abandoned` releases an unresolved reservation through the existing Bus without sending, cancelling a native turn, or proving delivery. Use `delivered` or `not-delivered` only when actually observed. Installed Chrome capabilities beyond the existing send/reply path, and native-provider acceptance of new options, require separate live evidence.
 
 ## Agents + context (Round 9)
 

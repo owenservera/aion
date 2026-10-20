@@ -18,6 +18,7 @@ import {
   TERMINAL_STATES, TRANSITIONS, BusError, assertPlain, exactKeys, isAgentId, isPlain, isUtc, refuse,
 } from './contracts.js';
 import { seedAgents, validateRegistry } from './registry.js';
+import { normalizeSendOptions } from './adapters/opencode-v2.js';
 
 export const STATE_FIELDS = Object.freeze([
   'schema', 'version', 'created_utc', 'updated_utc', 'seq', 'config', 'kill', 'commander', 'agents', 'grants',
@@ -67,7 +68,21 @@ export function validateGrant(grant, key) {
 }
 
 export function validateCommand(c, key) {
-  exactKeys(c, COMMAND_FIELDS, 'command');
+  // Additive optional fields keep older command records readable. This is the
+  // same command ledger, not a second options/task store.
+  const optional = ['send_options', 'binding_revision', 'executor_prompt_id', 'executor_selection'].filter(k => Object.hasOwn(c, k));
+  exactKeys(c, [...COMMAND_FIELDS, ...optional], 'command');
+  if (Object.hasOwn(c, 'binding_revision') && (!Number.isSafeInteger(c.binding_revision) || c.binding_revision < 1)) refuse(REASON.STORE_CORRUPT, 'binding_revision');
+  if (Object.hasOwn(c, 'executor_prompt_id') && (c.adapter !== 'opencode-v2' || typeof c.executor_prompt_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/.test(c.executor_prompt_id))) refuse(REASON.STORE_CORRUPT, 'executor_prompt_id');
+  if (Object.hasOwn(c, 'executor_selection')) {
+    exactKeys(c.executor_selection, ['agent', 'providerID', 'id', 'variant'], 'executor_selection');
+    if (c.adapter !== 'opencode-v2' || Object.values(c.executor_selection).some(v => v !== null && (typeof v !== 'string' || !v || v.length > 128 || /[\x00-\x1f]/.test(v)))) refuse(REASON.STORE_CORRUPT, 'executor_selection');
+  }
+  if (Object.hasOwn(c, 'send_options')) {
+    try { normalizeSendOptions(c.send_options); }
+    catch { refuse(REASON.STORE_CORRUPT, 'send_options'); }
+    if (c.op !== 'send' || c.adapter !== 'opencode-v2') refuse(REASON.STORE_CORRUPT, 'send_options adapter');
+  }
   if (typeof c.command_id !== 'string' || !/^[a-z0-9]{8,40}$/.test(c.command_id) || c.command_id !== key) refuse(REASON.STORE_CORRUPT, 'command_id');
   if (typeof c.chain_id !== 'string' || !/^[a-z0-9]{8,40}$/.test(c.chain_id)) refuse(REASON.STORE_CORRUPT, 'chain_id');
   if (!Number.isSafeInteger(c.hop) || c.hop < 0 || c.hop > 64) refuse(REASON.STORE_CORRUPT, 'hop');

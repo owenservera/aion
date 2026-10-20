@@ -16,6 +16,8 @@ import {runLocalSelftest} from '../src/selftest.mjs';
 import {planBrowserSetup,applyBrowserSetup,uninstallBrowserSetup} from '../src/browser/setup.mjs';
 import {runBrowserPreflight} from '../src/browser/preflight.mjs';
 import {listAgents,loadAgentContext,composeAgentPrompt} from '../src/agents-context.mjs';
+import {loadProjectContext,DEFAULT_PM_ROOT,composeProjectAgentPrompt} from '../src/project-context.mjs';
+import {discoverNativeAgents} from '../src/native-agents.mjs';
 import {readRoleCatalog} from '../src/local-runtime.mjs';
 import {localStatePath} from '../src/local-runtime.mjs';
 import {assertPrivateStateDir} from '../src/security.mjs';
@@ -30,27 +32,53 @@ const done=(print,r,exit)=>{print(JSON.stringify(r));return exit;};
 export async function main(argv=process.argv.slice(2),{
   print=line=>process.stdout.write(line+'\n'),open=openLocal,probe=engineProbe,
   tests=runLocalSelftest,acpProbe=probeAcpBinary,delegate=null,pause=sleep,now=()=>Date.now(),
+  native=discoverNativeAgents,
   chromeProbe=async()=>{const b=await browserProbe();b.link?.close();return b;}
 }={}){
  const cmd=argv[0]??'status';
  if(cmd==='agents'){
    if(argv.length!==1)return done(print,{ok:false,code:'BAD_COMMAND'},2);
-   let rt;
+   // The catalogue is always listed. When the Bus registry cannot be read
+   // (unverified Windows state ACL, unreadable ledger) the roster still
+   // answers, with the registry marked UNKNOWN and the honest error code.
+   let rt=null,registry=null,registryError=null,state=null;
    try{
      rt=await open();
-     const state=await rt.bus.store.read();
-     const agents=listAgents(rt.roleCatalog,state.agents);
-     return done(print,{schema:'aion.agents/1',count:agents.length,agents},0);
-   }catch(error){return done(print,{ok:false,code:error.code??'AGENT_LIST_UNAVAILABLE'},3);}
-   finally{if(rt)await rt.close();}
+     state=await rt.bus.store.read();
+     registry={status:'AVAILABLE',agents:state.agents??{},grants:state.grants??{}};
+   }catch(error){
+     registryError=error.code??'AGENT_REGISTRY_UNAVAILABLE';
+   }finally{if(rt)await rt.close();}
+   let catalog;
+   try{catalog=rt?.roleCatalog??readRoleCatalog();}
+   catch(error){return done(print,{ok:false,code:error.code??'ROLE_CATALOG_UNAVAILABLE'},3);}
+   const roster=await native({catalog:catalog.roles??[],registry,registryError});
+   const agents=listAgents(catalog,registry?.agents??{},
+     {registryStatus:registry?'AVAILABLE':'UNKNOWN',registryError});
+   return done(print,{schema:'aion.agents/1',count:agents.length,agents,
+     registry:{status:registry?'AVAILABLE':'UNKNOWN',error:registryError},
+     native_agents:{schema:roster.schema,count:roster.count,agents:roster.agents,sources:roster.sources,
+       registry:roster.registry,observed_utc:roster.observed_utc}},0);
  }
- if(cmd==='context'){
-   if(argv.length<2||argv.length>4||argv.length===3||
-     (argv.length===4&&(argv[2]!=='--scope'||!['bootstrap','sitrep','both','brief'].includes(argv[3]))))
-     return done(print,{ok:false,code:'BAD_COMMAND',usage:'aion context <agent> [--scope bootstrap|sitrep|both|brief]'},2);
-   try{
-     const context=loadAgentContext(readRoleCatalog(),argv[1],{scope:argv[3]??'both'});
-     return done(print,context,0);
+  if(cmd==='context'){
+    const flags=new Map();
+    const bad=()=>done(print,{ok:false,code:'BAD_COMMAND',
+      usage:'aion context <agent> [--scope bootstrap|sitrep|both|brief] | aion context <agent> --project <id> [--pm-root <path>] [--scope brief]'},2);
+    if(!argv[1]||argv[1].startsWith('--')||(argv.length-2)%2!==0)return bad();
+    for(let i=2;i<argv.length;i+=2){
+      const key=argv[i],value=argv[i+1];
+      if(!['--scope','--project','--pm-root'].includes(key)||flags.has(key)||
+        typeof value!=='string'||!value.trim()||value.startsWith('--'))return bad();
+      flags.set(key,value);
+    }
+    if(flags.has('--pm-root')&&!flags.has('--project'))return bad();
+    const scope=flags.get('--scope');
+    if(scope&&!(flags.has('--project')?['brief']:['bootstrap','sitrep','both','brief']).includes(scope))return bad();
+    try{
+       const context=loadAgentContext(readRoleCatalog(),argv[1],{scope:scope??(flags.has('--project')?'brief':'both')});
+      if(flags.has('--project'))return done(print,{...context,project:loadProjectContext({
+        pmRoot:flags.get('--pm-root')??DEFAULT_PM_ROOT,projectId:flags.get('--project')})},0);
+      return done(print,context,0);
    }catch(error){return done(print,{ok:false,code:error.code??'CONTEXT_UNAVAILABLE'},3);}
  }
  if(cmd==='selftest'){
@@ -82,7 +110,13 @@ export async function main(argv=process.argv.slice(2),{
  }
  if(cmd==='connections'){
    if(argv.length>1)return done(print,{ok:false,code:'BAD_COMMAND'},2);
-   const [engine,acp,chrome]=await Promise.all([probe(),acpProbe(),chromeProbe()]);
+   // The HTTP probes run FIRST and outside the state-ACL verification. The
+   // ACL check shells out to PowerShell and can take seconds; running it
+   // beside the health probe blocked the event loop and aborted the request.
+   const [engine,acp]=await Promise.all([probe(),acpProbe()]);
+   let chrome;
+   try{chrome=await chromeProbe();}
+   catch(error){chrome={ok:false,state:'NOT_CONNECTED',reason:error.code??'CHROME_PROBE_FAILED'};}
    return done(print,{schema:'aion.connections/1',opencode_v2:safe(engine),acp:safe(acp),chrome:publicBrowser(chrome)},0);
  }
  if(process.env.AION_DEV_SOCKET && cmd!=='connect'){
@@ -138,13 +172,15 @@ export async function main(argv=process.argv.slice(2),{
  try{parsed=parseCommand(argv);}catch(error){return done(print,{ok:false,code:'BAD_COMMAND',reason:error.message},2);}
  if(parsed.command==='send'&&parsed.detach)
    return done(print,{ok:false,code:'DETACH_REQUIRES_BROKER',delivery:'NOT_SENT'},2);
- const browserSend=parsed.command==='send'&&parsed.alias!=='opencode';
+  const browserSend=parsed.command==='send'&&parsed.alias!=='opencode';
+  if(browserSend&&parsed.send_options)
+    return done(print,{ok:false,code:'NATIVE_OPTIONS_REQUIRE_OPENCODE',delivery:'NOT_SENT'},2);
  // --context is a deliberate, reviewable attachment for AION conversation
  // agents only. Never quietly attach workspace instructions to an executor.
  if(parsed.command==='send'&&parsed.context&&!browserSend)
    return done(print,{ok:false,code:'CONTEXT_REQUIRES_CONVERSATION_AGENT',delivery:'NOT_SENT'},2);
  const needsEngine=['observe','capabilities'].includes(parsed.command)||(parsed.command==='send'&&!browserSend);
- const needsBrowser=browserSend||['observe','capabilities','doctor'].includes(parsed.command);
+  const needsBrowser=browserSend||['observe','capabilities','doctor','dispose'].includes(parsed.command);
  let rt;
  try{rt=await open({withEngine:needsEngine,withBrowser:needsBrowser});}
  catch(error){return done(print,{ok:false,code:error.code??'LOCAL_STATE_UNAVAILABLE',delivery:'NOT_SENT'},3);}
@@ -173,7 +209,19 @@ export async function main(argv=process.argv.slice(2),{
      const result=await rt.bus.resume('explicit local operator resume');
      return done(print,{ok:true,schema:'aion.resume/1',kill:result},0);
    }
-   if(parsed.command==='send'&&browserSend){
+    if(parsed.command==='dispose'){
+      const command=await rt.bus.readCommand(parsed.operation_id);
+      if(!command)return done(print,{ok:false,code:'OPERATION_UNKNOWN'},3);
+      // Native disposal only halts this local ledger record, never interrupts
+      // an external session. Other adapters must prove their lock release path
+      // is loaded; otherwise Bus.dispose would skip that essential step.
+      if(command.adapter!=='opencode-v2'&&typeof rt.bus.adapters?.[command.adapter]?.dispose!=='function')
+        return done(print,{ok:false,code:'DISPOSAL_ADAPTER_UNAVAILABLE'},3);
+      const result=await rt.bus.dispose(parsed.operation_id,{disposition:parsed.disposition,by:'explicit-local-operator-dispose'});
+      return done(print,{ok:result.disposed===true,code:result.disposed?'OPERATION_DISPOSED':'DISPOSAL_NOT_APPLIED',
+        operation_id:parsed.operation_id,...result},result.disposed?0:3);
+    }
+    if(parsed.command==='send'&&browserSend){
      if(!rt.browser?.ok)return done(print,{ok:false,code:'BROWSER_CONNECTOR_NOT_CONNECTED',delivery:'NOT_SENT',
        chrome:publicBrowser(rt.browser)},3);
      const state=await rt.bus.store.read();
@@ -182,10 +230,15 @@ export async function main(argv=process.argv.slice(2),{
      if(role.adapter!==CHATGPT_ADAPTER)return done(print,{ok:false,code:'ROLE_NOT_A_CHATGPT_BINDING',delivery:'NOT_SENT'},3);
      if(!await rt.readyFor(role.target))return done(print,{ok:false,code:'OWNER_BINDING_OR_GRANT_REQUIRED',delivery:'NOT_SENT',
        hint:`aion connect ${parsed.alias} --conversation https://chatgpt.com/c/<id>`},3);
-     let outgoing=parsed.text;
-     if(parsed.context){
-       try{outgoing=composeAgentPrompt(parsed.text,
-         loadAgentContext(rt.roleCatalog,parsed.alias,{scope:parsed.context}));}
+      let outgoing=parsed.text;
+      if(parsed.context){
+        try{
+          const context=loadAgentContext(rt.roleCatalog,parsed.alias,{scope:parsed.context});
+          outgoing=parsed.project
+            ? composeProjectAgentPrompt(parsed.text,{...context,project:loadProjectContext({
+              pmRoot:parsed.pm_root??DEFAULT_PM_ROOT,projectId:parsed.project})})
+            : composeAgentPrompt(parsed.text,context);
+        }
        catch(error){return done(print,{ok:false,code:error.code??'CONTEXT_UNAVAILABLE',
          delivery:'NOT_SENT',required_chars:error.required_chars??null,
          limit:error.limit??null,reason:error.reason??null},3);}
@@ -198,7 +251,8 @@ export async function main(argv=process.argv.slice(2),{
    if(parsed.command==='send'){
      if(!rt.engine?.ok)return done(print,{ok:false,code:'ENGINE_NOT_CONNECTED',delivery:'NOT_SENT',opencode:safe(rt.engine)},3);
      if(!await rt.refresh())return done(print,{ok:false,code:'OWNER_BINDING_OR_GRANT_REQUIRED',delivery:'NOT_SENT'},3);
-     const admit=await rt.plane.sendAlias({alias:'opencode',text:parsed.text,nonce:token('nonce-')});
+      const admit=await rt.plane.sendAlias({alias:'opencode',text:parsed.text,nonce:token('nonce-'),
+        ...(parsed.send_options?{send_options:parsed.send_options}:{})});
      if(!admit.ok)return done(print,admit,3);
      await rt.plane.waitForIdle();
      return await follow(rt,admit.operation_id,parsed.wait_ms??120000,{print,pause,now});

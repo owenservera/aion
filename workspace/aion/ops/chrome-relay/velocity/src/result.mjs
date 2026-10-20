@@ -33,6 +33,7 @@ export function projectResult(command,{includeExcerpt=false}={}){
      observed_utc:command.reply.observed_utc
    }:null
  };
- if(includeExcerpt&&command.reply?.excerpt) c.reply_excerpt=command.reply.excerpt;
+  if(command.executor_selection)c.executor_selection={...command.executor_selection};
+  if(includeExcerpt&&command.reply?.excerpt) c.reply_excerpt=command.reply.excerpt;
  return c;
 }
