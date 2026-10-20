@@ -2,6 +2,17 @@
 
 **Owner:** ChatGPT Development (this session and successors). **Authority:** [Development Master](../../DEVELOPMENT-MASTER.md), existing AION Bus/grants, [shared exchange](../../harvest/EXCHANGE.jsonl), and [repo governance](../../../../../../REPOSITORY-GOVERNANCE.md). **Effort for difficult integration:** High. This is a small working desk, not a new project board.
 
+## Active TODO — Development
+
+- [ ] Define/implement the canonical `aion.conversation.event/1` and `snapshot/1` contract at the accepted P1 path; separate binding, page epoch, message/revision, cursor and Bus operation ID.
+- [ ] Reconcile relevant AION main source with unmerged PR #46 without a wholesale merge.
+- [ ] Integrate PACK-01 cursor/journal adaptation and PACK-02 read-only DOM observer adaptation when **real code** is delivered.
+- [ ] Run AION-specific offline tests: contiguous replay/gaps, ahead-of-stream cursor, wrong/old message, empty assistant, and command-looking received text never reaching Bus effects.
+- [ ] Wire and test watch-only CLI receive from the exact bound ChatGPT thread; obtain an authorized real I1 receipt before moving to Send.
+- [ ] Review Discovery's best CDP/parser/transport leapfrogs and request new packages **only if** they eliminate meaningful product build work without blocking I1.
+
+**Done = integrated AION code and AION test receipts, not worker discovery or package arrival. Thinking effort: High.**
+
 ## Build the product — three-role supply line
 
 1. **Development (here)** writes current AION needs in the existing exchange, chooses valuable sources, defines exact AION seam, integrates/adapts the selected packages, runs tests and accepts or rejects behavior.
