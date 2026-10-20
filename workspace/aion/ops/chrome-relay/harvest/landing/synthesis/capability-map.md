@@ -118,3 +118,17 @@ Final: `owenservera/vivim-final@8a798f91d52574cb3d7db579da516bc1c4aee7b7`, captu
 | Additional source owners | VO-GH-0016..0027 | 12 flagged; the captured second-batch helpers do not prove full entrypoint behavior |
 
 **Total indexed donor candidate coverage C-003: 65 IDs = 27 Final captured excerpts + 26 Omega copied records + 12 Omega flagged-only.** The original 16 FINDINGS research leads remain a separate, overlapping earlier inventory; they are not 16 more unique validated components. No donor tests executed by Crosswalk.
+
+
+## C-004 — literal-ID coverage correction and machine-readable lineage
+The C-003 prose used ranges and family shorthand. A literal-ID audit identified four Omega IDs that were only implicit. Their individual meanings, from the pinned Omega index, are:
+- **VO-GH-0029:** copied complete `plugins/discovery-verification/src/policy.ts` — versioned verification/promotion policy and parser registry; historical policy is not current browser readiness.
+- **VO-GH-0031:** copied complete `plugins/discovery-mapping/src/blueprint.ts` — normalization defaults missing declared risk to READ, which must not be applied to inferred browser mutations.
+- **VO-GH-0033:** copied complete `plugins/discovery-inference/src/infer.ts` — UI-affordance heuristics, not a unique/authorized Send.
+- **VO-GH-0037:** copied complete `plugins/vivim-providers/src/index.ts` — read handlers and explicitly deferred session-start bookkeeping; not real browser attachment.
+
+**Full crosswalk:** [crosswalk-ledger.jsonl](crosswalk-ledger.jsonl) contains exactly **65 independently named rows** (27 VF + 38 VO), each with immutable donor revision, owning path/line ranges, declared capture status, coverage, source/copy hashes **as reported by the donor worker**, capture branch commit, primary AION seam and proposed transfer warning. Its six primary-seam groups total 17 provider taxonomy, 15 semantic capabilities, 11 contextual capability resolution, 11 observations, 8 state/identity, and 3 effect/recovery records. No double counting by group.
+
+**Read/verification distinctions:** A/B indexed and captured 53 records (28 excerpt copies and 25 complete module/document copies), plus 12 Omega flags without captured source. Crosswalk directly inspected selected excerpts/modules and independently recomputed the published copy SHA-256 for **VF-0026 and VO-GH-0030 only**, both matched. Remaining hash entries are worker-reported, not independently rehashed by C. No local checkout, donor tests or live provider checks. A full 53-file independent checksum sweep was attempted but not completed due to the connected-tool call limit; no claim of such verification is made.
+
+This ledger is a research index, not an accepted AION provider schema. `aion_integration_approved=false` for every row.
