@@ -77,3 +77,20 @@ Remote citations: final@8a798f91d52574cb3d7db579da516bc1c4aee7b7 (VF-0001..0008,
 - A: bind manifest/provider endpoint choices to real provider-specific adapter owners, rule evaluator / seeded values, and exact lifecycle send-reply tests. Preserve VF IDs and file hashes.
 - B: deep-read flagged discovery owner modules, fixture falsifier tests without secret copying, and real browser preflight/unknown-effect decisions; distinguish remote omega repo from earlier local Core/BCP-dev/FullTest tree.
 - C: ingest later batches only when they are published and fetched, and maintain a clear source-revision-indexed change log. Do not assume a cross-branch commit appears in the main landing tree until merged.
+
+## C-003 — revised integration seams and security exclusions
+Final: `owenservera/vivim-final@8a798f91d52574cb3d7db579da516bc1c4aee7b7`, capture branch head `4454f9b913b4e3e5baeb8671daab127ca36030b3`, 27/27 `VF-0001..0027` COPIED_EXCERPT. Omega: `owenservera/vivim-omega@79ee558d6c7ea77c20f220db2341adaa57b11d44`, capture branch head `556aaaace61b3321c68c56bed1a8f7f96d697b8c`, 38 `VO-GH-0001..0038`, 26 copied, 12 flagged. No donor runtime tests or current-browser verification.
+
+| Seam | New exact source evidence | Disposition advice (nonbinding) |
+|---|---|---|
+| Capability model and version negotiation | VF-0020/0021, VO-GH-0028/0029 | **INVESTIGATE** additional read-only provider version/proof freshness fields; do not import dynamic code loading, historical PROMOTED→READY shortcut |
+| Resolved capabilities vs real-time control state | VF-0026, VF-0006/0007, VO-GH-0031 | **REJECT fail-open** rule evaluation or default READ for inferred external mutation; maintain CENV tri-state freshness, unknown blocks |
+| Duplicate and unknown-effect handling | VF-0016/0024 | **REJECT** second Send after reconnect/transport failure, including the regression test that expects it; preserve existing AION tombstones |
+| Provider registration architecture | VF-0010/0025 vs VO-GH-0001/0003/0007 | **DEFER migration decision** until canonically active owner/callers resolved; prefer additive adapter metadata, not whole framework replacement |
+| Observation and causality | VF-0014/0017/0027; VO-GH-0032 | **CANDIDATE** bounded reason, stage, timestamp, causation and evidence references through existing observer/journal |
+| Action candidate uniqueness | VF-0003/0004/0022; VO-GH-0030/0033 | **REJECT** highest-scoring selector winner for ambiguous Send; may use scores for read-only diagnostics |
+| Conversation and stream identity | VF-0012/0015/0023; VO-GH-0010/0036/0037 | **CANDIDATE** external identity and ordered proof references; remote conversation persistence != current reply completion |
+| Command and multi-surface projection | VF-0008/0009/0011/0018; VO-GH-0005/0009/0035 | **CANDIDATE** one canonical discovery/projection view; no second Bus or policy authority |
+| Browser implementation example | VO-GH-0034/0038 | **REFERENCE ONLY** fixture email simulation; no backend/private API/CDP/live transport transplant |
+
+**Decision points for development owner**: (D1) keep existing CENV/schema and add metadata vs a taxonomy migration; (D2) app-family + realization class as two axes vs collapse (recommend separate); (D3) current AION provider adapter with narrow extensions vs framework transplant (recommend narrow); (D4) historical capability promotion vs current ephemeral readiness (must remain separate); (D5) no-resend and uncertain-effect laws (must remain unchanged); (D6) which additive evidence categories genuinely simplify a second provider without delaying current ChatGPT vertical slice.
