@@ -1,6 +1,6 @@
 # Harvest findings and candidate register
 
-Status: Omega first-pass candidates recorded 2026-10-20; vivim-final survey pending. No candidate is yet an accepted AION specification or runtime implementation.
+Status: both first-pass candidate batches recorded 2026-10-20. No candidate is yet an accepted AION specification or runtime implementation.
 
 ## Evidence rules
 
@@ -16,7 +16,88 @@ Every completed entry must include source repository/path/revision where known; 
 
 ### vivim-final first pass
 
-Pending bounded read-only survey. No reusable behavior is claimed yet.
+Source root: `C:\0-BlackBoxProject-0\vivim-final`. Revision not captured; anchors refer to surveyed working files and need checkout/revision verification. Research session: `ses_ea7336584ffeYjF5avWRRUqzcS`. Researcher reports no execution/network/browser/install or source changes. Paths below are relative to this root.
+
+#### FINAL-01 — stream states and evidence identity (P1)
+
+- Source: `frontend/src/shared/streaming.ts:11-25,27-60,63-110`; researcher-reported consumer `frontend/src/components/canvas/ObservabilityHUD.tsx:40-41`.
+- Parent read the complete 110-line shared module. It defines stream states `idle|connecting|streaming|thinking|paused|complete|error`, indexed events with timestamp/trace ID, and stream-session last-event/completion times. These are types and presentation metadata, not an enforced chat-turn state machine.
+- Minimum transfer: distinguish stream events, stream status and operation evidence; retain identity/time/order in observations.
+- **Rejected mapping:** `paused` does not mean submitting or stopped; `complete` does not mean settling; transport `connecting` is not necessarily composer preparation. Do not relabel these values one-to-one into AION's lifecycle.
+- Acceptance proposal: a stream completion label cannot bypass original submission/completion evidence; a stream heartbeat cannot renew operation authority/deadline.
+- Disposition: CANDIDATE / SOURCE_OBSERVED; literal lifecycle transplant REJECTED.
+
+#### FINAL-02 — resolved capability contract (P1)
+
+- Source: `src/engines/capability-resolution.ts:18-23,32-94`; researcher also located schema rule fields in `prisma/schema.prisma:351-358` and `prisma/system/schema.prisma:308-315` by search.
+- Terms: UI states, visibility/existence rules, dependency gating, interaction/recovery behavior, binding confidence and slot. Similar to OMEGA-03; do not count the similar model as independent runtime corroboration.
+- Read coverage: researcher read engine lines 1-150 only; schema anchors are search evidence, not complete reads. Parent has not checked this checkout's module.
+- Minimum transfer: availability as explicit contextual data rather than a widget's existence. Rule-string fields are not proof of a functioning evaluator; read actual rule evaluation/seeds before claiming semantics.
+- Acceptance proposal: a catalog entry or login requirement alone does not produce current action availability or permission.
+- Disposition: CANDIDATE / RESEARCHER_REPORTED; complete-owner read required.
+
+#### FINAL-03 — classified failure, NOT retry policy (P1)
+
+- Source: `src/engines/send-resilience.ts:14-40,46-66,85-155,177-202`; related `src/errors.ts:334-365` was an excerpt read by the researcher.
+- Parent read the complete 209-line resilience module. It separates preflight result, input/output and recovery kinds, but `sendResilient()` calls `sendFn(input)` again at 136 after a transport-class error/reconnect. `recover()` reconnects and resends `lastMessage` at 148-155.
+- Minimum transfer: bounded, typed failure classification and original failure stage. Explicitly distinguish connection failure before dispatch from unknown effect after dispatch.
+- **REJECTED:** automatic resend, replay-last-message, treating a reconnect budget as an exactly-once guarantee, optimistic "was not sent" copy and ChromeGovernor/session-relogin dependencies. There is no demonstrated operation guard in this wrapper that makes its second Send idempotent.
+- A test file's existence is not tested evidence: `tests/integration/engines/send-resilience.test.ts` was not read or run.
+- Acceptance proposal: a socket error after dispatch yields unknown effect and zero second Send calls, regardless of successful reconnect.
+- Disposition: SOURCE_OBSERVED; taxonomy CANDIDATE, behavior transplant REJECTED.
+
+#### FINAL-04 — command result and confirmation identity (P2)
+
+- Source: `src/intel/nlcl/types.ts:18-25,44-67,81-127,136-182,212-227`; design excerpt `docs/kernel-plugins/inventory/KERNEL-CONTRACTS.md:1180-1200`.
+- Researcher reports complete 232-line types read; parent validation pending. Terms include action classification, command context, trace/capability ID, confirmation token, clarification and one interpreted-command interface across surfaces.
+- Minimum transfer: separate intent resolution, confirmation, authority, execution and result. Map to existing AION command/operation identities rather than inventing another pipeline.
+- Hazards: natural-language routing is not browser actuation; confirmation-token resume has not been traced. The `agent:query_state` example in `src/server/websocket.ts:227-238` is reported as a stub, not an implemented conversation-state source.
+- Acceptance proposal: clarification/confirmation responses never dispatch; a token is not a grant or effect observation.
+- Disposition: CANDIDATE / RESEARCHER_REPORTED.
+
+#### FINAL-05 — capability affordance vocabulary (P2)
+
+- Source: `src/engines/capability-taxonomy.ts:8-50,66-76,172-182`, `src/engines/unified-registry.ts:19-48,152-169,197-215`; `frontend/src/components/chat/SendButton.tsx`.
+- Researcher reports complete reads of the 299-line taxonomy, 231-line registry and 32-line SendButton; parent validation pending. Terms separate semantic send/read/regenerate capabilities and control/presentation/confirmation metadata.
+- Minimum transfer: capability is an operation meaning; a rendered control is one affordance for it. No new general registry is needed.
+- **Rejected:** catalog `Enter` hotkey is not evidence that synthetic Enter works on current ChatGPT; presentation order does not establish mutual exclusion; Send and Stop need independently observed availability. `send-capability.ts` is email-oriented and not a ChatGPT donor.
+- Acceptance proposal: an implemented send capability may be present but currently disabled, unknown or unauthorized; none of those states implies Stop availability.
+- Disposition: CANDIDATE / RESEARCHER_REPORTED.
+
+#### FINAL-06 — session transitions and binding status (P2)
+
+- Source: `src/engines/session-lifecycle-manager.ts:17-23,71-114`, `src/engines/harness/binding-status-ladder.ts:6-27`, `src/engines/state-transition.ts:9-25,56-68`.
+- Researcher read only lifecycle lines 1-120, and reports complete 31-line binding ladder/84-line audit sink reads. Parent validation pending.
+- Minimum transfer: legal transition table and separate binding/session/operation axes, consistent with OMEGA-01. Provider/session health cannot prove a turn was submitted or completed.
+- Hazards: migration/aspirational persistence model; status promotion from generic success is not AION live-verification evidence. No heartbeat/session-manager transplant.
+- Acceptance proposal: a binding can be healthy while Send is disabled and an earlier operation unresolved; none automatically advances the others.
+- Disposition: CANDIDATE / RESEARCHER_REPORTED; complete lifecycle read required.
+
+#### FINAL-07 — small projection from raw observations (P2)
+
+- Source: `src/engines/capability-shape-registry.ts:10-79`, `src/engines/observation-tap.ts:12-44`; related partial read `src/engines/harness-protocol-engine.ts:11-36,100-130`.
+- Researcher inspected shape lines 1-80 only and reports complete 45-line observation-tap read; parent validation pending.
+- Minimum transfer: raw observations -> semantic state projection with required/optional evidence and typed source method. No shape inheritance framework or DOM/network/console collector is required.
+- Hazards: selector-bearing hints stale; shape discovery reported partial. Do not copy selector strings, expose arbitrary observation commands or harvest console/network/private page data.
+- Acceptance proposal: missing required observations produce UNKNOWN with a reason; an optional signal cannot substitute for positive submission proof.
+- Disposition: CANDIDATE / RESEARCHER_REPORTED.
+
+#### FINAL-08 — terminal outcomes and cancellation distinctions (P2)
+
+- Source: design excerpts `docs/kernel-plugins/inventory/KERNEL-CONTRACTS.md:271-340,423-477`; concrete `src/engines/adapters/chatgpt-adapter.ts:147-196,297-432`.
+- Researcher reports complete 440-line adapter read but only excerpts of the design inventory. Parent validation pending. Terms: error category, retryability hint, done/error event, cancel, drain, force-stop, request identity and message DAG.
+- Minimum transfer: classify outcomes and distinguish stopping observation, cancelling a local request and stopping provider generation. A terminal local error does not prove the external effect ended.
+- **Rejected:** equating done/error with successful settling; using retryable hints to resend; treating drain/force-stop as current ChatGPT Stop semantics. No backend-api/cookie/CDP extraction path may be transplanted.
+- Acceptance proposal: a local timeout/cancel preserves possibly-sent state; observed Stop action cannot undo the user turn or grant a new send.
+- Disposition: CANDIDATE / RESEARCHER_REPORTED (design portions concept only).
+
+#### Read coverage, gaps and next batch
+
+- Project `AGENTS.md` reportedly read completely (343 lines): kernel/plugin migration, research-first discipline, Governor-only CDP, no unapproved tsc. The continuing session must read applicable instructions itself; donor policy does not authorize CDP in AION.
+- No complete per-turn Send/Stop model was located during the bounded survey. This is not an exhaustive repository-wide absence proof. Static SendButton/catalog entries do not fill the gap.
+- Capture source revision/local modifications and migration destination before calling any path stable. Directory listings and grep anchors do not count as complete reads.
+- Next: read command-description seeds and conversation/provider/session category owners; trace actual availability rule evaluation and populated seed values; read confirmation/dialogue stores; read resilience tests as evidence of modeled behavior without importing retry policy. Verify migration mappings before citing replacement paths.
+- All CDP selectors remain assumed stale. No current-browser correctness or runtime execution is claimed.
 
 ### Vivim-omega first pass
 
@@ -122,4 +203,4 @@ The paths below are relative to that source root. `Core/vivim-final-enhanced/src
 
 ## Session handoff
 
-`AION_HANDOFF_V1` — Omega reconnaissance complete; candidates OMEGA-01 through OMEGA-08 available above. Parent directly checked excerpts for 01/03 and the complete design document for 02. Remaining candidates are researcher-reported, not accepted or tested. Blockers: source-copy authority/revision not established; several owning modules only partially read. Next action: dedicated harvest session performs the bounded batch above. vivim-final results remain pending. No product changes, browser actions or live verification.
+`AION_HANDOFF_V1` — both reconnaissance batches complete; FINAL-01 through FINAL-08 and OMEGA-01 through OMEGA-08 available above. Parent checked complete streaming/resilience modules for FINAL-01/03, excerpts for OMEGA-01/03, and complete design document for OMEGA-02. Other candidates are researcher-reported, not accepted or tested. Rejected dangerous transfers are explicit. Blockers: citation-root authority/revision not established; several owners only partially read. Next action: dedicated harvest session performs bounded source/semantics validation, prioritizing availability rules and actual prepare/submit/capture boundaries. No product changes, browser actions or live verification.
