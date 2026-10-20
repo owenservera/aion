@@ -82,6 +82,7 @@ export async function openLocal({withEngine=false,engineChoice=null,stateFile=lo
   const roleCatalog=readRoleCatalog();
   const events=createEventStream();
   const readyFor=(s,id)=>{
+    if(s.kill?.engaged)return false;
     const agent=s.agents?.[id];
     if(agent?.status!=='bound')return false;
     if(!selectGrant(s,id,'send',new Date().toISOString()).ok)return false;

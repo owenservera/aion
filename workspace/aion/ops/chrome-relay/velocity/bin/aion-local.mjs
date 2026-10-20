@@ -190,11 +190,25 @@ export async function main(argv=process.argv.slice(2),{
      return done(print,{schema:'aion.doctor/1',ok:true,mode:'DIRECT_LOCAL',
        state_path:rt.statePath,engines:[safe(engine),safe(acp)],chrome:publicBrowser(rt.browser),actions:'OWNER_GRANTED_ONLY'},0);
    }
-   if(parsed.command==='capabilities'){
-     const ready=await rt.refresh();
-     return done(print,{schema:'aion.capabilities/1',engine:safe(rt.engine),
-       opencode_submit:ready?'READY_TO_ATTEMPT':'BLOCKED',chrome:publicBrowser(rt.browser)},0);
-   }
+    if(parsed.command==='capabilities'){
+      const ready=await rt.refresh();
+      const state=await rt.bus?.store?.read?.();
+      const selected=state?.agents?.opencode?.binding?.adapter??rt.engine?.engine??rt.engine?.adapter?.manifest?.name??null;
+      const chrome=publicBrowser(rt.browser);
+      const nativeSupport=selected==='opencode-v2'?'IMPLEMENTED':'UNKNOWN';
+      return done(print,{schema:'aion.capabilities/1',engine:safe(rt.engine),
+        opencode_submit:ready?'READY_TO_ATTEMPT':'BLOCKED',chrome,
+        native_controls:{adapter:selected,permission:'NATIVE_AND_BUS_GRANTS_REQUIRED',
+          ...(selected==='acp'?{adapter_interface:'TEXT_ONLY',optional_native_controls:'NOT_EXPOSED_BY_ADAPTER'}:{}),
+          actions:Object.fromEntries(['send','new_session','reuse_session','parent_link','select_agent','select_model','model_variant','file_attachment']
+            .map(action=>[action,{support:nativeSupport,runtime_readiness:'NOT_PROBED'}]))},
+        chrome_controls:{connection:chrome,permission:'BUS_GRANTS_AND_EXACT_CONVERSATION_REQUIRED',
+          actions:{send:{support:'IMPLEMENTED',runtime_readiness:'NOT_PROBED'},
+            reply:{support:'IMPLEMENTED',runtime_readiness:'NOT_PROBED'},
+            attachments:{support:'UNSUPPORTED_BY_ADAPTER',runtime_readiness:'NOT_PROBED'},
+            model:{support:'UNSUPPORTED_BY_ADAPTER',runtime_readiness:'NOT_PROBED'},
+            new_conversation:{support:'UNSUPPORTED_BY_ADAPTER',runtime_readiness:'NOT_PROBED'}}}},0);
+    }
    if(parsed.command==='status'){
      const s=await rt.bus.status();
      return done(print,{schema:'aion.status/1',kill:s.kill,seq:s.seq,

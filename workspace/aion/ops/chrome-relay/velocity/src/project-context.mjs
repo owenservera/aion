@@ -502,16 +502,18 @@ export function composeProjectContext(context, {limit = MAX_SEND_CHARS} = {}) {
  * refuses an oversized aggregate rather than dropping project or role evidence.
  */
 export function composeProjectAgentPrompt(text, context, {limit = MAX_SEND_CHARS} = {}) {
-  if (!context?.project || !Number.isSafeInteger(limit) || limit <= 0 || limit > MAX_SEND_CHARS)
+  if (context?.project?.schema !== PROJECT_CONTEXT_SCHEMA ||
+      !Number.isSafeInteger(limit) || limit <= 0 || limit > MAX_SEND_CHARS)
     throw failure('PROJECT_CONTEXT_INVALID');
   // Do not spend the send budget by selectively omitting project sections.
   // Render the full allowlisted projection, then gate the ONE final message.
-  const project = composeProjectContext(context.project, {limit: Number.MAX_SAFE_INTEGER});
+  const projectText = [...renderBlocks(context.project).map(block => block.text),
+    renderProvenance(context.project)].join('\n');
   if (!context.files?.length) throw failure('CONTEXT_UNAVAILABLE');
   const file = {
-    kind: 'project', path: `project:${context.project.project_id}`,
-    sha256: createHash('sha256').update(project.text).digest('hex'),
-    text: project.text, excerpt: true, omitted_chars: project.omitted_chars
+    kind: 'project', path: `project ${context.project.project_id}`,
+    sha256: createHash('sha256').update(projectText).digest('hex'),
+    text: projectText, excerpt: true, omitted_chars: 0
   };
   return composeAgentPrompt(text, {...context, files: [...context.files, file]}, {limit});
 }

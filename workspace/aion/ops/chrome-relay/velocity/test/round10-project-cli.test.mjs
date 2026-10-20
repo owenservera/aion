@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -158,4 +158,32 @@ test('combined send helper refuses the final aggregate budget without shortening
   const request='x'.repeat(2000-base.length+1);
   assert.equal(project.composeProjectAgentPrompt(request,compact).length,2000);
   assert.throws(()=>project.composeProjectAgentPrompt(request+'x',compact),{code:'CONTEXT_EXCEEDS_SEND_LIMIT'});
+});
+test('actual Chief brief plus fixture PM fits a short request without nested project banners',t=>{
+  const {root}=fixture(t);
+  const context={...loadAgentContext(readRoleCatalog(),'chief',{scope:'brief'}),
+    project:project.loadProjectContext({pmRoot:root,projectId:'hq',now:NOW})};
+  const before=JSON.stringify(context);
+  const prompt=project.composeProjectAgentPrompt('Give me a status report',context);
+  assert.ok(prompt.length<=2000);
+  for(const file of context.files){assert.ok(prompt.includes(file.text.trim()));assert.ok(prompt.includes(file.sha256));}
+  assert.match(prompt,/AION PROJECT EXCERPT \(not full document\)/);
+  assert.doesNotMatch(prompt,/AION PROJECT CONTEXT EXCERPT|all \d+ sections shown/);
+  assert.match(prompt,/Registry:/);assert.match(prompt,/Evidence:/);assert.match(prompt,/Sources:/);
+  assert.match(prompt,/report=generated/);assert.match(prompt,/Provenance:/);
+  assert.equal(JSON.stringify(context),before);
+});
+test('actual local Chief and PM hq preview fits a short request without egress',t=>{
+  if(!existsSync(project.DEFAULT_PM_ROOT)){t.skip('local PM checkout absent');return;}
+  const context={...loadAgentContext(readRoleCatalog(),'chief',{scope:'brief'}),
+    project:project.loadProjectContext({pmRoot:project.DEFAULT_PM_ROOT,projectId:'hq'})};
+  const before=JSON.stringify(context);
+  const prompt=project.composeProjectAgentPrompt('Give me a status report',context);
+  assert.ok(prompt.length<=2000);
+  for(const file of context.files)assert.ok(prompt.includes(file.text.trim()));
+  for(const source of context.project.sources)assert.ok(prompt.includes(source.source_id));
+  for(const file of context.project.provenance.files){
+    assert.ok(prompt.includes(file.path));assert.ok(prompt.includes(file.sha256.slice(0,16)));assert.ok(prompt.includes(file.mtime));
+  }
+  assert.equal(JSON.stringify(context),before);
 });

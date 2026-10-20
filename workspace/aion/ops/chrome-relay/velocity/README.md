@@ -2,7 +2,9 @@
 
 **NO GITHUB ACTIONS.** GitHub holds source and receipts only; it does not execute or coordinate commands. The software runs locally using Node 22, the existing AION Bus, existing durable file storage and existing engine adapters. No hosted CI, Cloud Browser, Slack, Docker, Playwright, Puppeteer or Orca.
 
-**Windows integration in progress (2026-10-20):** The initial Windows run at `ece79a895cea163ba0672f7660c2e8f0547cdc38` executed 994 tests: **973 passed, 13 failed, 8 skipped**, plus three passing offline demos. Repairs and integration tests are in progress; these baseline numbers are not a final-head receipt. Native agent discovery and optional PM context are read-only projections, not new registries or execution authority. Real Chrome and native-provider acceptance must be recorded separately from offline tests.
+**Windows integration (2026-10-20):** The initial Windows run at `ece79a8` had 13 failures. At `5f505d88247030aaa6a0dd5354a8e233e099e329`, the complete local selftest passed **1,082 tests, 0 failed, 9 documented skips** (1,091 total), plus three offline demos. Three real OpenCode commands subsequently returned correlated replies, including attachment/agent/model/variant/parent selection and exact-session reuse; an invalid variant was refused without an admitted input. Later roster/context refinements require their own final-head receipt in [PR #34](https://github.com/owenservera/aion/pull/34). Native discovery and PM context remain read-only projections, not new registries or authority. **Chrome send/reply and M1 remain unverified.**
+
+On the owner's Windows machine, `aion` is installed as a per-user launcher in the existing `$HOME\.local\bin` directory; PATH and provider settings were not changed. The guarded `com.aion.relay.dev` setup is installed with extension ID `ieiookjmbhcmjbjimmjpbnpfofljmlel`. The fresh isolated profile is at `$env:LOCALAPPDATA\AION\track-b\chrome-profile`. Native UIA reached its extensions page but did not expose Developer mode/Load unpacked, so the extension is **not loaded**, there is no worker connection, and no ChatGPT conversation is bound. Branded Chrome 155 ignores the removed `--load-extension` flag. The remaining operator step is to enable Developer mode, load `$env:LOCALAPPDATA\AION\track-b\extension-dev` in that isolated profile, and sign in there; do not copy Track A's session.
 
 ### Optional project context preview
 
@@ -79,7 +81,7 @@ The local context command reads the checked-out repo, so agents use the source t
 
 The optional dev broker (bin/aiond-dev.mjs) is not required by any direct command.
 
-## Windows launch (once the local master resumes)
+## Windows launch and recovery
 
 From the AION repository root, using PowerShell 7:
 
@@ -114,12 +116,12 @@ Another launcher is bin/aion.cmd. No npm install or scheduled tasks are required
 
 | Connection | Reuse | Verified now |
 |---|---|---|
-| Node local test runner | Node 22 builtin test runner | Full offline selftest 963/965 pass, 2 skipped (Linux); Windows unrun |
-| Durable Bus and scoped grants | Existing Bus V1/V2 and file storage | Earlier isolated Bus source tests passed; Windows unrun |
-| OpenCode V2 | Existing client and adapter, loopback-only discovery | Direct CLI wired; actual owner service status unknown |
-| ACP | Existing bridge, config and ACP adapter, chosen by explicit connect acp | Binary presence can be checked; handshake and local live result unverified |
-| ChatGPT Chrome | Existing MV3 extension, worker runner and observer via dev host | Offline e2e with spawned host + fake worker passes; real Chrome/ChatGPT UNRUN |
-| Dev host setup | `aion setup browser` | Linux apply/uninstall + launcher-as-Chrome test pass; Windows `reg add` path tested with a fake runner only |
+| Node local test runner | Existing builtin Node test runner | Full Windows suite passed at `5f505d8`; exact final-head receipt is in PR #34 |
+| Durable Bus and scoped grants | Existing Bus V1/V2 and file storage | Windows offline faults and three real correlated native turns verified; no duplicate input observed |
+| OpenCode V2 | Existing client and adapter, loopback-only discovery | Live 2.0.32 service; basic reply, attachment/configured linked child and exact-session reuse verified |
+| ACP | Existing bridge, config and ACP adapter, chosen by explicit connect acp | Executable present; no real ACP session or provider turn claimed |
+| ChatGPT Chrome | Existing MV3 extension, worker runner and observer via dev host | Offline e2e passes; isolated extension loading blocked at native UIA controls; no Chrome send/reply |
+| Dev host setup | `aion setup browser` | Actual guarded HKCU dev registration and pinned build applied on Windows; worker not connected |
 | Windows UIA/CDP | Optional existing tools | Not activated; no alternate send route |
 
 
@@ -132,6 +134,8 @@ New regression files: `round8-registration.test.mjs`, `round8-ipc-auth.test.mjs`
 Each operation has a durable Bus identity and grant; the same Bus deletes reserved text before the one external attempt. Read-only observation never resends. A changed target binding refuses or halts the operation. The dedicated Track B ledger must be owner-private (POSIX 0700 or verified Windows ACL). OpenCode service credentials are read only for transient loopback calls and never printed or saved to the Bus.
 
 No silent Chrome-to-OpenCode fallback, permission escalation, new Bus, new database or GitHub execution dependency. Track A stable Chrome identity, profile, native host and state remain unchanged.
+
+Rollback: `aion setup browser --uninstall` removes only a matching owned dev registration/build and preserves the ledger and development key. It does not delete the isolated Chrome profile. The per-user launcher can be removed separately after verifying that `$HOME\.local\bin\aion.cmd` still points to this Track B checkout. Do not remove or modify `com.aion.relay`, the stable extension, or Profile 3. Uncertain commands must be observed or explicitly disposed, never resent as recovery.
 
 Primary work: https://github.com/owenservera/aion/issues/32
 Implementation: https://github.com/owenservera/aion/pull/34
