@@ -60,7 +60,7 @@
 - [External lane delivery](../../DELIVERY.md)
 - [External prioritization](../../02-REPO-PRIORITIZATION.md)
 - [Source manifest](../../sources.json)
-- [Existing integration queue](../../../../landing/synthesis/integration-queue.md)
-- [VOMEGA retention assessment](../../../../landing/sources/vomega/RETENTION-ASSESSMENT.md)
+- [Existing integration queue](../../../landing/synthesis/integration-queue.md)
+- [VOMEGA retention assessment](../../../landing/sources/vomega/RETENTION-ASSESSMENT.md)
 
 **Next:** read [BOOTSTRAP.md](BOOTSTRAP.md), follow [LAUNCH-PROMPT.md](LAUNCH-PROMPT.md), then begin the nine-source reconnaissance.
