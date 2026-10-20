@@ -1,0 +1,148 @@
+{
+  "schema": "aion.external-harvest.sources/1",
+  "created_utc": "2026-10-20",
+  "source_scope": "Public upstream repos; cloned by opt-in runner, no auto promotion",
+  "owner": "AION external donor harvest",
+  "source_inputs": [
+    "https://github.com/owenservera/aion/pull/51",
+    "https://github.com/owenservera/aion/pull/50",
+    "https://github.com/owenservera/aion/pull/46"
+  ],
+  "required_catalog": "aion_command_matrix.csv / CORE-OPERATIONS.csv from PR #51; do not infer runtime support",
+  "donors": [
+    {
+      "id": "multi-ai-chat",
+      "repository": "TED-H-com/multi-ai-chat",
+      "url": "https://github.com/TED-H-com/multi-ai-chat",
+      "priority": "P0",
+      "topics": [
+        "cross-provider MV3 adapter",
+        "DOM response observer",
+        "provider selectors"
+      ],
+      "risk_notes": "review unsafe resend and Enter fallback",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    },
+    {
+      "id": "chatgpt-bridge",
+      "repository": "DrA1ex/chatgpt-bridge",
+      "url": "https://github.com/DrA1ex/chatgpt-bridge",
+      "priority": "P0",
+      "topics": [
+        "receive cursor",
+        "gap events",
+        "no-resend ledger",
+        "correlation"
+      ],
+      "risk_notes": "ChatGPT-only; validate identity, license, and Windows before code promotion",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    },
+    {
+      "id": "parallel-ai",
+      "repository": "ParkerCai/parallel-ai-extension",
+      "url": "https://github.com/ParkerCai/parallel-ai-extension",
+      "priority": "P0",
+      "topics": [
+        "broad webapp coverage",
+        "uploads",
+        "provider layouts"
+      ],
+      "risk_notes": "iframe quirks; forbid private endpoint/cookie transplant",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    },
+    {
+      "id": "council",
+      "repository": "RaheesAhmed/Council",
+      "url": "https://github.com/RaheesAhmed/Council",
+      "priority": "P1",
+      "topics": [
+        "five-provider MV3 adapters",
+        "mutation updates"
+      ],
+      "risk_notes": "README claims only; source-check before promotion",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    },
+    {
+      "id": "chathub",
+      "repository": "chathub-dev/chathub",
+      "url": "https://github.com/chathub-dev/chathub",
+      "priority": "P1",
+      "topics": [
+        "multi-provider adapters",
+        "browser/API distinction",
+        "client chat"
+      ],
+      "risk_notes": "local client history not provider history",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    },
+    {
+      "id": "chatall",
+      "repository": "ai-shifu/ChatALL",
+      "url": "https://github.com/ai-shifu/ChatALL",
+      "priority": "P1",
+      "topics": [
+        "desktop provider catalog",
+        "webapp/API adapters",
+        "provider abstraction"
+      ],
+      "risk_notes": "Electron app local features not provider operations",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    },
+    {
+      "id": "chatgpt-web2api",
+      "repository": "Octo-Lex/ChatGPT-Web2API",
+      "url": "https://github.com/Octo-Lex/ChatGPT-Web2API",
+      "priority": "P1",
+      "topics": [
+        "ChatGPT CDP methods",
+        "completion detection",
+        "model discovery"
+      ],
+      "risk_notes": "do not transplant private backend or credentials; retry audit",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    },
+    {
+      "id": "cdpilot",
+      "repository": "mehmetnadir/cdpilot",
+      "url": "https://github.com/mehmetnadir/cdpilot",
+      "priority": "P2",
+      "topics": [
+        "CDP browser primitives",
+        "input dispatch",
+        "DOM introspection"
+      ],
+      "risk_notes": "generic browser automation, not provider-specific verified semantics",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    },
+    {
+      "id": "cereon-browser-operator",
+      "repository": "cereon-labs/cereon-browser-operator",
+      "url": "https://github.com/cereon-labs/cereon-browser-operator",
+      "priority": "P2",
+      "topics": [
+        "MV3 debugging architecture",
+        "generic CDP execution"
+      ],
+      "risk_notes": "extra debugger permissions; security and licensing review",
+      "ref_policy": "default_branch_tip_at_capture",
+      "expected_reuse": "RESEARCH_ONLY",
+      "clone_status": "PENDING_NOT_EXECUTED"
+    }
+  ]
+}
