@@ -1,18 +1,23 @@
 // Standalone local design-seed inspection: no Bus, host, adapter or page calls.
 import {readFileSync} from 'node:fs';
 import {inspectPlatformSeed} from './semantics.mjs';
+import {auditHarvestLanding} from './harvest.mjs';
 const defaultSeed = new URL('../../design/platform-semantic-seed.json', import.meta.url);
 export function runPlatformInspect(args = [], {print = line => process.stdout.write(line + '\n'),
-  readSeed = () => JSON.parse(readFileSync(defaultSeed, 'utf8'))} = {}) {
+  readSeed = () => JSON.parse(readFileSync(defaultSeed, 'utf8')),
+  audit = auditHarvestLanding} = {}) {
   if (!Array.isArray(args) || ![0, 1, 2].includes(args.length)
-    || !['inspect','validate','--json',undefined].includes(args[0])
+    || !['inspect','validate','harvest','--json',undefined].includes(args[0])
     || (args.length === 2 && args[1] !== '--json')
     || (args[0] === '--json' && args.length > 1)) {
     print(JSON.stringify({ok:false, code:'BAD_PLATFORM_COMMAND',
-      usage:'aion platform [inspect|validate] [--json]'}));
+      usage:'aion platform [inspect|validate|harvest] [--json]'}));
     return 2;
   }
   try {
+    if (args[0] === 'harvest') {
+      const report = audit();print(JSON.stringify(report));return report.ok ? 0 : 3;
+    }
     const seed = readSeed();
     const info = inspectPlatformSeed(seed);
     if (args[0] === 'validate') {
