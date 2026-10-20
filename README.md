@@ -2,7 +2,7 @@
 
 **This is the one URL to share with any new AION agent, developer, ChatGPT conversation or operator: https://github.com/owenservera/aion**
 
-> **CURRENT DECISION (2026-10-17): Windows-driven development.** The owner's Windows machine is the master: local agents write and run the code there, and ChatGPT (AION role) and Claude collaborate through this repo. GitHub is the durable coordination/evidence system, not the live browser transport. Real M1: **NOT VERIFIED**; host/browser stop order remains active pending a scoped owner authorization. See the [decision record](workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md).
+> **CURRENT GOVERNANCE (2026-10-20):** One active Development workstream on `main`; Harvest and Research deliver source intelligence through the same repository and the [shared exchange](workspace/aion/ops/chrome-relay/harvest/EXCHANGE.md). Track B source may be authored remotely; the owner's Windows PC remains master for installed/live execution and independently verified proof. The earlier [Windows-driven decision](workspace/aion/canon/DECISION-2026-10-17-WINDOWS-DRIVEN-DEV.md) remains historical execution context. **Interactive same-web-thread Chrome I1/I2/I3 and real end-to-end M1 are not verified.** The draft Track B candidate PR #46 must be reconciled to main in safe, validated slices.
 
 ## Start here
 **[Repository Steady-State Governance — single `main`, one Development workstream, Harvest and Research subprojects; Track A deprecated](REPOSITORY-GOVERNANCE.md)**
@@ -34,7 +34,7 @@
 - [#18 Chrome Relay proposal](https://github.com/owenservera/aion/issues/18)
 
 ## Current one-line handoff
-**Goal:** AION sends a unique real message via **Windows Chrome authenticated ChatGPT web app**, reads the real reply automatically, proves a negative case. **Stage:** Windows pre-live reuse assessment. **First candidate:** existing ACPX extension + Bun bridge. **Blocks:** real Windows inventory, ACPX full source review, TOOLSMITH 06 actual ACK, scoped browser authorization, live acceptance. **Mock:** M1-001 and M1-002 tested; neither completes real M1.
+**Current Development goal:** `aion chat chief` watches and interacts with the **exact bound authenticated ChatGPT web conversation**, receives external turns, safely sends two correlated turns and recovers without resend. **Stage:** accepted architecture / incomplete candidate implementation. **Sequence:** I0 shared contract → P2/P3/P4/P5 parallel → I1 live read-only receive → P6/I2 two-turn Send → P7/I3 recovery → P8 legacy retirement. **Blocks:** no accepted I1/I2/I3 Chrome evidence; draft PR #46 not integrated; nine external donors not code-triaged. See [Development Master](workspace/aion/ops/chrome-relay/DEVELOPMENT-MASTER.md).
 
 ## Shared truths
 - **Owner's official Windows machine is master**; local Windows agents execute; ChatGPT and Claude collaborate and review; Linux BFF is optional and Z.ai is disposable sandbox-only.
