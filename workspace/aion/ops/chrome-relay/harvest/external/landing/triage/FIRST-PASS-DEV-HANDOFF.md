@@ -1,0 +1,57 @@
+# External Nine — First-pass Development handoff (2026-10-20)
+
+**Scope:** static code inspection of all nine vendor snapshots already on AION `main`; no donor execution, offline suite, host/browser test, source transplant, or implementation acceptance. **Source pins:** GitHub PR #53 custody and PR #54 import; these are upstream commit SHAs, **not** the AION vendored file Git blob SHAs. Worker-owned state: [WORKLOG](../../workers/nine-repo/WORKLOG.md). Exchange records are the **only** outward NEED/OFFER/GAP queue: [EXCHANGE.jsonl](../../../EXCHANGE.jsonl).
+
+## Development first: I0 / I1 before feature harvesting
+
+1. **I0 `receive.contract` (AX-0007):** take *ideas* from `chatgpt-bridge/src/bridge/observedTurns/observedTurnJournal.js:16-42` (streamEpoch, monotonic sequence, retained-from, reset/gap); `src/bridge/observation/turnEvidence.js:33-73` (terminal evidence requires more than stop/idle); and `multi-ai-chat/src/content/responseTracking.ts:36-59` (reject late/orphan answers without current-turn confirmation). Adopt only into AION's already-selected event/1 + snapshot/1 validators, with distinct binding/conversation/message/operation identities and explicit incomplete-history handling. Donor source is **not** an I0 contract.
+2. **I1 `receive.transport` (AX-0008):** `chatgpt-bridge/src/http/observedTurnStream.js:3-51` encodes epoch:sequence SSE IDs, gap/reset/ready events; `test/remoteBrowserBridgeInitialCursor.test.js:22-93` contains synthetic cursor-restoration tests. This is a **pattern** for resumability, **not** an AION Chrome native-messaging implementation. The AION MV3→native host→CLI hop must remain **read-only data**. Compare push hint + authoritative snapshot, not full unbounded transcript broadcast.
+3. **I2 `send.correlation` (AX-0009, **after I1**):** `multi-ai-chat/src/content/sendConfirmation.ts:1-59` supplies prompt-match and user-turn confirmation helpers, with negative tests in `test/sendConfirmation.test.mts`. `chatgpt-web2api/src/chatgpt_web2api/turn_anchor.py:73-109,516-566` uses captured user-message ID first and refuses ambiguous/unready backend mapping; **backend/private ChatGPT access is NOT recommended for transplant**. Preserve AION's single selected actuator, one effect per op, original Bus grants/ledger, never retry unknown effect.
+4. **Negative evidence worth implementing first:** stop-looking DOM while still streaming; old answer after remount; empty assistant shell; late response from failed retry; stream-epoch changed; cursor before retained range; same-text rapid consecutive turns; no matching new user message; backend unavailability; page input ambiguity. Tests exist in donor snapshots but **have not been run here**.
+
+## Nine donor reality map: one snapshot, one distinct engineering purpose
+
+| Donor / pinned upstream commit | License | Source-observed core and evidence | AION disposition / limitation |
+|---|---|---|---|
+| **chatgpt-bridge** `0ffdae90239988f253058c05253226152acd55d2` | MIT | `observedTurnJournal.js`, `passiveObservationRouter.js`, `turnEvidence.js`, `observedTurnStream.js`; tests `observedTurnJournal.test.js`, `turnObservationEvidence.test.js`, `remoteBrowserBridgeInitialCursor.test.js` | **PRIMARY research owner** for receive stream/cursor and passive observation. ADAPT_PATTERN only. Journal alone does not give a validated AION per-binding snapshot, and its source runtime is not the AION Bus. |
+| **multi-ai-chat** `cdcf6a7fb05609b219fd85395a116f26476a7f92` | MIT | `src/content/{chatgptDom,responseTracking,sendConfirmation}.ts`, `src/content/{claude,gemini,grok}.ts`; `test/{responseTracking,sendConfirmation}.test.mts` | **PRIMARY research owner** for multi-provider DOM adapters and cautious send-observation helpers. ADAPT_PATTERN; do not use automatic Enter/click fallback as a Send safety mechanism. |
+| **parallel-ai** `944276d8146d11d5719a83cc550de31e4354a1c4` | MIT | `content-scripts/{text-injection-handler,file-injection}.js`, `src/shared/lib/providers.ts`; cross-provider tests under `tests/content-scripts/` | **PRIMARY** files/attachments discovery; **complement** provider coverage/iframe cases. ADAPT_PATTERN; text injection handler can auto-submit and retry input discovery, not a safe AION effect receipt. Some tests/configs use Playwright; forbidden for new AION work. |
+| **council** `92845be5e8c1c30e2012c59fc51008aaaf11572e` | MIT | `src/content/providers/{dom-provider-adapter,provider-config}.ts`: configured ChatGPT/Claude/Gemini/Grok layouts; simple MutationObserver output updates | **BACKUP** small configurable DOM adapter, **not** receive identity. Its broad observer lacks per-conversation cursor/gap and invokes button/Enter submission. |
+| **chathub** `852efba00ca7f2888093510b3add33f3ee01dc9b` | GPL-3.0 | `src/app/bots/abstract-bot.ts` adapter/stream abstraction; `chatgpt-webapp/index.ts` calls provider private backend | **REFERENCE ONLY** for API-vs-web distinction. No code copying before GPL compatibility review; private backend route does not guarantee current authenticated provider web thread. |
+| **chatall** `6d089c2ab72dde2ba1010cc1e910ceb766458546` | Apache-2.0 | `src/bots/Bot.js` adapter abstraction; `src/bots/openai/ChatGPTBot.js` private session/backend API and local chat context | **REFERENCE** for provider family abstractions, later. Does not solve watch-only exact web thread; its local chats are distinct from provider source of truth. |
+| **chatgpt-web2api** `497527dceabfa3f95961e23c291e618c5570f1ac` | MIT | `src/chatgpt_web2api/{turn_anchor,completion_detector,session_key}.py`; `tests/{test_turn_anchor,test_end_turn_primary}.py` | **DIFFERENTIATED receive/completion alternative** to DOM: map-based anchored correlation, end_turn detection. Study failure guards but **REBUILD** as permitted page-observed evidence where possible; private backend and authorization/fidelity risks. |
+| **cdpilot** `234d8bf3d1c0144792654bf670f07f93ffd8a1d3` | MIT | `src/cdpilot.py` Chromium CDP CLI, frame-aware selectors, commands and fixtures under `test/` | **PRIMARY** generic CDP diagnostic *research*, not provider-message semantics. Do not introduce as second AION controller or authorized actuator. |
+| **cereon-browser-operator** `06da45090607dd9c9dc883ef5d523e9c99bcdb24` | MIT | `src/background/cdp/{cdp-manager,observers/cdp-event-observer}.ts` and `src/content/accessibility/tree-builder.ts`: one debugger observer fanout and bounded DOM/accessibility representation | **ALTERNATIVE/complement** for MV3 CDP diagnostics and bounded inspection; extra debugger privileges and separate command transport, not P0 receive semantics. |
+
+**All nine source roots:** `workspace/aion/ops/chrome-relay/harvest/external/landing/donors/<donor-id>/`. The source trees total 2,484 tracked files at their imported pins (PR #54). Counts and licenses are custody-reported; key paths above were actually fetched and inspected. This is **breadth-first triage**, not line-by-line validation of every file or all 19 Command Space P0 IDs.
+
+## Capability → alternatives without forcing one runtime
+
+| Canonical topic | Primary research pattern | Genuinely differentiated option / limitation | Recommendation to Development |
+|---|---|---|---|
+| `receive.identity` | Bridge passive observation + epoch/sequence + terminal classifier | Web2API captured-message-ID/backend tree anchoring; multi-ai-chat DOM baseline & retry checks | AION typed DOM watch contract first. Borrow reset/gap and fail-closed detection, not whole bridge/backend. Exact reply check remains AION acceptance. |
+| `receive.transport` | Bridge SSE event ID, resumable cursor, `stream.gap/reset` | Cereon SSE is **remote command ingress**; not equivalent read-only outbound host IPC | AION native IPC needs its own data-only event + snapshot proof. Treat bridge as resume-pattern reference. |
+| `send.correlation` | Multi-ai-chat user-turn/prompt match negative checks | Web2API primary captured user ID and backend terminal traversal, but private route | One AION authorized Send + independent user/assistant observation; refuse unknown state; no retry fallback. |
+| `provider.family` | Multi-ai-chat provider DOM modules | Parallel-ai offers wider provider/file behavior; Council simpler shared selectors; ChatALL/ChatHub app/API adapters | Provider-specific per-surface profiles later, no generic one-size-fits-all Send selector; target account fidelity required. |
+| `file.tools` | Parallel-ai file injection + provider file input selection | ChatHub/ChatALL app/API upload is not exact web composer upload | Research-only; negative cross-provider fixtures before granting attachment effects. |
+| `chat.lifecycle` | Parallel-ai / Council some browser tab/new chat affordances | No inspected donor proves comprehensive rename/edit/regenerate/steer/model/thinking with same-thread identity | Mark unsupported, do not manufacture a P0 implementation claim. |
+| `browser.cdp.diagnostics` | cdpilot generic CDP frame/element CLI | Cereon MV3 debugger observer + bounded accessibility tree | Offline diagnostics/reference; do not route AION effect execution through both. |
+
+## Immediate engineering handoff: three bounded requests
+
+**H1 / P0** — Development freeze `event/1` + `snapshot/1` validation and add negative fixtures for: epoch mismatch, lost retained cursor, stale/remounted assistant output, ambiguous same-text turn, no `complete_history` proof. Evidence: Bridge journal and passive router; multi-ai-chat response tracking. **No donor code promotion required.**
+
+**H2 / P0** — Development prove data-only MV3→host push hint plus exact-bound authoritative snapshot, using Bridge SSE reset/gap semantics as comparison. Test that malicious received text and a synthetic `send` string cannot reach the effect Bus.
+
+**H3 / after I1** — Development choose a single explicit Send actuator, record before/after unique user node, then independently check the paired assistant with no uncertain-effect replay. Harvest offers multi-ai-chat pure checks and Web2API comparison only; **never copy the unsafe action orchestration**.
+
+## Risks, outstanding decisions and exclusions
+
+- **AX-0004:** first-pass nine-repo roles and duplicates are evidenced; full 19-P0-by-donor command rubric and all relevant code paths are **not yet completed**. Keep NEED in investigation until acceptance.
+- **AX-0006:** Bridge earns **provisional primary research ownership** for cursor/stream; it does **not** close the missing AION receive contract/identity proof. Keep GAP open.
+- **AX-0008:** no donor has been verified as implementing the exact AION read-only native IPC transport contract; build/test in AION.
+- **Do not deep-harvest** ChatHub/ChatALL bot wrappers, Web2API private endpoints, duplicate provider selectors, second CDP effect runners or an alternative effect ledger for I0–I3.
+- **Priority after I1–I3:** parallel-ai file path / provider differences, targeted lifecycle gaps, model/thinking controls. Research features stay separate from actual available authorized actions.
+- **Verification:** static GitHub source inspection only. Unit tests were *read*, **not run**. No Windows state, live browser state, current upstream HEAD, legal compatibility beyond license identification or AION acceptance claimed.
+
+**Next worker move:** expand source-backed negative-fixture cases and outstanding P0 Command Space rubric only where Development remains blocked; avoid rerunning earlier 65-row Omega/VIVIM crosswalk.
