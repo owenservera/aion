@@ -33,6 +33,39 @@ Development (formerly Track B) must expose what it **needs now or anticipates la
 
 **Required fields:** all fields above; `source_refs`, `risks`, `links` may be empty arrays, but never fabricate evidence. `id` is permanent. `topic` is the shared semantic join key (reuse existing crosswalk/command-space terminology before inventing new names). `lane` = `development` | `omega-vivim` | `vomega` | `external-nine` | `research`. `kind` = `NEED` (requested by Development, including foreseeable needs) | `OFFER` (reusable research finding) | `GAP` (no justified implementation found) | `DECISION` (explicit disposition). `priority` = P0 now, P1 next, P2 later, P3 watch. `status` = OPEN, INVESTIGATING, DELIVERED, ACCEPTED, DEFERRED, REJECTED, CLOSED. `readiness` = NEEDS_EVIDENCE, SOURCE_OBSERVED, CONTRACT_READY, TESTED_OFFLINE, VALIDATED_LOCAL. `evidence` = NONE, DOC_ONLY, CODE_INSPECTED, TEST_RECEIPT, LIVE_RECEIPT. These are not interchangeable; source/code observed is not an AION production capability.
 
+## Additive Development master linkage (v1.1, backwards compatible)
+
+The top-down [Development Master](../DEVELOPMENT-MASTER.md) and [machine index](../DEVELOPMENT-INDEX.json) now project the implementation graph, integration seams, alternatives, decisions and I0–I3 / R5 gates **from existing authoritative sources**. They do **not** replace this exchange or duplicate the 1,000-row Command Space research registry. For status use these independent axes: main-integrated source, branch-candidate source, source inspection, offline test, local/live acceptance and Development adoption. Never set `ACCEPTED` merely because code exists in a donor or a research row says P0.
+
+**Existing EXCHANGE.jsonl fields remain required and unchanged.** New records **may** include these optional cross-reference/approach fields, all omitted for records that don't need them:
+
+```json
+{
+  "capability_ids": ["DEV-05"],
+  "roadmap_gates": ["P2", "I1"],
+  "depends_on_topics": ["receive.identity"],
+  "candidate_approaches": [
+    {
+      "approach_id": "RX-PROVIDER-MV3",
+      "summary": "One verified source-observer method",
+      "origin": "AION|DONOR|NATIVE|EXPERIMENT",
+      "source_refs": [],
+      "pros": [], "cons": [],
+      "license_risk": "UNKNOWN",
+      "session_fidelity": "UNKNOWN",
+      "state": "PROPOSED"
+    }
+  ],
+  "implementation_refs": [],
+  "proof_refs": [],
+  "decision_refs": []
+}
+```
+
+An approach is an **option**, not a requirement. `candidate_approaches` supports 0..N choices, and a donor can supply one or several competing patterns (even two valid ways to solve one problem). Keep their own safety, license, completeness, compatibility, evidence and provider/session fidelity separate. Decision on use belongs to Development: SELECT / ADAPT / EXPERIMENT / DEFER / REJECT, recorded in a linked DECISION record and, for a technical architecture change, in accepted design 12 and its code-contract tests. Never adopt an approach automatically; a live Send uses only **one** explicitly admitted actuator, never an uncertain-effect fallback. Existing source cards retain raw detail; this exchange captures their small developer-actionable synthesis.
+
+**Joining:** `topic` stays the dedup key, `AX-...` remains the exchange identity, `DEV-...` refers to one master area, `P1–P8/I0–I3` to accepted architecture gates, and `source_refs` to provenance. An offer may match several development needs; use `links` rather than duplicating prose or creating a permanent per-lane inbox. When the same topic appears in multiple donor repos, designate one *evidence-backed* primary owner after nine-repo triage, at most one justified backup; unverified hypotheses must remain unassigned.
+
 ## Four-step loop
 
 1. **Development posts NEED** with one topic, existing AION seam, urgency, useful acceptance test and foreseeable dependency. This is not an instruction to implement donor code.
