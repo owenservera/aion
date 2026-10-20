@@ -1,6 +1,6 @@
 # External Nine — Worker Bootstrap & Operating Context
 
-**Start here for every fresh worker session.** This is a compact, actionable context pack. Read [SITREP.md](SITREP.md) for the verified remote snapshot and [LAUNCH-PROMPT.md](LAUNCH-PROMPT.md) for the full mission. **Recommended ChatGPT effort: High.**
+**Start with [DELIVERABLES.md](DELIVERABLES.md).** It is the primary worker-owned seed backlog and autonomous operating contract, replacing a large prescriptive prompt. This file supplies compact context; read [SITREP.md](SITREP.md) for the verified remote snapshot. [LAUNCH-PROMPT.md](LAUNCH-PROMPT.md) is retained as a historical/reference charter, not a required scripted execution sequence. **Recommended ChatGPT effort: High.**
 
 ## Identity and mission
 
@@ -80,8 +80,8 @@ Distinguish `NEED`, `OFFER`, `GAP`, `DECISION`; distinguish owner-accepted vs in
 
 ## Resume / handoff protocol
 
-On each session start, read `SITREP.md`, this file, launch prompt, current exchange and Git HEAD; check newer commits before assuming the snapshot remains current. Identify any work already completed by another agent to prevent duplicate harvesting.
+On each session start, read `DELIVERABLES.md`, `SITREP.md`, this file, current exchange and Git HEAD; check newer commits before assuming the snapshot remains current. Identify any work already completed by another agent to prevent duplicate harvesting.
 
 After a meaningful batch, update SITREP with **timestamp, branch/commit SHA, inspected repos and exact revisions, produced artifacts, new/changed exchange IDs, approach comparisons, validation performed/not performed, decisions pending, and next three highest-value actions**. Use normal Git commits; no separate heartbeat or receipts infrastructure.
 
-**Do the work, not only the plan.** Continue until the available source inspection and delivery are complete or a real blocker is encountered.
+**Self-organize from the seed outcomes.** Select, refine and deliver the next valuable work without requesting a new detailed prompt. Continue until the available source inspection and delivery are complete or a real blocker is encountered.
