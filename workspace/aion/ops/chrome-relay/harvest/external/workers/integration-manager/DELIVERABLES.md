@@ -12,6 +12,8 @@
 - [x] For each pack include exact destination files, dependency footprint and short integration/test notes; commit the **actual staged code** to main and update existing AX links.
 - [ ] When Development selects a higher-value CDP/parser/transport leapfrog, prioritize its small staged code package over low-value completeness work.
 
+**Next guidance (SAVED_NOT_DISPATCHED; historical PACK-01/02 delivery above is separate; no current worker ACK is implied):** Development integrated PACK-01/02 source on main `e006692`; live I1 is pending. **Wait for a Development-selected concrete extraction** (source-only; no new PACK requested yet, e.g. registration-email leverage is unproven and already implemented in the candidate). PACK-03 stays deferred until I1. No supplier tests, Send, or resend.
+
 **Done = reusable staged code + exact insertion notes; no independent donor testing, AION test claims or runtime changes. Thinking effort: High.**
 
 ## Primary objective: convert leapfrogs into product accelerators

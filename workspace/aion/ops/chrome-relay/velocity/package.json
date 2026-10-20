@@ -1,0 +1,17 @@
+{
+  "name": "aion-track-b-velocity",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "AION local watch-only conversation CLI and Chrome native-host transport",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "bin": {
+    "aion": "./bin/aion-local.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "help": "node bin/aion-local.mjs help"
+  }
+}
