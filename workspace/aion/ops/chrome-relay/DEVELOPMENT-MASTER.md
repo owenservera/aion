@@ -5,6 +5,18 @@
 
 **Authority order:** [repository governance](../../../../REPOSITORY-GOVERNANCE.md) for Git/workstreams; existing Bus source + scoped grants for actual effects; [accepted two-way architecture (candidate PR #46)](https://github.com/owenservera/aion/blob/track-b/platform-local-candidate-20261020/workspace/aion/ops/chrome-relay/velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md) for P1–P8/I0–I3 architecture; [shared Harvest exchange](harvest/EXCHANGE.md) and [records](harvest/EXCHANGE.jsonl) for needs/offers/decisions; [Command Space](../command-space/README.md) for provider × command × route research; [STATE.json](../../STATE.json) for evidence-backed runtime facts. This master is a **navigation/status projection**, not a second Bus, runtime registry, grant store or alternative architecture authority. Its [machine-readable companion](DEVELOPMENT-INDEX.json) stores stable joins and statuses, **not** a duplicate command matrix or source ledger.
 
+## Development versus external leverage — explicit ownership boundary
+
+**IN-HOUSE (BUILD / OWN / TEST / MAINTAIN).** AION Development designs, writes and integrates the CLI, Bus/grants, effect ledger, identity/binding, observer, transport, receive contracts, REPL, ChatGPT browser adapter/actuator, OpenCode source, recovery, Windows setup, provider adapters and tests. Existing AION modules/validated candidate code are **internal source reconciliation**, not Harvest supply. Every implementation and compatibility decision stays with Development.
+
+**HARVEST (LEARN / COMPARE / VALIDATE IDEAS).** Omega, VIVIM Final, VOMEGA, nine external repos and research supply *methodologies*: observation models, algorithms, error/recovery strategies, provider variation taxonomies, independent test cases and failure analyses. Harvest findings are optional reference intelligence and **do not own a feature, implementation file, runtime choice, or roadmap gate**. Do not demand a “winning donor” for every capability.
+
+**PROTOCOL / CONTRACT (SELECTIVE ADOPTION).** Harvest may recommend a **specific external/native protocol or data contract**—e.g. documented provider API/ACP/MCP/SSE semantics, frame format or identifier contract—only with a pinned source, exact purpose, fidelity/entitlement distinctions, compatibility assessment and meaningful benefit. Development chooses whether AION implements a compatible surface. Contract adoption is not wholesale donor-library, router or architecture import.
+
+**EXCEPTION: source-code reuse** is *out of the standard Harvest delivery path*. It requires an explicit Development decision, license/security review, identified module/version, tests and ownership of ongoing maintenance. No source copying, “module KEEP” or primary donor nomination silently changes this rule.
+
+**Separation in the [machine index](DEVELOPMENT-INDEX.json):** each area has `delivery_owner: AION_DEVELOPMENT` and `implementation_policy: IN_HOUSE`; optional reference-only `methodology_refs` and `protocol_contract_candidates` live on a separate leverage axis. A methodology insight never becomes an implementation claim. The [single Harvest exchange](harvest/EXCHANGE.md) provides evidence summaries, not engineering assignments.
+
 ## 1. SITREP — reconciliation and confidence
 - **Permanent integration target is `main`.** Main-only governance supersedes the candidate's older instructions to aim every child PR at a standing Track B branch. The accepted *technical design* remains applicable; review/port candidate diffs to current main in bounded slices.
 - **Candidate runtime is NOT integrated:** [draft PR #46](https://github.com/owenservera/aion/pull/46), head observed `75d71cd3dcabed720db68ef04dda065a3f0f0ed2`; comparison with main at inspection: **208 commits ahead / 22 behind**, including substantial unmerged Velocity, adapter and test changes. This is not permission to merge wholesale. Recheck before each integration.
@@ -29,29 +41,31 @@ USER: one CLI / control pane / later ACP or MCP ingress
 ```
 **Critical boundary:** API conversation, MCP ingress, browser tab, web-account identity and native OpenCode session are **different kinds of target**. Route fidelity, entitlement, readiness and effect authority are independent. No catalog row may dispatch.
 
-## 3. Capability and integration coverage — current *source* vs target
-`main` = integrated source present on main; `candidate` = PR #46/source branch; `design` = accepted direction only. LIVE means independently verified *specific* result; a code/test count is not proof of chat-web operation.
+## 3. In-house development register — build and evidence only
+**Everything in this table is AION's responsibility.** Source status may be on main, candidate-only, design-only or historical; none implies live acceptance. External lessons appear *separately* in section 6, never as a co-owner or delivery dependency.
 
-| Capability area / stable topic | Current source evidence | Desired integrated surface / blocker | Harvest or research leverage | Roadmap |
-|---|---|---|---|---|
-| CLI command grammar and role/context | Candidate Velocity `bin/aion-local.mjs`, `src/commands.mjs`, `src/agents-context.mjs`, `src/project-context.mjs`; source/local tests reported | Carry forward minimal compatible CLI on main; no implicit context send | VOMEGA NLCL only for *future* semantic compiler; PM/native roster adapters | R0, R1 |
-| Effect admission, Bus, grant, no-resend | Main `bus/`, `extension/src/bus/`; candidate adds Velocity direct use | **Single Node Bus** effect writer; explicit scope, durable identities, unknown-effect guard | Omega/VIVIM identity/evidence crosswalk, not second queue | R0→R3 |
-| Native host, Chrome bridge, local IPC | Main `bridge/`, `extension/`; candidate `velocity/src/native-host/`, `transport/` | Preserve original IPC; separate dev profile/host; event/1 must be **data only** | External bridge donor potential, presently not code-level allocated | R1 |
-| Binding/read authority | Candidate `connect chief` and dev preflight, no accepted fresh receive contract | Exact provider/account/conversation binding, one bounded observer, scoped read | `receive.identity` AX-0001/0002/0006 | I0/I1 |
-| Read-only ChatGPT observer | Accepted design 12 P2, **not shipped** | NEW `extension/src/providers/chatgpt/{observer,profile}.js` | Omega/VIVIM receive semantics; external-nine ownership pending | P2/I1 |
-| Push/snapshot and gap transport | Accepted design 12 P1/P3, **not shipped** | `aion.conversation.event/1` + `snapshot/1` and `conversation.read`; no text in sanitized effect event broker | Nine-donor bridge/cursor patterns, inspect before reuse | P1/P3/I1 |
-| Live interactive REPL/inbox | Accepted design 12 P4, **not shipped** | `aion chat chief --watch`, external incoming turns, cursor, in-memory text | C-004 identity/stream distinction | P4/I1 |
-| Browser Send and paired checked reply | Existing page Send path attempted; **extension live Send failed** | After I1, one selected actuator, clean human text, baseline→observed user turn→candidate assistant→checked reply | Nine-donor Send patterns ONLY after safety/licensing review | P6/I2 |
-| Recovery, drift and no duplicates | Bus unknown effect rules exist; full two-way recover pending | Restart, gap, page epoch, edits/branch revisions, no blind replay | Omega/VIVIM crosswalk; bridge donor | P7/I3 |
-| OpenCode V2, ACP and native selection | Candidate engines/OpenCode options, 3 native operations reported | One normalized ConversationSource/SSE/snapshot; preserve native session IDs, cwd/grants | Native SDK and ACP docs; no second executor | P5 |
-| Windows control/activation | Candidate browser setup, dev host installed; actual Chrome dev extension not loaded as reported | Status/probe/installer rollback/isolated dev Chrome profile; owner Windows only for execution | Windows UIA and CDP **evaluated alternative** only | R2/R4 |
-| Provider adapters / families | Candidate read-only `platform/semantics.mjs`, `inspect.mjs`; Omega family donor metadata | Incremental provider-specific adapters only after ChatGPT I1/I2; avoid global taxonomy migration | Final + Omega provider/family/realization; external nine | R5 |
-| Model, thinking, edit, lifecycle and files | 40-operation catalog **research only**; OpenCode native model/variant/file pilot separately tested | Keep provider-specific fidelity and effect classification; no browser feature claim | Command Space 19 P0 ops, external triage clusters 4/5 | R5/R6 |
-| Native provider APIs / ChatGPT Apps/MCP | Command Space ROUTE-ORIGINS research; existing AION MCP source | Distinguish ingress into AION from outbound control of exact web conversation; verified entitlement only | 13 native provider lanes; TOOLSMITH native integration research | R5 |
-| Semantic natural-language CLI | Candidate `platform/semantics.mjs` read-only; VOMEGA six KEEP/five ADAPT | Optional pure parser/validator feeding typed Bus intent; no donor router or automatic send | VOMEGA AX-0003/0005 | R6 |
-| Broader agency / tooling | Agent Fabric PR #35 historical, on hold | No new agent runtime, framework, scheduler, database or communications system in present Track B scope | Research only until owner resumes | PARKED |
+| AION-owned area | Current state / source | Next AION engineering deliverable | Gate |
+|---|---|---|---|
+| CLI, commands, roles, context | Candidate `velocity/bin/aion-local.mjs`, `src/commands.mjs`, roster/context; test claims snapshot-specific | Reconcile useful candidate source into main with no implicit context egress | R0 |
+| Bus admission, durable grants and no-resend | Existing `bus/`, `extension/src/bus/`; candidate Velocity direct implementation | Keep single Node effect writer; prove exact identity/no unsafe replay | R0/I0 |
+| Identity, exact conversation binding and read scope | Candidate binding/preflight; new receive semantics not accepted as code | Define scoped, revision-aware binding separate from operations | I0 |
+| Typed event and snapshot contracts | Accepted design P1 only | **Implement** `event/1`, `snapshot/1`, validators and negatives | I0 |
+| Chrome DOM read-only observer | Accepted design P2 only | Own small source-specific observer with bounded message identity and page epoch | P2/I1 |
+| Push hints and authoritative snapshot IPC | Existing bridge; proposed P3 receive seam only | Own data-only worker/host/IPC receive path | P3/I1 |
+| Interactive terminal REPL/inbox | Accepted design P4 only | Own memory-only inbox, watch, cursor gap handling | P4/I1 |
+| Chrome web Send and reply correlation | Legacy Chrome path failed real Send; UIA historical isolated actuation | Own exact-thread actuator after I1, one-effect proof, no fallback resend | P6/I2 |
+| Restart/unknown-effect recovery | Existing Bus guardrails, conversation recovery unbuilt | Own non-text cursor checkpoint if useful and no-replay matrix | P7/I3 |
+| Native OpenCode/ACP interface | Candidate engines/native option tests reported, not final-head green | Own typed OpenCode SSE/snapshot `ConversationSource` preserving native session | P5 |
+| Local machine activation | Candidate dev native host setup / isolated Chrome profile; extension not confirmed loaded | Own truthful setup/probes, tests, rollback and dev isolation | R0/I1 |
+| Cross-provider browser adaptors | Candidate read-only taxonomy tools, no second live provider | Own provider-specific adapters under common narrow contracts after I3 | R5 |
+| Conversation lifecycle and advanced UI commands | Research catalog describes possibilities; browser implementation not proven | Own features only after target/action fidelity tests | R5 |
+| Files/tools/artifacts | Candidate OpenCode file option tests reported; cross-provider UI unknown | Own attachment controls, scoped validation and browser-specific evidence | R5 |
+| Provider native/API/Apps/MCP routes | Catalog exists, not executable router | Own verified adapter where distinct session/entitlement makes sense | R5 |
+| Deterministic semantic compiler | Optional and **not MVP**, candidate read-only metadata | If admitted, AION writes pure parser/validator ahead of existing Bus | R6 |
+| Acceptance suite / evidence | Historical Node/local reports, no current I1–I3 acceptance | Run current SHA tests and independent browser receipts | R0→I3 |
+| Agent runtime expansion | Existing draft historical PR #35, on hold | No new execution program without owner scope | PARKED |
 
-All code paths above are *owner paths*, not assertions that modules have passed a new local validation. See [index](DEVELOPMENT-INDEX.json) for joinable IDs and source-ref distinctions.
+**AION as-built vs proposed is tracked independently** in [DEVELOPMENT-INDEX.json](DEVELOPMENT-INDEX.json); source paths above are pointers, not executable proof. External protocol references are not routes until AION implements and verifies them.
 
 ## 4. Integration seams and non-negotiable contracts
 | Edge | Input → output | Allowed status / proof | Decision |
@@ -65,7 +79,7 @@ All code paths above are *owner paths*, not assertions that modules have passed 
 | OpenCode native → typed receive | SSE + native snapshot → ConversationSource | exact native session, not web-thread replacement | **BUILD** P5 |
 | Windows UIA/CDP → page | alternative actuator only when separately admitted | one actuator/attempt; no fallback on unknown | **EVALUATE** at P6 |
 | Command Space → Development | researched operation/route/source docs → design consideration | **never** direct permission or availability | **REFERENCE** |
-| Harvest → Development | evidence-linked OFFER/GAP ↔ NEED + DECISION | no auto import/implementation | **EXCHANGE** |
+| Harvest → Development | **methodology advice** or specifically scoped **protocol/contract candidate** ↔ AION NEED | never a donor-code build assignment or feature ownership | **NON-BLOCKING ADVISORY** |
 
 ## 5. Roadmap / decision gates (not a second issue board)
 | Gate | Next measurable result | Main dependency | Status |
@@ -82,27 +96,31 @@ All code paths above are *owner paths*, not assertions that modules have passed 
 | **P8** retire old browser scanners | no duplicate observer/sender, regression/rollback, preserve A historical | I3 and tests | BLOCKED |
 | **R5/R6** cross-provider/native/semantic expansion | independently proven two-provider parity; bounded capability additions | working I1–I3, source triage | LATER / research only |
 
-P2, P3, P4 and P5 can proceed in parallel **after** I0 with disjoint file ownership. No repo-wide migration or generic framework is on the critical path. Scope of roadmap is the existing product, not a new program.
+P2, P3, P4 and P5 can proceed in parallel **after** I0 with disjoint AION-owned files. **No Harvest delivery is a critical-path gate:** research may improve engineering choices without delaying a correct self-contained implementation. No repo-wide migration or generic framework is on the critical path. Scope of roadmap is the existing product, not a new program.
 
-## 6. Harvest supply map and demand
-**Only shared operational intake/delivery:** [EXCHANGE.jsonl](harvest/EXCHANGE.jsonl) under [EXCHANGE.md](harvest/EXCHANGE.md). Link by stable `topic`. Never maintain competing per-agent requests, clone the donor trees again or duplicate the command matrix.
+## 6. Harvest leverage — separate, optional knowledge plane
+**Only shared intake/delivery:** [EXCHANGE.jsonl](harvest/EXCHANGE.jsonl) under [EXCHANGE.md](harvest/EXCHANGE.md); join by existing `topic` and `DEV-...` IDs. The external work does **not** supply runtime components. Use two explicit questions: (1) *Which engineering methodology should we understand and possibly adapt?* (2) *Is there an external protocol/contract we should be compatible with?* Both can be answered **NONE** and AION proceeds.
 
-| Source lane | Existing holdings | Highest-value request | Delivery condition |
+| Evidence lane | Methodology insight (default) | Candidate external protocol/contract (only if useful) | AION ownership |
 |---|---|---|---|
-| Omega + VIVIM Final | `harvest/landing/sources/vivim-omega/`, `vivim-final/`, `synthesis/` 65-ID crosswalk | observation identity, provider family, readiness vs authority, receipts | one topic OFFER/DECISION with C-004 ID and seam |
-| VOMEGA | `landing/sources/vomega/RETENTION-ASSESSMENT.md` and pinned sources | pure deterministic parse → ground → validate/clarify | distinguish 6 KEEP/5 ADAPT from rejected second CLI/router |
-| Nine external repos | `harvest/external/landing/donors/` and `external/sources.json`; **triage not done** | assign owner per receive, Send, adapters, lifecycle, files, CDP, native | repo/commit/module/license/test evidence; one primary, <=1 differentiated backup; then OFFER/GAP |
-| Frontier / provider-native | `velocity/research/` and `ops/command-space/` (40/25/1000) | provider fidelity, documented path, entitlement and test criteria | verified docs *vs* account proof, route origin and same-thread caveat |
-| Development | current Bus/CLI/adapters/tests and accepted design | expose now + future contract gaps; accept/defer/reject deliveries | DECISION links actual source path, test and gate |
+| Omega + VIVIM Final | identity layering, evidence/confidence separation, capability family definitions, negative verification | any independently useful typed identity/stream vocabulary, evaluated against P1 | AION owns all receive, Bus and provider code |
+| VOMEGA | deterministic parse → resolve → validate → clarify; ambiguity/failure policies | possible formal semantic IR/validation rules, *not* VOMEGA CLI/router | AION designs optional compiler |
+| Nine external repos | cursor/gap algorithms, browser observation technique, safe-send methodology, adapter separation, fixture/test patterns, failure cases | source-grounded wire/event/message contract only where interoperability or a proved simplification requires it | AION writes Chrome, host, REPL and provider implementations |
+| Native provider/standards research | how provider sessions and lifecycles differ, fidelity hazards | ACP, MCP, SSE, native API endpoint/frame schemas under documented terms | AION chooses and implements adapters; never equates API session with existing web thread |
+| Internal candidate PR #46 | **not Harvest**; source reconciliation of AION's own staged implementation | internal contract reuse is direct in-house engineering | AION integrates validated pieces into `main` |
 
-**Nine source inputs, not yet code-level winners:** `DrA1ex/chatgpt-bridge`, `TED-H-com/multi-ai-chat`, `ParkerCai/parallel-ai-extension`, `RaheesAhmed/Council`, `chathub-dev/chathub`, `ai-shifu/ChatALL`, `Octo-Lex/ChatGPT-Web2API`, `mehmetnadir/cdpilot`, `cereon-labs/cereon-browser-operator`. The triage [brief](harvest/external/02-REPO-PRIORITIZATION.md) and [delivery contract](harvest/external/DELIVERY.md) specify proof and dedup. **No provider/repo owner has been verified simply by this list.**
+**Nine external examples, not implementation owners:** `DrA1ex/chatgpt-bridge`, `TED-H-com/multi-ai-chat`, `ParkerCai/parallel-ai-extension`, `RaheesAhmed/Council`, `chathub-dev/chathub`, `ai-shifu/ChatALL`, `Octo-Lex/ChatGPT-Web2API`, `mehmetnadir/cdpilot`, `cereon-labs/cereon-browser-operator`. The existing snapshots support a **methodology/protocol comparison**, not source transplant ranking.
+
+**Requested Harvest delivery (small and decision-useful):** `topic` + method/contract class + one specific practice or contract + evidence refs/version + conditions/limits + concrete benefit to AION + what (if anything) changes in *AION-owned code/tests* + recommended ADOPT_METHOD / REVIEW_PROTOCOL / NOTE_ONLY / REJECT. No mandatory winners, module code dump, research database rewrite or re-cloning. Disagreeing methods may both be documented; no auto-selection.
 
 ## 7. Flexible change/decision protocol
 For each integration/capability in the index, track separately: **(a)** source-on-main **(b)** candidate branch source **(c)** research-only evidence **(d)** local test receipt **(e)** live verification **(f)** accepted target **(g)** decision **(h)** dependency/next gate. Never compress these into one misleading `implemented: true`.
 
+**Each decision has two independent axes:** AION-owned implementation alternatives (actual source approaches) versus Harvest reference alternatives (methodology/protocol observations). A Harvest reference cannot be SELECTED as an implementation. It can inform an AION implementation design, or be accepted as a narrowly scoped external protocol compatibility requirement after evidence review.
+
 Possible approaches are **open-ended entries**, not a fixed stack prescription. Record `approach_id`, `scope`, `origin`, `candidate_seam`, `evidence_ref`, `license_risk`, `tradeoffs`, `effect_and_fidelity_risk`, `status` = PROPOSED | EXPERIMENTING | SELECTED | REJECTED | DEFERRED, and `decision_ref`. Multiple alternatives are welcome; **one selected effect actuator per admitted operation**, and no unresolved-op resend.
 
-**Decision locations:** technical architecture changes → [accepted design 12](https://github.com/owenservera/aion/blob/track-b/platform-local-candidate-20261020/workspace/aion/ops/chrome-relay/velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md), plus contracts/tests upon acceptance; harvest reuse disposition → exchange DECISION with linked NEED/OFFER; source evidence → lane-owned cards and refs; branch/repo policy → REPOSITORY-GOVERNANCE.md; proven machine/runtime state only → STATE.json. Keep proposals PROPOSED, not retrospectively ACCEPTED.
+**Decision locations:** technical architecture changes → [accepted design 12](https://github.com/owenservera/aion/blob/track-b/platform-local-candidate-20261020/workspace/aion/ops/chrome-relay/velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md), plus contracts/tests upon acceptance; harvest methodology/protocol review disposition → exchange DECISION with linked NEED/OFFER (not source-code adoption); source evidence → lane-owned cards and refs; branch/repo policy → REPOSITORY-GOVERNANCE.md; proven machine/runtime state only → STATE.json. Keep proposals PROPOSED, not retrospectively ACCEPTED.
 
 **Open decisions for Development, not automatic defaults:** source migration slices from #46; exact event/snapshot version acceptance once P1 tests run; Chrome DOM actuator outcome at I1→P6; CDP/UIA suitability under current instruction; need for private non-text cursor checkpoint after I2; first second provider and actual same-thread-native paths after I3.
 
