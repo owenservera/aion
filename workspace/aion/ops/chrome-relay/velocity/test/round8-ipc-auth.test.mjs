@@ -1,15 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
-import {mkdtempSync,chmodSync,writeFileSync,rmSync} from 'node:fs';
-import {tmpdir} from 'node:os';
+import {chmodSync,writeFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
+import {privateStateDir} from '../fixtures/private-state-dir.mjs';
 import {readSession,endpointFor,connectHost,startHostEndpoint,SESSION_FILE,SESSION_SCHEMA,HELLO_SCHEMA}
   from '../src/transport/local-ipc.mjs';
 import {createFrameDecoder,encodeFrame} from '../src/transport/framing.mjs';
 
 const session_id='a'.repeat(24), token='b'.repeat(64), extension_id='c'.repeat(32);
-const ownDir=()=>{const dir=mkdtempSync(join(tmpdir(),'aion-b8-auth-'));chmodSync(dir,0o700);return dir;};
+// The state directory carries the bearer token: it must be owner-private in
+// the PRODUCTION sense (Windows: native private DACL, not an inherited one).
+const ownDir=()=>privateStateDir('aion-b8-auth-');
 function fixture(dir,changes={}){
  const s={schema:SESSION_SCHEMA,session_id,token,extension_id,
    endpoint:endpointFor({stateDir:dir,id:session_id}),...changes};

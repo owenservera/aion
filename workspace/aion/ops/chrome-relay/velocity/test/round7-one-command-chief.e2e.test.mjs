@@ -4,13 +4,13 @@
 // Proves the Track B wiring and no-resend mapping. NOT Chrome, NOT ChatGPT, NOT Windows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,chmodSync,writeFileSync} from 'node:fs';
-import {tmpdir} from 'node:os';
+import {writeFileSync} from 'node:fs';
 import {join,dirname} from 'node:path';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {main} from '../bin/aion-local.mjs';
 import {encodeNativeFrame,createNativeFrameDecoder} from '../../bridge/src/framing.js';
+import {privateStateDir} from '../fixtures/private-state-dir.mjs';
 
 const HOST=fileURLToPath(new URL('../bin/aion-host-dev.mjs',import.meta.url));
 const DEV_ID='dddddddddddddddddddddddddddddddd';
@@ -18,7 +18,10 @@ const CONV='https://chatgpt.com/c/0f0e-test-conversation';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 function setup(){
-  const root=mkdtempSync(join(tmpdir(),'aion-b7e2e-'));
+  // The ledger, the session token and the IPC endpoint all live under this
+  // root, so it must be owner-private in the PRODUCTION sense (Windows:
+  // native private DACL). Everything created below inherits that DACL.
+  const root=privateStateDir('aion-b7e2e-');
   const stateDir=join(root,'track-b');
   return {root,stateDir,statePath:join(stateDir,'bus.json')};
 }
@@ -43,10 +46,13 @@ function driver({mode='reply'}={}){
     return {ok:false,code:'unknown_action'};
   }};
 }
-async function spawnHost(stateDir,drv){
+async function spawnHost(stateDir,drv,t){
   const cfg=join(dirname(stateDir),'host-dev.config.json');
   writeFileSync(cfg,JSON.stringify({schema:'aion.b.host-config/1',extension_id:DEV_ID,state_dir:stateDir}));
   const child=spawn(process.execPath,[HOST,'--config',cfg,`chrome-extension://${DEV_ID}/`],{stdio:['pipe','pipe','pipe']});
+  // Never leak the host process: a failed assertion must not hang the suite.
+  const stop=async()=>{try{child.stdin.end();}catch{} try{child.kill();}catch{}};
+  t?.after(()=>{void stop();});
   let ready=null;
   const dec=createNativeFrameDecoder({onMessage:async m=>{
     if(m.type==='aion.b.ready'){ready=m;return;}
@@ -57,9 +63,11 @@ async function spawnHost(stateDir,drv){
   }});
   child.stdout.on('data',c=>dec.push(c));
   child.stdin.write(encodeNativeFrame({type:'aion.b.hello'}));
-  for(let i=0;i<300&&!ready;i++)await sleep(10);
+  // The host verifies the private state dir before it opens the endpoint
+  // (Windows ACL check): allow a slow host to get there.
+  for(let i=0;i<12000&&!ready;i++)await sleep(10);
   assert.ok(ready?.session_id,'host reported ready');
-  return {child,async stop(){child.stdin.end();await new Promise(r=>child.once('exit',r));}};
+  return {child,async stop(){try{child.stdin.end();}catch{} await new Promise(r=>child.once('exit',r));}};
 }
 async function run(argv){
   const lines=[];const code=await main(argv,{print:l=>lines.push(l),pause:()=>sleep(5)});
@@ -71,14 +79,14 @@ test('connect chief + send chief: one submit, correlated reply, durable result',
   process.env.AION_DEV_STATE=statePath;
   t.after(()=>{delete process.env.AION_DEV_STATE;});
   // Without a host: truthful refusal, nothing admitted.
-  chmodSync(dirname(stateDir),0o700);
+  // (the state root is already owner-private: see setup())
   let r=await run(['send','chief','hello']);
   assert.equal(r.out.code,'BROWSER_CONNECTOR_NOT_CONNECTED');
   r=await run(['connections']);
   assert.equal(r.out.chrome.state,'NOT_CONNECTED');
 
   const drv=driver();
-  const host=await spawnHost(stateDir,drv);
+  const host=await spawnHost(stateDir,drv,t);
   t.after(()=>host.stop());
   r=await run(['connections']);
   assert.equal(r.out.chrome.state,'CONNECTED');
@@ -120,7 +128,7 @@ test('uncertain submit stays UNKNOWN, blocks the target, and is never retried',a
   process.env.AION_DEV_STATE=statePath;
   t.after(()=>{delete process.env.AION_DEV_STATE;});
   const drv=driver({mode:'uncertain'});
-  const host=await spawnHost(stateDir,drv);
+  const host=await spawnHost(stateDir,drv,t);
   t.after(()=>host.stop());
   let r=await run(['connect','chief','--conversation',CONV]);
   assert.equal(r.out.code,'ROLE_BOUND_AND_GRANTED');
