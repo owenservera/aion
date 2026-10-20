@@ -49,3 +49,13 @@ The verification pass fetched the remote exchange and checked **18 parseable rec
 - **Safety:** no host effects, no source execution, no Playwright/Puppeteer, no cookies/credentials/private transcript publication, no donor runtime or Agent Fabric promotion.
 
 **Worker resume:** reread live `main` then [DELIVERABLES](DELIVERABLES.md), [WORKLOG](WORKLOG.md), `harvest/EXCHANGE.jsonl`, current Development Master and triage; compare against this observation before adding/updating an offer.
+
+## 2026-10-20 — New leapfrog discovery delivery (this dispatched session)
+
+**Scope:** static donor source inspection; no tests, runtime verification, adaptation or provider effects. **Three new leads in single exchange:** [AX-0019, AX-0020, AX-0021](../../../EXCHANGE.jsonl), detail [source memo](../../landing/triage/LEAPFROG-DISCOVERY-2026-10-20.md). All three **DELIVERED AS RESEARCH**; no source integration, no automatic Integration Manager dispatch.
+
+1. **HIGH AX-0019:** Cereon modular bounded DOM/accessibility tree, open-shadow-root walk and WeakRef element registry. Immediately reusable inspector concept, **but** element refs are not persistent conversation identity and current text output exposes form values.
+2. **HIGH AX-0020:** Cereon per-tab MV3 CDP session manager/console/network correlation with CDPilot OOPIF route as heavier alternative. CDP attach, raw `send`, metrics override, privilege and privacy are blockers to unguarded I1 use; diagnostic-only optional R5.
+3. **HIGH conditional AX-0021:** CDPilot `document.modelContext.getTools()` WebMCP inspection could avoid custom provider selectors **if** providers expose first-party tools; unknown exposure, experimental Chromium flag, effectful executeTool excluded.
+
+**Dedup:** AX-0003 VOMEGA retains parser lead; AX-0016/17 Bridge retains transport/recovery lead; none reissued. **Handoff order:** Integration Manager PACK-01/02 code receipts first; Development later selects any new lead for packaging and explicitly dispatches Integration Manager; Development owns all AION tests and effects. **No worker is assumed to have read these offers merely because committed.**
