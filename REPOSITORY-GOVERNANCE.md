@@ -30,6 +30,8 @@ Do **not** reorganize the established codebase merely to make it resemble this t
 
 **Flow:** Research finds → Harvest captures/compares where needed → Development chooses, implements, tests → `main` integrates. Direct Development work may skip Research/Harvest when no outside source investigation is required.
 
+**Thin shared interface:** [Development ⇄ Harvest/Research exchange](workspace/aion/ops/chrome-relay/harvest/EXCHANGE.md) and its [single NEED/OFFER/GAP/DECISION index](workspace/aion/ops/chrome-relay/harvest/EXCHANGE.jsonl). Each research lane retains internal findings, delivers actionable evidence in the common format, and Development publishes present/future needs using the same schema. This is not a second registry or a new branch workflow.
+
 ## 3. Git rules — deliberately minimal
 
 1. **Default:** develop on `main` after `git fetch origin --prune --tags`, checking local and remote state. Use normal commits and pushes with conflict checks; prefer small logical commits.
