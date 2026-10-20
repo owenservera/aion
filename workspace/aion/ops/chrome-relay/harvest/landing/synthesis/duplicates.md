@@ -73,3 +73,17 @@ Final: `owenservera/vivim-final@8a798f91d52574cb3d7db579da516bc1c4aee7b7`, captu
 | VO-GH-0012/0013/0014/0034/0038 | One Omega browser-email **fixture** family with manifest/design/parser/implementation; do not count as five independent live browsers |
 
 **Exact cross-repo byte-equality / common ancestry still unproven.** Each source has its own pinned GitHub revision; earlier local Omega Core/BCP-dev/FullTest findings remain separate. Similar vocabulary and repeated modules do not establish independent proof.
+
+
+## C-004 — systematic same-file / source-hash reconciliation
+Computed directly from the **65 final pinned source-index records**, grouping by immutable `source_repo + source_revision + source_path` and separately comparing index-reported `source_sha256`.
+
+| Source owner (pinned donor revision) | Candidate IDs | Why separate cards legitimately exist |
+|---|---|---|
+| Final `seeds/providers/manifests.ts` | VF-0001, VF-0002 | Distinct ChatGPT versus Claude declarations |
+| Final `src/engines/capability-shape-registry.ts` | VF-0003, VF-0004 | Generic chat shape versus bespoke coding IDE shape |
+| Final `src/engines/capability-resolution.ts` | VF-0006, VF-0007, VF-0026 | Resolver type, filter pipeline, malformed-rule fail-open branch |
+| Final `src/engines/unified-registry.ts` | VF-0008, VF-0009 | Semantic registry interface versus implementation/export |
+| Omega `plugins/provider-browser/src/index.ts` | VO-GH-0016, VO-GH-0038 | First is FLAGGED only; latter is scoped copied four-gate Send excerpt. **Not** two independently inspected implementations |
+
+**Index audit result:** five same-source-file groups (11 candidate IDs), four groups of shared non-null source SHA-256 within a repo, and **zero identical recorded source SHA-256 values across donor repositories**. This is a source-index comparison, not a byte-by-byte full repository diff; missing uncaptured trees and differing revisions prevent proof of no common ancestry. `VF-0006/0007/0026` must be treated as one donor implementation family with differentiated semantics, not three independent positive verifications. `VO-GH-0016/0038` is an entrypoint flag and an excerpt, not two copied modules.
