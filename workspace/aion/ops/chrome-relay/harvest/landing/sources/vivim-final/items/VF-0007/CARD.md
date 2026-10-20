@@ -8,11 +8,11 @@
 
 **Source blob SHA1:** `323876f0cd4895ae11035c08781a70c8a27c4c46`
 
-**Whole-source SHA256:** `456cc2bfdf44b51fd6972ef67d54130f75eae4bed091454a61389033e51986e6`
+**Whole-source SHA256:** `c8149b9b42c5a0ae31bf49258853a1f7550a2006e5ffa5bf3830ddb8cf242c49`
 
-**Excerpt SHA256:** `9b6e13347e24b500262d28aacb5c9ed8321e3fa04f1595576b2ab21e81644bb6`
+**Excerpt SHA256:** `332e4dc652ff63304f9c6d67cd9538046442fc9f10bf5438e2b18b849acc9211`
 
-**Domains:** availability,rule-evaluation,provider-binding | **Prior lead:** FINAL-02
+**Domains:** availability, rule-evaluation, provider-binding | **Prior lead:** FINAL-02
 
 ## Source intelligence
 Implementation filters tiers, existential rules and bound dependencies before UI grouping.

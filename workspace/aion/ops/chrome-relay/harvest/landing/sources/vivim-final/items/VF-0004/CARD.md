@@ -8,11 +8,11 @@
 
 **Source blob SHA1:** `dd955ff5d229b40e2e013e3945e150fbaff6becd`
 
-**Whole-source SHA256:** `ed0829c6366f090bb7e6705282ad340546e5534332bbd154f88ec30f8fa922af`
+**Whole-source SHA256:** `d97af4da3b58c9196be47f8fcc41539586a167fd51217146acf7ab482a625dd9`
 
-**Excerpt SHA256:** `7a7020035fd78de5f03a8a6efada0f1bf981f9d43a03fb4a1bbd995e3c61e1cb`
+**Excerpt SHA256:** `550556f521cfb7b4032ba1f57c0cf3bff712e80d7d30cbcb8f6e7afdc270eca2`
 
-**Domains:** ui-archetypes,bespoke-provider,specialization | **Prior lead:** FINAL-07
+**Domains:** ui-archetypes, bespoke-provider, specialization | **Prior lead:** FINAL-07
 
 ## Source intelligence
 Non-chat application shape demonstrates specialized provider families.

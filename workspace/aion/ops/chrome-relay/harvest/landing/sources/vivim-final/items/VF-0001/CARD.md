@@ -8,11 +8,11 @@
 
 **Source blob SHA1:** `b4d70eb9a833e3a2bde118837f9101fc732091c0`
 
-**Whole-source SHA256:** `a089df495cd1562694825447df2759bb1b85b273a7ec494052f3e139e87780c7`
+**Whole-source SHA256:** `e1cc34186a17f6f52feaa1df77ad55e4967f7327dc5cc39251c775a626039ff4`
 
-**Excerpt SHA256:** `a7b3c82b502255bec7882bc0f7dfb4f117a87768d3e3783960eb3c5b9438e7c3`
+**Excerpt SHA256:** `8b1a9c4281d3f5735d826c76ddb44fa207d81d8a904623dc10403ee0eb3c2c58`
 
-**Domains:** provider-types,ai-chat-webapp,provider-realization | **Prior lead:** FINAL-05
+**Domains:** provider-types, ai-chat-webapp, provider-realization | **Prior lead:** FINAL-05
 
 ## Source intelligence
 Separates identity, declared shared capabilities and webapp endpoint realization.

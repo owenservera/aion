@@ -8,11 +8,11 @@
 
 **Source blob SHA1:** `323876f0cd4895ae11035c08781a70c8a27c4c46`
 
-**Whole-source SHA256:** `456cc2bfdf44b51fd6972ef67d54130f75eae4bed091454a61389033e51986e6`
+**Whole-source SHA256:** `c8149b9b42c5a0ae31bf49258853a1f7550a2006e5ffa5bf3830ddb8cf242c49`
 
-**Excerpt SHA256:** `57686b8bb97b6453dfe278956d88d02ee7911764d949dc84f27c92dedeccb0ed`
+**Excerpt SHA256:** `577b1ed4719a37fb2ccf8b19ef015613ad66e772c4412922089d06d5216ccde4`
 
-**Domains:** availability,provider-binding,capability-semantics | **Prior lead:** FINAL-02
+**Domains:** availability, provider-binding, capability-semantics | **Prior lead:** FINAL-02
 
 ## Source intelligence
 Separates dependencies, UI state, binding status, confirmation and contextual gating.

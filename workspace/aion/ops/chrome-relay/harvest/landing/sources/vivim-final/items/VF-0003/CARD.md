@@ -8,11 +8,11 @@
 
 **Source blob SHA1:** `dd955ff5d229b40e2e013e3945e150fbaff6becd`
 
-**Whole-source SHA256:** `ed0829c6366f090bb7e6705282ad340546e5534332bbd154f88ec30f8fa922af`
+**Whole-source SHA256:** `d97af4da3b58c9196be47f8fcc41539586a167fd51217146acf7ab482a625dd9`
 
-**Excerpt SHA256:** `4ea6f06679de01039064c7d9ae6bf900e4a1e8e51237a49bf2e1bee2596baeb5`
+**Excerpt SHA256:** `9672d6fcb70297111fa14ceaaf1d83c10d52d7e636e2fc797840a94627dd3c13`
 
-**Domains:** ui-archetypes,capability-semantics,state-projection | **Prior lead:** FINAL-07
+**Domains:** ui-archetypes, capability-semantics, state-projection | **Prior lead:** FINAL-07
 
 ## Source intelligence
 Required versus optional chat affordances provide a family taxonomy.

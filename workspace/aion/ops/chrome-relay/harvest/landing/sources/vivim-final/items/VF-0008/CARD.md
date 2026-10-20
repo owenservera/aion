@@ -8,11 +8,11 @@
 
 **Source blob SHA1:** `2cfef91f6694577215bcb4880be29ac1feb8f8eb`
 
-**Whole-source SHA256:** `91a1214df4995465d13dcd0c1577706034efe2aa66ec02ad19f5a81f8634161c`
+**Whole-source SHA256:** `3f2086fe87409eea073365f7b039f56a142ff53835106b67609270faac63f2e6`
 
-**Excerpt SHA256:** `7c9a9c1fb11c02afd6f0828c65e542a3d7cecb24c5dffe9361f9641cedadbcfb`
+**Excerpt SHA256:** `b9baf337485ad303f93629ef52384cdf76cbdfbed16717d24ecf8048742bfe09`
 
-**Domains:** capability-semantics,extension-points,command-contracts | **Prior lead:** FINAL-05
+**Domains:** capability-semantics, extension-points, command-contracts | **Prior lead:** FINAL-05
 
 ## Source intelligence
 Shared capability identity with CLI/UI/workflow/MCP/API projections.

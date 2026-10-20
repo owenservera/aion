@@ -8,11 +8,11 @@
 
 **Source blob SHA1:** `b4d70eb9a833e3a2bde118837f9101fc732091c0`
 
-**Whole-source SHA256:** `a089df495cd1562694825447df2759bb1b85b273a7ec494052f3e139e87780c7`
+**Whole-source SHA256:** `e1cc34186a17f6f52feaa1df77ad55e4967f7327dc5cc39251c775a626039ff4`
 
-**Excerpt SHA256:** `b868a82e72d76171efd2fcba0bd7660cc6068564add71f70a733aad59309ecc4`
+**Excerpt SHA256:** `b9d89c4f9f6ea29d2452df098c81eddc51e9e46e142e724982303926271a4a25`
 
-**Domains:** provider-types,ai-chat-webapp,provider-realization | **Prior lead:** FINAL-05
+**Domains:** provider-types, ai-chat-webapp, provider-realization | **Prior lead:** FINAL-05
 
 ## Source intelligence
 Contrasting common provider manifest with specialized Claude realization.
