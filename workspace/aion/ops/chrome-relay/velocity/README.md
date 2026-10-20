@@ -1,5 +1,7 @@
 # AION Track B — self-contained local command plane
 
+> **ACTIVE ARCHITECTURE AND BUILD ORDER:** [12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md](design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md) is the **single accepted source of truth** for interactive two-way CLI, owner decisions M1–M6, I0–I3 acceptance gates and P1–P8 development ownership. Older repair-first or one-shot Send plans are historical. Existing runtime code does NOT yet implement the new receive flow.
+
 
 **AION Platform candidate (2026-10-20, local testing pending):** This isolated branch includes the full 65-record Harvest C-004 corpus, additive semantic/protocol model, read-only provider-family capability views and fail-closed validation. Run `aion platform validate`, `aion platform inspect --json` and `aion platform harvest --json` using the existing Windows launcher. These are inspection tools, **not new Send routes or grants**. See [local Windows handoff](design/07-PLATFORM-LOCAL-DEV-HANDOFF.md) and [three parallel chat prompts](design/08-CHAT-FANOUT-PROMPTS.md). The full current-head selftest and real Chrome Send/checked reply are **not yet verified** on this candidate. The original CENV repair remains the critical path.
 
