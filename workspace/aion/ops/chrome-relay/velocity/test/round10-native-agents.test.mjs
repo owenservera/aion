@@ -6,7 +6,7 @@
 // real machine.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,symlinkSync,readdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {listAgents} from '../src/agents-context.mjs';
@@ -42,13 +42,22 @@ function nativeTree(t,{roles=['09-global-research'],zcode=['dep-refs'],zbots=['b
     for(const r of roles)mkdirSync(join(roots.roles,r),{recursive:true});
   }
   if(zcode){
-    roots.zcode=join(root,'ZCode');
-    for(const s of zcode){
-      const dir=join(roots.zcode,'.agents','skills',s,'agents');
-      mkdirSync(dir,{recursive:true});
-      writeFileSync(join(dir,'openai.yaml'),
-        `interface:\n  display_name: "${s} agent"\n  short_description: "bounded description"\n`);
-    }
+    // The NATIVE global definitions live in <.zcode root>/agents/*.md with
+    // name/description/model/thoughtLevel front matter.
+    roots.zcode=join(root,'.zcode');
+    const dir=join(roots.zcode,'agents');
+    mkdirSync(dir,{recursive:true});
+    for(const s of zcode)
+      writeFileSync(join(dir,`${s}.md`),
+        `---\nname: ${s}\ndescription: "native ${s} definition"\nmodel: codex-oauth/gpt-6.1-sol\nthoughtLevel: enabled\n---\n\n# ${s}\n`);
+    // A project SKILL descriptor describes a skill, never an agent identity.
+    const skillDir=join(roots.zcode,'.agents','skills','skill-only','agents');
+    mkdirSync(skillDir,{recursive:true});
+    writeFileSync(join(skillDir,'openai.yaml'),
+      `interface:\n  display_name: "skill-only agent"\n  short_description: "a skill, not an agent"\n`);
+    // Nothing outside a definition file may be read.
+    writeFileSync(join(roots.zcode,'zbot.sqlite'),'PRIVATE DATABASE');
+    writeFileSync(join(roots.zcode,'session-transcript.md'),'PRIVATE TRANSCRIPT');
   }
   if(zbots){
     roots.zbots=join(root,'zcode-bots');
@@ -227,6 +236,123 @@ test('native ids and source refs are preserved verbatim',async t=>{
   assert.equal(zbot.native_id,'bot-chief');
   assert.ok(zbot.ref.endsWith('.zcode\\agents\\bot-chief.md')||zbot.ref.endsWith('.zcode/agents/bot-chief.md'));
 });
+// The toolkit proxy answering /health is a DEPENDENCY fact about the free
+// model proxy. It is NOT a native bot session and must never be reported as
+// one, whatever the proxy reports.
+const healthOk=async url=>{
+  if(url.endsWith('/health'))return {ok:true,status:200,text:async()=>JSON.stringify({ok:true})};
+  throw Object.assign(new Error('no route'),{code:'NO_ROUTE'});
+};
+const healthRefused=async url=>{
+  if(url.endsWith('/health'))throw Object.assign(new Error('connect ECONNREFUSED'),{code:'ECONNREFUSED'});
+  throw Object.assign(new Error('no route'),{code:'NO_ROUTE'});
+};
+function zbotRoster(t,fetchImpl){
+  const {roots}=nativeTree(t);
+  return discoverNativeAgents({
+    catalog:CATALOG.roles,registry:busRegistry(),roots,env:{PROXY_PORT:'6446'},
+    discoverService:fakeService,createClient:fakeClient,fetchImpl,
+    acpProbe:()=>({ok:true,status:'BINARY_PRESENT',endpoint:'in-process-acp'}),zcodeBinaries:[]});
+}
+test('a healthy toolkit proxy is a dependency, never a native bot connection',async t=>{
+  const roster=await zbotRoster(t,healthOk);
+  const source=roster.sources.find(s=>s.id==='zbots');
+  assert.ok(source,'the zbots source is reported');
+  assert.equal(source.health_scope,'TOOLKIT_DEPENDENCY_ONLY');
+  assert.equal(source.health_status,'CONNECTED','the dependency status is preserved');
+  assert.equal(source.health_ref,'http://127.0.0.1:6446/health');
+  const bots=roster.agents.filter(a=>a.source==='zbots');
+  assert.ok(bots.length>0,'the bot definitions are listed');
+  for(const bot of bots){
+    assert.equal(bot.connection,'UNKNOWN','a proxy that answers /health is not a bot session');
+    assert.equal(bot.status,'DEFINED');
+    assert.notEqual(bot.status,'READY');
+    assert.match(bot.reason,/definition only/i);
+    assert.match(bot.reason,/native bot session/i);
+  }
+  assert.equal(bots.some(b=>b.connection==='CONNECTED'||b.connection==='NOT_RUNNING'),false,
+    'the proxy health is never reported as a bot connection');
+});
+test('a refused toolkit proxy is still not a native bot connection',async t=>{
+  const roster=await zbotRoster(t,healthRefused);
+  const source=roster.sources.find(s=>s.id==='zbots');
+  assert.ok(source,'the zbots source is reported');
+  assert.equal(source.health_scope,'TOOLKIT_DEPENDENCY_ONLY');
+  assert.equal(source.health_status,'NOT_RUNNING','the dependency status is preserved');
+  const bots=roster.agents.filter(a=>a.source==='zbots');
+  assert.ok(bots.length>0,'the bot definitions are listed');
+  for(const bot of bots){
+    assert.equal(bot.connection,'UNKNOWN');
+    assert.equal(bot.status,'DEFINED');
+    assert.notEqual(bot.status,'READY');
+    assert.match(bot.reason,/definition only/i);
+    assert.match(bot.reason,/native bot session/i);
+  }
+  assert.equal(bots.some(b=>b.connection==='CONNECTED'||b.connection==='NOT_RUNNING'),false,
+    'the proxy health is never reported as a bot connection');
+});
+// The native global definitions are <.zcode root>/agents/*.md. The project
+// skill descriptors (.agents/skills/*/agents/openai.yaml) are NOT agents.
+test('a native .md definition is listed and a skill descriptor is never an agent',async t=>{
+  const {roots}=nativeTree(t,{zcode:['dep-refs','other-agent']});
+  const roster=await discoverNativeAgents({
+    catalog:CATALOG.roles,registry:busRegistry(),roots,env:{PROXY_PORT:'1'},
+    discoverService:fakeService,createClient:fakeClient,fetchImpl:fakeFetch({'/api/agent':{data:[]}}),
+    acpProbe:()=>({ok:true,status:'BINARY_PRESENT',endpoint:'in-process-acp'}),zcodeBinaries:[]});
+  const zcode=roster.agents.filter(a=>a.source==='zcode');
+  assert.equal(zcode.length,2,'only the native .md definitions are agents');
+  assert.deepEqual(zcode.map(a=>a.native_id).sort(),['dep-refs','other-agent']);
+  // The project skill descriptor is NOT an agent identity.
+  assert.equal(roster.agents.some(a=>a.native_id==='skill-only'),false,
+    'an openai.yaml skill descriptor is not a native agent');
+  assert.equal(roster.agents.some(a=>String(a.ref??'').endsWith('openai.yaml')),false);
+  const dep=zcode.find(a=>a.native_id==='dep-refs');
+  assert.ok(dep,'the native definition is listed');
+  assert.equal(dep.definition,'DEFINED');
+  assert.equal(dep.connection,'NOT_RUNNING');
+  assert.notEqual(dep.connection,'CONNECTED','a bundle file is not a live session');
+  assert.equal(dep.status,'DEFINED');
+  assert.notEqual(dep.status,'READY');
+  assert.equal(dep.authorization,'UNREGISTERED');
+  assert.notEqual(dep.authorization,'AUTHORIZED','no grant is ever guessed');
+  assert.equal(dep.model,'codex-oauth/gpt-6.1-sol');
+  assert.equal(dep.thought_level,'enabled');
+  assert.equal(dep.description,'native dep-refs definition');
+  assert.equal(dep.declared_only,true,'the front matter is declared, never verified');
+  assert.ok(dep.ref.endsWith('agents\\dep-refs.md')||dep.ref.endsWith('agents/dep-refs.md'));
+  const source=roster.sources.find(s=>s.id==='zcode');
+  assert.equal(source.agent_count,2);
+  assert.ok(source.definition_root.endsWith('agents'));
+});
+test('the ZCode bundle presence is BINARY_PRESENT, never a live session',async t=>{
+  const {roots}=nativeTree(t,{zcode:['dep-refs']});
+  const bundle=join(roots.zcode,'zcode.cjs');
+  writeFileSync(bundle,'// zcode bundle fixture');
+  const roster=await discoverNativeAgents({
+    catalog:CATALOG.roles,registry:busRegistry(),roots,env:{PROXY_PORT:'1'},
+    discoverService:fakeService,createClient:fakeClient,fetchImpl:fakeFetch({'/api/agent':{data:[]}}),
+    acpProbe:()=>({ok:true,status:'BINARY_PRESENT',endpoint:'in-process-acp'}),zcodeBinaries:[bundle]});
+  const dep=roster.agents.find(a=>a.source==='zcode'&&a.native_id==='dep-refs');
+  assert.ok(dep);
+  assert.equal(dep.connection,'BINARY_PRESENT');
+  assert.notEqual(dep.connection,'CONNECTED','a present bundle is not a live session');
+  assert.equal(dep.status,'DEFINED');
+  assert.notEqual(dep.status,'READY');
+  assert.equal(roster.agents.every(a=>a.status!=='READY'),true);
+});
+test('the native definition scan never reads a database or a transcript',async t=>{
+  const {roots}=nativeTree(t,{zcode:['dep-refs']});
+  const roster=await discoverNativeAgents({
+    catalog:CATALOG.roles,registry:busRegistry(),roots,env:{PROXY_PORT:'1'},
+    discoverService:fakeService,createClient:fakeClient,fetchImpl:fakeFetch({'/api/agent':{data:[]}}),
+    acpProbe:()=>({ok:true,status:'BINARY_PRESENT',endpoint:'in-process-acp'}),zcodeBinaries:[]});
+  const text=JSON.stringify(roster);
+  assert.equal(text.includes('PRIVATE DATABASE'),false);
+  assert.equal(text.includes('PRIVATE TRANSCRIPT'),false);
+  assert.equal(/zbot\.sqlite/.test(text),false);
+  assert.equal(/session-transcript/.test(text),false);
+  assert.equal(roster.agents.filter(a=>a.source==='zcode').length,1);
+});
 test('the ACP executable is BINARY_PRESENT and never a session',async t=>{
   const {roots}=nativeTree(t);
   const roster=await discoverNativeAgents({
@@ -368,4 +494,32 @@ test('actual machine: the native roster is read-only, bounded and free of secret
   assert.equal(/"authorization"\s*:\s*"Basic/i.test(text),false);
   assert.equal(/password/i.test(text),false);
   assert.equal(text.includes('PRIVATE MESSAGE'),false);
+});
+test('actual machine: the native global definitions are listed, counted and never READY',async()=>{
+  const home=process.env.HOME||process.env.USERPROFILE||'';
+  const defsRoot=join(home,'.zcode','agents');
+  const onDisk=readdirSync(defsRoot,{withFileTypes:true})
+    .filter(e=>e.isFile()&&e.name.endsWith('.md')).length;
+  const roster=await discoverNativeAgents({catalog:CATALOG.roles,registry:null,registryError:'STATE_ACL_UNVERIFIED',
+    timeoutMs:4000,healthTimeoutMs:1500});
+  const source=roster.sources.find(s=>s.id==='zcode');
+  assert.ok(source,'the zcode source is reported');
+  const zcode=roster.agents.filter(a=>a.source==='zcode');
+  console.log(`actual machine native zcode definitions: ${zcode.length} (files on disk: ${onDisk})`);
+  assert.equal(zcode.length,onDisk,'every native definition file on disk is listed exactly once');
+  assert.equal(source.agent_count,zcode.length);
+  for(const a of zcode){
+    assert.equal(a.definition,'DEFINED');
+    // A bundle file is BINARY_PRESENT, never a live session.
+    assert.ok(['BINARY_PRESENT','NOT_RUNNING'].includes(a.connection),a.connection);
+    assert.notEqual(a.connection,'CONNECTED');
+    assert.equal(a.status,'DEFINED');
+    assert.notEqual(a.status,'READY');
+    // No grant is guessed: the Bus registry could not be read here.
+    assert.ok(['UNKNOWN','UNREGISTERED','NOT_AUTHORIZED'].includes(a.authorization),a.authorization);
+    assert.equal(a.permission,'UNKNOWN');
+    assert.ok(String(a.ref).startsWith(defsRoot),a.ref);
+  }
+  // A project skill descriptor is never an agent identity.
+  assert.equal(zcode.some(a=>String(a.ref??'').endsWith('openai.yaml')),false);
 });

@@ -107,24 +107,6 @@ function parseFrontmatter(text){
   }
   return out;
 }
-/** The `interface:` block of a ZCode skill agent descriptor. */
-function parseInterface(text){
-  const out={};
-  let inside=false;
-  for(const line of String(text??'').split(/\r?\n/)){
-    if(/^interface:\s*$/.test(line)){inside=true;continue;}
-    if(inside){
-      if(/^\S/.test(line)){inside=false;continue;}
-      const kv=/^\s{2,}([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
-      if(kv){
-        let v=kv[2].trim();
-        if(/^".*"$/.test(v))v=v.slice(1,-1);
-        out[kv[1]]=v;
-      }
-    }
-  }
-  return out;
-}
 /** Loopback GET with a bounded timeout. Credentials stay in the headers. */
 async function nativeGet(base,path,headers,{timeoutMs=5000,fetchImpl=globalThis.fetch}={}){
   if(!LOOPBACK.test(String(base??'')))throw Object.assign(new Error('not loopback'),{code:'REMOTE_ENDPOINT_FORBIDDEN'});
@@ -347,30 +329,36 @@ async function opencodeSource(ctx){
 
 function zcodeSource(ctx){
   const source={id:'zcode',status:'UNAVAILABLE',reason:null,binary_ref:null,
-    definition_root:join(ctx.zcodeRoot,'.agents','skills'),agent_count:0};
+    definition_root:join(ctx.zcodeRoot,'agents'),agent_count:0};
   const agents=[];
-  const skillsRoot=join(ctx.zcodeRoot,'.agents','skills');
-  if(!isDir(skillsRoot)){source.reason='DEFINITION_ROOT_MISSING';return {source,agents};}
+  // The NATIVE global agent definitions: <zcode root>/agents/*.md with
+  // `name`/`description`/`model` front matter. The project skill descriptors
+  // (.agents/skills/*/agents/openai.yaml) describe SKILLS, not agents, and are
+  // never listed as agent identities.
+  const defsRoot=join(ctx.zcodeRoot,'agents');
+  if(!isDir(defsRoot)){source.reason='DEFINITION_ROOT_MISSING';return {source,agents};}
   // Native local health: the ZCode bundle is a FILE on disk, never a session.
   const bundle=ctx.zcodeBinaries.find(p=>p&&isFile(p));
   source.binary_ref=bundle??null;
   const connection=bundle?'BINARY_PRESENT':'NOT_RUNNING';
-  for(const entry of listDir(skillsRoot)){
-    if(!entry.isDirectory())continue;
-    const file=join(skillsRoot,entry.name,'agents','openai.yaml');
-    if(!isFile(file))continue;
+  for(const entry of listDir(defsRoot)){
+    if(!entry.isFile()||!entry.name.endsWith('.md'))continue;
+    const file=join(defsRoot,entry.name);
     const text=readBounded(file,MAX_DEF_BYTES,ctx.zcodeRoot);
     if(text===null)continue; // outside the known root, or not a regular file
-    const meta=parseInterface(text);
-    const nativeId=entry.name;
+    const meta=parseFrontmatter(text);
+    if(!meta)continue; // a definition without front matter is not a definition
+    const nativeId=meta.name&&meta.name?meta.name:entry.name.replace(/\.md$/,'');
     const {authorization,authorization_reason}=authFor(nativeId,ctx);
     const permission='UNKNOWN';
     agents.push(nativeEntry({source:'zcode',kind:'agent',nativeId,
-      name:meta.display_name||nativeId,
+      name:meta.name||nativeId,
       definition:'DEFINED',connection,authorization,authorization_reason,permission,
       status:statusFor({kind:'agent',definition:'DEFINED',connection,authorization,permission}),
       ref:file,reason:bundle?null:'zcode bundle not found; definition only',
-      extra:{description:clamp(meta.short_description??''),definition_source:'local-file'}}));
+      extra:{description:clamp(meta.description??''),model:clamp(meta.model??''),
+        thought_level:clamp(meta.thoughtLevel??''),declared_only:true,
+        definition_source:'local-file'}}));
   }
   source.status=agents.length?'AVAILABLE':'UNAVAILABLE';
   source.reason=agents.length?null:'NO_DEFINITIONS_FOUND';
@@ -382,7 +370,7 @@ function zcodeSource(ctx){
 
 async function zbotsSource(ctx){
   const source={id:'zbots',status:'UNAVAILABLE',reason:null,definition_root:join(ctx.zbotsRoot,'.zcode','agents'),
-    health_ref:null,health_status:'UNKNOWN',agent_count:0};
+    health_ref:null,health_status:'UNKNOWN',health_scope:'TOOLKIT_DEPENDENCY_ONLY',agent_count:0};
   const agents=[];
   const defsRoot=join(ctx.zbotsRoot,'.zcode','agents');
   if(!isDir(defsRoot)){source.reason='DEFINITION_ROOT_MISSING';return {source,agents};}
@@ -396,18 +384,19 @@ async function zbotsSource(ctx){
       }
     }catch{/* a damaged playbook only costs provenance, never the roster */}
   }
-  // Native local health: the toolkit proxy answers /health on loopback.
+  // Toolkit dependency health: the free-model proxy answers /health on
+  // loopback. That is a DEPENDENCY probe ONLY - it says the toolkit is up,
+  // never that a native bot session exists. It is reported as source
+  // metadata (health_ref/health_status/health_scope) and is NEVER turned into
+  // a bot connection.
   const port=Number(ctx.env.PROXY_PORT??6446);
   const healthUrl=Number.isInteger(port)&&port>0&&port<65536?`http://127.0.0.1:${port}/health`:null;
   source.health_ref=healthUrl;
-  let connection='UNKNOWN';
   if(healthUrl){
     try{
       await nativeGet(healthUrl.replace(/\/health$/,''),'/health',{},{timeoutMs:ctx.healthTimeoutMs,fetchImpl:ctx.fetchImpl});
-      connection='CONNECTED';
       source.health_status='CONNECTED';
     }catch(error){
-      connection='NOT_RUNNING';
       source.health_status='NOT_RUNNING';
       source.reason=reasonOf(error,'HEALTH_UNAVAILABLE');
     }
@@ -421,12 +410,15 @@ async function zbotsSource(ctx){
     const nativeId=meta?.name&&meta.name?meta.name:entry.name.replace(/\.md$/,'');
     const {authorization,authorization_reason}=authFor(nativeId,ctx);
     const permission='UNKNOWN';
+    // A definition file is a DEFINITION, not a live session: the bot
+    // connection stays UNKNOWN whatever the toolkit dependency reports.
+    const connection='UNKNOWN';
     agents.push(nativeEntry({source:'zbots',kind:'agent',nativeId,
       name:nativeId,
       definition:'DEFINED',connection,authorization,authorization_reason,permission,
       status:statusFor({kind:'agent',definition:'DEFINED',connection,authorization,permission}),
       ref:file,
-      reason:connection==='CONNECTED'?null:'no local health endpoint answered; definition only',
+      reason:'definition only; no native bot session was started or verified (toolkit dependency health is not a session)',
       extra:{description:clamp(meta?.description??''),model:clamp(meta?.model??''),
         sha256:hashes.get(nativeId)??null,definition_source:'local-file'}}));
   }
@@ -518,7 +510,7 @@ export async function discoverNativeAgents({
     env,fetchImpl,registry,registryError,catalog,
     nowIso:new Date(now()).toISOString(),
     repoRoot,projectRoot,
-    zcodeRoot:roots?.zcode??join(projectRoot,'ZCode'),
+    zcodeRoot:roots?.zcode??join(home,'.zcode'),
     zbotsRoot:roots?.zbots??join(projectRoot,'zcode-bots'),
     rolesRoot:roots?.roles??join(repoRoot,'workspace','aion','sessions','roles'),
     configHome:roots?.opencodeConfig??join(env.XDG_CONFIG_HOME||join(home,'.config'),'opencode'),
