@@ -62,7 +62,21 @@
       "approaches": [],
       "decision_refs": [
         "DEC-06"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "NONE",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0005"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-02",
@@ -87,7 +101,21 @@
       ],
       "decision_refs": [
         "DEC-01"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "NONE",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0002"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-03",
@@ -107,7 +135,21 @@
         "AX-0001"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODS_AND_OPTIONAL_PROTOCOLS",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0001"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-04",
@@ -129,7 +171,23 @@
         "AX-0007"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODS_AND_OPTIONAL_PROTOCOLS",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0001",
+          "AX-0002",
+          "AX-0007"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-05",
@@ -151,7 +209,23 @@
         "AX-0006"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODOLOGY",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0001",
+          "AX-0004",
+          "AX-0006"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-06",
@@ -178,7 +252,23 @@
       ],
       "decision_refs": [
         "DEC-02"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODS_AND_OPTIONAL_PROTOCOLS",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0001",
+          "AX-0004",
+          "AX-0008"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-07",
@@ -198,7 +288,21 @@
         "AX-0001"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODOLOGY",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0001"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-08",
@@ -225,7 +329,22 @@
       ],
       "decision_refs": [
         "DEC-03"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODOLOGY",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0004",
+          "AX-0009"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-09",
@@ -247,7 +366,23 @@
         "AX-0010"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODS_AND_OPTIONAL_PROTOCOLS",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0001",
+          "AX-0004",
+          "AX-0010"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-10",
@@ -267,7 +402,21 @@
         "AX-0015"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODS_AND_OPTIONAL_PROTOCOLS",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0015"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-11",
@@ -285,7 +434,19 @@
       ],
       "exchange_ids": [],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "NONE",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-12",
@@ -311,7 +472,22 @@
       ],
       "decision_refs": [
         "DEC-07"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODS_AND_OPTIONAL_PROTOCOLS",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0004",
+          "AX-0011"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-13",
@@ -331,7 +507,21 @@
         "AX-0013"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODS_AND_OPTIONAL_PROTOCOLS",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0013"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-14",
@@ -351,7 +541,21 @@
         "AX-0014"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODOLOGY",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0014"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-15",
@@ -376,7 +580,21 @@
       ],
       "decision_refs": [
         "DEC-04"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODS_AND_OPTIONAL_PROTOCOLS",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0012"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-16",
@@ -402,7 +620,22 @@
       ],
       "decision_refs": [
         "DEC-05"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "METHODOLOGY",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [
+          "AX-0003",
+          "AX-0005"
+        ],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-17",
@@ -422,7 +655,19 @@
       "approaches": [],
       "decision_refs": [
         "DEC-08"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "NONE",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     },
     {
       "id": "DEV-18",
@@ -442,7 +687,19 @@
       "approaches": [],
       "decision_refs": [
         "DEC-09"
-      ]
+      ],
+      "ownership": {
+        "delivery_owner": "AION_DEVELOPMENT",
+        "implementation_policy": "IN_HOUSE",
+        "external_input_type": "NONE",
+        "external_input_optional": true,
+        "external_input_blocks_development": false
+      },
+      "leverage": {
+        "methodology_refs": [],
+        "protocol_contract_candidates": [],
+        "code_reuse_authorized": false
+      }
     }
   ],
   "integrations": [
@@ -827,7 +1084,14 @@
       "exchange_topics": [
         "receive.identity"
       ],
-      "detail": "65-record crosswalk; research only"
+      "detail": "65-record crosswalk; research only",
+      "role": "NON_BLOCKING_EVIDENCE_PROVIDER",
+      "deliverables": [
+        "ENGINEERING_METHODOLOGY",
+        "SELECTIVE_PROTOCOL_CONTRACT",
+        "RISKS_AND_TEST_PATTERNS"
+      ],
+      "implementation_owner": "AION_DEVELOPMENT"
     },
     {
       "lane": "vomega",
@@ -835,7 +1099,14 @@
       "exchange_topics": [
         "semantic.command.compile"
       ],
-      "detail": "6 KEEP/5 ADAPT NLCL assessment"
+      "detail": "6 KEEP/5 ADAPT NLCL assessment",
+      "role": "NON_BLOCKING_EVIDENCE_PROVIDER",
+      "deliverables": [
+        "ENGINEERING_METHODOLOGY",
+        "SELECTIVE_PROTOCOL_CONTRACT",
+        "RISKS_AND_TEST_PATTERNS"
+      ],
+      "implementation_owner": "AION_DEVELOPMENT"
     },
     {
       "lane": "external-nine",
@@ -844,7 +1115,14 @@
         "external-nine.capability-ownership",
         "receive.identity"
       ],
-      "detail": "9 source snapshots; no verified code-level capability owner"
+      "detail": "9 source snapshots; review methods and specific relevant contracts; no default winning donor or code transplant.",
+      "role": "NON_BLOCKING_EVIDENCE_PROVIDER",
+      "deliverables": [
+        "ENGINEERING_METHODOLOGY",
+        "SELECTIVE_PROTOCOL_CONTRACT",
+        "RISKS_AND_TEST_PATTERNS"
+      ],
+      "implementation_owner": "AION_DEVELOPMENT"
     },
     {
       "lane": "research",
@@ -853,7 +1131,14 @@
         "native.paths",
         "chat.lifecycle"
       ],
-      "detail": "40 operations, 25 routes, 1000 researched mappings; not executable"
+      "detail": "40 operations, 25 routes, 1000 researched mappings; not executable",
+      "role": "NON_BLOCKING_EVIDENCE_PROVIDER",
+      "deliverables": [
+        "ENGINEERING_METHODOLOGY",
+        "SELECTIVE_PROTOCOL_CONTRACT",
+        "RISKS_AND_TEST_PATTERNS"
+      ],
+      "implementation_owner": "AION_DEVELOPMENT"
     }
   ],
   "extensions": {
@@ -872,16 +1157,53 @@
     "approach_record": {
       "approach_id": "stable opaque ID",
       "description": "pattern or implementation route",
-      "origin": "AION|DONOR|PROVIDER_NATIVE|EXPERIMENT",
+      "origin": "AION_INHOUSE_APPROACH (harvest references tracked separately)",
       "evidence_refs": [],
       "tradeoffs": [],
       "fidelity": "UNKNOWN|SAME_WEB_CONVERSATION|NEW_API_SESSION|LOCAL_RUNTIME",
       "license_risk": "UNKNOWN",
       "status": "PROPOSED|EXPERIMENTING|SELECTED|REJECTED|DEFERRED",
       "decision_ref": null,
-      "note": "Full alternative evaluations live at decisions[].alternatives; areas[].approaches are stable IDs referencing them. New alternatives may be recorded before selection."
+      "note": "Full alternative evaluations live at decisions[].alternatives; areas[].approaches are stable IDs referencing them. New alternatives may be recorded before selection.",
+      "leverage_refs": []
     },
     "permitted_new_areas": true,
-    "require_evidence_for_promotion": true
+    "require_evidence_for_promotion": true,
+    "external_leverage_record": {
+      "source_repo": "source identification",
+      "methodology": "analyzed development method or test pattern",
+      "protocol_contract": "null or explicitly versioned normative contract",
+      "applicability": "AION-owned capability/contract seam",
+      "evidence_refs": [],
+      "value": "concrete change to decision/test",
+      "limitations": [],
+      "disposition": "ADOPT_METHOD|REVIEW_PROTOCOL|NOTE_ONLY|REJECT",
+      "requires_external_code": false
+    }
+  },
+  "separation": {
+    "policy": "AION builds, owns, tests and maintains all product/runtime code. Harvest is nonblocking advisory input, not donor module supply or source-owner assignment.",
+    "development_plane": {
+      "implementation_owner": "AION_DEVELOPMENT",
+      "tracked_by": "areas[] / integrations[] / roadmap[]",
+      "source_type": "AION_MAIN_OR_CANDIDATE"
+    },
+    "external_reference_plane": {
+      "methodology": "examples/strategies/algorithms/test methods, design choices reimplemented in-house",
+      "protocol_contract": "specific versioned published contract considered for compatibility only",
+      "not_a_build_dependency": true,
+      "no_primary_donor_requirement": true
+    },
+    "source_reuse_exception": {
+      "permitted_without_new_decision": false,
+      "prerequisites": [
+        "Explicit Development choice",
+        "License review",
+        "Security and data-flow review",
+        "Scoped reusable module identity/version",
+        "Tests and maintenance ownership"
+      ]
+    },
+    "promotion_rule": "No harvest finding, protocol proposal, donor test or research P0 row promotes implementation, executable route, grant or live verification."
   }
 }
