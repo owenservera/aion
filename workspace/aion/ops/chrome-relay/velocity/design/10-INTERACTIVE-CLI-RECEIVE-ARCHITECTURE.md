@@ -2,6 +2,8 @@
 
 **Date:** 2026-10-20. **Status:** ASSESSED / DESIGN FOR NEXT CODE SLICES; not implemented or live-verified. **Authority:** existing Chrome Extension Track B, PR #46; architecture context Harvest Crosswalk C-004 PR #41; command-space registry PR #47 at `69a967b9ece61e3f039ed98983eb4837b414ffef`. All three sources currently reside in separate branches. GitHub is source/handoff, not runtime.
 
+> **Independent review (2026-10-20):** see [11-PRINCIPAL-ARCHITECT-REVIEW-2026-10-20.md](11-PRINCIPAL-ARCHITECT-REVIEW-2026-10-20.md) — recommendations and open owner decisions; not yet accepted.
+
 ## Decision: enough evidence to build; one targeted crosswalk enrichment, not another broad Harvest
 
 PR #47 supplies 550 route-command mappings across 13 providers and 22 semantic commands, but they represent planning rows: 455 NOT_RESEARCHED, 73 DOCUMENTATION_ONLY, 22 INTERNAL_REPO_REPORT, zero LIVE_VERIFIED. 373 native support UNKNOWN, 91 CANDIDATE, 86 DOCUMENTED. 365 AION routes PENDING, 163 PLANNED, 22 OFFLINE_IMPLEMENTED. The CSV has no stable provider_id/route_id, no strongly typed input/output contracts, no session-specific evidence and no executable implementation address; its SQLite generator indexes discovery records. It is **sufficient as semantic research** and must **not yet drive Bus routing**, especially when route fidelity NEW_API_SESSION differs from the explicitly bound SAME_WEB_CONVERSATION.
