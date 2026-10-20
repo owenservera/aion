@@ -20,4 +20,6 @@ Add/update a small number of OFFER or GAP entries in [`../EXCHANGE.jsonl`](../EX
 
 **Delivery threshold:** an engineer can immediately decide whether to use the finding, commission one bounded follow-up, or reject it, **without reading nine repositories**. A record grounded only in README/guesswork stays `DOC_ONLY / NEEDS_EVIDENCE`.
 
+**Developer demand is now explicit:** start from the [Development master](../../DEVELOPMENT-MASTER.md) / [index](../../DEVELOPMENT-INDEX.json) and match `topic` in the existing exchange. Prioritize `AX-0004` donor ownership and `AX-0006` receive/identity evidence, then deliver on `AX-0008` receive transport and `AX-0009` guarded Send/correlation. Later clusters map to `AX-0011` adapters, `AX-0013` lifecycle and `AX-0014` attachments. Each OFFER may describe multiple researched alternatives in the optional `candidate_approaches` list; Development alone selects. **Do not impose an implementation just because a repo has code.**
+
 **First assignment:** resolve [AX-0004](../EXCHANGE.jsonl) and then [AX-0006](../EXCHANGE.jsonl). The nine source folders are already available—do not re-clone, run donor code, or start overlapping deep-harvest tasks merely to produce the triage.
