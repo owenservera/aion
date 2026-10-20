@@ -1,5 +1,7 @@
 # AION Platform — independent Principal Architect review (interactive CLI, receive plane, semantics)
 
+**ACCEPTED DIRECTION:** The owner accepted the recommendations; implementation decisions, qualifications and remaining evidence requirements are captured in **[12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md](12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md)**. This independent review remains the rationale, not a competing source of truth.
+
 **Date:** 2026-10-20 · **Reviewer:** Claude (Opus 5.5), independent architecture review requested by the owner · **Status:** REVIEW / RECOMMENDATIONS — not an implementation, not an accepted decision, no runtime code changed.
 
 **Pinned source:** branch `track-b/platform-local-candidate-20261020` at **`4647bd4452f787d08c38cb9a1679098922c9732b`** (PR #46 head, includes the issue-48 crosswalk commit `bb92de2`). PR #47 at `69a967b9ece61e3f039ed98983eb4837b414ffef`. PR #41 at `ae3fe8881bea77604cf8cc7dae3bd3a67168e1bc`. Live evidence: `workspace/aion/agents/windows-master/LIVE-INTEGRATION-2026-10-19.md`.
