@@ -1,0 +1,334 @@
+{
+  "schema": "aion.platform.semantic-seed/0.1",
+  "edition": "2026-10-20-harvest-c003",
+  "status": "PROPOSED_DESIGN_ONLY",
+  "executable": false,
+  "source_authority": "AION_CURRENT_RUNTIME_CONTRACTS",
+  "donor_status": "CANDIDATE_INTELLIGENCE_NOT_RUNTIME_PROOF",
+  "provenance": {
+    "aion_branch": "track-b/implementation-rounds-20261019",
+    "strategy_pr": 39,
+    "crosswalk_pr": 41,
+    "crosswalk_sha": "7fcd334a07086282cfcb0097d198ce2017ccafad",
+    "final_pr": 40,
+    "final_head": "4454f9b913b4e3e5baeb8671daab127ca36030b3",
+    "omega_pr": 37,
+    "omega_head": "556aaaace61b3321c68c56bed1a8f7f96d697b8c",
+    "counts": {
+      "final_copied": 27,
+      "omega_copied": 26,
+      "omega_flagged": 12,
+      "total_records": 65
+    },
+    "queue_path": "workspace/aion/ops/chrome-relay/harvest/landing/synthesis/integration-queue.md"
+  },
+  "invariants": [
+    "Existing aion.bus/1 owns operations, grants, binding, dispatch, idempotency, and no-resend",
+    "Declarative seed cannot authorize, route, bind, infer READY, or cause an external effect",
+    "Unknown rule or risk classification fails closed for side-effecting operations",
+    "Potential external effect after dispatch never triggers automatic retry or alternate activation",
+    "Ambiguous or stale control identity cannot be resolved by ranking and cannot actuate",
+    "Session, stream, conversation snapshot, current availability, authority, and operation outcome remain distinct",
+    "Track A isolation, owner Windows master and no Playwright/Puppeteer/Orca remain unchanged"
+  ],
+  "axes": {
+    "provider_family": [
+      "ai_chat_webapp",
+      "bespoke_webapp",
+      "native_agent_runtime",
+      "protocol_service"
+    ],
+    "application_shape": [
+      "conversational_thread",
+      "coding_ide",
+      "messaging_app",
+      "structured_workflow",
+      "unknown"
+    ],
+    "realization_mode": [
+      "browser_mediated",
+      "api_native",
+      "simulator",
+      "unknown"
+    ],
+    "semantic_capability": "stable logical operation independent of provider-specific actuation",
+    "provider_realization": "concrete adapter/owner/path, provider-specific effects and evidence",
+    "surface": "where the capability is exposed (page, CLI, protocol, app)",
+    "transport": "how request and evidence cross boundaries; not provider class",
+    "identity": [
+      "provider",
+      "account",
+      "runtime",
+      "binding",
+      "session",
+      "conversation",
+      "message",
+      "stream",
+      "operation"
+    ],
+    "historical_proof": [
+      "not_assessed",
+      "source_observed",
+      "offline_tested",
+      "live_verified"
+    ],
+    "live_availability": [
+      "UNKNOWN",
+      "STALE",
+      "UNSUPPORTED",
+      "BLOCKED",
+      "UNVERIFIED",
+      "READY"
+    ],
+    "authority": [
+      "UNKNOWN",
+      "DENIED",
+      "EXPIRED",
+      "GRANTED"
+    ],
+    "effect_evidence": [
+      "NOT_ATTEMPTED",
+      "ATTEMPTED_UNCONFIRMED",
+      "SUBMISSION_OBSERVED",
+      "REPLY_CHECKED",
+      "UNKNOWN_EFFECT"
+    ]
+  },
+  "relationships": [
+    "belongs_to_family",
+    "has_shape",
+    "realized_by",
+    "implements_semantic",
+    "exposed_on",
+    "observed_via",
+    "bound_to",
+    "authorized_by",
+    "requires",
+    "evidenced_by",
+    "aliased_from",
+    "source_of"
+  ],
+  "semantic_capabilities": [
+    {
+      "id": "conversation.send",
+      "effect": "EXTERNAL_MUTATION",
+      "status": "CANDIDATE_SEMANTIC",
+      "current_mappings": [
+        "CLI send chief",
+        "Bus send",
+        "readiness submit",
+        "ChatGPT aion/chatgpt-submit"
+      ],
+      "requires": [
+        "exact_binding",
+        "fresh_unique_action_observation",
+        "separate_owner_grant",
+        "immutable_operation",
+        "one_attempt"
+      ],
+      "result_proof": [
+        "positive_new_user_turn",
+        "paired_assistant_response_and_check"
+      ],
+      "donor_ids": [
+        "VF-0005",
+        "VF-0011",
+        "VO-GH-0005"
+      ],
+      "notes": "ChatGPT-specific submission proof; not an assumption about Claude or native OpenCode"
+    },
+    {
+      "id": "conversation.observe_reply",
+      "effect": "READ",
+      "status": "CANDIDATE_SEMANTIC",
+      "current_mappings": [
+        "aion observe",
+        "aion/chatgpt-observe"
+      ],
+      "requires": [
+        "operation_identity",
+        "authorized_read_scope"
+      ],
+      "result_proof": [
+        "task_bound_observer_or_unknown"
+      ],
+      "donor_ids": [
+        "VF-0014",
+        "VO-GH-0032"
+      ]
+    },
+    {
+      "id": "conversation.stop_generation",
+      "effect": "EXTERNAL_MUTATION",
+      "status": "FUTURE_UNSUPPORTED",
+      "current_mappings": [],
+      "requires": [
+        "separate_explicit_authority",
+        "fresh_stop_availability",
+        "exact_binding"
+      ],
+      "result_proof": [
+        "attempt_and_effect_distinguished"
+      ],
+      "donor_ids": [
+        "VF-0022"
+      ],
+      "notes": "Not interchangeable with Bus stop, executor interrupt, or disposal"
+    },
+    {
+      "id": "executor.prompt",
+      "effect": "EXTERNAL_MUTATION",
+      "status": "MAPPED_EXISTING_NATIVE_PATH",
+      "current_mappings": [
+        "CLI send opencode",
+        "OpenCode V2 adapter"
+      ],
+      "requires": [
+        "granted_cwd",
+        "validated_native_options",
+        "existing_bus_admission",
+        "session_or_attempt_identity"
+      ],
+      "result_proof": [
+        "native_service_submission_and_terminal_readback"
+      ],
+      "donor_ids": [
+        "VO-GH-0001"
+      ],
+      "notes": "Native semantics remain provider-specific; does not imply a browser conversation"
+    },
+    {
+      "id": "capability.inspect",
+      "effect": "READ",
+      "status": "MAPPED_EXISTING_PROJECTION",
+      "current_mappings": [
+        "aion capabilities",
+        "aion.capability/1"
+      ],
+      "requires": [
+        "read_only",
+        "source_identity",
+        "freshness_attribution"
+      ],
+      "result_proof": [
+        "observed_or_unknown"
+      ],
+      "donor_ids": [
+        "VF-0008",
+        "VO-GH-0009"
+      ]
+    },
+    {
+      "id": "operation.observe",
+      "effect": "READ",
+      "status": "MAPPED_EXISTING_PATH",
+      "current_mappings": [
+        "aion observe <operation-id>"
+      ],
+      "requires": [
+        "immutable_operation_id"
+      ],
+      "result_proof": [
+        "existing_bus_readback_or_unknown"
+      ],
+      "donor_ids": [
+        "VO-GH-0032"
+      ]
+    },
+    {
+      "id": "operation.dispose",
+      "effect": "LOCAL_STATE_MUTATION",
+      "status": "MAPPED_EXISTING_OWNER_ACTION",
+      "current_mappings": [
+        "aion dispose <operation-id> --saw ..."
+      ],
+      "requires": [
+        "explicit_owner_disposition"
+      ],
+      "result_proof": [
+        "disposition_receipt"
+      ],
+      "donor_ids": [],
+      "notes": "Releases lock only under existing rules; never proves external delivery or undoes a turn"
+    }
+  ],
+  "provider_examples": [
+    {
+      "provider_id": "chatgpt.com",
+      "family": "ai_chat_webapp",
+      "shape": "conversational_thread",
+      "realization": "browser_mediated",
+      "adapter": "chatgpt.com",
+      "status": "EXISTING_ADAPTER_LIVE_CHROME_UNVERIFIED",
+      "donor_ids": [
+        "VF-0001"
+      ],
+      "capabilities": [
+        "conversation.send",
+        "conversation.observe_reply"
+      ]
+    },
+    {
+      "provider_id": "claude.ai",
+      "family": "ai_chat_webapp",
+      "shape": "conversational_thread",
+      "realization": "browser_mediated",
+      "adapter": null,
+      "status": "DONOR_MANIFEST_ONLY_NO_AION_ADAPTER",
+      "donor_ids": [
+        "VF-0002",
+        "VF-0021"
+      ],
+      "capabilities": []
+    },
+    {
+      "provider_id": "opencode-v2",
+      "family": "native_agent_runtime",
+      "shape": "coding_ide",
+      "realization": "api_native",
+      "adapter": "opencode-v2",
+      "status": "EXISTING_NATIVE_ADAPTER_WITH_REPORTED_WINDOWS_RECEIPTS",
+      "donor_ids": [],
+      "capabilities": [
+        "executor.prompt"
+      ]
+    },
+    {
+      "provider_id": "bespoke-webapp-example",
+      "family": "bespoke_webapp",
+      "shape": "structured_workflow",
+      "realization": "unknown",
+      "adapter": null,
+      "status": "DESIGN_COUNTEREXAMPLE_ONLY",
+      "donor_ids": [
+        "VF-0004"
+      ],
+      "capabilities": []
+    }
+  ],
+  "alias_policy": {
+    "runtime_id_renames": "NOT_AUTHORIZED",
+    "migration": "OPEN_DECISION",
+    "initial_strategy": "read_only_crosswalk",
+    "alias_unrecognized": "UNKNOWN_NO_FALLBACK",
+    "no_rewrite": [
+      "Bus ledger",
+      "command IDs",
+      "grant IDs",
+      "bindings",
+      "browser journal",
+      "active operation locks"
+    ]
+  },
+  "acceptance_minimum": [
+    "undefined side-effect risk => refused",
+    "malformed rule => no READY or grant",
+    "lost acknowledgement => zero resends",
+    "ambiguous Send candidates => zero activation",
+    "provider manifest => no current availability",
+    "historical promotion => no live authority",
+    "stream complete alone => not REPLY_CHECKED",
+    "unsupported semantic => refusal without effects"
+  ],
+  "activation_condition": "No runtime may load or execute this design seed without a separately versioned implementation, schema validation, negative tests, explicit owner acceptance and applicable live verification."
+}
