@@ -5,7 +5,7 @@
 ## Executive state
 
 - **Governance:** `main` is the sole permanent integration/development branch. Track A deprecated; Track B is Development workstream, not a permanent parallel track. Windows local workspace remains human-controlled master. Source snapshots/research on `main` are not runtime authorization.
-- **Worker charter:** [LAUNCH-PROMPT.md](LAUNCH-PROMPT.md) exists on `main` and defines the full assignment, including flexible multi-approach schema evolution and Development-facing deliveries.
+- **Worker operating contract:** [DELIVERABLES.md](DELIVERABLES.md) now defines seed outcomes and autonomous organization on `main`. [LAUNCH-PROMPT.md](LAUNCH-PROMPT.md) is retained as reference context, not the primary execution prompt.
 - **Source custody:** all **nine donor source directories exist on `main`** under `external/landing/donors/`: `cdpilot`, `cereon-browser-operator`, `chatall`, `chatgpt-bridge`, `chatgpt-web2api`, `chathub`, `council`, `multi-ai-chat`, `parallel-ai`. Exact upstream pinned SHAs and licenses require confirmation against custody records during the worker pass. Existing `sources.json` still contains stale `clone_status=PENDING_NOT_EXECUTED`; **do not mistake this metadata for the actual current directory state**.
 - **Shared contract:** `harvest/EXCHANGE.md` and `harvest/EXCHANGE.jsonl` exist; six seeded JSONL records. The shared exchange is the outward request/delivery interface, **not proof of six completed implementation tasks**.
 - **Prior intelligence:** `harvest/landing/synthesis/integration-queue.md` is C-003 with 27 VIVIM Final + 38 Omega/VIVIM source records and prioritized recommendations. VOMEGA retention assessment is source-observed, with 6 KEEP + 5 ADAPT NLCL module candidates, **not drop-in or live-validated**.
@@ -53,7 +53,8 @@
 
 ## Source-of-truth pointers
 
-- [Worker launch](LAUNCH-PROMPT.md)
+- [Seed deliverables — primary worker entry](DELIVERABLES.md)
+- [Historical detailed charter](LAUNCH-PROMPT.md)
 - [Worker bootstrap](BOOTSTRAP.md)
 - [Repository governance](../../../../../../../../REPOSITORY-GOVERNANCE.md)
 - [Shared exchange contract](../../../EXCHANGE.md) and [records](../../../EXCHANGE.jsonl)
@@ -63,4 +64,4 @@
 - [Existing integration queue](../../../landing/synthesis/integration-queue.md)
 - [VOMEGA retention assessment](../../../landing/sources/vomega/RETENTION-ASSESSMENT.md)
 
-**Next:** read [BOOTSTRAP.md](BOOTSTRAP.md), follow [LAUNCH-PROMPT.md](LAUNCH-PROMPT.md), then begin the nine-source reconnaissance.
+**Next:** read [DELIVERABLES.md](DELIVERABLES.md) and [BOOTSTRAP.md](BOOTSTRAP.md), self-organize the first useful deliverable, then execute and report evidence.
