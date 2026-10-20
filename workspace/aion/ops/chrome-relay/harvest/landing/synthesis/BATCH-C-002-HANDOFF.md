@@ -37,3 +37,21 @@
 1. Integrator may review/merge C branch and A/B branches with ordinary conflict check; keep all source indexes owned by their respective workers and synthesis isolated to C.
 2. On A/B next published batch, C should inspect pinned revisions, capture statuses/hashes, compare new evidence with these tables and update the same five files (rather than spawning parallel specs).
 3. Development owner disposition and runtime testing are **separate**, downstream activities; do not treat this handoff as implementation or approved spec.
+
+
+---
+# C-003 final harvest addendum — SUPERCEDES C-002 COUNTS (2026-10-20)
+Final PR #40 head `4454f9b913b4e3e5baeb8671daab127ca36030b3`: **27 Final captured excerpts** VF-0001..0027. Omega PR #37 head `556aaaace61b3321c68c56bed1a8f7f96d697b8c`: **38 Omega records** VO-GH-0001..0038 (**26 copied source records, 12 flags only**). Total **65 indexed records**, 53 copied records and 12 flagged leads. Earlier C-002 references to 8/27 or 35 remote records are historical, NOT final totals. Each donor's pinned source revision remains the same as C-002. The Crosswalk C-003 additions are appended to all five synthesis documents.
+
+## Decisions / findings added
+- **Fail-open rule** VF-0026: invalid existential expressions may be treated as satisfied by donor engine; do not import. Omega VO-GH-0031 defaults missing risk to READ, unsafe for inferred external mutation.
+- **Unsafe resend implementation+test** VF-0016/0024 deliberately issues second Send in recovery; reject that behavior even if the donor test expects it.
+- **Ambiguous Send ranking** VO-GH-0030/0033 vs CENV exactly-one-target; scores can inform non-actuating diagnostics, never justify activation.
+- **Two competing provider-plugin interfaces** VF-0010/0025 require canon owner/caller verification before migration.
+- **Fixture-only Omega browser Send** VO-GH-0038 is an email vault simulation, not an actual browser Send.
+- New ordered **12-row proposal queue** [integration-queue.md](integration-queue.md) covers P0 invariant checks, P1 additive seams, P2 capability expansion, P3 deferred research and unsafe REJECT transfers.
+
+## Current handoff
+- No merge of PR #37, #40 or #41 performed; Crosswalk links independent source inventories by stable IDs and exact commits.
+- No product/spec/grant writes. No donor tests, Windows checkout access or live browser operations by Crosswalk.
+- Prioritized queue is recommendations only, not approved architecture or implementation authorization.
