@@ -2,6 +2,22 @@
 
 **Owner:** ChatGPT Development (this session and successors). **Authority:** [Development Master](../../DEVELOPMENT-MASTER.md), existing AION Bus/grants, [shared exchange](../../harvest/EXCHANGE.jsonl), and [repo governance](../../../../../../REPOSITORY-GOVERNANCE.md). **Effort for difficult integration:** High. This is a small working desk, not a new project board.
 
+## Dispatch order — show this in EVERY work update
+
+**The owner must manually send a task to each worker's dedicated chat. A GitHub TODO, commit, or link NEVER dispatches/wakes a worker.** Never describe a task as executing without an actual worker reply or artifact. Every Development SITREP/proposal must show **order, owner, assigned deliverable, dependency, actual status, and user's next dispatch action**. Always separate `SAVED_NOT_DISPATCHED` → `SENT_BY_OWNER` → `WORKER_ACKNOWLEDGED` → `WORK_IN_PROGRESS` → `DELIVERED` → `DEV_INTEGRATED_TESTED`; don't advance on assumption. Prefer short concrete tables, not new tracking systems.
+
+**Current dispatch picture (2026-10-20; update from real worker replies, not this file):**
+
+| Order | Owner | Assignment | Dependency | Status | User action |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Integration Manager | PACK-01: adapt Bridge journal/cursor code | None; can start | **SAVED_NOT_DISPATCHED** | Send dedicated worker a one-line instruction to read its DELIVERABLES and execute PACK-01 |
+| 2 (parallel) | External Nine Discovery | CDP / browser-inspection / parser leapfrog leads | None; can start alongside PACK-01 | **SAVED_NOT_DISPATCHED** | Send dedicated worker a one-line instruction to read its DELIVERABLES and execute Discovery TODOs |
+| 3 | Integration Manager | PACK-02: adapt Multi-AI read-only DOM helpers | Same worker after PACK-01 (or parallel internally) | **SAVED_NOT_DISPATCHED** | Included in Integration Manager dispatch; request source code, not prose |
+| 4 | Development (here) | Implement canonical receive contract; integrate code from PACK-01/02; run AION tests | Actual package delivery for integration; contract can start independently | **QUEUED / NO IMPLEMENTATION RECEIPT** | No external chat needed |
+| 5 | Development + owner-authorized local agent | Live I1 watch-only external ChatGPT message appears in CLI | Working integrated I0/I1 path | **BLOCKED** | Dispatch local live test only when Development requests it |
+
+**Owner dispatch wording:** Integration Manager: “Read your DELIVERABLES.md, build and commit actual PACK-01 then PACK-02 adapted code, report SHA. High thinking effort.” Discovery: “Read your DELIVERABLES.md, execute the CDP/parser/transport leapfrog discovery TODOs, post at most three source-backed leads. No tests. High thinking effort.” These are messages to send, **not sent messages**.
+
 ## Active TODO — Development
 
 - [ ] Define/implement the canonical `aion.conversation.event/1` and `snapshot/1` contract at the accepted P1 path; separate binding, page epoch, message/revision, cursor and Bus operation ID.
