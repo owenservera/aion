@@ -38,7 +38,8 @@
       "candidate_ahead": 208,
       "candidate_behind": 22
     },
-    "note": "Refs drift; recompare before merging or changing status"
+    "note": "Refs drift; recompare before merging or changing status",
+    "exchange_updated": "2026-10-20; AX-0001..AX-0015 including nine new Development NEEDs"
   },
   "areas": [
     {
@@ -59,7 +60,9 @@
         "AX-0005"
       ],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [
+        "DEC-06"
+      ]
     },
     {
       "id": "DEV-02",
@@ -78,8 +81,13 @@
       "exchange_ids": [
         "AX-0002"
       ],
-      "approaches": [],
-      "decision_refs": []
+      "approaches": [
+        "BUS-A",
+        "BUS-B"
+      ],
+      "decision_refs": [
+        "DEC-01"
+      ]
     },
     {
       "id": "DEV-03",
@@ -117,7 +125,8 @@
       ],
       "exchange_ids": [
         "AX-0001",
-        "AX-0002"
+        "AX-0002",
+        "AX-0007"
       ],
       "approaches": [],
       "decision_refs": []
@@ -160,10 +169,16 @@
       ],
       "exchange_ids": [
         "AX-0001",
-        "AX-0004"
+        "AX-0004",
+        "AX-0008"
       ],
-      "approaches": [],
-      "decision_refs": []
+      "approaches": [
+        "RX-A",
+        "RX-B"
+      ],
+      "decision_refs": [
+        "DEC-02"
+      ]
     },
     {
       "id": "DEV-07",
@@ -200,10 +215,17 @@
         "extension/src/providers/chatgpt/actuator.js (proposed)"
       ],
       "exchange_ids": [
-        "AX-0004"
+        "AX-0004",
+        "AX-0009"
       ],
-      "approaches": [],
-      "decision_refs": []
+      "approaches": [
+        "TX-A",
+        "TX-B",
+        "TX-C"
+      ],
+      "decision_refs": [
+        "DEC-03"
+      ]
     },
     {
       "id": "DEV-09",
@@ -221,7 +243,8 @@
       ],
       "exchange_ids": [
         "AX-0001",
-        "AX-0004"
+        "AX-0004",
+        "AX-0010"
       ],
       "approaches": [],
       "decision_refs": []
@@ -240,7 +263,9 @@
       "source_refs": [
         "velocity/src/engines/; velocity/src/conversation/opencode-source.mjs (proposed)"
       ],
-      "exchange_ids": [],
+      "exchange_ids": [
+        "AX-0015"
+      ],
       "approaches": [],
       "decision_refs": []
     },
@@ -277,10 +302,16 @@
         "velocity/src/platform/semantics.mjs; harvest/landing/synthesis/"
       ],
       "exchange_ids": [
-        "AX-0004"
+        "AX-0004",
+        "AX-0011"
       ],
-      "approaches": [],
-      "decision_refs": []
+      "approaches": [
+        "FAM-A",
+        "FAM-B"
+      ],
+      "decision_refs": [
+        "DEC-07"
+      ]
     },
     {
       "id": "DEV-13",
@@ -296,7 +327,9 @@
       "source_refs": [
         "../command-space/CORE-OPERATIONS.csv"
       ],
-      "exchange_ids": [],
+      "exchange_ids": [
+        "AX-0013"
+      ],
       "approaches": [],
       "decision_refs": []
     },
@@ -314,7 +347,9 @@
       "source_refs": [
         "velocity/src/engines/; ../command-space/aion_command_matrix.csv"
       ],
-      "exchange_ids": [],
+      "exchange_ids": [
+        "AX-0014"
+      ],
       "approaches": [],
       "decision_refs": []
     },
@@ -332,9 +367,16 @@
       "source_refs": [
         "../command-space/ROUTE-ORIGINS.csv; ../command-space/AION-INTEGRATION.md"
       ],
-      "exchange_ids": [],
-      "approaches": [],
-      "decision_refs": []
+      "exchange_ids": [
+        "AX-0012"
+      ],
+      "approaches": [
+        "ROUTE-A",
+        "ROUTE-B"
+      ],
+      "decision_refs": [
+        "DEC-04"
+      ]
     },
     {
       "id": "DEV-16",
@@ -354,8 +396,13 @@
         "AX-0003",
         "AX-0005"
       ],
-      "approaches": [],
-      "decision_refs": []
+      "approaches": [
+        "NLC-A",
+        "NLC-B"
+      ],
+      "decision_refs": [
+        "DEC-05"
+      ]
     },
     {
       "id": "DEV-17",
@@ -373,7 +420,9 @@
       ],
       "exchange_ids": [],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [
+        "DEC-08"
+      ]
     },
     {
       "id": "DEV-18",
@@ -391,7 +440,9 @@
       ],
       "exchange_ids": [],
       "approaches": [],
-      "decision_refs": []
+      "decision_refs": [
+        "DEC-09"
+      ]
     }
   ],
   "integrations": [
@@ -827,7 +878,8 @@
       "fidelity": "UNKNOWN|SAME_WEB_CONVERSATION|NEW_API_SESSION|LOCAL_RUNTIME",
       "license_risk": "UNKNOWN",
       "status": "PROPOSED|EXPERIMENTING|SELECTED|REJECTED|DEFERRED",
-      "decision_ref": null
+      "decision_ref": null,
+      "note": "Full alternative evaluations live at decisions[].alternatives; areas[].approaches are stable IDs referencing them. New alternatives may be recorded before selection."
     },
     "permitted_new_areas": true,
     "require_evidence_for_promotion": true
