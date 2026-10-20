@@ -3,7 +3,7 @@ Status: PROVISIONAL, no implementation priority assigned. Evidence: [FINDINGS](.
 
 ## Evidence and coverage notation
 - F = first-pass finding or reported candidate; O = source excerpt directly observed in original FINDINGS (only where explicitly identified); D = donor design proposal; A = existing AION **target specification** (not installed/implemented proof); P = A/B captured immutable landing record; T = recorded offline test; L = current authorized live observation.
-- A category having F or O does **not** mean AION provides it, nor that a donor implementation works. No donor source revisions are known; no A/B P records or Crosswalk-run tests were available in C-001. Do not assign numeric scores that hide these distinctions.
+- A category having F or O does **not** mean AION provides it, nor that a donor implementation works. At C-001 donor revisions and A/B P records were not yet visible; C-002 below adds pinned remote captures. No Crosswalk-run tests were performed. Do not assign numeric scores that hide these distinctions.
 - Scope is relevant concepts across donors, not a claim to have exhaustively inspected either repo. High-value gaps are collection requests, not build priorities.
 
 | Capability / question | Vivim-final seed(s) | Vivim-omega seed(s) | Existing AION target/seam | Evidence currently held | Gaps/uncertainties |
@@ -56,3 +56,43 @@ Status: PROVISIONAL, no implementation priority assigned. Evidence: [FINDINGS](.
 
 ## Coverage update protocol
 When A/B publish, add immutable VF-/VO- capture IDs beside each seed, with source_revision, source_path, line_ranges, coverage, copied_paths and hashes. Move evidence level to P only for actual captured scopes; move to T or L only with exact command/run/UTC or authorized observation. Preserve each donor's original concept even if Track B does not adopt it. No auto-prioritization or product readiness promotion follows this table.
+
+## C-002 — actual remote capture coverage (supersedes seed P=0)
+Source revisions: final@8a798f91d52574cb3d7db579da516bc1c4aee7b7 and omega@79ee558d6c7ea77c20f220db2341adaa57b11d44. Worker A published 8 excerpt-copied records; Worker B published 15 complete small modules/documents and 12 flagged search-hit candidates, all without live tests. The original 16 FINDINGS IDs remain *local reconnaissance leads*, not equivalent to these pinned remote files. This source capture coverage does not imply that AION implements, grants or currently supports the capabilities.
+
+### Capture ID -> coverage map (all 35 IDs)
+| Remote landing IDs | Kind / observed domain | C-002 evidence | AION topic without adoption |
+|---|---|---|---|
+| VF-0001; VF-0002 | ChatGPT and Claude static manifests (final seeds/providers/manifests.ts) | 2 copied excerpts, final@8a798f91d52574cb3d7db579da516bc1c4aee7b7 | Named AI-chat provider instances; capabilities declared, no actual Send state |
+| VF-0003; VF-0004 | Generic chat_app and bespoke coding_ide shape examples | 2 copied excerpts, same final shape owner | UI archetype and projection; selectors are hints, not proof |
+| VF-0005 | Semantic capability catalog | copied excerpt, final capability-taxonomy.ts | semantic operation vs UI affordance |
+| VF-0006 | Resolved capability type/availability-gating contract | copied excerpt, final capability-resolution.ts | per-action resolution and metadata; not current availability |
+| VF-0007 | Plan tier / existential rule / dependencies active-binding filter | copied excerpt, same final resolution owner | context rule filtering, separate from action observation and Bus permission |
+| VF-0008 | Unified capability surface/handler contract | copied excerpt, final unified-registry.ts | semantic catalog projection across surfaces |
+| VO-GH-0001 | Plugin manifest, RiskClass, ProviderClass and runtimes | copied complete module, omega contracts/src/manifest.ts | Provider realization mode, independently of app family |
+| VO-GH-0002 | RealizationStatus, EpistemicStatus, provenance | copied complete module, vocabulary.ts | provenance confidence vs freshness/current control |
+| VO-GH-0003 | ProviderRealization and consolidated contract facade | copied complete module, provider.ts | realization identity and evidence references |
+| VO-GH-0004 | PortResult, StreamChunk, stream sequence | copied complete module, port.ts | ordered stream evidence, not response completion proof |
+| VO-GH-0005 | shared routed-op surface metadata | copied complete module, surface.ts | single derivation for listed capabilities |
+| VO-GH-0006 | OutcomeStatus UNKNOWN/UNSUPPORTED/AMBIGUOUS/CONTRADICTORY/REFUSED | copied complete module, outcome.ts | preserve negative result distinctions |
+| VO-GH-0007 | realization-driven provider registry + activity | copied complete module, providers registry.ts | liveness independent of current UI readiness |
+| VO-GH-0008 | browser fixture SessionRecord/CaptureRecord | copied complete module, provider-browser session.ts | separate session/evidence from live ChatGPT operation |
+| VO-GH-0009 | deterministic-first command resolution | copied complete module, vivim-chat resolve.ts | interpretation distinct from permission/effect |
+| VO-GH-0010 | conversation, message, stream identity | copied complete module, chat.ts | scoped lineage vs matching external submission |
+| VO-GH-0011 | resolve / routed-capability unit tests | copied complete **test source**, not run | future test pattern only; no OFFLINE_TESTED credit |
+| VO-GH-0012 | browser plugin manifest, fixture email send | copied complete manifest; no live execution | example realization, **not ChatGPT transport** |
+| VO-GH-0013; VO-GH-0014 | Browser mediation and four pre-send fixture bars decisions | 2 complete design documents; not rerun | fail-closed preflight concepts, but no design authority |
+| VO-GH-0015 | MCP/CLI surface-routing design | copied complete documentation; no running evidence | capability listing independent of action availability |
+| VO-GH-0016; VO-GH-0017 | Browser fixture handler; falsifier test | **FLAGGED**, no excerpt copied | implementation boundaries/test evidence pending |
+| VO-GH-0018; VO-GH-0019; VO-GH-0020; VO-GH-0021 | discovery verify/observe/map/infer owner modules | **FLAGGED**, no excerpt copied | verify fresh observation/promotion/ambiguous candidates |
+| VO-GH-0022; VO-GH-0023 | chat handler and MCP listing | **FLAGGED**, no excerpt copied | command dispatch/visible tool surface boundaries |
+| VO-GH-0024; VO-GH-0025 | intent and agent delegation | **FLAGGED**, no excerpt copied | potential over-architecture; current Bus is authoritative |
+| VO-GH-0026; VO-GH-0027 | provider proof-bar decision; perception | **FLAGGED**, no excerpt copied | provenance method and readiness evidence pending |
+
+### Changed gap interpretation
+- **Partially filled:** concrete static provider examples (ChatGPT + Claude) and UI archetype contrasts (chat_app vs coding_ide) are now documented with immutable remote final revision [VF-0001..0004]. This is NOT real provider execution evidence.
+- **Partially filled:** Omega's provider realization/risk/outcome/capability-surface terminology is now pinned [VO-GH-0001..0015]; the remote repository is a different module layout than the local Core/BCP-dev/FullTest source cited in OMEGA-01..08.
+- **Still open:** current browser observation/readiness for two distinct providers, a named live bespoke IDE adapter, live Send/Stop semantics, exact cross-repo ancestry, full owner implementations for VO-GH-0016..0027, actual negative test receipts, and donor-to-AION status compatibility.
+- **Source coverage is not usage coverage:** exact file captures, schema implementation and true remote effect must be tracked on different axes. Source status COPIED_MODULE never implies test passed.
+
+Separate source inventories remain on the independent branches: [VF index](https://github.com/owenservera/aion/blob/harvest/vivim-final-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-final/index.jsonl) and [VO index](https://github.com/owenservera/aion/blob/harvest/omega-github-20261020/workspace/aion/ops/chrome-relay/harvest/landing/sources/vivim-omega/index.jsonl).
