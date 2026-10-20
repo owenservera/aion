@@ -29,16 +29,16 @@ export function createChatGptConversationSource({
   let revoked = false;
 
   function sample(root, proof = {}) {
-    if (revoked) return { status: 'unbound', reason: 'source_revoked', events: [], snapshot: null };
+    if (revoked) return { status: 'unbound', reason: 'source_revoked', events: [], snapshot: null, remount: null };
     // Only the caller that owns the authenticated binding supplies these facts.
     const read = observer.sample(root, proof);
     if (read.status === 'unbound' || read.status === 'reset_required') {
       revoked = true;
       latest = null;
-      return { status: read.status, reason: read.reason, events: [], snapshot: null };
+      return { status: read.status, reason: read.reason, events: [], snapshot: null, remount: null };
     }
     if (read.status !== 'observing' || !read.snapshot) {
-      return { status: read.status, reason: read.reason, events: [], snapshot: null };
+      return { status: read.status, reason: read.reason, events: [], snapshot: null, remount: null };
     }
     const now = Number.isSafeInteger(proof.nowMs) && proof.nowMs >= 0
       ? proof.nowMs : Date.now();
@@ -68,7 +68,7 @@ export function createChatGptConversationSource({
       cursor: { epoch: streamEpoch, sequence: journal.metadata().latestSequence },
       messages: read.snapshot.messages, coverage, observedAtMs: now,
     });
-    return { status: 'observing', events, snapshot: latest };
+    return { status: 'observing', events, snapshot: latest, remount: read.remount ?? null };
   }
   return Object.freeze({
     sample,

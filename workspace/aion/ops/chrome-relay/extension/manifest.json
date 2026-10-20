@@ -33,7 +33,16 @@
         "src/lib/envelope.js",
         "src/chatgpt/commander.js",
         "src/bus/grammar.js",
-        "src/bus/contracts.js"
+        "src/bus/contracts.js",
+        "src/chatgpt/receive.js",
+        "src/providers/chatgpt/account-registration.js",
+        "src/providers/chatgpt/passive-lifecycle.js",
+        "src/providers/chatgpt/source.js",
+        "src/providers/chatgpt/observer.js",
+        "src/providers/chatgpt/profile.js",
+        "src/lib/receive-journal.js",
+        "src/lib/conversation-contract.js",
+        "src/lib/terminal-evidence.js"
       ],
       "matches": [
         "https://chatgpt.com/*"

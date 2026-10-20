@@ -48,7 +48,11 @@
 - **Browser acceptance remains OPEN.** 2026-10-19 UIA independently actuated one real Send/reply readback, but the extension merely filled the composer; there was no accepted end-to-end extension relay/correlated receipt, two-turn CLI, negative test or restart recovery. No I1/I2/I3 receipts.
 - **Freshness caveat:** `main` STATE.json still presents historical `WINDOWS_DRIVEN_LOCAL_AGENTS` and a frozen implementation phase; PR #46 contains a newer Track B source-development update. **Reconcile deliberately after verified promotion**; do not blindly copy candidate machine state onto main.
 
+**Worktree update (2026-10-20):** P1 canonical contract + pure P2 are on main `e006692`. **Runtime P2/P3/P4 additions** (extension receive, account registration, passive lifecycle; Velocity inbox/repl/journal) are uncommitted on `integration/i1-watch-20261020`, not on main. Parent-direct Node 24.11.1: focused extension receive/email/lifecycle 56/56; inbox/repl/real journal 28/28; security + legacy-IPC regression 13 pass/0 fail/1 skip. Velocity 87/0/1 skip predates registration changes — not current full-green. Child-reported Sonnet receive 21/21 is unverified by parent. Direction (design 12): new-account EMAIL registration/swim-lane and configurable local-owner (default)/hardened modes; security implementation still in progress until parent validates. Live ping 20:32:34.691Z to extension `ieiookjmbhcmjbjimmjpbnpfofljmlel` via authenticated IPC is **not** message receipt; I1 UNVERIFIED/BLOCKED, no Send, no Node 22 validation. **Pending closeout:** reconcile source → full regression → refresh dev build → explicit registration → live exact-thread independent receive. A safe offline source commit/push of verified source does not require a live PASS; I1 acceptance does. Parent validation owner confirms final counts.
+
 ## 2. Product system — top down
+
+**Offline checkpoint validation, 2026-10-20:** parent-run Windows Node v24.11.1 `node --test`: extension 792/0/0 skips, Velocity 108/0/1 skip, bridge 126/0/1 skip, Bus 8/0/2 skips (pass/fail/skip). This supersedes the intermediate worktree counts above. The default local-owner and configurable hardened profiles are implemented and offline-validated; I1 remains unverified. Commit/push of this source checkpoint is not live acceptance.
 ```text
 USER: one CLI / control pane / later ACP or MCP ingress
   ├─ Semantic intent, roles, session binding, native context selection
@@ -72,7 +76,7 @@ USER: one CLI / control pane / later ACP or MCP ingress
 | CLI, commands, roles, context | Candidate `velocity/bin/aion-local.mjs`, `src/commands.mjs`, roster/context; test claims snapshot-specific | Reconcile useful candidate source into main with no implicit context egress | R0 |
 | Bus admission, durable grants and no-resend | Existing `bus/`, `extension/src/bus/`; candidate Velocity direct implementation | Keep single Node effect writer; prove exact identity/no unsafe replay | R0/I0 |
 | Identity, exact conversation binding and read scope | Candidate binding/preflight; new receive semantics not accepted as code | Define scoped, revision-aware binding separate from operations | I0 |
-| Typed event and snapshot contracts | Accepted design P1 only | **Implement** `event/1`, `snapshot/1`, validators and negatives | I0 |
+| Typed event and snapshot contracts | P1 canonical contract and pure P2 source are on main `e006692` (offline-tested only); runtime P2/P3/P4 additions are uncommitted on the integration branch (see Worktree update) | **Implement** `event/1`, `snapshot/1`, validators and negatives | I0 |
 | Chrome DOM read-only observer | Accepted design P2 only | Own small source-specific observer with bounded message identity and page epoch | P2/I1 |
 | Push hints and authoritative snapshot IPC | Existing bridge; proposed P3 receive seam only | Own data-only worker/host/IPC receive path | P3/I1 |
 | Interactive terminal REPL/inbox | Accepted design P4 only | Own memory-only inbox, watch, cursor gap handling | P4/I1 |

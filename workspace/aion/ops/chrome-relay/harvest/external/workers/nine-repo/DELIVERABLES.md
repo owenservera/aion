@@ -4,7 +4,12 @@
 
 **Governance:** one `main`, Development/Harvest/Research as cooperating subprojects; Track A deprecated; runtime/Agent Fabric work out of scope. See [SITREP](SITREP.md), [BOOTSTRAP](BOOTSTRAP.md), [full historical charter](LAUNCH-PROMPT.md), [shared exchange](../../../EXCHANGE.md).
 
-**Dispatch status (2026-10-20): SAVED_NOT_DISPATCHED.** A GitHub file or TODO does **not** activate this ChatGPT session. The owner must send the instruction in this worker's dedicated chat. When dispatched, scout CDP/parser/transport leapfrogs **in parallel** with Integration Manager's PACK-01/02. No donor verification, testing or code adaptation.
+**Dispatch status (2026-10-20): historical leapfrog sweep DELIVERED (AX-0019/20/21); next guidance below is SAVED_NOT_DISPATCHED.** A GitHub file or TODO does **not** activate this separate ChatGPT session; the owner must send it, and no current worker ACK is implied. No donor verification, testing or code adaptation.
+
+**Next guidance (source-only, max 3; no new exchange schema):**
+1. Inspect AION's own Omega SessionRecord/redaction and the nine existing session fixtures for registration-email-only leverage (`user.email` unproven; candidate already implements registration; no PACK requested yet).
+2. Inspect own VOMEGA boot/reducer and Bridge `reconnectRuntime` / `requestResumeCommands` for stale-response/reload safeguards. No Send/resend.
+3. Only actual source that reduces remaining I1 build work. Use existing verified index refs only; no whole-matrix recapture, donor tests or re-clone.
 
 ## Active TODO — External Nine Discovery
 
