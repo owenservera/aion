@@ -1,0 +1,23 @@
+{
+  "schema": "d1.declaration/0",
+  "kind": "capability",
+  "id": "prompt.send@1",
+  "title": "Send a prompt",
+  "summary": "Send text content to an AI Provider through one of your registered Accounts.",
+  "params": [
+    { "name": "account", "type": "account", "required": true, "semantic": "route.account", "explain": "Which of your Accounts the prompt goes through. It decides whose relationship with the Provider is used." },
+    { "name": "prompt", "type": "content", "required": true, "semantic": "params.prompt", "explain": "The text that would be sent. Words inside it never change where it is sent." },
+    { "name": "provider", "type": "provider", "required": false, "semantic": "route.provider", "derivedFrom": "account", "explain": "The external service. It follows from the Account." },
+    { "name": "model", "type": "model", "required": false, "semantic": "route.model", "explain": "Optional model offered within the Account. Not needed for the first release journey." }
+  ],
+  "consequence": {
+    "class": "external-transfer",
+    "crossesLocalBoundary": true,
+    "carries": ["params.prompt"],
+    "to": "route.provider",
+    "explain": "The prompt text would leave your machine and go to the Provider through the selected Account."
+  },
+  "authority": { "requires": "consent", "scope": "per-command" },
+  "evidence": { "classes": ["SIMULATED"], "explain": "In D1 every execution is virtual. A SIMULATED receipt proves the semantic path ran, not that any Provider received anything." },
+  "realizations": ["d1-virtual.prompt.send@1"]
+}
