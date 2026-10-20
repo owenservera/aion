@@ -4,6 +4,16 @@
 
 **Governance:** one `main`, Development/Harvest/Research as cooperating subprojects; Track A deprecated; runtime/Agent Fabric work out of scope. See [SITREP](SITREP.md), [BOOTSTRAP](BOOTSTRAP.md), [full historical charter](LAUNCH-PROMPT.md), [shared exchange](../../../EXCHANGE.md).
 
+## Active discovery assignment — scout the biggest shortcut (2026-10-20)
+
+**No more deep investigation of Bridge/Multi-AI for PACK-01/02 unless Integration Manager requests a missing symbol.** They already have a pinned handoff. Run one bounded, source-only leapfrog sweep:
+
+1. **CDP and browser interaction:** compare `cereon-browser-operator` (modular MV3 `CdpSessionManager`, bounded accessibility tree) versus `cdpilot` (large Python CDP command engine) and other strong source paths. Find the **smallest reusable set of modules** that could eliminate browser inspection/diagnostics development. Distinguish read-only observation, direct CDP attach/debugger permission, session scope, iframe/shadow traversal and effectful actions. CDP is **not** a prerequisite for I1.
+2. **Parser/command kernel:** use the existing VOMEGA NLCL retention assessment (already captured) as the baseline, not a new harvest. Identify only truly differentiated parser/grounder/typed-command shortcuts in the nine repos, if present, with payoff for AION's future deterministic command front end.
+3. **Unexpected engines:** surface any other source-backed subsystem that would replace significant AION code (transport, recovery, provider abstraction, element registry), instead of filling 19×9 coverage for its own sake.
+
+**Return at most three strong, distinct leads** in the existing triage/AX handoff, each with pinned repo/path/function, what AION development it could eliminate, AION seam, dependencies/license and one critical limitation. Mark `BREAKTHROUGH / HIGH / NORMAL` by likely implementation leverage. **No donor test, no wiring verification, no adapted code, no implementation acceptance.** Stop once high-value actionable leads are published; continue with a different topic only if new Dev demand appears.
+
 ## Priority override: leapfrog intelligence first
 
 **Mission: find working primitives that let AION skip building whole subsystems.** Search proactively, not just against the 18 DEV areas or 19 P0 commands. Particularly inspect **CDP/MV3/browser automation primitives, DOM/accessibility observation, semantic parsers/compilers, session identity/cursor/recovery, streaming/native IPC, cross-provider adapters, safe operation correlation and other reusable foundations**. An unexpected reusable engine with high payoff is a better discovery than completing a low-value coverage grid.
