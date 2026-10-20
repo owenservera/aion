@@ -1,0 +1,47 @@
+{
+  "name": "chatgpt-browser-bridge-node",
+  "version": "6.4.1",
+  "description": "Local HTTP/OpenAI-compatible bridge for a logged-in ChatGPT tab using a Chrome/Chromium extension companion.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js --server",
+    "dev": "node --watch src/index.js --server",
+    "interact": "node src/index.js",
+    "check": "node scripts/check-js.js && node scripts/check-package.js",
+    "test": "node --test",
+    "test:e2e": "node scripts/e2e-real.js",
+    "ui:codex": "node tools/codex-chat-ui/server.js",
+    "verify": "node scripts/release-verify.js",
+    "extension:install": "node scripts/extension-install.js",
+    "workflow:init": "node scripts/workflow-init.js",
+    "workflow:worker": "node scripts/workflow-worker.js",
+    "check:quality": "node scripts/check-code-quality.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1",
+    "terlio.js": "1.2.1",
+    "ws": "^8.18.0",
+    "zipflow": "https://codeload.github.com/balajibj/zipflow/tar.gz/59a5906e5ae3151d274c8f208f1869e978725eb8"
+  },
+  "bin": {
+    "bridge": "bin/bridge.js",
+    "chatgpt-bridge": "bin/bridge.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "tools/chrome-bridge-extension/",
+    "tools/codex-chat-ui/",
+    "scripts/extension-install.js",
+    "scripts/workflow-init.js",
+    "scripts/workflow-worker.js",
+    "bridge.workflow.example.json",
+    "systemd/"
+  ]
+}

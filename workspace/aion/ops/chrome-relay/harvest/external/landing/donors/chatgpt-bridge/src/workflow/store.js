@@ -1,0 +1,192 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { config } from '../config.js';
+import { syncDirectoryBestEffort, syncHandleBestEffort } from './safeDirectorySync.js';
+
+const WORKFLOW_STORE_SCHEMA_VERSION = 4;
+const WORKFLOW_STATE_SCHEMA_VERSION = 3;
+const MAX_EVENTS = 2000;
+const MAX_TRANSITIONS = 1000;
+const MAX_STARTUP_INPUTS = 1000;
+const MAX_DEAD_LETTERS = 1000;
+
+function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
+function validateActionPayload(value) {
+  const payload = clone(value);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Action payload must be an object');
+  if ('status' in payload || 'choice' in payload || 'decidedAt' in payload) {
+    throw new Error('Action payloads are immutable data and cannot own decision lifecycle');
+  }
+  return payload;
+}
+
+function sameValue(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export class WorkflowStore {
+  constructor(rootDir = config.dataDir) {
+    this.dir = path.join(rootDir, 'workflows');
+    this.file = path.join(this.dir, 'state.json');
+    this.state = { schemaVersion: WORKFLOW_STORE_SCHEMA_VERSION, workflows: {}, actionPayloads: {}, artifacts: {}, startupInputs: {}, deadLetters: [], events: [], transitions: [] };
+    this.writeChain = Promise.resolve();
+    this.saveSequence = 0;
+    this.ready = this.#load();
+  }
+
+  async #load() {
+    await fs.mkdir(this.dir, { recursive: true });
+    try {
+      const parsed = JSON.parse(await fs.readFile(this.file, 'utf8'));
+      const hasIncompatibleSnapshot = Number(parsed.schemaVersion || 0) !== WORKFLOW_STORE_SCHEMA_VERSION
+        || Object.values(parsed.workflows || {}).some((workflow) => Number(workflow?.workflowStateSchemaVersion || workflow?.execution?.schemaVersion || 0) !== WORKFLOW_STATE_SCHEMA_VERSION);
+      if (hasIncompatibleSnapshot) {
+        await this.#archive(`v${Number(parsed.schemaVersion || 0) || 'unknown'}`);
+        this.state = { schemaVersion: WORKFLOW_STORE_SCHEMA_VERSION, workflows: {}, actionPayloads: {}, artifacts: {}, startupInputs: {}, deadLetters: [], events: [], transitions: [] };
+        await this.#save();
+        return;
+      }
+      this.state = {
+        schemaVersion: WORKFLOW_STORE_SCHEMA_VERSION,
+        workflows: parsed.workflows && typeof parsed.workflows === 'object' ? parsed.workflows : {},
+        actionPayloads: parsed.actionPayloads && typeof parsed.actionPayloads === 'object' ? parsed.actionPayloads : {},
+        artifacts: parsed.artifacts && typeof parsed.artifacts === 'object' ? parsed.artifacts : {},
+        startupInputs: parsed.startupInputs && typeof parsed.startupInputs === 'object' ? parsed.startupInputs : {},
+        deadLetters: Array.isArray(parsed.deadLetters) ? parsed.deadLetters.slice(-MAX_DEAD_LETTERS) : [],
+        events: Array.isArray(parsed.events) ? parsed.events.slice(-MAX_EVENTS) : [],
+        transitions: Array.isArray(parsed.transitions) ? parsed.transitions.slice(-MAX_TRANSITIONS) : [],
+      };
+    } catch (error) {
+      if (error?.code !== 'ENOENT') await this.#archive('corrupt');
+      await this.#save();
+    }
+  }
+
+  async #archive(label) {
+    const stamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
+    let archive = path.join(this.dir, `state.${label}-${stamp}.json`);
+    for (let suffix = 1; ; suffix += 1) {
+      try { await fs.rename(this.file, archive); return archive; }
+      catch (error) {
+        if (error?.code === 'ENOENT') return '';
+        if (error?.code !== 'EEXIST') throw error;
+        archive = path.join(this.dir, `state.${label}-${stamp}-${suffix}.json`);
+      }
+    }
+  }
+
+  async #save() {
+    const snapshot = `${JSON.stringify(this.state, null, 2)}\n`;
+    const sequence = ++this.saveSequence;
+    const operation = this.writeChain.catch(() => {}).then(async () => {
+      const temp = `${this.file}.tmp-${process.pid}-${sequence}`;
+      const handle = await fs.open(temp, 'w');
+      try { await handle.writeFile(snapshot, 'utf8'); await syncHandleBestEffort(handle); }
+      finally { await handle.close(); }
+      await fs.rename(temp, this.file);
+      await syncDirectoryBestEffort(fs, this.dir);
+    });
+    this.writeChain = operation;
+    return await operation;
+  }
+
+  async commit({ workflows = {}, actionPayloads = {}, artifacts = {}, deadLetters = [] } = {}) {
+    await this.ready;
+    for (const [id, value] of Object.entries(workflows)) this.state.workflows[id] = clone(value);
+    for (const [id, value] of Object.entries(actionPayloads)) {
+      const payload = validateActionPayload(value);
+      const existing = this.state.actionPayloads[id];
+      if (existing && !sameValue(existing, payload)) throw new Error(`Action payload ${id} is immutable`);
+      this.state.actionPayloads[id] = payload;
+    }
+    if (deadLetters.length) this.state.deadLetters = [...this.state.deadLetters, ...deadLetters.map(clone)].slice(-MAX_DEAD_LETTERS);
+    for (const [key, value] of Object.entries(artifacts)) this.state.artifacts[key] = clone(value);
+    await this.#save();
+    return {
+      workflows: clone(workflows),
+      actionPayloads: clone(actionPayloads),
+      deadLetters: deadLetters.map(clone),
+      artifacts: clone(artifacts),
+    };
+  }
+
+  async commitWorkflow(id, value, { actionPayloads = {}, artifacts = {}, deadLetters = [] } = {}) { return await this.commit({ workflows: { [id]: value }, actionPayloads, artifacts, deadLetters }); }
+  async commitTransition(id, workflow, transition, { actionPayloads = {}, artifacts = {}, deadLetters = [] } = {}) {
+    await this.ready;
+    this.state.workflows[id] = clone(workflow);
+    for (const [key, value] of Object.entries(actionPayloads)) {
+      const payload = validateActionPayload(value);
+      const existing = this.state.actionPayloads[key];
+      if (existing && !sameValue(existing, payload)) throw new Error(`Action payload ${key} is immutable`);
+      this.state.actionPayloads[key] = payload;
+    }
+    if (deadLetters.length) this.state.deadLetters = [...this.state.deadLetters, ...deadLetters.map(clone)].slice(-MAX_DEAD_LETTERS);
+    for (const [key, value] of Object.entries(artifacts)) this.state.artifacts[key] = clone(value);
+    this.state.transitions.push(clone(transition));
+    this.state.transitions = this.state.transitions.slice(-MAX_TRANSITIONS);
+    await this.#save();
+    return clone(transition);
+  }
+  async setWorkflow(id, value) { await this.ready; this.state.workflows[id] = clone(value); await this.#save(); return clone(value); }
+  async getWorkflow(id) { await this.ready; return this.state.workflows[id] ? clone(this.state.workflows[id]) : null; }
+  async listWorkflows() { await this.ready; return Object.values(this.state.workflows).map(clone); }
+  async removeWorkflow(id) { await this.ready; delete this.state.workflows[id]; delete this.state.startupInputs[id]; await this.#save(); }
+
+  async enqueueStartupInput(workflowId, input, { limit = 100 } = {}) {
+    await this.ready;
+    const id = String(input?.id || '');
+    if (!id) throw new Error('Workflow startup input id is required');
+    const current = Array.isArray(this.state.startupInputs[workflowId]) ? this.state.startupInputs[workflowId] : [];
+    const existing = current.find((item) => item.id === id);
+    if (existing) return clone(existing);
+    const workflowLimit = Math.max(1, Math.min(MAX_STARTUP_INPUTS, Number(limit) || 100));
+    if (current.length >= workflowLimit) {
+      const error = new Error(`Workflow startup inbox is full for ${workflowId}`);
+      error.code = 'WORKFLOW_STARTUP_INBOX_FULL';
+      error.workflowId = workflowId;
+      error.limit = workflowLimit;
+      throw error;
+    }
+    const entry = clone(input);
+    this.state.startupInputs[workflowId] = [...current, entry];
+    await this.#save();
+    return clone(entry);
+  }
+
+  async listStartupInputs(workflowId) {
+    await this.ready;
+    return (Array.isArray(this.state.startupInputs[workflowId]) ? this.state.startupInputs[workflowId] : []).map(clone);
+  }
+
+  async removeStartupInput(workflowId, inputId) {
+    await this.ready;
+    const current = Array.isArray(this.state.startupInputs[workflowId]) ? this.state.startupInputs[workflowId] : [];
+    const next = current.filter((item) => item.id !== String(inputId || ''));
+    if (next.length === current.length) return false;
+    if (next.length) this.state.startupInputs[workflowId] = next;
+    else delete this.state.startupInputs[workflowId];
+    await this.#save();
+    return true;
+  }
+
+  async setActionPayload(id, value) {
+    await this.ready;
+    const payload = validateActionPayload(value);
+    const existing = this.state.actionPayloads[id];
+    if (existing && !sameValue(existing, payload)) throw new Error(`Action payload ${id} is immutable`);
+    if (!existing) {
+      this.state.actionPayloads[id] = payload;
+      await this.#save();
+    }
+    return clone(existing || payload);
+  }
+  async getActionPayload(id) { await this.ready; return this.state.actionPayloads[id] ? clone(this.state.actionPayloads[id]) : null; }
+  async addDeadLetter(value) { await this.ready; this.state.deadLetters = [...this.state.deadLetters, clone(value)].slice(-MAX_DEAD_LETTERS); await this.#save(); return clone(value); }
+  async listDeadLetters({ workflowId = '', limit = 200 } = {}) { await this.ready; return this.state.deadLetters.filter((item) => !workflowId || item.workflowId === workflowId).slice(-Math.max(1, Number(limit) || 200)).map(clone); }
+  async setArtifact(key, value) { await this.ready; this.state.artifacts[key] = clone(value); await this.#save(); return clone(value); }
+  async getArtifact(key) { await this.ready; return this.state.artifacts[key] ? clone(this.state.artifacts[key]) : null; }
+  async appendEvent(event) { await this.ready; this.state.events.push(clone(event)); this.state.events = this.state.events.slice(-MAX_EVENTS); await this.#save(); return clone(event); }
+  async listEvents({ workflowId = '', limit = 200 } = {}) { await this.ready; return this.state.events.filter((event) => !workflowId || event.workflowId === workflowId).slice(-Math.max(1, Number(limit) || 200)).map(clone); }
+  async listTransitions({ workflowId = '', limit = 100 } = {}) { await this.ready; return this.state.transitions.filter((item) => !workflowId || item.workflowId === workflowId).slice(-Math.max(1, Number(limit) || 100)).map(clone); }
+}

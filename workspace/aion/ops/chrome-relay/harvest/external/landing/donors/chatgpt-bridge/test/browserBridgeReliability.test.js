@@ -1,0 +1,603 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { BrowserBridge } from '../src/browserBridge.js';
+import { describeTransfer } from '../src/bridge/transferIntegrity.js';
+import { BrowserExtensionHub } from '../src/browserExtensionHub.js';
+import { FileStore } from '../src/fileStore.js';
+import { commandProgress, commandResult, emitPromptSubmitted, emitTabObservation } from './support/bridgeObservation.js';
+async function readExtensionContentRuntime() {
+  const root = new URL('../tools/chrome-bridge-extension/', import.meta.url);
+  const manifest = JSON.parse(await fs.readFile(new URL('manifest.json', root), 'utf8'));
+  return (await Promise.all(manifest.content_scripts[1].js.map((file) => fs.readFile(new URL(file, root), 'utf8')))).join('\n');
+}
+
+class FakeHub extends EventEmitter {
+  constructor() {
+    super();
+    this.activeClient = { id: 'client-1', url: 'https://chatgpt.com/' };
+    this.sent = [];
+  }
+  get clients() { return [{ id: 'client-1', url: 'https://chatgpt.com/' }]; }
+  get selectedClientId() { return ''; }
+  get needsSelection() { return false; }
+  get debugEvents() { return []; }
+  sendToActive(payload) {
+    return this.sendToClient(this.activeClient.id, payload);
+  }
+  sendToClient(clientId, payload) {
+    this.sent.push({ clientId, payload });
+    const client = { id: clientId, url: `https://chatgpt.com/${clientId}` };
+    if (payload.type === 'request.release') {
+      setImmediate(() => this.emit('client.message', {
+        clientId,
+        payload: { type: 'lease.released', commandId: payload.commandId, released: true, activeRequest: null },
+      }));
+    }
+    return client;
+  }
+  sendToActiveWithDelivery(payload) {
+    return { client: this.sendToActive(payload), delivered: Promise.resolve() };
+  }
+  sendToClientWithDelivery(clientId, payload) {
+    return { client: this.sendToClient(clientId, payload), delivered: Promise.resolve() };
+  }
+}
+
+function nextTick() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+test('BrowserBridge resolves stored attachments as local URLs instead of base64 by default', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bridge-file-store-'));
+  const fileStore = new FileStore(dir);
+  const stored = await fileStore.putUpload({ name: 'project.zip', mime: 'application/zip', content: 'zip-bytes' });
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub, fileStore, null, { publicBaseUrl: 'http://127.0.0.1:18181' });
+
+  const promise = bridge.sendRequest({ message: 'hello', attachments: [stored.id] });
+  await nextTick();
+
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt, 'prompt.send should be sent');
+  assert.equal(prompt.attachments.length, 1);
+  assert.equal(prompt.attachments[0].name, 'project.zip');
+  assert.equal(new URL(prompt.attachments[0].url).origin, 'http://127.0.0.1:18181');
+  assert.match(prompt.attachments[0].url, /\/extension\/files\/file_.*\/download$/);
+  assert.equal(new URL(prompt.attachments[0].url).search, '', 'attachment URLs must not expose the bridge token');
+  assert.equal(prompt.attachments[0].contentBase64, undefined);
+
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'ok' });
+  const result = await promise;
+  assert.equal(result.answer, 'ok');
+});
+
+test('BrowserBridge preserves the distinction between missing and zero URL attachment size', async (t) => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  t.after(() => bridge.close());
+  const pending = bridge.sendRequest({ message: 'check attachment sizes', attachments: [
+    { url: 'https://example.test/unknown-size', name: 'unknown-size.txt' },
+    { url: 'https://example.test/empty', name: 'empty.txt', size: 0 },
+  ] });
+  await nextTick();
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt);
+  const [unknown, empty] = JSON.parse(JSON.stringify(prompt.attachments));
+  assert.equal(Object.hasOwn(unknown, 'size'), false);
+  assert.equal(empty.size, 0);
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'ok' });
+  assert.equal((await pending).answer, 'ok');
+});
+
+test('BrowserBridge stores artifact downloads from chunked extension messages', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bridge-artifact-store-'));
+  const fileStore = new FileStore(dir);
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub, fileStore);
+
+  const requestPromise = bridge.sendRequest({ message: 'make artifact' });
+  await nextTick();
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt);
+
+  const artifact = { id: 'artifact_zip', kind: 'file', name: 'result.zip', mime: 'application/zip', downloadUrl: 'blob:https://chatgpt.com/result' };
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'done', artifacts: [artifact] });
+  await requestPromise;
+
+  const fetchPromise = bridge.fetchArtifact('artifact_zip');
+  await nextTick();
+  const command = hub.sent.find((entry) => entry.payload.type === 'artifact.fetch')?.payload;
+  assert.ok(command, 'artifact.fetch command should be sent');
+
+  const integrity = describeTransfer(Buffer.from('hello'), 8, 2);
+  hub.emit('client.message', { clientId: 'client-1', payload: commandProgress(command.commandId, 'artifact.data.started', { ...integrity, artifactId: 'artifact_zip', name: 'result.zip', mime: 'application/zip' }) });
+  hub.emit('client.message', { clientId: 'client-1', payload: commandProgress(command.commandId, 'artifact.data.chunk', { ...integrity, artifactId: 'artifact_zip', index: 0, offset: 0, contentBase64: 'aGVs' }) });
+  hub.emit('client.message', { clientId: 'client-1', payload: commandProgress(command.commandId, 'artifact.data.chunk', { ...integrity, artifactId: 'artifact_zip', index: 1, offset: 4, contentBase64: 'bG8=' }) });
+  hub.emit('client.message', { clientId: 'client-1', payload: commandResult(command.commandId, 'artifact.data.done', { ...integrity, artifactId: 'artifact_zip', name: 'result.zip', mime: 'application/zip' }) });
+
+  const stored = await fetchPromise;
+  assert.equal(stored.id, 'artifact_zip');
+  const readable = await fileStore.getReadable(stored.id);
+  assert.ok(readable);
+  const bytes = await fs.readFile(readable.absolutePath, 'utf8');
+  assert.equal(bytes, 'hello');
+});
+
+
+test('BrowserBridge routes artifact fetch to artifact source client instead of active client', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bridge-source-client-artifact-'));
+  const fileStore = new FileStore(dir);
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub, fileStore);
+
+  const requestPromise = bridge.sendRequest({ message: 'make artifact' });
+  await nextTick();
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt);
+
+  const artifact = { id: 'source-artifact', kind: 'file', name: 'result.txt', mime: 'text/plain' };
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'done', artifacts: [artifact] });
+  await requestPromise;
+
+  hub.activeClient = { id: 'client-2', url: 'https://chatgpt.com/other' };
+  const fetchPromise = bridge.fetchArtifact('source-artifact');
+  await nextTick();
+
+  const command = hub.sent.find((entry) => entry.payload.type === 'artifact.fetch')
+  assert.ok(command, 'artifact.fetch command should be sent');
+  assert.equal(command.clientId, 'client-1');
+
+  hub.emit('client.message', { clientId: 'client-2', payload: commandResult(command.payload.commandId, 'artifact.data.done', { artifactId: 'source-artifact', name: 'wrong.txt', mime: 'text/plain', contentBase64: Buffer.from('wrong').toString('base64') }) });
+  await nextTick();
+  hub.emit('client.message', { clientId: 'client-1', payload: commandResult(command.payload.commandId, 'artifact.data.done', { ...describeTransfer(Buffer.from('right')), artifactId: 'source-artifact', name: 'result.txt', mime: 'text/plain', contentBase64: Buffer.from('right').toString('base64') }) });
+
+  const stored = await fetchPromise;
+  const readable = await fileStore.getReadable(stored.id);
+  assert.equal(await fs.readFile(readable.absolutePath, 'utf8'), 'right');
+});
+
+test('BrowserBridge routes turnKey recovery to requested source client', async () => {
+  const hub = new FakeHub();
+  hub.activeClient = { id: 'client-2', url: 'https://chatgpt.com/other' };
+  const bridge = new BrowserBridge(hub);
+
+  const promise = bridge.recoverResponseByTurnKey({ requestId: 'turn-source', turnKey: 'assistant-source', sourceClientId: 'client-1', timeoutMs: 1000 });
+  await nextTick();
+
+  const command = hub.sent.find((entry) => entry.payload.type === 'response.recover.turnKey');
+  assert.ok(command, 'recovery command should be sent');
+  assert.equal(command.clientId, 'client-1');
+
+  hub.emit('client.message', { clientId: 'client-2', payload: commandResult(command.payload.commandId, 'response.recovered', { answer: 'wrong', turnKey: 'assistant-source' }) });
+  await nextTick();
+  hub.emit('client.message', { clientId: 'client-1', payload: commandResult(command.payload.commandId, 'response.recovered', { answer: 'right', turnKey: 'assistant-source', artifacts: [] }) });
+
+  const response = await promise;
+  assert.equal(response.answer, 'right');
+  assert.equal(response.sourceClientId, 'client-1');
+});
+
+test('extension runtime contains reliability hardening for chunks, nonce, upload completion, and request timeout warnings', async () => {
+  const source = await readExtensionContentRuntime();
+  assert.match(source, /artifact\.data\.chunk/);
+  assert.doesNotMatch(source, /window\.fetch\s*=|HOOK_NONCE|injectNetworkHook/);
+  assert.match(source, /onBridgeConnectionChange/);
+  assert.match(source, /pageRuntimeController\?\.stop/);
+  assert.match(source, /file\.upload\.complete/);
+  assert.doesNotMatch(source, /request\.max_timeout_warning/);
+  assert.doesNotMatch(source, /REQUEST_MAX_TIMEOUT after/);
+  assert.match(source, /COMPOSER_TEXT_VERIFY_FAILED/);
+  assert.match(source, /EXTENSION_API\.httpRequest/);
+  assert.match(source, /cgb-close/);
+  assert.match(source, /cgb-dot/);
+  assert.match(source, /cgb-loading/);
+  assert.doesNotMatch(source, /async function sendCritical/);
+  assert.match(source, /\/diagnostics/);
+  assert.match(source, /connectExtensionTransport/);
+  assert.match(source, /connectExtensionTransport/);
+  assert.match(source, /window\.top !== window\.self/);
+  assert.doesNotMatch(source, /send\(\{ type: 'prompt\.accepted'/);
+  assert.match(source, /settleEffectCommandWithoutExecution/);
+  assert.match(source, /runObservedRequestEffect\(request, currentStepKind/);
+  assert.match(source, /border-radius:999px/);
+  assert.doesNotMatch(source, /#cgb-tab::before/);
+  assert.match(source, /chatgptBrowserBridgeCompanionInstance/);
+  assert.match(source, /chatgptBridgeTabClientId/);
+  assert.match(source, /sessionStorage\.getItem\(CLIENT_ID_STORAGE_KEY\)/);
+  assert.doesNotMatch(source, /localStorage\.getItem\(CLIENT_ID_STORAGE_KEY\)/);
+  assert.match(source, /collectArtifactsForAssistantNode/);
+  assert.match(source, /readAssistantVisibleBlocks/);
+  assert.doesNotMatch(source, /assistant\.progress\.snapshot|request\.terminal_/);
+  assert.match(source, /type: 'tab\.observation'/);
+  assert.match(source, /isZipLikeLabel/);
+  assert.match(source, /artifactActionSignal/);
+  assert.match(source, /artifactFileName/);
+  assert.match(source, /artifactState/);
+  assert.match(source, /artifactActionCandidateScore/);
+  assert.match(source, /isBrowserOnlyArtifactUrl/);
+
+  const bridgeSource = (await Promise.all([
+    '../src/browserBridge.js',
+    '../src/bridge/coordinator/requestSubmissionCoordinator.js',
+    '../src/bridge/coordinator/bridgeCommandRegistry.js',
+  ].map((file) => fs.readFile(new URL(file, import.meta.url), 'utf8')))).join('\n');
+  const lifecycleSource = (await Promise.all([
+    '../src/bridge/coordinator/requestLifecycleCoordinator.js',
+    '../src/bridge/coordinator/requestRecoveryCoordinator.js',
+    '../src/bridge/coordinator/requestResultMaterializer.js',
+  ].map((file) => fs.readFile(new URL(file, import.meta.url), 'utf8')))).join('\n');
+  const clientEventRouterSource = await fs.readFile(new URL('../src/bridge/coordinator/bridgeClientEventRouter.js', import.meta.url), 'utf8');
+  const reattachmentSource = await fs.readFile(new URL('../src/bridge/coordinator/requestReattachmentCoordinator.js', import.meta.url), 'utf8');
+  const deadlinePolicySource = await fs.readFile(new URL('../src/bridge/deadlines/requestDeadlinePolicy.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(bridgeSource, /prompt\.accepted\.timeout/);
+  assert.doesNotMatch(bridgeSource, /startAcceptedTimer/);
+  assert.doesNotMatch(bridgeSource, /Timed out waiting for ChatGPT answer after/);
+  assert.match(deadlinePolicySource, /Timed out waiting for ChatGPT request progress after/);
+  assert.match(bridgeSource, /lastActivityReason/);
+  assert.match(clientEventRouterSource, /handleClientActivity/);
+  assert.match(reattachmentSource, /client\.activeRequest/);
+  assert.match(lifecycleSource, /forced_snapshot\.requested/);
+  assert.match(lifecycleSource, /response\.snapshot\.request/);
+  assert.match(lifecycleSource, /watchdog\.meaningful_progress_stalled/);
+
+  const extensionBackgroundSource = (await Promise.all([
+    '../tools/chrome-bridge-extension/background.js',
+    '../tools/chrome-bridge-extension/background/portRouter.js',
+  ].map((file) => fs.readFile(new URL(file, import.meta.url), 'utf8')))).join('\n');
+  assert.match(extensionBackgroundSource, /new WebSocket/);
+  assert.match(extensionBackgroundSource, /chrome\.runtime\.onConnect/);
+
+  const hubSource = (await Promise.all([
+    '../src/browserExtensionHub.js',
+    '../src/bridge/hub/clientMessageRouter.js',
+    '../src/bridge/hub/clientProjection.js',
+  ].map((file) => fs.readFile(new URL(file, import.meta.url), 'utf8')))).join('\n');
+  assert.match(hubSource, /isAllowedExtensionOrigin/);
+  assert.match(hubSource, /client\.activity/);
+  assert.match(hubSource, /transport: client\.transport \|\| 'unknown'/);
+  assert.match(hubSource, /activeRequest/);
+});
+
+
+test('BrowserBridge treats later request events as implicit prompt acceptance', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const events = [];
+
+  const promise = bridge.sendRequest({ message: 'hello without explicit ack' }, { onEvent: (event) => events.push(event) });
+  await nextTick();
+
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt, 'prompt.send should be sent');
+
+  emitPromptSubmitted(hub, { requestId: prompt.requestId, accepted: false });
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'ok' });
+
+  const result = await promise;
+  assert.equal(result.answer, 'ok');
+  assert.ok(events.find((event) => event.type === 'prompt.accepted' && event.implicit && event.via === 'request.effect.started'));
+});
+
+
+test('BrowserBridge stores request.progress diagnostics for active requests', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const events = [];
+
+  const promise = bridge.sendRequest({ message: 'progress task' }, { onEvent: (event) => events.push(event) });
+  await nextTick();
+
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt, 'prompt.send should be sent');
+
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, {
+    requestId: prompt.requestId,
+    thinking: 'x'.repeat(100),
+    progress: 'Generating',
+    generation: 'active',
+    outputState: 'streaming',
+    stableForMs: 0,
+  });
+
+  const diagnostics = bridge.requestDiagnostics();
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0].requestId, prompt.requestId);
+  assert.equal(diagnostics[0].phase, 'streaming');
+  assert.equal(diagnostics[0].assistantTurnKey, 'assistant-1');
+  assert.equal(diagnostics[0].answerLength, 0);
+  assert.equal(diagnostics[0].thinkingLength, 100);
+
+  assert.ok(events.some((event) => event.type === 'assistant.progress.snapshot' && event.text === 'Generating'));
+
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'finished' });
+  const result = await promise;
+  assert.equal(result.answer, 'finished');
+});
+
+test('extension content script contains request progress and phase observability', async () => {
+  const source = await readExtensionContentRuntime();
+  assert.match(source, /request\.execution\.diagnostic/);
+  assert.doesNotMatch(source, /type: 'request\.progress'/);
+  assert.match(source, /emitRequestProgress/);
+  assert.match(source, /setRequestPhase/);
+  assert.doesNotMatch(source, /assistant_turn\.captured/);
+  assert.match(source, /user_turn\.captured/);
+  assert.match(source, /type: 'tab\.observation'/);
+  assert.match(source, /scheduleTabObservation/);
+  assert.match(source, /lastMeaningfulProgressAt/);
+  assert.match(source, /anchorConfidence/);
+});
+
+test('BrowserBridge forwards visible progress snapshots and returns final progress text', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const progress = [];
+  const events = [];
+
+  const promise = bridge.sendRequest({ message: 'show progress' }, {
+    onProgressUpdate: (text) => progress.push(text),
+    onEvent: (event) => events.push(event),
+  }, { fullResponse: true });
+  await nextTick();
+
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt, 'prompt.send should be sent');
+
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, { requestId: prompt.requestId, progress: 'Inspecting uploaded ZIP', generation: 'active', outputState: 'streaming' });
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'ok', progress: 'Inspecting uploaded ZIP' });
+
+  const result = await promise;
+  assert.deepEqual(progress, ['Inspecting uploaded ZIP']);
+  assert.equal(result.progressText, 'Inspecting uploaded ZIP');
+  assert.ok(events.some((event) => event.type === 'assistant.progress.snapshot'));
+});
+
+test('BrowserBridge forwards clearing snapshots when transient DOM progress disappears', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const progress = [];
+  const thinking = [];
+
+  const promise = bridge.sendRequest({ message: 'clear transient state' }, {
+    onProgressUpdate: (text) => progress.push(text),
+    onThinkingUpdate: (text) => thinking.push(text),
+  }, { fullResponse: true });
+  await nextTick();
+
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt);
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, { requestId: prompt.requestId, thinking: 'Разработал стратегию', progress: 'Python tool running', generation: 'active', outputState: 'streaming' });
+  emitTabObservation(hub, { requestId: prompt.requestId, thinking: '', progress: '', generation: 'active', outputState: 'streaming' });
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'Final answer', thinking: '', progress: '' });
+
+  const result = await promise;
+  assert.deepEqual(thinking, ['Разработал стратегию', '']);
+  assert.deepEqual(progress, ['Python tool running', '']);
+  assert.equal(result.thinking, '');
+  assert.equal(result.progressText, '');
+});
+
+test('client.ready reattaches an in-memory submitted request and requests a source snapshot', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const events = [];
+  const statuses = [];
+
+  const promise = bridge.sendRequest({ message: 'resume after background tab' }, {
+    onEvent: (event) => events.push(event.type),
+    onStatus: (status) => statuses.push(status),
+  });
+  await nextTick();
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt);
+
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, {
+    requestId: prompt.requestId,
+    generation: 'active',
+    outputState: 'streaming',
+    answer: 'partial before reload',
+    userTurnKey: 'submitted-user-key',
+    assistantTurnKey: 'assistant-key',
+  });
+  hub.emit('client.ready', {
+    id: 'client-1',
+    compatible: true,
+    visibilityState: 'visible',
+    focused: true,
+    tabObservation: { observerId: 'observer-after-reload' },
+    activeRequest: { requestId: prompt.requestId, leaseId: 'lease-1', ownerServerInstanceId: 'server-1', responseEpoch: 0 },
+  });
+  await nextTick();
+
+  const snapshotCommand = hub.sent.find((entry) => entry.payload.type === 'response.snapshot.request');
+  assert.equal(snapshotCommand, undefined, 'reattach must rely on the fresh revisioned TabObservation, not a parallel snapshot command');
+  const resumeCommand = hub.sent.find((entry) => entry.payload.type === 'request.resume');
+  assert.ok(resumeCommand, 'reattach must rehydrate the disposable content projection from canonical state');
+  assert.equal(resumeCommand.payload.projection.submittedUserTurnKey, 'submitted-user-key');
+  assert.equal(resumeCommand.payload.projection.assistantTurnKey, 'assistant-key');
+  assert.equal(resumeCommand.payload.projection.submittedPromptText, 'resume after background tab');
+  hub.emit('client.message', {
+    clientId: 'client-1',
+    payload: commandResult(resumeCommand.payload.commandId, 'request.resumed', {
+      activeRequest: { requestId: prompt.requestId, submittedUserTurnKey: 'submitted-user-key' },
+      boundaryStatus: 'matched',
+      submittedUserTurnKey: 'submitted-user-key',
+      assistantTurnKey: 'assistant-key',
+    }),
+  });
+  assert.ok(events.includes('request.reattached'));
+  assert.ok(statuses.includes('reattached'));
+
+  emitTabObservation(hub, {
+    requestId: prompt.requestId,
+    answer: 'finished after reattach',
+    userTurnKey: 'submitted-user-key',
+    assistantTurnKey: 'assistant-key',
+    activeRequest: { submittedUserTurnKey: '' },
+  });
+
+  const response = await promise;
+  assert.equal(response.answer, 'finished after reattach');
+});
+
+test('resumeActiveRequest follows a sole local pending request while the browser temporarily reports no activeRequest', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const owner = bridge.sendRequest({ message: 'temporarily disconnected status' });
+  await nextTick();
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt);
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+
+  const followerEvents = [];
+  const follower = bridge.resumeActiveRequest({ onEvent: (event) => followerEvents.push(event.type) }, {
+    expectedRequestId: prompt.requestId,
+    timeoutMs: 1000,
+  });
+  await nextTick();
+  assert.equal(hub.sent.some((entry) => entry.payload.type === 'request.resume'), false);
+
+  emitTabObservation(hub, { requestId: prompt.requestId, answer: 'completed locally' });
+  const [ownerResponse, followerResponse] = await Promise.all([owner, follower]);
+  assert.equal(ownerResponse.answer, 'completed locally');
+  assert.equal(followerResponse.answer, 'completed locally');
+  assert.ok(followerEvents.includes('request.done'));
+});
+
+test('BrowserBridge preserves completed reasoning phases and structured response blocks through done', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const events = [];
+  const progressUpdates = [];
+
+  const promise = bridge.sendRequest({ message: 'parse structured response', captureDomTimeline: true }, {
+    onEvent: (event) => events.push(event),
+    onProgressUpdate: (_text, payload) => progressUpdates.push(payload),
+  });
+  await nextTick();
+  const prompt = hub.sent.find((entry) => entry.payload.type === 'prompt.send')?.payload;
+  assert.ok(prompt);
+
+  const phaseA = {
+    id: 'phase-a', key: 'phase-a', kind: 'thinking', text: 'Inspecting the first condition',
+    revision: 2, state: 'completed', active: false, visible: false,
+  };
+  const phaseBActive = {
+    id: 'phase-b', key: 'phase-b', kind: 'thinking', text: 'Checking the second condition',
+    revision: 1, state: 'active', active: true, visible: true,
+  };
+  const phaseBDone = { ...phaseBActive, revision: 3, state: 'completed', active: false, visible: false };
+  const responseBlocks = [
+    { index: 0, type: 'paragraph', tag: 'p', markdown: 'Result with `inline`.', text: 'Result with inline.', inlineCode: ['inline'] },
+    { index: 1, type: 'code_block', tag: 'pre', markdown: '```js\nconst value = 42;\n```', language: 'js', code: 'const value = 42;' },
+  ];
+  const codeBlocks = [{ language: 'js', code: 'const value = 42;', markdown: '```js\nconst value = 42;\n```' }];
+  const codeBlockDiagnostics = [{ index: 1, language: 'javascript', source: 'preceding-sibling', domContext: '<div>JavaScript</div>' }];
+  const parserAudit = {
+    version: 1,
+    coverage: { visibleTextLeaves: 4, contentLeaves: 3, interfaceLeaves: 1, unknownLeaves: 0, unknownVisualElements: 0, duplicateLeaves: 0, classifiedLeaves: 4, coveragePercent: 100 },
+    unknownItems: [],
+    sourceHtml: '<section data-turn="assistant"><div data-message-author-role="assistant"><p>Result with inline.</p></div></section>',
+  };
+
+  emitPromptSubmitted(hub, { requestId: prompt.requestId });
+  emitTabObservation(hub, {
+    requestId: prompt.requestId, progress: phaseBActive.text, progressItems: [phaseA, phaseBActive],
+    generation: 'active', outputState: 'streaming',
+  });
+  assert.deepEqual(progressUpdates.at(-1)?.items?.map((item) => item.id), ['phase-a', 'phase-b']);
+  emitTabObservation(hub, {
+    requestId: prompt.requestId, progress: '', progressItems: [phaseA, phaseBDone],
+    generation: 'active', outputState: 'streaming',
+  });
+  emitTabObservation(hub, {
+    requestId: prompt.requestId, answer: 'Result with `inline`.\n\n```js\nconst value = 42;\n```',
+    progressItems: [phaseA, phaseBDone], reasoningHistory: [phaseA, phaseBDone], responseBlocks, codeBlocks, codeBlockDiagnostics, parserAudit,
+  });
+
+  const result = await promise;
+  assert.deepEqual(result.reasoningHistory.map((item) => ({ id: item.id, text: item.text, revision: item.revision, state: item.state })), [
+    { id: 'phase-a', text: phaseA.text, revision: 2, state: 'completed' },
+    { id: 'phase-b', text: phaseBActive.text, revision: 3, state: 'completed' },
+  ]);
+  assert.deepEqual(result.progressItems.map((item) => ({
+    id: item.id, text: item.text, revision: item.revision, state: item.state,
+  })), [
+    { id: 'phase-a', text: phaseA.text, revision: 2, state: 'completed' },
+    { id: 'phase-b', text: phaseBActive.text, revision: 3, state: 'completed' },
+  ]);
+  assert.deepEqual(result.responseBlocks, responseBlocks);
+  assert.deepEqual(result.codeBlocks, codeBlocks);
+  assert.deepEqual(result.codeBlockDiagnostics, codeBlockDiagnostics);
+  assert.deepEqual(result.parserAudit, parserAudit);
+  assert.ok(events.some((event) => event.type === 'assistant.dom.snapshot'
+    && event.parserAudit?.sourceHtml === parserAudit.sourceHtml
+    && event.responseBlocks.length === responseBlocks.length));
+  assert.ok(events.some((event) => event.type === 'assistant.progress.snapshot' && event.itemCount === 2));
+  assert.ok(events.some((event) => event.type === 'request.done'));
+});
+
+test('BrowserBridge preserves normalized intelligence state from model and effort snapshots', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const intelligence = {
+    efforts: [{ id: 'high', value: 'high', label: 'Высокий', selected: true }],
+    models: [{ id: 'model-gpt-5-6-sol', value: 'GPT-5.6 Sol', label: 'GPT-5.6 Sol', selected: true }],
+    selectedEffort: { id: 'high', value: 'high', label: 'Высокий', selected: true },
+    selectedModel: { id: 'model-gpt-5-6-sol', value: 'GPT-5.6 Sol', label: 'GPT-5.6 Sol', selected: true },
+    modelTrigger: { label: 'GPT-5.6 Sol', rawText: 'GPT-5.6 Sol' },
+  };
+
+  const modelsPromise = bridge.listModels({ timeoutMs: 5_000 });
+  await nextTick();
+  const modelsCommand = hub.sent.find((entry) => entry.payload.type === 'models.list')?.payload;
+  assert.ok(modelsCommand);
+  hub.emit('client.message', { clientId: 'client-1', payload: commandResult(modelsCommand.commandId, 'models.snapshot', {
+    models: intelligence.models, current: intelligence.selectedModel, intelligence,
+  }) });
+  const models = await modelsPromise;
+  assert.equal(models.models[0].id, 'model-gpt-5-6-sol');
+  assert.equal(models.current.label, 'GPT-5.6 Sol');
+  assert.equal(models.intelligence.modelTrigger.label, 'GPT-5.6 Sol');
+
+  const effortsPromise = bridge.listEfforts({ timeoutMs: 5_000 });
+  await nextTick();
+  const effortsCommand = [...hub.sent].reverse().find((entry) => entry.payload.type === 'efforts.list')?.payload;
+  assert.ok(effortsCommand);
+  hub.emit('client.message', { clientId: 'client-1', payload: commandResult(effortsCommand.commandId, 'efforts.snapshot', {
+    efforts: intelligence.efforts, current: intelligence.selectedEffort, intelligence,
+  }) });
+  const efforts = await effortsPromise;
+  assert.equal(efforts.efforts[0].id, 'high');
+  assert.equal(efforts.current.label, 'Высокий');
+  assert.equal(efforts.intelligence.selectedModel.label, 'GPT-5.6 Sol');
+});
+
+test('BrowserBridge applies intelligence settings through a correlated extension command', async () => {
+  const hub = new FakeHub();
+  const bridge = new BrowserBridge(hub);
+  const promise = bridge.applyIntelligence({ effort: 'xhigh' }, { sourceClientId: 'client-1', timeoutMs: 5_000 });
+  await nextTick();
+  const command = hub.sent.find((entry) => entry.payload.type === 'intelligence.apply')?.payload;
+  assert.ok(command);
+  assert.deepEqual(command.options, { model: '', effort: 'xhigh' });
+  hub.emit('client.message', { clientId: 'client-1', payload: commandResult(command.commandId, 'intelligence.applied', {
+    model: '', effort: 'xhigh', modelApplied: false, effortApplied: true, warnings: [],
+    intelligence: { selectedEffort: { id: 'xhigh', value: 'xhigh', selected: true } },
+  }) });
+  const result = await promise;
+  assert.equal(result.effortApplied, true);
+  assert.equal(result.intelligence.selectedEffort.id, 'xhigh');
+});

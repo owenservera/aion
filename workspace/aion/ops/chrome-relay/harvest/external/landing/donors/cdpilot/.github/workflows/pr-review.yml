@@ -1,0 +1,79 @@
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python runtime deps
+        run: python -m pip install websockets
+
+      - name: Syntax check
+        run: python3 -m py_compile src/cdpilot.py
+
+      - name: Run tests
+        run: node test/test.js
+        env:
+          CDPILOT_PYTHON: python
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check file size (zero-dep policy)
+        run: |
+          FOUND=$(grep -r 'require(' src/ 2>/dev/null | grep -v 'node:' | grep -v 'test/' || true)
+          if [ -n "$FOUND" ]; then
+            echo "⚠️ External require() found in src/ — cdpilot is zero-dependency"
+            echo "$FOUND"
+            exit 1
+          fi
+
+      - name: Check Python imports
+        run: |
+          python3 -c "
+          import ast, sys
+          ALLOWED = {'websockets'}
+          STDLIB = set(sys.stdlib_module_names) if hasattr(sys, 'stdlib_module_names') else set()
+          with open('src/cdpilot.py') as f:
+              tree = ast.parse(f.read())
+          # An import inside try/except ImportError is an optional extra
+          # (e.g. amazoncaptcha): cdpilot still runs without it.
+          def catches_import_error(h):
+              names = h.type.elts if isinstance(h.type, ast.Tuple) else [h.type]
+              return any(isinstance(n, ast.Name) and n.id in ('ImportError', 'ModuleNotFoundError') for n in names)
+          optional = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Try) and any(h.type is not None and catches_import_error(h) for h in node.handlers):
+                  for stmt in node.body:
+                      optional.update(id(n) for n in ast.walk(stmt))
+          bad = set()
+          for node in ast.walk(tree):
+              if id(node) in optional:
+                  continue
+              if isinstance(node, ast.Import):
+                  mods = [a.name.split('.')[0] for a in node.names]
+              elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+                  mods = [node.module.split('.')[0]]
+              else:
+                  continue
+              bad.update(m for m in mods if m not in ALLOWED and m not in STDLIB and not m.startswith('_'))
+          if bad:
+              print('❌ Non-stdlib import outside try/except ImportError: ' + ', '.join(sorted(bad)))
+              sys.exit(1)
+          print('✅ All imports are stdlib, websockets, or optional (try/except ImportError)')
+          "

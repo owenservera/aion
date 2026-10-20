@@ -1,0 +1,211 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_extensionName__",
+  "version": "1.0.9",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "en",
+  "minimum_chrome_version": "130",
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "cookies",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
+  "host_permissions": [
+    "*://chatgpt.com/*",
+    "*://chat.openai.com/*",
+    "*://claude.ai/*",
+    "*://*.claudemcpcontent.com/*",
+    "*://gemini.google.com/*",
+    "*://grok.com/*",
+    "*://chat.deepseek.com/*",
+    "*://www.kimi.com/*",
+    "*://kimi.com/*",
+    "*://chat.qwen.ai/*",
+    "https://chat.z.ai/*",
+    "https://aistudio.xiaomimimo.com/*",
+    "https://account.xiaomi.com/*",
+    "https://global.account.xiaomi.com/*",
+    "https://logout.account.xiaomi.com/*",
+    "*://gator.volces.com/*",
+    "*://www.meta.ai/*",
+    "*://meta.ai/*",
+    "*://www.google.com/*",
+    "*://google.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_title": "__MSG_actionDefaultTitle__"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
+      }
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/content/chatgpt-usage-tap.ts"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/content/chatgpt.ts"],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["src/content/claude-workspace.ts"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["src/content/claude-model-fallback.ts"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["src/content/claude-workspace-sync.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["src/content/claude-model-sync.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["src/content/claude.ts"],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["src/content/claude-helper-button.ts"],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": ["src/content/gemini.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://grok.com/*"],
+      "js": ["src/content/grok-usage-tap.ts"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://grok.com/*"],
+      "js": ["src/content/grok.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://chat.deepseek.com/*"],
+      "js": ["src/content/deepseek.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://www.kimi.com/*", "https://kimi.com/*"],
+      "js": ["src/content/kimi.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://chat.qwen.ai/*"],
+      "js": ["src/content/qwen.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://chat.z.ai/*"],
+      "js": ["src/content/zai.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://aistudio.xiaomimimo.com/*"],
+      "js": ["src/content/mimo.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://www.meta.ai/*", "https://meta.ai/*"],
+      "js": ["src/content/meta.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://www.google.com/",
+        "https://www.google.com/webhp*",
+        "https://www.google.com/search*"
+      ],
+      "js": ["src/content/google.ts"],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "bypass_headers",
+        "enabled": true,
+        "path": "rules/bypass-headers.json"
+      }
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "data/prompt-libraries/*.json",
+        "data/version-info.json",
+        "_locales/*",
+        "icons/providers/*",
+        "icons/providers/dark/*",
+        "multi-panel/index.html"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

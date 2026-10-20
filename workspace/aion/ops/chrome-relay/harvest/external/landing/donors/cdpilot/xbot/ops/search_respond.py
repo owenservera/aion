@@ -1,0 +1,332 @@
+#!/usr/bin/env python3
+"""search_respond.py — Faz A #4.
+
+Günlük 13:00 cycle slot'unda çalışır. cdpilot niş'inde "soru" pattern'ı
+içeren tweet'leri X üzerinde arar:
+  - "playwright stealth not working"
+  - "captcha bypass help"
+  - "cdp protocol question"
+  - "browser automation how to"
+  - + 6 niş pattern
+
+Bulunan adaylardan yüksek-takipçi (5k+) + son 24h + soru içeren maks 3 tanesini
+seçer, her birine reply_drafter ile cool ton'da cevap taslağı üretir;
+AUTO_POST on ise kuyruğa atar, off ise ntfy'ye "Onay bekliyor" bildirimi gönderir.
+
+X search'i twikit'te şu an drift'li (ClientTransaction key issue) — graceful
+zero-result, twikit düzelir düzelmez otomatik akmaya başlar.
+
+DOCTRINE.md §3 Faz A item 4.
+
+EXCLUDED FROM run_cycle.py (2026-09-27): superseded by ops/pain_hunter.py at
+the midday/evening slots. The x-sorun-haritasi-2026-09-27.md field study found
+this module's own query shape (unquoted multi-word) was ~30/30 noise on X's
+"Latest" search, and its MIN_FOLLOWERS=1000 floor filters out exactly the
+small accounts that write real, first-person complaints — the two people
+worth answering in that study had 32 and 409 followers. pain_hunter.py fixes
+both (quoted first-person queries, no follower floor) and adds a real
+classifier gate before anything reaches the reply queue. This file is kept,
+not deleted, as a rollback path — it still runs standalone if invoked
+directly.
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).parent))
+import _twikit_patch  # noqa: F401
+from twikit import Client  # type: ignore
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _paths import bot_home  # noqa: E402
+
+DATA = bot_home()
+XBOT = Path(__file__).resolve().parent.parent
+STATE = DATA / "state"
+SEARCH_DIR = STATE / "search"
+LOG_FILE = DATA / "logs" / "search-respond.log"
+COOKIES_PATH = Path(os.environ.get(
+    "CDPILOT_TWIKIT_COOKIES",
+    str(DATA / "cookies" / "cdpilot_dev.json"),
+))
+LANG = os.environ.get("CDPILOT_TWIKIT_LANG", "en-US")
+HANDLE = os.environ.get("CDPILOT_HANDLE", "cdpilot_dev")
+
+# Niş soru patterns — "X is" değil "X how/why/help/?" tarzı
+# Two halves, matching the account's two jobs: help where we have real
+# experience, and join the conversation we actually live in. Before 2026-08-30
+# every query was an anti-bot distress signal, which is why the timeline we
+# replied to had nothing to do with building software with AI.
+SEARCH_QUERIES = [
+    # building with AI — where the discussions are
+    "claude code context window problem",
+    "coding agent lost context",
+    "cursor vs claude code workflow",
+    "ai pair programming actually",
+    "mcp server building",
+    "llm code review worth it",
+    "agent loop stuck debugging",
+    "ai generated code review problem",
+    # what we have measured ourselves
+    "playwright stealth not working",
+    "puppeteer captcha bypass",
+    "selenium detected",
+    "cdp protocol question",
+    "browser automation help",
+    "headless chrome detection",
+    "scraping cloudflare 403",
+    "browser fingerprint randomize",
+]
+
+from _relevance import should_reply  # noqa: E402
+
+MIN_FOLLOWERS = int(os.environ.get("CDPILOT_SEARCH_MIN_FOLLOWERS", "1000"))
+MAX_AGE_HOURS = int(os.environ.get("CDPILOT_SEARCH_MAX_AGE_H", "36"))
+MAX_PROPOSALS = int(os.environ.get("CDPILOT_SEARCH_MAX_PROPOSALS", "3"))
+
+QUESTION_RE = re.compile(r"(\?|\bhow\b|\bwhy\b|\bhelp\b|\banyone know\b|\bany idea\b)", re.IGNORECASE)
+
+
+def _log(msg: str) -> None:
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n"
+    with open(LOG_FILE, "a") as f:
+        f.write(line)
+    sys.stderr.write(line)
+
+
+def _hours_old(ts: float) -> float:
+    return (time.time() - ts) / 3600.0
+
+
+def _is_question(text: str) -> bool:
+    return bool(QUESTION_RE.search(text or ""))
+
+
+async def _search_one(client: Client, query: str, limit: int = 5) -> list[dict]:
+    """Run one X search query. Returns list of normalized candidates or []."""
+    out: list[dict] = []
+    for mode in ("Latest", "Top"):
+        try:
+            tweets = await client.search_tweet(query, mode, count=limit)
+        except Exception as e:
+            _log(f"x search '{query}' [{mode}] fail: {e}")
+            continue
+        if not tweets:
+            continue
+        for tw in tweets:
+            try:
+                text = (tw.text or "").strip()
+                if not text or not _is_question(text):
+                    continue
+                created = tw.created_at_datetime.timestamp() if tw.created_at_datetime else 0
+                age_h = _hours_old(created) if created else 999
+                if age_h > MAX_AGE_HOURS:
+                    continue
+                user = tw.user
+                followers = getattr(user, "followers_count", 0) or 0
+                if followers < MIN_FOLLOWERS:
+                    continue
+                handle = getattr(user, "screen_name", "?")
+                if handle == HANDLE:
+                    continue
+                # Topical gate. X search matches loosely and the ranking below
+                # rewards reach, so without this a big off-topic account beats a
+                # small on-topic one — which is how we ended up answering UK tax
+                # policy and a Pokemon pre-order guide (2026-06).
+                ok, why = should_reply(text)
+                if not ok:
+                    _log(f"skip @{handle} — {why}: {text[:70]}")
+                    continue
+                out.append({
+                    "tweet_id": tw.id,
+                    "url": f"https://x.com/{handle}/status/{tw.id}",
+                    "author": handle,
+                    "author_followers": followers,
+                    "text": text[:280],
+                    "created_ts": created,
+                    "hours_old": round(age_h, 1),
+                    "query": query,
+                    "mode": mode,
+                    "likes": getattr(tw, "favorite_count", 0) or 0,
+                    "replies": getattr(tw, "reply_count", 0) or 0,
+                })
+            except Exception as e:
+                _log(f"normalize tweet fail: {e}")
+                continue
+    return out
+
+
+def _dedupe(items: list[dict]) -> list[dict]:
+    seen = set()
+    out = []
+    for it in items:
+        tid = it.get("tweet_id")
+        if tid and tid not in seen:
+            seen.add(tid)
+            out.append(it)
+    return out
+
+
+def _score(it: dict) -> float:
+    """Higher = better candidate: topical fit first, then recency and headroom.
+
+    Follower count used to carry the heaviest weight (0.5), which optimised for
+    reach rather than fit. It still counts, but it can no longer outrank being
+    about the thing we actually build.
+    """
+    from _relevance import relevance
+    fit = min(1.0, relevance(it.get("text", ""))[0] / 4.0)
+    fresh_boost = max(0.0, (MAX_AGE_HOURS - it.get("hours_old", 999)) / MAX_AGE_HOURS)
+    follower_log = min(1.0, (it.get("author_followers", 0) / 50000.0))
+    low_reply_boost = 1.0 / (1 + it.get("replies", 0) / 5.0)
+    return round(fit * 0.45 + fresh_boost * 0.25 + low_reply_boost * 0.2
+                 + follower_log * 0.1, 3)
+
+
+def _ai_draft(incoming: str, author: str) -> str | None:
+    """Call reply_drafter for a cool peer-voice draft."""
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(XBOT / "ops" / "reply_drafter.py"), "draft",
+             "--incoming", incoming, "--author", f"@{author}", "--lang", "en"],
+            capture_output=True, text=True, timeout=140,
+        )
+        if proc.returncode != 0:
+            _log(f"reply_drafter fail: {proc.stderr[:200]}")
+            return None
+        out = json.loads(proc.stdout)
+        if out.get("skip"):
+            _log(f"drafter chose SKIP for @{author} — nothing worth adding")
+            return None
+        if out.get("fallback"):
+            # The canned fallback line is identical every time. Posting it
+            # unattended turned 14 replies into the same 6 words across 5 days
+            # (2026-08-28) — that reads as spam, not as a reply.
+            _log(f"reply_drafter fell back ({out.get('model')}) — no auto-reply")
+            return None
+        return out.get("draft")
+    except Exception as e:
+        _log(f"reply_drafter exception: {e}")
+        return None
+
+
+def _auto_queue_reply(c: dict, ai_draft: str, idx: int) -> dict:
+    """AUTO_POST: queue an AI-drafted reply directly (no approval card)."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    import telegram_bridge as tb  # type: ignore
+
+    draft = {
+        "id": f"search-reply-{c['tweet_id']}",
+        "kind": "reply",
+        "to": c["url"],
+        "text": ai_draft,
+        "context": f"AI reply to @{c['author']} (search_respond)",
+        "source": "search_respond",
+        # Poster-side staleness gate input (48h) — target tweet's own timestamp
+        "target_created_ts": int(c.get("created_ts") or 0) or None,
+    }
+    qp = tb.auto_queue_draft(draft, idx=idx)
+    return {"queued": True, "queue_path": str(qp), "draft_id": draft["id"]}
+
+
+def _send_card(c: dict, ai_draft: str | None, idx: int, total: int) -> dict:
+    sys.path.insert(0, str(Path(__file__).parent))
+    import telegram_bridge as tb  # type: ignore
+
+    if tb.auto_post_enabled():
+        # Auto-post the AI reply when we have one; with no draft there is nothing
+        # to post unattended (manual reply needs a human), so skip silently.
+        if ai_draft and ai_draft.strip():
+            return _auto_queue_reply(c, ai_draft.strip(), idx)
+        return {"status": "auto_skip_no_draft", "tweet_id": c.get("tweet_id")}
+
+    # AUTO_POST off: the reply waits for Nadir (ntfy notice; tap opens X's
+    # composer as a reply with the AI draft prefilled). Nothing is queued.
+    import _notify  # type: ignore
+    ok = _notify.notify_waiting(
+        f"yanıt @{c['author']} ({idx}/{total})", (ai_draft or "").strip(),
+        reason=f"Soru: {c['text'][:300]}", reply_to_url=c["url"],
+        compose=bool(ai_draft and ai_draft.strip()),
+    )
+    return {"notified": ok}
+
+
+async def main_async(send: bool = True) -> dict:
+    if not COOKIES_PATH.exists():
+        _log(f"cookies missing: {COOKIES_PATH}")
+        return {"status": "no_cookies"}
+
+    SEARCH_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y-%m-%d-%H")
+    out_path = SEARCH_DIR / f"{stamp}.json"
+
+    client = Client(LANG)
+    client.load_cookies(str(COOKIES_PATH))
+
+    all_candidates: list[dict] = []
+    for q in SEARCH_QUERIES:
+        try:
+            results = await _search_one(client, q, limit=5)
+            all_candidates.extend(results)
+            await asyncio.sleep(1.5)
+        except Exception as e:
+            _log(f"search '{q}' wrapped fail: {e}")
+
+    deduped = _dedupe(all_candidates)
+    deduped.sort(key=_score, reverse=True)
+    top = deduped[:MAX_PROPOSALS]
+
+    artifact = {
+        "id": stamp,
+        "generated_at": int(time.time()),
+        "queries": SEARCH_QUERIES,
+        "total_found": len(all_candidates),
+        "deduped": len(deduped),
+        "sent": 0,
+        "proposals": top,
+    }
+
+    if not top:
+        out_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2))
+        _log(f"no proposals — total_found={len(all_candidates)} deduped={len(deduped)}")
+        return {"status": "no_results", "path": str(out_path), "scanned": len(all_candidates)}
+
+    # Generate AI drafts then send cards
+    if send:
+        for i, c in enumerate(top, 1):
+            ai = _ai_draft(c["text"], c["author"])
+            try:
+                _send_card(c, ai, i, len(top))
+                artifact["sent"] += 1
+                time.sleep(1.5)
+            except Exception as e:
+                _log(f"send card {i} fail: {e}")
+
+    out_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2))
+    _log(f"sent {artifact['sent']}/{len(top)} cards · artifact={out_path}")
+    return {"status": "ok", "path": str(out_path),
+            "scanned": len(all_candidates), "sent": artifact["sent"]}
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--no-send", action="store_true")
+    args = p.parse_args()
+    result = asyncio.run(main_async(send=not args.no_send))
+    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+
+
+if __name__ == "__main__":
+    main()

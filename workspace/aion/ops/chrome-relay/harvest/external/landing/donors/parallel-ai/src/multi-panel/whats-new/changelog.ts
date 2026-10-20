@@ -1,0 +1,78 @@
+// What's-new changelog.
+//
+// Each notable release prepends an entry below AND bumps CHANGELOG_VERSION, so
+// existing users see a one-time "what's new" toast on their next launch after
+// updating. Patch releases with no user-facing changes leave both untouched and
+// stay silent. The newest entry (CHANGELOG[0]) drives both the toast and the
+// Settings -> About "What's new" panel.
+
+export interface ChangelogEntry {
+  /** Display version, e.g. "1.0.4". */
+  version: string;
+  /** Optional heading shared by the highlight bullets. */
+  highlightsHeading?: string;
+  /** Short, user-facing highlights. Keep to a few lines. */
+  highlights: string[];
+  /** Optional drawn illustration rendered above the highlights. */
+  media?: "token-meter";
+}
+
+// Monotonic counter bumped whenever a release adds a user-facing entry below.
+// Kept separate from the semantic version so silent patch releases don't trip
+// the toast; it is the value compared against the user's last-seen marker.
+export const CHANGELOG_VERSION = 7;
+
+// Newest first.
+export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.0.9",
+    highlightsHeading: "Bug fixes:",
+    highlights: ["Fill and Send work again with ChatGPT's updated composer."],
+  },
+  {
+    version: "1.0.8",
+    highlightsHeading: "Bug fixes:",
+    highlights: [
+      "Opening Parallel AI with Command/Ctrl+Shift+E now puts the cursor in the composer, ready to type.",
+      "The Claude panel's header title and menu are now aligned.",
+    ],
+  },
+  {
+    version: "1.0.7",
+    highlights: [
+      "Z.ai (GLM) and Xiaomi (MiMo) are available as new providers. Both are off by default; turn them on from the Settings tab.",
+    ],
+  },
+  {
+    version: "1.0.6",
+    highlights: [
+      "Token Meter: a resizable floating panel mirrors each provider's own plan limits (Claude, ChatGPT, Gemini, Grok, and Kimi). You can also switch on a slim usage bar at the bottom of every panel from the usage panel header. Happy token maxxing!",
+    ],
+    media: "token-meter",
+  },
+  {
+    version: "1.0.5",
+    highlights: [
+      "Claude panels now follow the workspace you selected on claude.ai, so accounts with more than one workspace no longer get stuck sending on the wrong one.",
+      "The Claude model picker now remembers your choice across browser restarts, and no longer resets to Haiku after a restart or a temporary account hiccup.",
+      "Accounts with a working Claude model selector are now left completely untouched: the extension no longer rewrites their requests.",
+    ],
+  },
+  {
+    version: "1.0.4",
+    highlights: [
+      "Claude is usable again on accounts that showed a broken model selector: the panel now provides a working model picker with effort and thinking controls.",
+    ],
+  },
+  {
+    version: "1.0.3",
+    highlights: [
+      "Session persistence: your panels and conversations now reopen where you left them after a reload or restart.",
+    ],
+  },
+];
+
+/** The entry surfaced in the toast and About panel (newest), or null if empty. */
+export function getLatestChangelogEntry(): ChangelogEntry | null {
+  return CHANGELOG[0] ?? null;
+}

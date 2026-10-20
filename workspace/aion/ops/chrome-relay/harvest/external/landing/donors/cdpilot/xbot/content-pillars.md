@@ -1,0 +1,274 @@
+# xbot — Content Pillars (Revised 2026-05-21)
+
+> Nadir feedback (2026-05-21): "self-deprecation azalsın, mix genişlesin, vaatler tamamlansın,
+> conductor / diğer makinedeki projeler ileride teaser olarak girsin."
+
+---
+
+## Pillar karışımı (Revize 2026-08-30 — Nadir yön değişikliği)
+
+> **Kimlik:** Yapay zekâyla her gün kod yazan, işi neyin gerçekten kolaylaştırdığını
+> anlatan, sürekli araştırıp denediğini raporlayan ve ilginç şeyler üzerine yapıcı
+> tartışma başlatıp sürdüren bir geliştirici.
+>
+> cdpilot bu kişinin **yaptığı şey**, konuştuğu şey değil. Kanıt olarak geçer,
+> reklam olarak değil. Sadece kendi ürününü konuşan bir hesabın işe dair
+> söyleyecek sözü yoktur.
+
+| % | Pillar | Örnek |
+|---|---|---|
+| 30% | **AI ile üretim pratiği** — neyi kolaylaştırdı, neyi kolaylaştırmadı | "claude code uzun refactor'da bağlamı kaybediyor; 3 dosyalık dilimlere böldüm, tutar oldu" |
+| 25% | **Araştırma notu** — denenmiş, ölçülmüş, raporlanmış | "4 modeli aynı reply prompt'uyla ölçtüm: kimi-k3 13sn tam cümle, deepseek-flash 77sn yarım" |
+| 20% | **Tartışma açan gözlem** — kanıtlı, tek fikirli, cevap isteyen | "coding agent'lar ancak iyi kodun neye benzediğini bilene yarıyor. karşı örneği olan?" |
+| 15% | **Az bilinen ama iyi repolar / araçlar** | rebrowser-patches, twifork, anubis, vd. |
+| 10% | **cdpilot** — feature, recipe, bench (kanıt olarak) | "shipped v0.9.0 — video watch + friction ladder" |
+
+**Değişen ne:** cdpilot %30'dan %10'a indi. "Ürün hesabı" değil, "pratisyen hesabı".
+Araştırma ve tartışma ilk kez birer pillar — kimliğin merkezi orası.
+
+### Haber flood'u — format (2026-08-30)
+
+Haberi paylaşmak değil, **çevirmek**. Link altına "ilginç" yazmak sıfır değer üretir;
+bizim katkımız, bir şeyin inşa eden biri için ne anlama geldiğini onun kullandığı
+kelimelerle söylemek ve arkasında durabileceğimiz bir yorum eklemek.
+
+3-4 tweet, sabit iskelet (`ops/news_flood.py` bunu zorunlu tutar):
+
+| # | İçerik |
+|---|---|
+| 1 | Ne oldu — sade dil, jargon yok, link yok. Kaydıran biri tıklamadan anlamalı. |
+| 2 | Ne değişiyor — mekanizma, sıfat değil |
+| 3 | **Bizim yorumumuz** — ne yapardık, neye mal olur, nerede kırılır. Flood'un var olma sebebi bu. |
+| 4 | (opsiyonel) Dürüst çekince ya da gerçekten merak ettiğimiz soru. Doldurmak için yazılmaz. |
+
+Yasak: hype kelimeleri, "🧵", "1/4" numaralandırma, link, cdpilot reklamı,
+sahip olmadığımız deneyim iddiası ("yıllardır X çalıştırıyoruz").
+Kaynak: `discovery_scan` (HN/GitHub/arXiv). Çıktı `drafts/`'a yazılır —
+**otomatik atılmaz**, Nadir onaylar.
+
+### Kendini tekrar etmeme (2026-08-30)
+
+`ops/_novelty.py` her flood ve öneri öncesi üç eksende bakar:
+**konu** (aynı repo/ürün 21 gün içinde tekrar), **kelime** (son 30 günle %45+
+örtüşme), **ritim** (son 8 postta aynı iki kelimeyle başlamak). Üçü de
+engelleyicidir — üretilen içerik reddedilir ve sıradaki adaya geçilir.
+
+Gerekçe: poster'daki birebir-metin engeli bozuk bir üreticiyi yakalar; yavaş
+başarısızlığı yakalamaz — aynı şeyi farklı kelimelerle her hafta söyleyip
+hesabı bir döngüye çevirmek.
+
+### Tartışma kuralları (2026-08-30)
+
+Bu hesap tartışma **başlatır ve sürdürür**. İkisi de ölçülebilir davranış:
+
+- **Başlatmak:** her tartışma açan post tek bir fikir + onu destekleyen somut
+  kanıt (ölçüm, hata, tradeoff) + gerçekten merak edilen bir soru içerir.
+  Kanıtsız fikir gürültüdür; soru işareti söyleyecek şey yerine geçmez.
+- **Sürdürmek:** attığımız bir tweet'e gelen cevap yanıtsız kalmaz. Konuşmayı
+  bırakıp bir sonraki hedefe geçmek "tartışma" değil, yayın yapmaktır.
+- **Susmak:** ekleyecek somut bir şey yoksa cevap yazılmaz. Taslak üreticisi
+  `SKIP` döndürebilir ve bu beklenen bir sonuçtur (bkz. reply_drafter
+  SYSTEM_PROMPT). Hiçbir şey söylemeyen cevap, sessizlikten kötüdür.
+- **Satmamak:** başkasının thread'inde ürün tanıtımı yasak. cdpilot ancak
+  sorulanın dürüst cevabı oysa geçer.
+- **Uydurmamak:** doğruluğundan emin olunmayan teknik iddia yazılmaz.
+  (2026-06 dersi: "CDP üzerinden ham SIP stack" diye bir şey yok, yine de attık.)
+
+### "Claude ile üretim hikâyeleri" pillar kuralları (2026-08-23)
+
+Kaynak: Nadir'in gerçek projelerinde Claude ile çözülen problemler. Format: problem → neden hazır çözüm yetmedi → yaklaşım → ölçülebilir sonuç.
+
+**Gizlilik gate'i (ZORUNLU):**
+- Proje adı, müşteri adı, domain, gelir rakamı, ekran görüntüsü PAYLAŞILMAZ (cdpilot hariç).
+- Paylaşılan şey PATTERN'dir: "a publishing client's flipbook" değil → "needed a flipbook".
+- Private repo kodu paylaşılmaz; anlatılan yaklaşım genel çizimle (pseudocode OK).
+- Tereddütte: paylaşma, drafts/'a koy, Nadir'e Telegram'dan sor.
+
+**Soru-cevap kuralı:** Bu pillar'ın tweet'lerine gelen "hangi proje / nasıl yaptınız detayı" tarzı reply'lara bot CEVAP VERMEZ — Nadir kendisi cevaplar. Bot sadece teknik-genel sorulara yanıt drafts'lar.
+
+**Ton:** Kişisel deneyim ("I/we built"), somut sayı (KB, fps, gün), asla "AI did everything" hype'ı — Claude bir araç olarak geçer, hikâyenin kahramanı problem çözümüdür. Reply-bait kuralı bu pillar'da da geçerli.
+
+---
+
+## Vaat takibi (ZORUNLU)
+
+Vaat eden tweet → mutlaka kapanış zinciri. Kayıt:
+
+| Tweet | Vaat | Kapanış |
+|---|---|---|
+| `fz0-2` | "thread incoming." | `fz0-2-thread-1..5` (queue'da, Hafta 2 aralığında) |
+| _gelecek_ | "v0.9 target" | v0.9.0 release post + comparison thread |
+
+**Kural:** Vaat eden bir tweet'i atmadan önce kapanışı planlı olmalı. Eğer kapanış 1 hafta içinde yapılamayacaksa vaat kelimesini ("thread incoming", "next post", "soon") **kullanma**.
+
+---
+
+## Teaser stratejisi: Conductor + diğer makinedeki projeler
+
+Şu an Faz 0 (sıfır-km hesap). Conductor + sair projeler teaser olmak için çok erken — önce ana persona (cdpilot kurucusu, browser/automation expert) oturmalı.
+
+### Faz timeline
+
+| Faz | Hafta | Conductor sızıntısı |
+|---|---|---|
+| Faz 0 | 1-2 | YOK — sadece cdpilot ekosistem işleri |
+| Faz 0.5 | 3-4 | İmalı 1-2 post: "i have a private orchestration setup that..." (proje adı yok) |
+| Faz 1 | 5-8 | "the orchestration thing has a name now: Conductor. it does X, Y, Z." (still WIP) |
+| Faz 2 | 3-4 ay | "shipping `cdpilot launch` from Conductor in a few lines — here's how" |
+| Faz 3 | 5+ ay | Conductor public alpha (eğer yayımlanırsa) |
+
+### Diğer makine projeleri (yan-tema kaynakları)
+
+Hepsi bir gün öne çıkabilir ama önce şu an alakalı olanları öne çıkar:
+
+- **inventory-shelf, mastershop** — e-commerce / vendor tooling tarafı (eğer cdpilot kullanım örneği varsa)
+- **konu-poster-uretim, blog-writer, ads-ai** — content/SEO/AI dünyası (LLM pillar'ı için kaynak)
+- **bilet-alarmi-app, tcdd-bilet-bot** — automation acı örnekleri (browser/CDP narrative ile uyumlu — "i built a TCDD bot once and learned X about anti-bot")
+- **interactive-software, yds-digital** — eğitim teknolojisi (uzun vade, ayrı persona riski)
+- **x-bookmarked, wa-chat-history** — kişisel araçlar (yan teaser olabilir)
+- **kokpit** — devops/sunucu görselleştirme (ileride Conductor ile bağlandığında ortaya çıkar)
+
+### Teaser anatomisi
+
+İyi teaser = curiosity gap + concrete detail + no fake hype.
+
+❌ "i'm building something big" — boş.
+❌ "wait until you see what's coming" — pazarlamacı tonu.
+✅ "i have an orchestration setup that delegates 70% of my coding to Gemini Flash and keeps Claude as the architect. one day i'll ship it." — somut + merak uyandıran.
+
+---
+
+## Reply-bait kuralı (ZORUNLU — 2026-05-22)
+
+Her tweet SON SATIRINDA soru veya iddia ile bitmeli. HeavyRanker reply ağırlığı +27
+(en yüksek). Cold-start için tek en güçlü kaldıraç.
+
+| Pattern | Örnek | Skor |
+|---|---|---|
+| `?` ile biten gerçek soru | "why does X work but Y fail?" | 3/3 |
+| Provokatif iddia + karşıt davet | "anyone disagree?" | 3/3 |
+| Sadece `?` | "where's the leak?" | 2/3 |
+| Sadece iddia (davet yok) | "this is the part i find interesting" | 1/3 |
+| Hiçbiri | düz tespit cümlesi | 0/3 |
+
+Bridge `_reply_bait_score` her draft'ta otomatik skor verir. Telegram önizlemesinde
+🎣 emoji ile gösterilir. **2/3 veya altıysa yeniden yaz.**
+
+### Anti-pattern (yapmama)
+- Genel sorular ("favorite editor?") — algoritma bunları engagement-bait sayıp baskılıyor
+- Soyut provokasyon ("change my mind") — değer üretmiyor, dunk daveti
+- Soruyu HOOK'a yerleştirip cevabı body'de vermek — son satır kuralı
+
+---
+
+## @grok haftalık provokasyon (Salı sabah)
+
+`grok_provocation.py` 8 topic rotation'ı tutuyor. Salı 08:30 cycle'da otomatik
+draft öneriliyor — onayla, Salı öğleden sonraya schedule olur. Bekleyen organic
+boost: 5-50k impression.
+
+Topic havuzu (rotasyon, 2 ay döngü):
+1. Playwright vs raw CDP fingerprint diff
+2. Headless vs headful detection asymmetry
+3. TLS spoof ethics (curl-impersonate dual-use)
+4. CAPTCHA vendor weighting (Cloudflare vs DataDome)
+5. LLM agent + browser latency
+6. SSR vs CSR scraping cost
+7. CDP vs WebDriver BiDi
+8. Bot signal hierarchy rank
+
+---
+
+## Mutual-engagement like loop
+
+Birisi tweet'imize reply atınca 24h içinde son tweet'lerinden 1-2 tanesini
+like'lıyoruz (reciprocity = follow-back probability +60%).
+
+Otomatik akış:
+1. `mention_scraper.py` reply'leri inbox/'a alıyor
+2. `engagement_scanner._scan_mutual_engagement` repliers'ı buluyor, son tweet'lerini scan ediyor
+3. Akşam slot'unda Telegram'a "mutual" tag'li öneri olarak çıkıyor
+
+---
+
+## Crisis auto-detection (2026-05-22)
+
+`crisis_check.py` gece slot'unda çalışır. Tetikleyiciler:
+- Toplam engagement bugün < 7-day median'ın %40'ı
+- Impressions < median'ın %40'ı
+- Follower count düştü
+
+Tetiklenirse `state/crisis-freeze.flag` yazılır → poster bu flag varken hiç
+post atmaz. Telegram'a kırmızı alarm gider. Manuel inceleme + `crisis-playbook`
+skill → `crisis_check.py --clear` ile freeze kaldırılır.
+
+---
+
+## Tone audit (ANTI-PATTERN)
+
+Yarın atılan her draft'ı şu kontrolden geçir:
+
+| ❌ Anti-pattern | ✅ Yerine |
+|---|---|
+| "honest disclaimer: still leaks X" | "the X category is a future problem — here's why" |
+| "i know what every line costs" | "the interesting thing about line N is..." |
+| "no MITM, no fork" (defansif) | "investing in behavioral layer is healthier" (positive frame) |
+| "this is acemi" yaklaşımları | "this is the part i find interesting" |
+| Kendine güvensizlik | Observational curiosity |
+
+---
+
+## Engagement → push CDP'yi yavaş
+
+Reply ve quote tweet'lerde cdpilot bahsetmek ZORUNLU değil. Eğer:
+- Soru cdpilot ile direkt alakalı → bahset
+- Soru genel browser/CDP/automation → cdpilot anekdot olarak EN ÇOK 1 cümle, geri kalanı genel bilgi
+- Soru tamamen başka konu → cdpilot bahsetme, kazanılan trust > kazanılan impression
+
+Aralara serpiştirmek bu demek. Marka değer üretiyor, kendini ezberlemiyor.
+
+---
+
+---
+
+## URL-in-reply taktiği (15 gün sıkı takip — 2026-05-21 başladı)
+
+X HeavyRanker dış URL içeren tweet'leri hafifçe baskılıyor (-1 ila -3 weight).
+Bu yüzden link içeren post'larda body link-free tutulur, link **ilk reply'a** otomatik
+self-reply olarak atılır. Poster (`poster_twikit.py`) bunu `followup_text` field'ı
+ile destekler.
+
+### Ne zaman uygula
+| Tip | URL nereye |
+|---|---|
+| Repo / gem highlight | body link-free, `followup_text` → ilk reply |
+| Blog / release post | aynı pattern |
+| Quote tweet | quote URL body'de OK (quote zaten link-friendly) |
+| Reply chain | body'de OK (reply'lar link-penalty almıyor) |
+| URL'siz tip / tool ismi | sorun yok |
+
+### 15 günlük doğrulama protokolü (2026-05-21 → 2026-06-05)
+Her URL'li post için kayıt:
+- impressions (24h, 7d)
+- engagement (likes, replies, profile clicks)
+- followup reply'ın kendi impression'ı
+
+Karşılaştırma: link-in-body vs link-in-reply. Gain (impression delta) %15+ ise
+patterni kalıcı yapacağız; değilse drop. Sonuç `xbot/url-reply-experiment.md`'ye yazılacak.
+
+### Draft schema
+```json
+{
+  "id": "gem-001-rebrowser",
+  "kind": "tweet",
+  "text": "an underrated repo: rebrowser-patches.\n...\nlink below ↓",
+  "followup_text": "→ github.com/rebrowser/rebrowser-patches"
+}
+```
+
+`kind == "tweet"` olduğunda poster `followup_text`'i 12-45s sonra (insan tipi gap)
+parent tweet'e reply olarak atar.
+
+---
+
+Son güncelleme: 2026-05-21 (URL-in-reply taktiği + 15-day experiment)
