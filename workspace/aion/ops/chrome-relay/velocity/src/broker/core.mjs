@@ -3,6 +3,7 @@
 import {resolveRole} from './roles.mjs';
 import {selectGrant} from '../../../extension/src/bus/grants.js';
 import {projectResult} from '../result.mjs';
+import {projectPlatformAdapters} from '../platform/semantics.mjs';
 
 const ACTIVE=new Set(['RESERVED','DISPATCHED','SUBMISSION_OBSERVED','UNRESOLVED']);
 const response=(ok,code,more={})=>({ok,code,...more});
@@ -121,7 +122,8 @@ export function createCommandPlane({bus,roleCatalog,capabilities,events}={}) {
       switch(method){
         case 'doctor': return {schema:'aion.doctor/1',channel:'dev',
           browser_runtime:'UNVERIFIED',windows_runtime:'NOT_CONNECTED',live_verified:false};
-        case 'capabilities': return {schema:'aion.capabilities/1',items:capabilities.list()};
+        case 'capabilities': return {schema:'aion.capabilities/1',items:capabilities.list(),
+          platform:projectPlatformAdapters(bus.adapters??{})};
         case 'status': {
           const s=await bus.status();
           return {schema:'aion.status/1',channel:'dev',kill:s.kill,seq:s.seq,
