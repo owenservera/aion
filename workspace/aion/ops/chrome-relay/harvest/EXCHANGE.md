@@ -2,6 +2,10 @@
 
 **One queue, one lightweight contract, on `main`.** This document and [EXCHANGE.jsonl](EXCHANGE.jsonl) are the only cross-workstream intake/delivery surface. Do not create a second registry, project board, permanent branch, or separate inbox per agent. [Repository governance](../../../../../REPOSITORY-GOVERNANCE.md) remains authoritative.
 
+## Current shortcut supply line
+
+**Discovery** proactively surfaces source modules with potential to leapfrog AION development (CDP, DOM, parsers, identity, transport, etc.) by pin/path and contract mapping, **without verifying donor functionality**. **Integration Manager** adapts Development-selected findings into real AION-ready staged code/patches. **Development** selects, integrates, tests and owns runtime behavior. See [Development desk](../workers/development/DELIVERABLES.md), [Discovery desk](external/workers/nine-repo/DELIVERABLES.md), [Integration Manager desk](external/workers/integration-manager/DELIVERABLES.md). Use the **existing AX topic/record** for handoffs and link staged files; no secondary queue. Value is engineering eliminated, not the number of records. New code reuse is a normal **Dev-selected** path, not implicit adoption from an OFFER; preserve source and licensing, Bus safety and fidelity. 
+
 ## Why this exists
 
 Development (formerly Track B) first **discovers and categorizes its actual needs and current source reality**. Each research/harvest lane then maps its evidence to those needs: methodologies, pitfalls/negative tests, and where genuinely useful, specific external protocol/contract descriptions. **AION Development owns all implementation.** Donor code and provider documentation are evidence, not AION source ownership, an executable route or an instruction to copy code. Both directions use **one record shape** and the same stable `topic` key, so matching is mechanical and deduplicated.
@@ -89,8 +93,8 @@ Retain every required legacy field. For newly inspected OFFER/GAP records, optio
 
 1. **Development first discovers/classifies NEED** with one topic, actual AION source status (main/candidate/design/future), integration seam, proof status and acceptance test. This is not an instruction to implement donor code.
 2. **Harvest/research posts OFFER or GAP on the same topic.** Each lane conducts its investigation internally in its existing folder, pins source commit + module/path, checks licensing and safety, and links relevant cards, source excerpts, comparisons, or docs. Publish **one synthesized delivery** instead of forwarding dozens of cards to Development.
-3. **Development categorizes intelligence** as relevant method/test pattern, a specific versioned protocol/contract candidate, noted limitation or rejected reference. Only Development can separately accept an in-house implementation design; record any actual design decision and code/test evidence independently. An OFFER can be proactive without a NEED, and remains discoverable by topic.
-4. **Close only on verified outcome**: link implementation commit/test evidence (or explicit no-reuse decision). Keep the original source evidence immutable; refresh stale claims via a new revision/update rather than pretending upstream is unchanged.
+3. **Development selects valuable intelligence**; Integration Manager packages the corresponding source into AION-adapted code with explicit dependencies, license and destination seam. This step is adaptation, **not donor verification or final implementation acceptance**. OFFERs can be proactive, especially for leapfrogging primitives.
+4. **Development integrates and tests in AION** and closes on its own code/test evidence, or explicit deferral. Neither discovery nor packaging has a separate functional verification obligation. Keep original source evidence immutable.
 
 **Routing:** start from [Development's classified needs](../DEVELOPMENT-MASTER.md), existing internal sources and the research/crosswalk corpus; inspect the nine-repo evidence once and classify *which methods, failure cases and optionally protocol contracts relate to which AION need*. Do not duplicate equivalent evidence, force a donor winner or re-clone the nine source trees already on `main`. The first-stage output is discovery/categorization, **not** source transplantation.
 
