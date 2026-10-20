@@ -2,6 +2,16 @@
 
 **Role:** the middle supplier between [External Nine discovery](../nine-repo/DELIVERABLES.md) and [AION Development](../../../../workers/development/DELIVERABLES.md). **ChatGPT effort:** High for source adaptation; Medium for straightforward mapping. Not another governance board.
 
+## Active TODO — Integration Manager
+
+- [ ] **PACK-01:** stage actual AION-adapted Bridge receive cursor/journal and terminal-evidence source files under `packs/PACK-01/`; preserve license and original SHA/path.
+- [ ] In PACK-01 correct silent tail-window replay omission and matching-epoch ahead cursor; map to existing AION P1 event/snapshot contract, not a new wire schema.
+- [ ] **PACK-02:** stage actual read-only Multi-AI Chat DOM/response helpers under `packs/PACK-02/`, matching AION P2 observer/profile seams; exclude Send/Enter/click/retry and private backend paths.
+- [ ] For each pack include exact destination files, dependency footprint and short integration/test notes; commit the **actual staged code** to main and update existing AX links.
+- [ ] When Development selects a higher-value CDP/parser/transport leapfrog, prioritize its small staged code package over low-value completeness work.
+
+**Done = reusable staged code + exact insertion notes; no independent donor testing, AION test claims or runtime changes. Thinking effort: High.**
+
 ## Primary objective: convert leapfrogs into product accelerators
 
 Take the **highest-return** discovery Development selects, including unexpected CDP/MV3 control components, DOM/accessibility observers, parser/compiler kernels, transport/session engines and provider adapters. Preserve as much of the working primitive as makes sense; do **not** reduce a reusable engine to a prose-only pattern or unnecessarily rebuild from scratch. Optimize for **AION development work eliminated**, broad reuse and low friction.
