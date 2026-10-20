@@ -264,7 +264,7 @@
         "conversation.send",
         "conversation.observe_reply"
       ],
-      "application_family": "ai_chat_webapp",
+      "application_family": "ai_conversation_webapp",
       "application_shape": "conversational_thread",
       "realization_mode": "browser_mediated"
     },
@@ -277,7 +277,7 @@
         "VF-0021"
       ],
       "capabilities": [],
-      "application_family": "ai_chat_webapp",
+      "application_family": "ai_conversation_webapp",
       "application_shape": "conversational_thread",
       "realization_mode": "browser_mediated"
     },
