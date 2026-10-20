@@ -40,3 +40,26 @@ E. **Promotion ladder:** harvested -> crosswalked -> development owner dispositi
 
 ## Review owners / handoff
 Track B development owner decides D1 additive vs migration, D2 exact fields/compatibility, D3 current-repair sequencing. Workers A/B own further donor source capture. Worker C owns mapping updates and duplicate relationships. All three branches may be integrated after conflict checks; crosswalk does not require Windows.
+
+
+## C-004 — strategic choice matrix and execution-ready acceptance handoff
+The decision below is *Crosswalk recommendation*, not an adopted AION migration or a change to the CENV command environment. It reflects the final 65-item harvest; no runtime tests/changes were performed.
+
+| Alternative | Scope | Benefit | Cost/risk | Crosswalk disposition |
+|---|---|---|---|---|
+| **A. Keep canonical Track B, add versioned taxonomy metadata (recommended)** | One provider-family axis plus realization-class axis and explicit evidence references; project as optional data through existing registry/adapter | Reversible, supports future bespoke apps and doesn't block the current Send/observe repair | Does not immediately generalize runtime provider execution | **RECOMMEND** for a separately reviewed slice |
+| B. One-time global taxonomy migration | Replace current records/registries/schemas in one pass | Uniform model after migration | High compatibility, provenance-loss and authority-conflation risk; donor canonical owner unresolved | **DEFER**; no evidence of necessity |
+| C. Long-lived dual taxonomy runtime | Maintain two authoritative registries and bidirectional sync | Migration flexibility | Split-brain names, stale readiness, duplicate action ownership | **REJECT as default**; use temporary offline mapping for a narrow compatibility migration only if later justified |
+| D. Transplant donor provider engines | Import full provider/discovery/retry/shape components | Rapid donor feature breadth on paper | Unsafe resend, risk-class defaults, fail-open rules, guessed selectors, private API/CDP paths | **REJECT** without new evidence and separate security architecture decision |
+
+### Owner disposition packet (specific implementation entrypoints and falsifiers)
+1. **Current priority stays the existing CENV vertical slice:** existing `extension/src/chatgpt/content.js`, `extension/src/background/chatgpt-port.js`, `extension/src/lib/chatgpt-tasks.js`, `extension/src/chatgpt/correlate.js`, and `extension/src/bus/adapters/chatgpt.js`. Existing CENV specs—not harvested files—govern verification. Harvest creates **no Windows test gate** and no reason to delay ongoing repair.
+2. **Optional P1 metadata slice, after owner acceptance:** add read-only semantic classification with `application_family` (e.g. `ai_conversation_webapp`, `bespoke_coding_ide`, `unknown`) and `realization_mode` (e.g. `browser_mediated`, `api_native`, `simulator`, `unknown`) as **two independent versioned fields**. Current provider, account, conversation binding, transport, runtime, supported action and freshness remain separate. This shape is **PROPOSED**, not canonical; do not force every app into one class. Sources VF-0001..0004, VO-GH-0001/0003.
+3. **Optional P1 read-only capability projection:** existing AION command/adapter registry maps semantic action to provider realization; expose which capabilities are catalogued vs observed fresh vs Bus-authorized vs effect-proven. Do **not** create a new execution route. Sources VF-0005..0009, VO-GH-0005/0009/0015; existing CENV-03 and DATA-01..05.
+4. **Negative acceptance falsifiers if any slice is implemented:** (N1) malformed existential rule cannot permit Send [VF-0026]; (N2) missing risk never downgrades external mutation to READ [VO-GH-0031]; (N3) multiple eligible Send candidates block instead of ranked actuation [VO-GH-0030]; (N4) ambiguous/transport-lost dispatch never triggers a second Send [VF-0016/0024]; (N5) provider PROMOTED with stale UI state remains not ready [VO-GH-0028/0029]; (N6) simulated email fixture Send never yields REAL_CHATGPT_SENT or M1 [VO-GH-0038].
+5. **Migration criteria, not timeboxes:** change option A only if verified second real provider shows unrepresentable semantics in the existing adapter; immutable old records can be read under a schema-version compatibility path; positive and negative tests prove no original effect/authority fact was reclassified; rollback doesn't discard tombstones/grants.
+
+### Crosswalk machine-readable release input
+[crosswalk-ledger.jsonl](crosswalk-ledger.jsonl) contains one row per captured/flagged donor candidate, exactly 65, pinned provenance, primary seam, observed capture status, unsafe behavior flags and `aion_integration_approved=false`. It is **research metadata**, not a runtime registry. Full source SHA validation remains a worker-reported property, with only two samples independently checked by Crosswalk.
+
+**Reviewer action:** disposition A vs B vs C vs D and the optional P1 slice is a development-owner decision. No acceptance is implied by opening or merging this PR.
