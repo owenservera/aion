@@ -9,6 +9,8 @@ import {parseEngineSetup,parseRoleConnect} from '../src/setup-args.mjs';
 import {openLocal,engineProbe,browserProbe,publicBrowser} from '../src/local-runtime.mjs';
 import {resolveRole} from '../src/broker/roles.mjs';
 import {projectResult} from '../src/result.mjs';
+import {projectPlatformAdapters} from '../src/platform/semantics.mjs';
+import {runPlatformInspect} from '../src/platform/inspect.mjs';
 import {CHATGPT_ADAPTER,canonicalChatGPTConversation} from '../../extension/src/bus/adapters/chatgpt.js';
 import {canonicalConversation} from '../../extension/src/lib/chatgpt-tasks.js';
 import {probeAcpBinary,verifyAcpCwd} from '../src/engines/acp.mjs';
@@ -36,6 +38,7 @@ export async function main(argv=process.argv.slice(2),{
   chromeProbe=async()=>{const b=await browserProbe();b.link?.close();return b;}
 }={}){
  const cmd=argv[0]??'status';
+ if(cmd==='platform')return runPlatformInspect(argv.slice(1),{print});
  if(cmd==='agents'){
    if(argv.length!==1)return done(print,{ok:false,code:'BAD_COMMAND'},2);
    // The catalogue is always listed. When the Bus registry cannot be read
@@ -207,7 +210,8 @@ export async function main(argv=process.argv.slice(2),{
             reply:{support:'IMPLEMENTED',runtime_readiness:'NOT_PROBED'},
             attachments:{support:'UNSUPPORTED_BY_ADAPTER',runtime_readiness:'NOT_PROBED'},
             model:{support:'UNSUPPORTED_BY_ADAPTER',runtime_readiness:'NOT_PROBED'},
-            new_conversation:{support:'UNSUPPORTED_BY_ADAPTER',runtime_readiness:'NOT_PROBED'}}}},0);
+            new_conversation:{support:'UNSUPPORTED_BY_ADAPTER',runtime_readiness:'NOT_PROBED'}}},
+        platform:projectPlatformAdapters(rt.bus?.adapters??{})},0);
     }
    if(parsed.command==='status'){
      const s=await rt.bus.status();
