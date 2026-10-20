@@ -224,3 +224,14 @@ At each real Harvest batch arrival: **triage → link source IDs → compare wit
 - [ ] Sequence P0–P6 based on actual receipts and decision outcomes; keep short-path Chrome repair moving unchanged.
 
 **Strategic default pending evidence:** retain working Track B schemas and identities; use a non-authoritative semantic crosswalk to learn the donor taxonomy; selectively extract shared contracts only after confirming repeated use and safe evidence semantics. A one-time taxonomy migration remains a serious OPEN option, not prohibited or preselected by this default.
+
+### 9.8 Master seed and governed build-packet predesign (Harvest C-003)
+
+**Companion design artifacts committed for strategy review (NOT runtime authority):**
+- [AION Platform semantic seed JSON](platform-semantic-seed.json) — proposed multi-axis ontology, stable conceptual capability IDs, example providers and current actual mappings, evidence and failure-safe invariants; `executable:false`.
+- [Semantic master and governing command protocol](05-AION-PLATFORM-SEMANTIC-GOVERNANCE.md) — design directives vs existing runtime commands, authority/preference rules, provider-specific semantic obligations, adoption gates and migration criteria.
+- [Pre-designed implementation packets](06-AION-PLATFORM-IMPLEMENTATION-PACKETS.md) — AP-001 provider metadata, AP-002 evidence/readiness (same current CENV hot path, not a second implementer), AP-003 read-only unified command introspection, with future AP-004..007.
+
+These are reconciled with [Crosswalk C-003 / PR #41](https://github.com/owenservera/aion/pull/41), pinned at `7fcd334a`: **65 donor research records** (27 Final copied, 26 Omega copied, 12 Omega flagged-only). No donor runtime tests or live webapp proof. Crosswalk integration queue #01–03 becomes no-regression safety laws (malformed capability rule cannot fail open; unknown effects cannot resend; ambiguous ranked controls cannot actuate); #04–07 inform early additive models; #08–11 are held for later provider proof/source ownership; #12 direct unsafe transfer rejected.
+
+**Design/development separation:** The master seed is a semantic *design compiler input* only if AION someday builds and reviews such a compiler. Current Track B `aion.bus/1`, CLI parser, `aion.capability/1`, `aion.result/1` and provider-specific adapters remain the executable source of truth. No added Bus operation, migration, browser action, scheduled work or new registry follows from these documents. Review/accept packets independently before assigning source changes; keep current Chrome Send→reply acceptance moving.
