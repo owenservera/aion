@@ -53,10 +53,10 @@ GitHub is the durable record; issues or files are not automatic agent wakeups. C
 - Continuity UI: [097bd5e](https://github.com/owenservera/aion/commit/097bd5ea2cc10fae7e12dadc3faed7f96ceb50c3).
 - Stale/error hardening: [90fc6aa](https://github.com/owenservera/aion/commit/90fc6aa19e0b6b3378943a768a08cd53c9e108ac).
 - Unit contract suite: [17c4cca](https://github.com/owenservera/aion/commit/17c4cca53436a12a6808e1640b9c8525903e9f13), expanded race test [399451c](https://github.com/owenservera/aion/commit/399451c6f8848b0d9a6130ba19a1d1cabb02ea85).
-- Six tests in \`test/unit/studio-ui.test.mjs\`: inline syntax; keyboard/filter; incomplete/truncated evidence; escaping/provenance; cautious uncertainty; latest-request-wins. **All six passed in the connected JavaScript V8 execution harness using current committed source/test contents**. This was not the Node 22 runner or live browser. No independent QA result is asserted.
+- Six tests in `test/unit/studio-ui.test.mjs`: inline syntax; keyboard/filter; incomplete/truncated evidence; escaping/provenance; cautious uncertainty; latest-request-wins. **All six passed in the connected JavaScript V8 execution harness using current committed source/test contents**. This was not the Node 22 runner or live browser. No independent QA result is asserted.
 
 ### Remaining acceptance
-- Run \`node --test test/unit/studio-ui.test.mjs\` on local Windows with Node 22 and the full existing package suites; confirm actual Studio browser workflows, history rows and mobile sizes.
+- Run `node --test test/unit/studio-ui.test.mjs` on local Windows with Node 22 and the full existing package suites; confirm actual Studio browser workflows, history rows and mobile sizes.
 - Independent QA may independently examine Sprint 02 backend behavior; do not transfer its acceptance responsibility to this lane.
 - Future UX work: navigate graph/model information visually (only via supported APIs), richer sorting/pagination for larger sites, and end-user evidence drilldown beyond latest 200 preview rows. Core retains any required API contract decisions.
 
