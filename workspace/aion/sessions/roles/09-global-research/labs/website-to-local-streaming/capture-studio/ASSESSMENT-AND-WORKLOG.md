@@ -1,5 +1,13 @@
 # Capture Studio — Step-back Assessment, Adjustments and Prioritized Worklog
 
+## Current navigation — 2026-10-21 (source-first Opus sprints)
+
+**Current Opus launch:** [Fast Build Sprint protocol](../../../../../../ops/capture-studio-build-sprints/LAUNCH.md) and [Sprint 01 — Trustworthy Continuity](../../../../../../ops/capture-studio-build-sprints/SPRINT-01.md). Follow the relative links or locate `workspace/aion/ops/capture-studio-build-sprints/` from repository root.
+
+**Freshness / supersession:** This file preserves valuable *historical assessments, baseline metrics, work items W1–W18 and proposed sequencing* recorded against earlier source revisions. Its phrases “next run starts with W1 → W2 → W3”, priority ordering, required Opus-run tests, scorecard-before-commit and preselected algorithms **are no longer directives for Opus**. They are reference hypotheses/acceptance needs for independent QA. Opus reads current source first, investigates broad cross-layer leverage, chooses its own implementation sequence and does not create/execute physical tests. Keep underlying dated evidence; never promote earlier measured results to claims about current `main` without independent retesting.
+
+**Context cleanup scope:** Annotations supersede stale operational guidance without deleting historical rationale, scores, or source references. QA remains separately owned by ChatGPT.
+
 **Date:** 2026-10-21 · **Trigger:** Algorithmic Excellence Directive · **Baseline commit:** `fe1ebf3` · **Companion:** [ARCHITECTURE.md](ARCHITECTURE.md) (architecture and capability matrix)
 
 This is a one-time planning run. It contains no new capability claims. The measured numbers come from `eval/results/baseline-2026-10-21.json` (synthetic ground truth; held-out fixtures were not tuned on).
