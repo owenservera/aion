@@ -1,0 +1,1204 @@
+{
+  "schema_version": "aion.capture-studio.layered-architecture.v1",
+  "document_kind": "conversation_derived_architecture_and_source_status",
+  "title": "Capture Studio — layered cake, cross-layer leverage and Core status",
+  "project": "AION / Capture Studio",
+  "conceptual_source": {
+    "kind": "current_conversation",
+    "segments": [
+      "seven core layer correction: operational foundation is mission-critical but not core",
+      "cross-layer leverage response: visual seven-by-four matrix, ten ranked points, multipliers, five suggested sprint boundaries and interactive scorer",
+      "Sprint 01 non-prescriptive mission and context hierarchy",
+      "Sprint 02 continuity implementation and QA boundaries"
+    ],
+    "visual_reference": "user-provided Android screenshot of the four vertical threads crossing seven layers",
+    "note": "Design intent is distinct from code measurements; no percentage-complete estimate is derived from the screenshot."
+  },
+  "assessment_snapshot": {
+    "repository": "owenservera/aion",
+    "ref": "main",
+    "observed_sha": "9fac8c50f79867ed44c3bdbc9e6eb44e9ee24d68",
+    "observed_utc": "2026-10-21",
+    "method": "GitHub source inspection, current Core/Systems README, sprint records, independent QA receipt; no runtime test in this documentation task",
+    "claims_are": "static source-grounded unless explicitly historical",
+    "current_windows_real_site_acceptance": "not_evidenced",
+    "sprint02_quality": "pending_independent_QA",
+    "historical_qa": {
+      "pinned_product_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
+      "environment": "Node 22.16 Linux, bounded temporal graph module tests",
+      "observed": "6 tests; 3 pass, 3 fail on original graph blob",
+      "current_relevance": "later source fixes exist; no post-fix retest receipt read",
+      "evidence_path": "workspace/aion/qa/capture-studio/evidence/2026-10-21-sprint01-graph-node22.md"
+    }
+  },
+  "architectural_model": {
+    "rule": "Seven horizontal core layers; the operational foundation is mission-critical but tracked separately; all four vertical threads are intended to touch every layer.",
+    "presentation_order_top_to_bottom": [
+      "L7",
+      "L6",
+      "L5",
+      "L4",
+      "L3",
+      "L2",
+      "L1"
+    ],
+    "layers": [
+      {
+        "id": "L1",
+        "order_bottom_to_top": 1,
+        "name": "Capture & Observation",
+        "color": "#E38358",
+        "question": "What did the browser actually reveal, when, from which source and with what omissions?",
+        "capabilities": [
+          "DOM observations",
+          "network streams and events",
+          "user actions",
+          "coverage and gaps"
+        ],
+        "implementation": "substantial_source",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/capture/network.mjs:NetworkRecorder",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/capture/dom.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/capture/recorder.mjs:Recorder",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/reducer.mjs:StreamReducer"
+        ],
+        "limit": "Live capture across real websites/owner Windows environment is not accepted by recent QA evidence."
+      },
+      {
+        "id": "L2",
+        "order_bottom_to_top": 2,
+        "name": "Evidence & Memory",
+        "color": "#C99C53",
+        "question": "What survives faithfully with traceable original evidence, history and integrity?",
+        "capabilities": [
+          "raw immutable segmented logs",
+          "integrity manifests and gap declarations",
+          "session datasets and key-value materializations",
+          "provenance"
+        ],
+        "implementation": "substantial_source",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/raw-log.mjs:RawLog",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/session.mjs:Session.verify",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/corpus.mjs:CorpusCollector",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs:derive"
+        ],
+        "limit": "Derived provenance completeness is not independently revalidated across the full pipeline; a bounded in-memory event window remains for some heuristics."
+      },
+      {
+        "id": "L3",
+        "order_bottom_to_top": 3,
+        "name": "Interpretation & Derivation",
+        "color": "#54A4B4",
+        "question": "What are the structural types, field roles and semantic meaning, with warranted confidence?",
+        "capabilities": [
+          "decoders and delta assembly",
+          "schema inference",
+          "field-role priors",
+          "discovery and hypothesis generation"
+        ],
+        "implementation": "partial_wired_source",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/decode/decoders.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/decode/delta.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/schema.mjs:schemaSimilarity",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/schema.mjs:schemaDiff",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/discover.mjs:discoverModel"
+        ],
+        "limit": "No reliable cross-session type-alignment/rename integration; historical analysis flags hidden 400-event windows in some paths."
+      },
+      {
+        "id": "L4",
+        "order_bottom_to_top": 4,
+        "name": "Knowledge & Relationships",
+        "color": "#32A991",
+        "question": "What is the same thing, how does it relate to other things, and why?",
+        "capabilities": [
+          "key and keyless identity within sessions",
+          "entities and reference/containment edges",
+          "temporal entity graph",
+          "exact keyed read-through continuity across saved sessions"
+        ],
+        "implementation": "partial_wired_source",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/identity.mjs:resolveModel",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs:TemporalGraph",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/continuity.mjs:buildSiteContinuity",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs:derive"
+        ],
+        "limit": "Keyless cross-session matches deliberately isolated; unchanged keys across renamed inferred types may not link; site scope cannot prove tenant isolation."
+      },
+      {
+        "id": "L5",
+        "order_bottom_to_top": 5,
+        "name": "Learning & Adaptation",
+        "color": "#528EE0",
+        "question": "How do corrections improve future inference without leaking into unrelated scopes?",
+        "capabilities": [
+          "scoped role learner",
+          "confidence calibration",
+          "profile accept/reject and rollback",
+          "versioned priors"
+        ],
+        "implementation": "partial_wired_source",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/learn.mjs:ScopedLearner",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/learn.mjs:Calibrator",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/profiles/apply.mjs:applySuggestion",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/server.mjs"
+        ],
+        "limit": "Suggestion confidence is fed by UI/CLI decisions; complete field-role correction and contamination isolation across sites is not evidenced as wired or independently measured."
+      },
+      {
+        "id": "L6",
+        "order_bottom_to_top": 6,
+        "name": "Behavior & Reconstruction",
+        "color": "#D274A6",
+        "question": "What actions, transitions, histories and reconstructions are justified by the observations?",
+        "capabilities": [
+          "action-to-request correlations",
+          "rendered-content correlations",
+          "stateAt within session and as-of across saved sessions",
+          "evidence-only edge semantics"
+        ],
+        "implementation": "partial_wired_source",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/correlate.mjs:correlateActions",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/correlate.mjs:correlateRendered",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs:TemporalGraph.stateAt",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs:stateAt",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/continuity.mjs:buildSiteContinuity"
+        ],
+        "limit": "No complete process-mining/state-transition engine, temporal retractions or validated bidirectional reconstruction discrepancy loop."
+      },
+      {
+        "id": "L7",
+        "order_bottom_to_top": 7,
+        "name": "Experience & Control",
+        "color": "#9D73E5",
+        "question": "Can the user observe, question, correct, replay and control what the system understands?",
+        "capabilities": [
+          "CLI and local API",
+          "Studio capture and session screens",
+          "time travel and continuity explorer",
+          "profile suggestions and exports"
+        ],
+        "implementation": "partial_wired_source",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/bin/studio.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/server.mjs:startStudio",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/ui/index.html",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/export/export.mjs"
+        ],
+        "limit": "Full knowledge graph/model explorer, confirmed-identity correction and end-to-end feedback UX are not complete; Core should not expand UI outside critical compatibility changes."
+      }
+    ],
+    "operational_foundation": {
+      "id": "OPS",
+      "core_layer": false,
+      "importance": "mission_critical",
+      "name": "Foundation & Runtime",
+      "scope": [
+        "Windows/local runtime",
+        "browser/CDP plumbing",
+        "security and privacy boundaries",
+        "sessions and lifecycle",
+        "disk quotas, performance, stability",
+        "packaging, deployment, recovery"
+      ],
+      "principle": "Enables every core layer; not counted as product intelligence or core-layer completion.",
+      "implementation": "partial_source_historical_synthetic",
+      "evidence": [
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/config.mjs",
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/chrome/launch.mjs",
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/cdp/client.mjs",
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/capture/redact.mjs",
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/raw-log.mjs"
+      ]
+    },
+    "vertical_threads": [
+      {
+        "id": "T1",
+        "name": "Identity",
+        "color": "#2DBF99",
+        "all_layers": true,
+        "framing_question": "What persists as the same entity or object across sources, interpretations, time, views and sessions?",
+        "design_invariant": "No unsupported merge; give ambiguous identity its uncertainty and provenance.",
+        "current": "exact keyed joins implemented in source, keyless cross-session deliberately isolated, schema drift unresolved",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/identity.mjs:resolveModel",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/continuity.mjs:buildSiteContinuity"
+        ]
+      },
+      {
+        "id": "T2",
+        "name": "Time & Evidence",
+        "color": "#E4AD53",
+        "all_layers": true,
+        "framing_question": "When did we observe it, what revision changed, and which immutable evidence supports the claim?",
+        "design_invariant": "Unknown timestamp never becomes epoch-zero certainty; gaps and retractions cannot be silently erased.",
+        "current": "raw seq/manifest, graph history and cross-session as-of source implemented; validity intervals, deletion semantics, QA retest missing",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/raw-log.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs:stateAt",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/continuity.mjs:buildSiteContinuity"
+        ]
+      },
+      {
+        "id": "T3",
+        "name": "Semantics",
+        "color": "#7B9EEF",
+        "all_layers": true,
+        "framing_question": "What do fields, entities, actions, relationships and views mean?",
+        "design_invariant": "Separate observed structure, semantic inference, hypotheses and user-confirmed knowledge.",
+        "current": "role/schema/relationship inference implemented; cross-session semantic field/type alignment remains unwired",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/schema.mjs:schemaDiff",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/discover.mjs:discoverModel",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/learn.mjs:ScopedLearner"
+        ]
+      },
+      {
+        "id": "T4",
+        "name": "Feedback",
+        "color": "#D47EBA",
+        "all_layers": true,
+        "framing_question": "How do user corrections and observed reconstruction mismatches improve future outcomes?",
+        "design_invariant": "Scoped, reversible, transparent learning; avoid contamination and feedback masquerading as proof.",
+        "current": "profile accept/reject and confidence calibration paths in source; cross-layer corrective learning and observed-vs-rebuilt discrepancy loop remain incomplete",
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/learn.mjs:Calibrator",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/profiles/apply.mjs:applySuggestion"
+        ]
+      }
+    ],
+    "layer_thread_design_matrix": [
+      {
+        "layer_id": "L1",
+        "threads": {
+          "T1": {
+            "design_question": "How do we preserve or represent identity at Capture & Observation?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T2": {
+            "design_question": "What time/evidence receipts support claims at Capture & Observation?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T3": {
+            "design_question": "Which interpretations at Capture & Observation are observations versus semantic hypotheses?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T4": {
+            "design_question": "How could feedback change Capture & Observation reversibly and safely?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          }
+        }
+      },
+      {
+        "layer_id": "L2",
+        "threads": {
+          "T1": {
+            "design_question": "How do we preserve or represent identity at Evidence & Memory?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T2": {
+            "design_question": "What time/evidence receipts support claims at Evidence & Memory?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T3": {
+            "design_question": "Which interpretations at Evidence & Memory are observations versus semantic hypotheses?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T4": {
+            "design_question": "How could feedback change Evidence & Memory reversibly and safely?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          }
+        }
+      },
+      {
+        "layer_id": "L3",
+        "threads": {
+          "T1": {
+            "design_question": "How do we preserve or represent identity at Interpretation & Derivation?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T2": {
+            "design_question": "What time/evidence receipts support claims at Interpretation & Derivation?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T3": {
+            "design_question": "Which interpretations at Interpretation & Derivation are observations versus semantic hypotheses?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T4": {
+            "design_question": "How could feedback change Interpretation & Derivation reversibly and safely?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          }
+        }
+      },
+      {
+        "layer_id": "L4",
+        "threads": {
+          "T1": {
+            "design_question": "How do we preserve or represent identity at Knowledge & Relationships?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T2": {
+            "design_question": "What time/evidence receipts support claims at Knowledge & Relationships?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T3": {
+            "design_question": "Which interpretations at Knowledge & Relationships are observations versus semantic hypotheses?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T4": {
+            "design_question": "How could feedback change Knowledge & Relationships reversibly and safely?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          }
+        }
+      },
+      {
+        "layer_id": "L5",
+        "threads": {
+          "T1": {
+            "design_question": "How do we preserve or represent identity at Learning & Adaptation?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T2": {
+            "design_question": "What time/evidence receipts support claims at Learning & Adaptation?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T3": {
+            "design_question": "Which interpretations at Learning & Adaptation are observations versus semantic hypotheses?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T4": {
+            "design_question": "How could feedback change Learning & Adaptation reversibly and safely?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          }
+        }
+      },
+      {
+        "layer_id": "L6",
+        "threads": {
+          "T1": {
+            "design_question": "How do we preserve or represent identity at Behavior & Reconstruction?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T2": {
+            "design_question": "What time/evidence receipts support claims at Behavior & Reconstruction?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T3": {
+            "design_question": "Which interpretations at Behavior & Reconstruction are observations versus semantic hypotheses?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T4": {
+            "design_question": "How could feedback change Behavior & Reconstruction reversibly and safely?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          }
+        }
+      },
+      {
+        "layer_id": "L7",
+        "threads": {
+          "T1": {
+            "design_question": "How do we preserve or represent identity at Experience & Control?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T2": {
+            "design_question": "What time/evidence receipts support claims at Experience & Control?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T3": {
+            "design_question": "Which interpretations at Experience & Control are observations versus semantic hypotheses?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          },
+          "T4": {
+            "design_question": "How could feedback change Experience & Control reversibly and safely?",
+            "conceptual_requirement": true,
+            "implementation_not_implied": true
+          }
+        }
+      }
+    ],
+    "cross_cutting_invariants": [
+      "identity and continuity",
+      "provenance and evidence integrity",
+      "semantic relevance and uncertainty",
+      "adaptive learning and confidence",
+      "temporal correctness",
+      "immutable raw evidence; derived state recomputable",
+      "absence of observation does not imply deletion",
+      "no causal assertion without mechanism evidence"
+    ],
+    "direct_relations": [
+      {
+        "chain": [
+          "semantic roles",
+          "identity",
+          "knowledge graph"
+        ],
+        "why": "correctly understood keys support better entity resolution and relations"
+      },
+      {
+        "chain": [
+          "provenance",
+          "corrections",
+          "learning"
+        ],
+        "why": "reliable evidence makes corrective feedback scoped and reversible"
+      },
+      {
+        "chain": [
+          "chronology",
+          "behavior",
+          "reconstruction"
+        ],
+        "why": "correct sequencing is required for faithful historical behavior"
+      },
+      {
+        "chain": [
+          "observation",
+          "interpretation",
+          "knowledge",
+          "reconstruction",
+          "discrepancy",
+          "learning",
+          "improved interpretation"
+        ],
+        "why": "closed-loop aspiration; not an implemented end-to-end feedback loop"
+      }
+    ]
+  },
+  "leverage_catalog": [
+    {
+      "id": "LP01",
+      "name": "Universal identity",
+      "conceptual_impact_score_out_of_5": 5,
+      "conceptual_not_measured": true,
+      "purpose": "Recognize the same real-world object across DOM, network, sessions, historical changes and replay.",
+      "multiplier": "Improves learning, graph consistency, deduplication, timelines and reconstruction.",
+      "primary_layers": [
+        "L1",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "partial_wired_source",
+        "observed_mechanisms": [
+          "site-scoped keyed EIDs",
+          "keyless single-session linkage",
+          "cross-session read-through keyed join"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/identity.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/continuity.mjs"
+        ],
+        "gaps": [
+          "unresolved drift/type alignment",
+          "no safe keyless cross-session union",
+          "tenant context ambiguity"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP02",
+      "name": "Unified observation envelope",
+      "conceptual_impact_score_out_of_5": 5,
+      "conceptual_not_measured": true,
+      "purpose": "Use a common structure for source, time, context, identity candidates, confidence and provenance.",
+      "multiplier": "Prevents each downstream subsystem from independently guessing the meaning of raw evidence.",
+      "primary_layers": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "fragmented_partial_source",
+        "observed_mechanisms": [
+          "raw seq/t/sid records",
+          "corpus sample.source provenance",
+          "graph revision evidence"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/session.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/corpus.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs"
+        ],
+        "gaps": [
+          "no evidenced single canonical shared contract across all seven layers"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP03",
+      "name": "Temporal continuity",
+      "conceptual_impact_score_out_of_5": 5,
+      "conceptual_not_measured": true,
+      "purpose": "Consistently model changes, revisions, missing observations and event ordering.",
+      "multiplier": "Unlocks trustworthy history, learning corrections and replay.",
+      "primary_layers": [
+        "L1",
+        "L2",
+        "L4",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "partial_wired_source",
+        "observed_mechanisms": [
+          "entity revisions",
+          "TemporalGraph.stateAt",
+          "cross-session as-of folding",
+          "edge statusHistory"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/continuity.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs"
+        ],
+        "gaps": [
+          "field validity intervals/retractions incomplete",
+          "temporal graph fixes not reaccepted by QA"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP04",
+      "name": "Semantic field roles",
+      "conceptual_impact_score_out_of_5": 5,
+      "conceptual_not_measured": true,
+      "purpose": "Identify fields such as ID, timestamp, measure, status, reference or text with calibrated uncertainty.",
+      "multiplier": "Better roles improve keys, entity identity, relationships, relevance and reconstructed views.",
+      "primary_layers": [
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "partial_wired_source",
+        "observed_mechanisms": [
+          "role priors",
+          "inferKey",
+          "family mapping",
+          "schemaDiff helper"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/discover.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/schema.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/learn.mjs"
+        ],
+        "gaps": [
+          "role correction loop not end-to-end",
+          "cross-session drift alignment not applied"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP05",
+      "name": "Correction propagation",
+      "conceptual_impact_score_out_of_5": 5,
+      "conceptual_not_measured": true,
+      "purpose": "Let one trustworthy correction improve relevant future inference without contaminating unrelated sites or entities.",
+      "multiplier": "Creates compounding intelligence across days and sites.",
+      "primary_layers": [
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "partial_wired_source",
+        "observed_mechanisms": [
+          "ScopedLearner",
+          "profile accept/reject",
+          "calibrator observe",
+          "versioned store"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/learn.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/profiles/apply.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/versioned.mjs"
+        ],
+        "gaps": [
+          "scoped propagation and contamination tests incomplete",
+          "historical entity correction effects not proven"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP06",
+      "name": "Provenance & confidence",
+      "conceptual_impact_score_out_of_5": 4,
+      "conceptual_not_measured": true,
+      "purpose": "Trace every derived claim back to evidence and distinguish measured observations from inference.",
+      "multiplier": "Enables explainability, correction, reversibility, trustworthy UI and diagnosis.",
+      "primary_layers": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "partial_wired_source",
+        "observed_mechanisms": [
+          "raw hashes",
+          "declared gaps",
+          "per-revision source pointers",
+          "hypotheses scores"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/raw-log.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/session.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/corpus.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs"
+        ],
+        "gaps": [
+          "complete claim-level trace across every API/view not proven",
+          "cross-session confidence not calibrated"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP07",
+      "name": "Relationship & event correlation",
+      "conceptual_impact_score_out_of_5": 4,
+      "conceptual_not_measured": true,
+      "purpose": "Link DOM, requests, responses, actions and entities with evidence richer than time proximity.",
+      "multiplier": "Strengthens behavioral analysis, process discovery, meaning and replay fidelity.",
+      "primary_layers": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "partial_wired_source",
+        "observed_mechanisms": [
+          "correlateActions",
+          "correlateRendered",
+          "preceded rather than unsupported caused edges"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/correlate.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs"
+        ],
+        "gaps": [
+          "global conflict-aware assignment not built",
+          "mechanism-backed causality not present",
+          "adversarial acceptance pending"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP08",
+      "name": "Structural generalization",
+      "conceptual_impact_score_out_of_5": 4,
+      "conceptual_not_measured": true,
+      "purpose": "Recognize equivalent structures despite changed names, wrappers, layouts or endpoints.",
+      "multiplier": "Transfers intelligence to unfamiliar websites and changing versions.",
+      "primary_layers": [
+        "L1",
+        "L3",
+        "L4",
+        "L5",
+        "L6"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "partial_library_unwired_cross_session",
+        "observed_mechanisms": [
+          "schemaSimilarity",
+          "schemaDiff",
+          "type merging",
+          "generic families"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/schema.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/discover.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/families/families.mjs"
+        ],
+        "gaps": [
+          "schemaDiff not used to align known types across recorded sessions",
+          "unknown-site acceptance missing"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP09",
+      "name": "Reconstruction necessity & relevance",
+      "conceptual_impact_score_out_of_5": 4,
+      "conceptual_not_measured": true,
+      "purpose": "Differentiate what humans need, what machines need, and what faithful replay requires without discarding raw evidence.",
+      "multiplier": "Prioritizes analysis, information surfaces and reconstruction effort.",
+      "primary_layers": [
+        "L1",
+        "L2",
+        "L3",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "mostly_conceptual",
+        "observed_mechanisms": [
+          "heuristic quality/suggestions",
+          "fidelityBreakdown"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/shapes/infer.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs:fidelityBreakdown"
+        ],
+        "gaps": [
+          "three-dimensional relevance classifier and calibrated labels not evidenced"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    },
+    {
+      "id": "LP10",
+      "name": "Bidirectional state reconciliation",
+      "conceptual_impact_score_out_of_5": 4,
+      "conceptual_not_measured": true,
+      "purpose": "Compare observed evidence to reconstructed output and feed discrepancies into corrected interpretation.",
+      "multiplier": "Closes the loop: capture → intelligence → replay → discrepancy → learning.",
+      "primary_layers": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "scope": "cross_layer",
+      "source_assessment": {
+        "state": "partial_primitives_no_end_to_end_loop",
+        "observed_mechanisms": [
+          "reconcileFinal helper",
+          "replay stateAt and receipt"
+        ],
+        "evidence": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/correlate.mjs:reconcileFinal",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs:stateAt",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs:fidelityBreakdown"
+        ],
+        "gaps": [
+          "automated reconstruction comparison and correction propagation not wired"
+        ],
+        "qa": "not_independently_accepted_at_snapshot"
+      }
+    }
+  ],
+  "original_prioritization": {
+    "kind": "illustrative opportunity score, not measured ranking",
+    "scale": 100,
+    "factors": [
+      {
+        "id": "layer_reach",
+        "weight": 0.4,
+        "range": [
+          1,
+          7
+        ]
+      },
+      {
+        "id": "downstream_impact",
+        "weight": 0.4,
+        "range": [
+          1,
+          5
+        ]
+      },
+      {
+        "id": "implementation_readiness",
+        "weight": 0.2,
+        "range": [
+          1,
+          5
+        ]
+      }
+    ],
+    "formula": "round(100 * (0.4 * layer_reach / 7 + 0.4 * downstream_impact / 5 + 0.2 * implementation_readiness / 5))",
+    "original_top_cluster": [
+      "LP01",
+      "LP04",
+      "LP03",
+      "LP06"
+    ],
+    "restriction": "No actual implementation percentages, labor estimates, or readiness factors have been measured in this audit."
+  },
+  "conceptual_sprints": [
+    {
+      "id": "S01",
+      "name": "Trustworthy Continuity",
+      "theme": [
+        "identity",
+        "semantics",
+        "temporal continuity",
+        "provenance"
+      ],
+      "desired_boundary": "An observed object retains justified meaning and identity through evidence, knowledge and history.",
+      "actual_status": "implementation_sprint01_chunks_committed_unaccepted",
+      "specific_evidence": [
+        "workspace/aion/ops/capture-studio-build-sprints/SPRINT-01.md",
+        "workspace/aion/ops/capture-studio-build-sprints/DECISION.md"
+      ]
+    },
+    {
+      "id": "S02",
+      "name": "Continuity Across Sessions",
+      "theme": [
+        "keyed identities across recorded sessions",
+        "cross-session historical as-of state"
+      ],
+      "desired_boundary": "Safely recognize and trace a keyed entity through separate capture sessions without fabricated merges.",
+      "actual_status": "first_vertical_slice_source_committed_unaccepted",
+      "specific_evidence": [
+        "workspace/aion/ops/capture-studio-build-sprints/SPRINT-02.md",
+        "workspace/aion/ops/capture-studio-build-sprints/SPRINT-02-BUILD.md",
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/continuity.mjs"
+      ]
+    },
+    {
+      "id": "S03",
+      "name": "Correction & Generalization",
+      "theme": [
+        "scoped learning",
+        "schema/type drift"
+      ],
+      "desired_boundary": "Corrections improve related interpretations across time/sites without contaminating unrelated scopes.",
+      "actual_status": "conceptual_no_authorized_scope",
+      "specific_evidence": [
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/learn.mjs",
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/schema.mjs"
+      ]
+    },
+    {
+      "id": "S04",
+      "name": "Correlation & Behavior",
+      "theme": [
+        "event/action linkage",
+        "coherent transitions"
+      ],
+      "desired_boundary": "Observation and action sequences become evidence-backed state transitions.",
+      "actual_status": "conceptual_no_authorized_scope",
+      "specific_evidence": [
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/correlate.mjs"
+      ]
+    },
+    {
+      "id": "S05",
+      "name": "Reconstruction Feedback",
+      "theme": [
+        "observed versus reconstructed",
+        "fidelity explanations"
+      ],
+      "desired_boundary": "A reconstruction can be compared against evidence and discrepancies explained.",
+      "actual_status": "conceptual_no_authorized_scope",
+      "specific_evidence": [
+        "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs"
+      ]
+    }
+  ],
+  "lane_contract": {
+    "model": "three parallel ownership lanes, with historical QA isolated and not a fourth active implementation lane",
+    "core": {
+      "owner": "ChatGPT in this conversation",
+      "workspace": "workspace/aion/ops/capture-studio-core/",
+      "owns": [
+        "product engine",
+        "capture, evidence, identity, schema, temporal knowledge, continuity",
+        "persistence",
+        "CLI",
+        "local server and API contracts",
+        "core-level architecture/status source of truth"
+      ],
+      "excludes": [
+        "frontend redesign or new screens except critical compatibility",
+        "Systems independent advisory stream",
+        "independent QA campaigns"
+      ],
+      "source": "workspace/aion/ops/capture-studio-core/README.md"
+    },
+    "ui_client_integration": {
+      "owner": "separate UI agent",
+      "workspace": "not verified in inspected main tree at this snapshot",
+      "owns": [
+        "user-facing UI design and implementation",
+        "client-side state",
+        "navigation, visualizations, interactions",
+        "frontend adapters"
+      ],
+      "excludes": [
+        "authoritative backend contracts without Core coordination",
+        "engine, CLI, storage"
+      ],
+      "source": "owner's conversation and Core/Systems READMEs",
+      "note": "A dedicated UI ownership README was not found in inspected main tree; do not assume absence of external agent/bootstrap."
+    },
+    "systems_algorithms_usability": {
+      "owner": "separate advisory ChatGPT stream",
+      "workspace": "workspace/aion/ops/capture-studio-systems/",
+      "owns": [
+        "independent architecture and algorithm analysis",
+        "usability observations",
+        "evidence-backed advisory findings"
+      ],
+      "excludes": [
+        "Core product edits",
+        "UI implementation",
+        "autonomous QA and blockers"
+      ],
+      "rule": "Read-only until owner explicitly authorizes a scoped action; no QA interference.",
+      "source": "workspace/aion/ops/capture-studio-systems/README.md"
+    },
+    "historic_qa": {
+      "workspace": "workspace/aion/qa/capture-studio/",
+      "status": "isolated evidence archive; do not autonomously relaunch because this file was created",
+      "note": "Earlier QA receipt retained and cited; any QA reactivation remains owner-directed."
+    }
+  },
+  "current_status_assessment": {
+    "summary": "The essential capture/evidence pipeline and first within-session intelligence integration are present in source. Cross-session exact keyed continuity, as-of view and presentation exist in source. Most high-multiplier joins across semantics, identity, time, user feedback and reconstruction are only partial. Real-system acceptance remains unverified.",
+    "code_coverage": "targeted static inspection; no full behavioral acceptance and no numerical completion percentages",
+    "headline_capabilities": [
+      {
+        "name": "Capture and raw evidence",
+        "state": "substantial_source_and_historical_synthetic",
+        "proof": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/capture/recorder.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/raw-log.mjs"
+        ],
+        "limitation": "Real target website and Windows receipts not current."
+      },
+      {
+        "name": "Within-session model, entities and graph",
+        "state": "wired_source_pending_acceptance",
+        "proof": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs:derive",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs:buildGraph"
+        ]
+      },
+      {
+        "name": "Across-session keyed entities",
+        "state": "wired_source_pending_acceptance",
+        "proof": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/continuity.mjs:buildSiteContinuity",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/server.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/bin/studio.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/ui/index.html"
+        ],
+        "limitation": "Safe exact match only; repeated scans over saved entities, no independent retest."
+      },
+      {
+        "name": "Cross-session schema alignment",
+        "state": "partial_unwired",
+        "proof": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/schema.mjs:schemaDiff",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/discover.mjs:buildType"
+        ],
+        "limitation": "Type fingerprint may change as inferred groups/paths change."
+      },
+      {
+        "name": "Correction-driven field-role learning",
+        "state": "partial",
+        "proof": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/learn.mjs:ScopedLearner",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/profiles/apply.mjs"
+        ],
+        "limitation": "Full confirmation/rejection of identity/field roles and promotion not proven end to end."
+      },
+      {
+        "name": "Historical edge truth",
+        "state": "source_fix_pending_post_fix_QA",
+        "proof": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs:setEdgeStatus",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/graph.mjs:stateAt"
+        ],
+        "limitation": "Earlier independent Node receipt proved three defects at old SHA; new source not reverified."
+      },
+      {
+        "name": "Behavioral state transitions and discrepancy loop",
+        "state": "largely_not_wired",
+        "proof": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/correlate.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/replay/derive.mjs"
+        ],
+        "limitation": "No evidenced complete behavioral process graph or self-correcting reconstruction feedback."
+      },
+      {
+        "name": "Operational foundation",
+        "state": "source_present_runtime_acceptance_unknown",
+        "proof": [
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/config.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/session.mjs",
+          "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/server.mjs"
+        ]
+      }
+    ],
+    "top_architectural_gaps": [
+      {
+        "id": "G01",
+        "name": "Type identity drift across sessions",
+        "rationale": "Conservative joins require stable inferred type IDs; renames and type reclassification create false negatives.",
+        "leverages": [
+          "LP01",
+          "LP04",
+          "LP08"
+        ],
+        "owner": "core",
+        "status": "unresolved"
+      },
+      {
+        "id": "G02",
+        "name": "Temporal retractions and validity history",
+        "rationale": "Revisions and status-history exist, but full deletion/retraction semantics and independent past-state replay remain incomplete.",
+        "leverages": [
+          "LP03",
+          "LP06",
+          "LP10"
+        ],
+        "owner": "core",
+        "status": "partial"
+      },
+      {
+        "id": "G03",
+        "name": "Model-correction loop",
+        "rationale": "Calibrator and profile actions are not equivalent to an evidence-backed, scoped field/identity feedback loop.",
+        "leverages": [
+          "LP04",
+          "LP05",
+          "LP10"
+        ],
+        "owner": "core_backend_plus_UI_frontend",
+        "status": "partial"
+      },
+      {
+        "id": "G04",
+        "name": "Provenance and claim uncertainty contract",
+        "rationale": "Raw and derived evidence pointers exist, but no universally enforced typed observation→claim→render contract is demonstrated.",
+        "leverages": [
+          "LP02",
+          "LP06"
+        ],
+        "owner": "core",
+        "status": "partial"
+      },
+      {
+        "id": "G05",
+        "name": "Observed/reconstructed reconciliation",
+        "rationale": "Reconciliation helpers exist without an evidenced discrepancy→correction→derivation cycle.",
+        "leverages": [
+          "LP07",
+          "LP09",
+          "LP10"
+        ],
+        "owner": "core_backend_plus_UI_frontend",
+        "status": "not_end_to_end"
+      },
+      {
+        "id": "G06",
+        "name": "Acceptance and scale",
+        "rationale": "Current Sprint 01/02 changes have no post-fix independent QA receipt; cross-session view scans stored revisions, and Windows/live-site acceptance is unproven.",
+        "leverages": [
+          "LP01",
+          "LP03",
+          "LP06"
+        ],
+        "owner": "owner_directed_QA_or_runner",
+        "status": "unverified"
+      }
+    ],
+    "stale_guidance_to_ignore": [
+      "Worklog W1–W18 literal ordering as an active requirement",
+      "Old RECON.md assertions that discovery and graph are unreachable from derive",
+      "SPRINT-02.md statements that cross-session keyed joins are entirely unimplemented",
+      "STATE.json's legacy phase.next=REVIEW and the Claude model-switching flow for this Core lane",
+      "Historical synthetic test and baseline scores as current acceptance",
+      "Older percentages previously presented conversationally as illustrative only"
+    ],
+    "status_vocabulary": {
+      "substantial_source": "large mechanism implemented; not accepted by this document",
+      "partial_wired_source": "some operative code linked, completeness unknown",
+      "partial_unwired": "helper/library or incomplete integration",
+      "largely_not_wired": "no evidenced end-to-end implementation",
+      "pending_independent_QA": "no suitable post-change independent runtime evidence"
+    }
+  },
+  "architecture_guidance": {
+    "non_prescriptive": true,
+    "core_instruction": "Use the layered cake and multipliers as diagnostic lenses, not mandates or a fixed ordering. Inspect current source, identify system-wide bottlenecks, choose reversible and evidence-preserving improvements, and hand off UI concerns through interfaces.",
+    "definition_of_vertical_slice": "A change whose semantics and provenance remain coherent through at least capture/evidence, interpretation/identity, history and one accessible control surface, without fabricating confidence.",
+    "freshness_order": [
+      "current explicit owner instruction",
+      "current live code and binding contracts",
+      "dated engineering decisions",
+      "pinned QA observations",
+      "historical plans and hypotheses"
+    ],
+    "progress_reporting": "Use qualitative source/QA statuses and cited commits; do not invent completion percentages or claim that a GitHub commit wakes other agents.",
+    "deployment_and_safety": "Any risky or destructive action is separate from the approval for ordinary safe commits; never overwrite concurrent main work."
+  }
+}
