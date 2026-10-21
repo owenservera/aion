@@ -1,6 +1,6 @@
 # Build Sprint 01 — Trustworthy Continuity
 
-**Status:** directional mission, not an implementation specification. **Owner:** Opus. **Actual sprint start SHA:** capture at launch, not hardcoded here.
+**Status:** directional mission, not an implementation specification. **Owner:** phased — Opus decides and specifies (DECIDE), Sonnet implements (BUILD); see [LAUNCH.md](LAUNCH.md) and [PHASES.md](PHASES.md). **Actual sprint start SHA:** capture at RECON, not hardcoded here.
 
 ## Why this opportunity
 
@@ -26,7 +26,7 @@ This is a **working hypothesis**, not a proven diagnosis of the current implemen
 
 Inspect all current source and contracts, follow representative observations through several layers, look for high-blast-radius weaknesses and unexploited shared primitives. Consider competing intervention points and their likely benefits, coupling, reversibility and uncertainty. Where prior docs disagree with code, **record the disagreement, don't inherit the direction**.
 
-Opus decides which subsystem to change first, which architectural approach to use, and when to move beyond the initial cluster. Avoid prescriptive algorithms and arbitrary progress percentages. Favor improvements whose effects propagate across layers without destroying source evidence, history, or provenance.
+The DECIDE phase (Opus, High) chooses which subsystem to change first and which architectural approach to use, working from the compressed RECON digest plus only the files it flags, and writes the spec the BUILD phase executes. Moving beyond the initial cluster is a new DECIDE run, not a BUILD improvisation. Avoid prescriptive algorithms and arbitrary progress percentages. Favor improvements whose effects propagate across layers without destroying source evidence, history, or provenance.
 
 ## Success and natural stopping point
 
@@ -36,7 +36,7 @@ The sprint is a meaningful **implementation advance**, not a physical QA campaig
 - A quick developer intuition dump in `QA-NEXT-TESTS.md` with each implementation commit;
 - A concise Git checkpoint for next-session continuity and explicit **PENDING INDEPENDENT QA** where applicable.
 
-No mandatory feature counts, time limits, percentage thresholds, or test-pass requirements for Opus. Do not stop merely because a tentative milestone is reached; use session context efficiency to decide handoff timing.
+No mandatory feature counts, time limits, percentage thresholds, or test-pass requirements for any phase. Do not stop merely because a tentative milestone is reached; each phase ends at its own stop condition (see LAUNCH.md) or at context pressure.
 
 ## Why this sprint design
 
@@ -45,4 +45,5 @@ No mandatory feature counts, time limits, percentage thresholds, or test-pass re
 - **Directional autonomy preserves discovery:** the four lenses organize attention but do not demand four implementations.
 - **Vertical impact matters:** improve connections, not isolated completion bars.
 - **Short Git-backed state preserves depth:** next session reads current code and just the decision-worthy continuation; no historic chat dump.
-- **Independent QA preserves truth:** Opus can move quickly through reasoning and implementation without reporting imaginary measurements.
+- **Independent QA preserves truth:** no phase reports imaginary measurements; ChatGPT QA owns testing.
+- **Spend reasoning where it pays:** orientation and mechanical work are cheap-model jobs; the one decision that shapes everything gets Opus High; implementation of a clear spec runs on Sonnet. Budget gates in LAUNCH.md let the owner throttle as usage climbs.

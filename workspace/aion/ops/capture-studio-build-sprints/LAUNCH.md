@@ -1,36 +1,58 @@
-# Capture Studio — Opus Fresh Build Sprints
+# Capture Studio — Phased Build Sprints (credit-aware)
 
-**Role:** Claude Opus, autonomous implementation owner. **Purpose:** start a low-history-context session with deep current-system understanding, independently choose high-leverage work, implement continuously, and hand off to the next session without losing engineering knowledge.
+**Purpose:** advance Capture Studio autonomously while spending expensive reasoning only where it changes the outcome. Each fresh session has ONE phase role, reads current source, does that phase, commits, and stops.
 
-**Launch:** `#AION @CAPTURE-STUDIO /BUILD-SPRINT`  
-**Model:** Claude Opus; use its strongest available reasoning setting. **First directional mission:** [SPRINT-01.md](SPRINT-01.md). **Checkpoint:** [STATE.json](STATE.json).  
+**Launch:** `#AION @CAPTURE-STUDIO /BUILD-SPRINT <PHASE>` where `<PHASE>` is `RECON`, `DECIDE`, `BUILD`, `MECHANICAL` or `REVIEW`. If omitted, read [STATE.json](STATE.json) `phase.next` and run that.
+**Prompts per phase, model and thinking level:** [PHASES.md](PHASES.md). **Mission:** [SPRINT-01.md](SPRINT-01.md). **Checkpoint:** [STATE.json](STATE.json).
 **QA is separate:** [ChatGPT QA](../../qa/capture-studio/README.md).
 
-## Fresh-session operating protocol
+## Phase map (the human flips model/thinking manually)
 
-1. **Orient to actual reality, not old tasks.** Refresh latest GitHub `main` safely, record the exact implementation SHA, and read the entire first-party Capture Studio source tree, including entry points, imports, configuration, existing test/evaluation files as *reference*, and interactions with surrounding AION modules. Read applicable repository `AGENTS.md` / governance, product `ARCHITECTURE.md`, `ASSESSMENT-AND-WORKLOG.md`, and only relevant active owner/agent context. Record missing access; don't claim full coverage if any significant first-party code was unavailable. Source reading is required; copying source into the conversation is not.
-2. **Build a compact present-tense system model.** Identify what exists and is actually connected across Capture, Evidence, Interpretation, Knowledge, Learning, Behavior and Experience. Note contracts, failure propagation, unknowns and the observed state of each leverage point. Pay attention to identity, semantics, temporal continuity and provenance, **without assuming they are the right implementation order or even the primary bottlenecks**.
-3. **Reconcile prior context with code.** Worklog W1–W18, archived findings, old percentages, milestone ordering and predecessor session guesses are historical inputs, not orders or proofs. Classify consequential assertions as *current-source-supported*, *superseded*, *hypothesis*, or *unknown*. Prefer owner intent and current binding decisions; never silently override repository safety rules.
-4. **Investigate, choose, implement.** Seek the smallest number of high-leverage changes that create the greatest end-to-end improvement. Trace adjacent layers and risks; select the sequence based on live source and dependencies. If a different leverage point materially dominates the suggested first cluster, follow the evidence and record why. No mandatory file list, algorithm, refactor, quota, rigid sprint duration or percentage target.
-5. **Opus does NOT physically test.** Read existing test/fixture code when useful, but **do not create or modify test files, execute test suites, run benchmark/eval harnesses, perform independent QA experiments, or delegate test execution**. Use deep virtual reasoning, internal simulations, static call-path and data-flow analysis; do not report these as verified test results. Actual testing and acceptance are ChatGPT QA responsibilities.
-6. **Deliver safe implementation continuously.** Before each implementation commit, overwrite the product's single `QA-NEXT-TESTS.md` with a quick immediate thought dump from current context—no extra research, reasoning stage or test code. Include it in the same implementation commit. Commit/push ordinary safe scoped changes with conflict protection; continue to next meaningful work without waiting for QA, owner responses or planned milestones. Only an explicit owner instruction stops ordinary development; hold concrete risky/destructive operations according to governance.
-7. **Checkpoint at a coherent boundary or context pressure.** Refresh [STATE.json](STATE.json) concisely: actual implementation SHA, source coverage gaps, changes made, architectural discoveries (with evidence pointers), current unfinished problem, immediate next move, external blockers, and why this is a good continuation boundary. No elaborate prose or duplicated source inventory. Commit/push checkpoint; report actual receipt. Ending one context-limited session does not imply work continues automatically while the runtime is inactive.
+| Phase | Model / thinking | Job | Output | Stop when |
+| --- | --- | --- | --- | --- |
+| RECON | Haiku or Sonnet, off/low | Map seven layers to files; status of identity, semantics, time, provenance | `RECON.md` (≤2k tokens) | committed |
+| DECIDE | **Opus, High** | Choose first improvements and how the four mechanisms reinforce; write file-level spec | `DECISION.md`, `SPEC.md` | committed. **Does not implement** |
+| BUILD | Sonnet, Medium (High only when stuck) | Execute SPEC.md in chunks, one commit per chunk | commits + `QA-NEXT-TESTS.md` | context limit or coherent boundary |
+| MECHANICAL | Haiku or Sonnet, Low | STATE.json, docs, renames, type fixes, changelog | checkpoint commit | committed |
+| REVIEW (optional) | Opus, Medium, diff only | Check diff vs mission and boundaries | `REVIEW.md` (short) | budget gate allows |
 
-## Context authority and freshness
+## Operating rules (all phases)
 
-| Surface | Use | Freshness/authority |
+1. **Current code outranks history.** Refresh `main`, record the exact SHA. Worklog W1–W18, scorecards and old percentages are evidence to challenge, not orders. Classify consequential claims as *current-source-supported*, *superseded*, *hypothesis* or *unknown*.
+2. **Read narrowly.** RECON reads the full first-party tree once and compresses it. Later phases read `RECON.md` plus only the files it or `SPEC.md` flags. Do not re-read the whole tree in DECIDE, BUILD or REVIEW unless a flagged file contradicts the digest.
+3. **No physical tests by any phase.** Do not create or modify test files, run suites, benchmarks or eval harnesses. Reason statically; never report reasoning as verified results. ChatGPT QA owns testing and acceptance.
+4. **Opus decides and specifies; Sonnet implements.** DECIDE never edits product source. BUILD never changes the decision; if SPEC.md is wrong or blocked, record it in STATE.json `blockers` and stop rather than improvising a new direction.
+5. **BUILD commit rule.** Before each implementation commit, overwrite the product's single `QA-NEXT-TESTS.md` with a quick thought dump (no extra research, no test code) and include it in that commit. Commit and push ordinary safe scoped changes with conflict checks (see root `AGENTS.md`: standing commit/push authorization; fetch before push; no force-push).
+6. **Hold risky operations.** Destructive, irreversible or uncertain-effect changes are paused and explained per root governance. Real safety risks are handled immediately regardless of phase.
+7. **Every phase ends with a STATE.json update** (set `phase.completed`, `phase.next`, SHA, blockers, one-line handoff) committed in that phase's final commit. Report the actual remote commit hash, not an assumption.
+8. **Git attribution.** Commit messages end with the standard co-author trailer for the model that wrote them.
+
+## Budget gates (owner applies; agent honors when told the % in the launch line)
+
+Launch lines may carry `USAGE=NN%`. Behavior:
+
+| USAGE | Behavior |
+| --- | --- |
+| < 85 | normal phase work |
+| 85–89 | skip REVIEW; finish current chunk only |
+| 90–94 | BUILD drops to Low thinking; finish current chunk, then MECHANICAL checkpoint |
+| ≥ 95 | write only the STATE.json checkpoint, then stop |
+
+Never spend Opus on file exploration, formatting, commit messages or re-reading historical research.
+
+## Context authority
+
+| Surface | Use | Authority |
 | --- | --- | --- |
-| Owner directives, repo governance and current binding contracts | Scope, safety, intent | Binding until superseded |
-| Actual current source and import/data flows | What really exists, including mismatches | Re-read each fresh sprint; current implementation authority |
-| Engineering history, architecture docs, baseline scorecards, old task list | Explain rationale and unresolved risks | Evidence to challenge, **not** present-day instructions or acceptance |
-| Sprint design + checkpoint | Direction, continuity and decisions | Context aids, never allowed to overrule the preceding sources |
+| Owner directives, repo governance, binding contracts | Scope, safety, intent | Binding until superseded |
+| Actual current source and data flows | What really exists | Re-read per RECON; implementation authority |
+| `RECON.md`, `DECISION.md`, `SPEC.md` | Compressed present-tense model and chosen direction | Valid only for the SHA they record; if `main` moved materially, refresh RECON first |
+| Worklog, architecture docs, scorecards | Rationale and unresolved risks | Evidence to challenge, not instructions |
 
-**Memory rule:** retain decision-worthy insights, not a transcript. Cite code paths/SHAs where useful; don't perpetuate guesses into canon. Historical scorecards are true for their tested commits, not automatically for main. No fabricated execution evidence.
-
-**Finish rule:** a sprint ends for context efficiency or a coherent cross-layer handoff, **not because a module or a predetermined W-item is marked complete**. Work may be pending external QA; Opus continues engineering.
+**Memory rule:** retain decision-worthy insights, not transcripts. Cite file:symbol and SHAs. No fabricated execution evidence.
 
 ## Scope ownership
 
-**Opus:** product implementation, product `QA-NEXT-TESTS.md`, and this build-sprint checkpoint.  
-**ChatGPT:** independent physical QA and acceptance in its own folder.  
-**Owner:** priorities, explicit stop, and exceptions. GitHub issues/commits do not wake another agent.
+**RECON/DECIDE/BUILD/MECHANICAL/REVIEW agents:** only files in this folder plus, for BUILD, product source and `QA-NEXT-TESTS.md` as SPEC.md directs.
+**ChatGPT:** independent QA and acceptance in its own folder.
+**Owner:** priorities, model/thinking switches, explicit stop. GitHub commits do not wake another agent.

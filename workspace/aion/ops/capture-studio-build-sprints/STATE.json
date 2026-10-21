@@ -1,20 +1,48 @@
 {
-  "schema": "aion.capture-studio.opus-build-sprint.v1",
-  "owner": "Claude Opus",
-  "mode": "autonomous_continuous_build",
-  "status": "READY_FOR_FRESH_OPUS_SPRINT_01",
+  "schema": "aion.capture-studio.build-sprint.v2",
+  "owner": "Claude (phased: Haiku/Sonnet/Opus per PHASES.md)",
+  "mode": "phased_credit_aware_build",
+  "status": "READY_FOR_RECON",
   "created": "2026-10-21",
+  "updated": "2026-10-21",
   "last_observed_product_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
   "source_of_truth": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/",
-  "next_action": "Read latest source in full; reconcile historical documents with current code; choose best cross-layer leverage intervention independently; implement without physical tests.",
+  "phase": {
+    "completed": null,
+    "next": "RECON",
+    "sequence": ["RECON", "DECIDE", "BUILD", "MECHANICAL", "REVIEW"],
+    "expected": {
+      "RECON": { "model": "haiku_or_sonnet", "thinking": "off_or_low" },
+      "DECIDE": { "model": "opus", "thinking": "high" },
+      "BUILD": { "model": "sonnet", "thinking": "medium", "escalate_to": "high_only_for_stuck_chunks" },
+      "MECHANICAL": { "model": "haiku_or_sonnet", "thinking": "low" },
+      "REVIEW": { "model": "opus", "thinking": "medium", "optional": true, "skip_if_usage_ge": 85 }
+    }
+  },
+  "chunk_index": 0,
+  "artifacts": {
+    "recon": "RECON.md",
+    "decision": "DECISION.md",
+    "spec": "SPEC.md",
+    "review": "REVIEW.md"
+  },
+  "budget": {
+    "owner_reported_usage_start_pct": 67,
+    "gates": { "skip_review_at": 85, "build_low_at": 90, "checkpoint_only_at": 95 },
+    "calibration": "owner records usage % before/after RECON and DECIDE in this field so later phases can be re-planned",
+    "measured": { "recon_cost_pct": null, "decide_cost_pct": null }
+  },
+  "blockers": [],
+  "next_action": "Run RECON (Haiku/Sonnet, low or off thinking) per PHASES.md. Do not run DECIDE until RECON.md is committed.",
   "last_completed_build_sprint": null,
   "testing_owner": "ChatGPT (separate QA workspace)",
-  "physical_tests_by_opus": false,
+  "physical_tests_by_any_phase": false,
   "pre_commit_qa_note": true,
-  "nonstop_until_owner_stop": true,
-  "warning": "This is a session handoff, not evidence of active unattended runtime.",
+  "nonstop_until_owner_stop": false,
+  "warning": "This is a session handoff, not evidence of active unattended runtime. Each phase is a separate fresh session started by the owner.",
   "sprint_design": "SPRINT-01.md",
   "launch_protocol": "LAUNCH.md",
+  "phase_prompts": "PHASES.md",
   "sprint_mission": "Trustworthy Continuity — investigate cross-layer identity, semantics, time and provenance without prescribing solutions",
-  "freshness_rule": "Owner direction and current source outrank old worklog sequence, guesses and estimated progress"
+  "freshness_rule": "Owner direction and current source outrank old worklog sequence, guesses and estimated progress. RECON/DECISION/SPEC are valid only for the SHA they record."
 }
