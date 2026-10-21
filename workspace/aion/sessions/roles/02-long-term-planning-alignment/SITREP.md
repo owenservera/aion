@@ -1,15 +1,53 @@
 # Long-term Planning & Alignment — SITREP
 
 **Created:** 2026-10-16
-**Status:** Strategic baseline and five initial planning deliverables published; operational session URL and Route Bot receipt still unverified.
-**Assignment:** Own long-range strategy, milestone architecture, dependencies, priority alignment, roadmap coherence across ACP/UAH, IANG, AION and related programs.
-**Initial focus:** Reconcile owner intent, detect duplication/misalignment, propose resource allocations, maintain coherent roadmap and gates. Do not perform daily dispatch or masquerade as operator.
+**Status (current 2026-10-21):** Planning owns four north stars, time-to-working-prototype priority, elimination of artificial gates, and strategic Harvest integration ordering. Historical October 16 strategy below remains provenance, not today's work order.
+**Assignment:** Own AION's small north-star outcome set, strategic dependencies, fastest path to an observable Windows-local working prototype, and Harvest integration priority/queue strategy. Development alone owns implementation, code and technical acceptance.
+**Current focus:** Align live Windows Development, introspection and two-way CLI; keep only real operational safeguards and evidence; remove invented ceremony and obsolete Grok/BFF dependencies. No daily dispatch or additional coordination layer.
 **Chat URL:** Not yet supplied/verified.
-**Route Bot:** GitHub action-item routing allowed conceptually; destination and receipt must be verified before sending.
-**Latest evidence:** [Strategy & First Deliverables v0.1](./STRATEGY-AND-FIRST-DELIVERABLES-v0.1.md) published/readback-verified on `main` (commit `8ce6ec95a0a5a0ec6073528a5c9eb6048a509daa`). No dispatch or implementation implied.
-**Next action:** Reconcile executive response to proposed AION M2–M5; review newly verified M0.5/M1, Windows bridge, sync safety, IAM, Vercel evidence on change; coordinate strategic exceptions through the existing CoS/GitHub channel only after endpoint and receipt are confirmed.
+**Route Bot / Grok / BFF:** Not active dependencies in the owner's current Windows-only model. Do not revive or dispatch to these without fresh owner direction.
+**Latest inspected evidence:** AION `main` at `1af8210` before this Planning update; PR #62 merged watch-only receive, account registration and staged Harvest code; 2026-10-19 Windows UIA real send/readback observed, extension Send not verified; `STATE.json` retains `m1_verified=false`. Later GitHub commits alone do not prove a refreshed local Windows installation.
+**Next Planning action:** Keep the four north stars and actual local prototype blocker aligned to fresh Development receipts; own Harvest integration ranking and adjust it when source reuse shortens the path. Do not reopen historical milestone numbering or require an approval packet for ordinary local tests.
 
-## Dated work / decisions / evidence
+## Current owner direction — 2026-10-21 (supersedes conflicting earlier Planning assumptions)
+
+**Operating model:** Only the owner's Windows master and local execution agents are active for the AION build. Grok Bot/BFF Linux are set aside. `origin/main` is the shared source record, Windows is the only authoritative live runtime. Accepted Development is the persistent, exact-thread two-way `aion chat chief` CLI, not one-shot Send. The Node Bus remains the single effect/grant/no-resend authority. `AGENTS.md` confirms ordinary local development and testing may proceed under current owner directions without repeated artificial permissions paperwork; actual security, credentials, uncertain-effect protection and milestone evidence still matter.
+
+### North stars — Planning owns their definition, ordering and alignment
+
+| North star | What counts as the outcome | Current evidence (not promotion) |
+| --- | --- | --- |
+| **NS1 — Introspection** | AION itself originates a real authenticated ChatGPT interaction and independently reads the actual reply. | A real 2026-10-19 Windows UIA send/readback was observed; extension path failed; canonical `m1_verified=false` pending original independent/negative evidence. **Active**, not abandoned. |
+| **NS2 — Working two-way prototype** | A person launches `aion chat chief`, sees new messages in the exact bound web thread, exchanges multiple text turns and gets actual replies in one usable local session. | Accepted product architecture, source merged by #62; real local account registration and exact-thread I1/watch remain unverified. **Immediate product priority.** |
+| **NS3 — Reliable daily use** | Same working interaction survives ordinary process/browser reconnection and uncertain outcomes without duplicate sends or lost identity. | I3 not yet demonstrated; only apply this to the real running prototype, not a framework-first build. |
+| **NS4 — Extensible interaction** | One additional provider or native session works through the same narrow conversation model without replacing core AION identity/effect semantics. | Command Space/Harvest evidence exists; runtime parity is a **later** outcome, not a blocker for NS1/NS2. |
+
+**Time-to-working-prototype is the decisive cross-cutting priority**, not another gated milestone. Keep the shortest credible local demo path visible; record actual elapsed time and concrete blockers if measured, never invent target dates. NS1 and NS2 can progress in parallel; do not turn formal M1 promotion, I0/I1/I2/I3 engineering checkpoints or review paperwork into artificial sequential permission gates. Those engineering checkpoints are useful ways to detect real defects; they are not separate executive milestones or mandatory documents.
+
+**Anti-ceremony rule:** eliminate LLM-generated stop signs: extra approvals for already authorized local tests, duplicated registries/queues, serial review of unrelated areas, exhaustive coverage before a minimal prototype, repeated specification rewrites, mandatory negative-test volumes with no connection to an actual failure, and meetings/agent acknowledgments used as substitutes for working code. Retain real protections: exact target binding, authorized effect, no blind resend of uncertain operations, credentials/privacy, basic rollback and truthful proof. An absence of a named artifact does not by itself block useful authorized implementation.
+
+### Harvest integration — Planning owns strategic priority, Development owns adoption
+
+**One shared list:** use the existing `workspace/aion/ops/chrome-relay/harvest/EXCHANGE.jsonl` and existing source packs as the operational NEED/OFFER/GAP queue. This table is Planning's **priority overlay** of that list, not a new database, issues queue, supplier contract or dispatch. Planning owns ordering and strategic value judgments; Development may choose/defer a specific implementation on measured technical grounds, performs integration/tests, and records receipts. Discovery and Integration Manager supply findings and staged adaptations; their packaging does not count as runtime integration. The ordering below is a 2026-10-21 baseline, not an automatic mandate to merge code.
+
+| Order | Existing source/need | Planning priority and why | Evidence boundary |
+| --- | --- | --- | --- |
+| **0 — unblock** | **Local registration / exact-thread I1** (Development task, not a donor pack) | Fix the real present blocker first. Harvest must not delay a working watch-only prototype. | Local registration was reported failing; I1 live not proven. |
+| **1 — conditional now** | **PACK-06** readiness tri-state + document binding; **PACK-04** response serializer | Integrate only if they remove an observed I1/readback defect or materially shorten Development's implementation. | Both staged; PACK-06 26 and PACK-04 13 isolated fixtures, not wired production/live proofs. |
+| **2 — next working Send** | **PACK-03** reserved user-turn correlation; **PACK-08** targeted negative-fixture corpus | Favor the smallest useful Send/reply checking and no-resend test help when I1 is working, rather than growing a test bureaucracy. | PACK-03 reserved; PACK-08 not started; no assumed delivery. |
+| **3 — broaden commands** | **PACK-05** core-operation facet table, 29 definitions; VIVIM/Omega/VOMEGA command crosswalk | Relevant when multi-command control demonstrably benefits the prototype; do not build 40 commands before the first two-way experience. | PACK-05 staged table; catalog coverage is not working capability. |
+| **4 — actual file use** | **PACK-07** integrity-before-apply | Useful when real attachment/tool workflow is selected; not a prerequisite for plain-text two-way chat. | Staged 12 isolated fixtures; no runtime wiring. |
+| **5 — later / dormant** | Broader CDP/inspector, semantic compiler, multi-provider adapters, unsolicited new clones | Source-reference only unless a new measured product bottleneck or requested provider feature changes the return on integration. | Discovery is evidence, not runtime acceptance. |
+
+**Ranking lens:** working-prototype time saved first; then engineering work eliminated × reuse breadth ÷ adaptation cost, discounted for fidelity/effect risk and integration effort. Re-rank on a genuine Development blocker, proven selected source, prototype demonstration or owner change—**not** on item count or a desire to keep researchers busy. Never require exhaustive donor tests or coverage grids before taking a small, safe, source-backed shortcut.
+
+**Current evidence anchors:** [AION repository rules](https://github.com/owenservera/aion/blob/main/AGENTS.md) · [accepted product work issue #43](https://github.com/owenservera/aion/issues/43) · [merged I1 source #62](https://github.com/owenservera/aion/pull/62) · [Harvest START-HERE](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/harvest/START-HERE.md) · [Development working desk](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/workers/development/DELIVERABLES.md).
+
+**Historical interpretation:** all entries below are retained as dated evidence of what was believed/assigned in October 16–17. Where they mention Grok/BFF, frozen development, mandatory Route Bot, Linux as primary, uncommitted pre-#62 source, or additional executive gates, this owner direction takes precedence. It does not retroactively claim that historical work was executed.
+
+---
+
+## Historical dated work / decisions / evidence
 Append here; cite links and timestamps. Preserve earlier entries.
 
 ### 2026-10-16 — Initial strategic context and deliverable set
