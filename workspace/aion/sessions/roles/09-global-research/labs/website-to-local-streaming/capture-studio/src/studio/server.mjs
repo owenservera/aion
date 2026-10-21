@@ -20,6 +20,7 @@ import { ruleMatchesEvent, extractRecords } from '../shapes/extract.mjs';
 import { StreamReducer } from '../replay/reducer.mjs';
 import { VERSION } from '../config.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
+import { buildSiteContinuity, siteFromSession, continuityTime } from '../intel/continuity.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
@@ -130,6 +131,16 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (c === 'shapes') return send(res, 200, s.kv.get('SHAPES') ?? null);
       if (c === 'model') return send(res, 200, s.kv.get('MODEL') ?? null);
       if (c === 'graph') return send(res, 200, s.kv.get('GRAPH') ?? null);
+      if (c === 'continuity') {
+        if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
+        const site = siteFromSession(s.meta);
+        if (!site) return send(res, 409, { error: 'Session target has no verified site scope.' });
+        if (q.at !== undefined && continuityTime(q.at) === null) return send(res, 400, { error: 'Invalid as-of timestamp.' });
+        return send(res, 200, await buildSiteContinuity(paths.sessions, {
+          site, eid: q.eid ?? null, asOf: q.at ?? null, limit: q.limit ?? 50,
+          includeHistory: !!q.eid,
+        }));
+      }
       if (c === 'hypotheses') return send(res, 200, s.kv.get('HYPOTHESES') ?? null);
       if (c === 'assembled') return send(res, 200, d ? (s.kv.get('ASSEMBLED') ?? {})[d] ?? null : s.kv.get('ASSEMBLED') ?? {});
       if (c === 'dom') return send(res, 200, s.kv.get('DOM_BLOCKS') ?? []);
