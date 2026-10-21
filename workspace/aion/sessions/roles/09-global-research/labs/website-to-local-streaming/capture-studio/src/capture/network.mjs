@@ -26,6 +26,7 @@ export class NetworkRecorder extends EventEmitter {
       requests: 0, outOfScope: 0, metadataOnly: 0, streamed: 0, armFailed: 0, armRetried: 0,
       retrospective: 0, chunks: 0, bytes: 0, wsFrames: 0, wsControlFrames: 0, esMessages: 0,
       sensitiveExcluded: 0, redactions: 0, truncatedStreams: 0, reattaches: 0, handlerErrors: 0,
+      wsLateJoined: 0, wsMetadataFrames: 0,
     };
     this.sessions = new Map();         // sessionId -> { tag, session, targetInfo }
     // 0 = unlimited. A per-stream cap keeps one runaway response from filling the disk; the cut is
@@ -42,8 +43,10 @@ export class NetworkRecorder extends EventEmitter {
 
   _sid(tag, requestId) { return `${tag}:${requestId}`; }
 
-  _policy(url, resourceType) {
-    const pageUrl = this.getPageUrl();
+  // `tag` identifies the recorded target (p, t1, w1, c3 ...); with several tabs in one run the
+  // scope is judged against the page that issued the request, not the primary tab.
+  _policy(url, resourceType, tag) {
+    const pageUrl = this.getPageUrl(tag);
     const c = this.profile.capture ?? {};
     if (!url.startsWith('http') && !url.startsWith('ws')) return { capture: false, reason: 'non_network_scheme' };
     if (!inScope(this.profile, url, pageUrl)) {
@@ -69,8 +72,8 @@ export class NetworkRecorder extends EventEmitter {
     on('Network.eventSourceMessageReceived', (p) => this._onEventSource(tag, p));
     on('Network.webSocketCreated', (p) => this._onWsCreated(tag, p, targetInfo));
     on('Network.webSocketHandshakeResponseReceived', (p) => this._onWsHandshake(tag, p));
-    on('Network.webSocketFrameReceived', (p) => this._onWsFrame(tag, p, 'in'));
-    on('Network.webSocketFrameSent', (p) => this._onWsFrame(tag, p, 'out'));
+    on('Network.webSocketFrameReceived', (p) => this._onWsFrame(tag, p, 'in', targetInfo));
+    on('Network.webSocketFrameSent', (p) => this._onWsFrame(tag, p, 'out', targetInfo));
     on('Network.webSocketFrameError', (p) => { const st = this.reqs.get(this._sid(tag, p.requestId)); if (st) this.append({ k: 'ws.error', sid: st.sid, error: p.errorMessage }); });
     on('Network.webSocketClosed', (p) => { const st = this.reqs.get(this._sid(tag, p.requestId)); if (!st) return; if (!st.ignored) this.append({ k: 'ws.close', sid: st.sid, ct: p.timestamp }); this.reqs.delete(st.sid); });
     await session.send('Network.enable', { maxTotalBufferSize: 256 * 1024 * 1024, maxResourceBufferSize: 64 * 1024 * 1024, maxPostDataSize: 1024 * 1024 });
@@ -124,7 +127,7 @@ export class NetworkRecorder extends EventEmitter {
       this.append({ k: 'res', sid, status: p.redirectResponse.status, mime: p.redirectResponse.mimeType, headers: redactHeaders(p.redirectResponse.headers), redirect: true });
       this.append({ k: 'done', sid, redirectedTo: redactUrl(url) });
     }
-    const pol = this._policy(url, p.type);
+    const pol = this._policy(url, p.type, tag);
     this.stats.requests++;
     if (!pol.capture) { this.stats.outOfScope++; this.reqs.set(sid, { sid, ignored: true }); return; }
     const st = { sid, url, body: pol.body, reason: pol.reason, armed: false, chunks: 0, bytes: 0, session };
@@ -269,7 +272,7 @@ export class NetworkRecorder extends EventEmitter {
   _onWsCreated(tag, p, targetInfo) {
     const sid = this._sid(tag, p.requestId);
     if (!this.profile.capture?.websockets) { this.reqs.set(sid, { sid, ignored: true }); return; }
-    const pol = this._policy(p.url, null); // WebSockets are governed by capture.websockets, not resource types
+    const pol = this._policy(p.url, null, tag); // WebSockets are governed by capture.websockets, not resource types
     if (!pol.capture || !pol.body) { this.reqs.set(sid, { sid, ignored: !pol.capture, body: false }); if (pol.capture) this.append({ k: 'ws.open', sid, url: redactUrl(p.url), policy: `metadata_only:${pol.reason}` }); return; }
     this.reqs.set(sid, { sid, url: p.url, ws: true, body: true, frames: 0, bytes: 0, chunks: 0 });
     this.append({ k: 'ws.open', sid, url: redactUrl(p.url), initiator: p.initiator?.type, target: targetInfo.type ?? 'page' });

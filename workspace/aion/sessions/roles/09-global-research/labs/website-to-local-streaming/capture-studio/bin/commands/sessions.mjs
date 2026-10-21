@@ -1,5 +1,6 @@
 // session list|show|datasets|streams|timeline|events|delete|prune, plus verify, receipt, shapes
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { Session } from '../../src/store/session.mjs';
 import { datasetCatalog } from '../../src/export/export.mjs';
@@ -7,6 +8,7 @@ import { EXIT } from '../../src/config.mjs';
 import { define, defineGroup } from '../lib/registry.mjs';
 import { usageError, notFound, CliError, fmtBytes, fmtAgo, fmtMs, fmtPct, parseSince, truncate, oneLine } from '../lib/ui.mjs';
 import { needArg, knowledgeState, isDerived, siteLabel, looksActive, readRows, intFlag, eventText } from '../lib/util.mjs';
+import { unavailable } from '../lib/capabilities.mjs';
 
 defineGroup('session', {
   summary: 'List and inspect saved recordings', section: 'Sessions', default: 'list',
@@ -18,6 +20,43 @@ const sessionRow = (m) => ({
   id: m.id, status: m.status, createdAt: m.createdAt, endedAt: m.endedAt ?? null, endReason: m.endReason ?? null,
   site: siteLabel(m), title: m.target?.title ?? '', url: m.target?.url ?? '', profile: m.profile ? `${m.profile.name}@v${m.profile.version}` : null,
   rawBytes: m.rawBytes ?? 0, integrityOk: m.integrity?.ok ?? null, records: m.integrity?.records ?? null,
+});
+
+for (const [command, method, summary] of [
+  ['stats', 'rawStats', 'Raw storage statistics and index coverage'],
+  ['reindex', 'reindex', 'Rebuild the raw seek index from saved segments'],
+]) define({
+  name: `session ${command}`, section: 'Sessions', usage: '[id|latest]', summary,
+  async run(ctx) {
+    const session = ctx.session(ctx.args[0]);
+    if (typeof session[method] !== 'function') throw unavailable(`Session ${command}`);
+    if (command === 'reindex' && looksActive(session)) throw new CliError('Stop recording before rebuilding the raw index.', { exit: EXIT.INTEGRITY, code: 'ACTIVE' });
+    const result = await session[method]();
+    ctx.out.emit({ session: session.id, result }, (out) => out.result(JSON.stringify(result, null, 2)));
+  },
+});
+
+define({
+  name: 'session compact', section: 'Sessions', usage: '[id|latest] [--dry-run | --replace --yes]',
+  summary: 'Compact raw records into a new sidecar directory; original raw is kept',
+  description: 'By default writes a uniquely named compacted sidecar. Merging chunks preserves bytes but changes record/timing granularity. --replace --yes makes it the active raw log and retains the original in a backup directory. Stop recording first.',
+  flags: {
+    'dry-run': { type: 'boolean', desc: 'Estimate savings without writing a compacted log' },
+    replace: { type: 'boolean', desc: 'Make compacted raw active, retaining the original as a backup' },
+    yes: { type: 'boolean', alias: 'y', desc: 'Confirm replacing the active raw log' },
+    'merge-chunks': { type: 'boolean', desc: 'Merge adjacent chunks (default on; --no-merge-chunks to disable)' },
+  },
+  async run(ctx) {
+    const session = ctx.session(ctx.args[0]);
+    if (looksActive(session)) throw new CliError('Stop recording before compacting raw data.', { exit: EXIT.INTEGRITY, code: 'ACTIVE' });
+    const f = ctx.flags, method = f['dry-run'] ? 'compactionEstimate' : 'compact';
+    if (typeof session[method] !== 'function') throw unavailable(`Session ${method}`);
+    if (f.replace && !f.yes && !f['dry-run']) throw usageError('--replace requires --yes; the original raw log will be kept as a backup.');
+    const outDir = `raw-compact-${randomUUID()}`;
+    if (existsSync(path.join(session.dir, outDir))) throw new CliError('Compaction destination already exists; retry.');
+    const result = await session[method]({ mergeChunks: f['merge-chunks'] !== false, replace: !!f.replace, out: outDir });
+    ctx.out.emit({ session: session.id, dryRun: !!f['dry-run'], ...(!f['dry-run'] ? { directory: f.replace ? 'raw' : outDir } : {}), result }, (out) => out.result(JSON.stringify(result, null, 2)));
+  },
 });
 
 // ---------------------------------------------------------------------------------------------

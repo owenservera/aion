@@ -55,7 +55,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       return result;
     } finally { deriving.delete(session.id); }
   }
-  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, cdpPort });
+  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id) });
 
   const tokenBuf = Buffer.from(token);
   const authed = (req) => {
@@ -76,6 +76,12 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       }
       if (!authed(req)) return send(res, 401, url.pathname.startsWith('/api') ? { error: 'unauthorized' } : 'Open the studio using the tokenized URL printed in the terminal.');
       if (url.pathname === '/') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:" }); return res.end(readFileSync(UI)); }
+      if (url.pathname === '/live/view') { await hub.handle(req, res, new URL('/api/v1/live/view', url), {}); return; }
+      if (url.pathname === '/live/view.mjs') {
+        if (req.method !== 'GET') { res.setHeader('allow', 'GET'); return send(res, 405, { error: 'GET required' }); }
+        res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+        return res.end(readFileSync(new URL('./ui/live.mjs', import.meta.url)));
+      }
       if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'not found' });
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
       if (await hub.handle(req, res, url, body)) return;
@@ -293,7 +299,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   const actualPort = server.address().port;
   port = actualPort;
   server.once('close', () => hub.close());
-  return { server, recorder, integrations: hub, port: actualPort, token, url: `http://127.0.0.1:${actualPort}/?token=${token}`, close: async () => { try { if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); } finally { hub.close(); server.close(); } } };
+  return { server, recorder, integrations: hub, port: actualPort, token, url: `http://127.0.0.1:${actualPort}/?token=${token}`, close: async () => { try { if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); } finally { await hub.close(); server.close(); } } };
 }
 
 function listDatasets(s) {

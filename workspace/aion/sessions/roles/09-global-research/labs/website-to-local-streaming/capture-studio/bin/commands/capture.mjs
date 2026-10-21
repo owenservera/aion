@@ -7,9 +7,10 @@ import { Recorder } from '../../src/capture/recorder.mjs';
 import { Session } from '../../src/store/session.mjs';
 import { derive } from '../../src/replay/derive.mjs';
 import { startStudio } from '../../src/studio/server.mjs';
-import { exportTranscript, exportReport, exportKnowledge, exportBundle } from '../../src/export/export.mjs';
+import { exportTranscript, exportReport, exportKnowledge, exportBundle, exportSchemas, exportGraphRanked } from '../../src/export/export.mjs';
 import { define } from '../lib/registry.mjs';
 import { CliError, usageError, envError, fmtBytes } from '../lib/ui.mjs';
+import { capability } from '../lib/capabilities.mjs';
 
 function openUrl(url) {
   const cmd = process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
@@ -71,9 +72,14 @@ define({ name: 'serve', section: 'Get started', summary: 'Run the studio UI only
 // Recording engine shared by `record` and `capture`
 // ---------------------------------------------------------------------------------------------
 const NET_KINDS = new Set(['req', 'res', 'chunk', 'body', 'es.msg', 'ws.frame', 'ws.open', 'done', 'fail']);
-const EXPORT_KINDS = ['transcript', 'report', 'knowledge', 'bundle'];
+const EXPORT_KINDS = ['transcript', 'report', 'knowledge', 'schemas', 'graph-ranked', 'bundle'];
 
 const recordFlags = {
+  live: { type: 'boolean', desc: 'Print live decoded text/events (with --json: NDJSON events followed by a result row)' },
+  events: { type: 'boolean', desc: 'With --live, print protocol events instead of text' },
+  kinds: { type: 'list', valueName: 'KINDS', desc: 'Filter live tap raw record kinds (comma-separated)' },
+  tabs: { type: 'string', choices: ['all', 'one'], default: 'one', desc: 'Record one selected tab or all tabs' },
+  follow: { type: 'boolean', desc: 'Follow newly opened tabs/targets while recording' },
   target: { type: 'string', alias: 't', valueName: 'TAB', desc: 'Tab to record: index, id prefix, or URL/title text (see "studio targets")' },
   profile: { type: 'string', alias: 'p', valueName: 'NAME', desc: 'Force a profile (default: best match for the tab URL)' },
   label: { type: 'string', alias: 'l', valueName: 'TEXT', desc: 'Label for the session id' },
@@ -109,6 +115,8 @@ async function writeExports(ctx, session, kinds, outDirFlag) {
       if (kind === 'transcript') written.push((await exportTranscript(session, path.join(dir, 'transcript.md'), { format: 'md' })).file);
       else if (kind === 'report') written.push((await exportReport(session, path.join(dir, 'report.html'))).file);
       else if (kind === 'knowledge') written.push((await exportKnowledge(session, path.join(dir, 'knowledge.json'), { format: 'json' })).file);
+      else if (kind === 'schemas') written.push((await exportSchemas(session, path.join(dir, 'schemas.json'))).file);
+      else if (kind === 'graph-ranked') written.push((await exportGraphRanked(session, path.join(dir, 'graph-ranked.json'))).file);
       else written.push((await exportBundle(session, path.join(dir, 'bundle'), {})).dir);
     } catch (e) { ctx.out.warn(`export ${kind}: ${e.message}`); }
   }
@@ -118,10 +126,32 @@ async function writeExports(ctx, session, kinds, outDirFlag) {
 async function runRecording(ctx, o) {
   const { out } = ctx;
   const maxMb = o.maxMb ?? ctx.settings.maxMb;
-  const rec = new Recorder({ sessionsDir: ctx.paths.sessions, profileStore: ctx.profiles(), familyStore: ctx.families(), port: ctx.port, allBodies: !!o.allBodies, maxSessionBytes: Number(maxMb) * 1048576, learner: ctx.learner() });
+  const liveModule = o.live ? await capability('../../src/capture/live-tap.mjs', ['createLiveTap'], 'Live capture decoding') : null;
+  const rec = new Recorder({ sessionsDir: ctx.paths.sessions, profileStore: ctx.profiles(), familyStore: ctx.families(), port: ctx.port, tabs: o.tabs, follow: !!o.follow, allBodies: !!o.allBodies, maxSessionBytes: Number(maxMb) * 1048576, learner: ctx.learner() });
   rec.on('warn', (e) => out.warn(e.message ?? e));
+  const tap = liveModule ? await liveModule.createLiveTap(rec, { kinds: o.kinds, decode: true }) : null;
+  const liveListeners = [];
+  if (tap) for (const kind of ['record', 'stream-open', 'event', 'text', 'stream-close', 'target']) {
+    const listener = (data) => {
+      if (out.json) { out.ndjson([{ kind, data }]); return; }
+      if (kind === 'record') return;
+      if (kind === 'text' && !o.events) {
+        const text = typeof data === 'string' ? data : data?.delta ?? data?.text ?? data?.value;
+        if (text !== undefined) out.result(`[${data?.sid ?? 'live'}] ${String(text)}`);
+      } else if (kind === 'event' && o.events) out.result(JSON.stringify(data));
+      else if (kind !== 'text' && kind !== 'event') out.info(`[${kind}] ${JSON.stringify(data)}`);
+    };
+    tap.on(kind, listener); liveListeners.push([kind, listener]);
+  }
+  const cleanupTap = () => {
+    for (const [kind, listener] of liveListeners) tap?.off?.(kind, listener);
+    if (typeof tap?.close === 'function') tap.close();
+    else tap?.dispose?.();
+  };
   const profile = o.profile ?? ctx.settings.defaultProfile ?? undefined;
-  const session = await rec.start({ target: o.target, profile, label: o.label });
+  let session;
+  try { session = await rec.start({ target: o.target, profile, label: o.label, tabs: o.tabs, follow: !!o.follow }); }
+  catch (error) { cleanupTap(); throw error; }
   out.info(`Recording ${session.meta.target.title || session.meta.target.url} -> session ${session.id}`);
   out.info(`Profile ${session.meta.profile.name}@v${session.meta.profile.version}. Press Ctrl+C to stop and save.`);
 
@@ -129,10 +159,11 @@ async function runRecording(ctx, o) {
   rec.on('record', (r) => { if (NET_KINDS.has(r.k)) lastNet = Date.now(); });
   if (o.reload) { try { await rec.reloadPage(); out.info('Reloaded the page so connections opened during load are observed.'); } catch (e) { out.warn(`reload failed: ${e.message}`); } }
 
-  return await new Promise((resolve, reject) => {
+  try { return await new Promise((resolve, reject) => {
     let done = false, sigints = 0;
     const timers = [];
-    const clearAll = () => { timers.forEach(clearInterval); timers.forEach(clearTimeout); out.progressDone(); };
+    const onSignal = () => { if (++sigints > 1) process.exit(130); stopNow('user_stop'); };
+    const clearAll = () => { timers.forEach(clearInterval); timers.forEach(clearTimeout); process.off('SIGINT', onSignal); process.off('SIGTERM', onSignal); out.progressDone(); };
     const finalize = async (stop) => {
       try {
         let derived = null;
@@ -151,16 +182,17 @@ async function runRecording(ctx, o) {
     };
     rec.on('stopped', (stop) => { if (done) return; done = true; clearAll(); out.info(`Recording ended: ${stop.reason}`); finalize(stop); });
 
-    process.on('SIGINT', () => { if (++sigints > 1) process.exit(130); stopNow('user_stop'); });
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
     timers.push(setInterval(() => {
       const st = rec.status(); if (st.state !== 'recording') return;
       const n = st.stats.network;
-      out.progress(`${n.requests} requests, ${n.streamed} streamed, ${fmtBytes(n.bytes)} received, ${st.openStreams} open, ${st.stats.dom.mutations} page changes, ${st.stats.raw.gaps} gaps   `);
+      if (!o.live) out.progress(`${n.requests} requests, ${n.streamed} streamed, ${fmtBytes(n.bytes)} received, ${st.openStreams} open, ${st.stats.dom.mutations} page changes, ${st.stats.raw.gaps} gaps   `);
       if (o.idle && st.openStreams === 0 && Date.now() - lastNet > o.idle * 1000) stopNow('idle');
     }, 1000));
     if (o.duration) timers.push(setTimeout(() => stopNow('duration'), o.duration * 1000));
     if (o.timeout) timers.push(setTimeout(() => stopNow('timeout'), o.timeout * 1000));
-  });
+  }); } finally { cleanupTap(); }
 }
 
 function printRecordingSummary(o, s) {
@@ -177,16 +209,18 @@ function printRecordingSummary(o, s) {
 const optsFromFlags = (ctx, extra = {}) => ({
   target: ctx.flags.target, profile: ctx.flags.profile, label: ctx.flags.label, duration: ctx.flags.duration, idle: ctx.flags.idle, timeout: ctx.flags.timeout,
   maxMb: ctx.flags['max-mb'], allBodies: ctx.flags['all-bodies'], derive: ctx.flags.derive ?? ctx.settings.autoDerive,
+  live: ctx.flags.live, events: ctx.flags.events, kinds: ctx.flags.kinds, tabs: ctx.flags.tabs, follow: ctx.flags.follow,
   exports: ctx.flags.export, outDir: ctx.flags['out-dir'], ...extra,
 });
 
 define({
-  name: 'record', section: 'Capture', usage: '[--target TAB] [--duration S]', summary: 'Record one tab from the terminal; Ctrl+C stops, saves and derives',
+   name: 'record', section: 'Capture', usage: '[--target TAB] [--duration S] [--live --tabs all --follow]', summary: 'Record tabs from the terminal; Ctrl+C stops, saves and derives',
   description: 'Attaches to a tab that is already open in the capture browser. Read-only: observes network, streams and rendered DOM; never intercepts or modifies traffic.',
   flags: recordFlags, forceExit: true,
   examples: ['studio record --target claude.ai --duration 60', 'studio record --target 0 --idle 8 --export report,knowledge', 'studio record --json --duration 30 > result.json'],
   async run(ctx) {
     const s = await runRecording(ctx, optsFromFlags(ctx));
+    if (ctx.flags.live && ctx.out.json) { ctx.out.ndjson([{ kind: 'result', data: s }]); return; }
     ctx.out.emit(s, (o) => printRecordingSummary(o, s));
   },
 });
@@ -219,6 +253,7 @@ define({
   async run(ctx) {
     const { out, flags } = ctx;
     if (!ctx.args.length) throw usageError('Usage: studio capture <url...>', 'Example: studio capture https://example.com --export report');
+    if (flags.live) await capability('../../src/capture/live-tap.mjs', ['createLiveTap'], 'Live capture decoding');
     const urls = ctx.args.map(normalizeUrl);
     if (!(await isReachable({ port: ctx.port }))) {
       if (flags['no-launch']) throw envError(`No capture browser on port ${ctx.port}.`, 'Run "studio launch".');
@@ -244,6 +279,7 @@ define({
       results.push(await runRecording(ctx, opts));
       if (urls.length > 1) await sleep(500);
     }
-    ctx.out.emit(results.length === 1 ? results[0] : results, (o) => results.forEach((s) => printRecordingSummary(o, s)));
+    if (flags.live && out.json) out.ndjson([{ kind: 'result', data: results.length === 1 ? results[0] : results }]);
+    else ctx.out.emit(results.length === 1 ? results[0] : results, (o) => results.forEach((s) => printRecordingSummary(o, s)));
   },
 });

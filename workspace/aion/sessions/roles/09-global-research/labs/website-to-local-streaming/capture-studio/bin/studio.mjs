@@ -18,6 +18,7 @@ import './commands/system.mjs';
 import './commands/capture.mjs';
 import './commands/sessions.mjs';
 import './commands/replay.mjs';
+import './commands/mirror.mjs';
 import './commands/export.mjs';
 import './commands/knowledge.mjs';
 import './commands/learn.mjs';

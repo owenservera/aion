@@ -2,12 +2,13 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { Session } from '../../src/store/session.mjs';
-import { derive, stateAt, streamBytes } from '../../src/replay/derive.mjs';
+import { stateAt, streamBytes } from '../../src/replay/derive.mjs';
 import { DeltaAssembler } from '../../src/decode/delta.mjs';
 import { isStreaming } from '../../src/replay/reducer.mjs';
 import { define } from '../lib/registry.mjs';
 import { usageError, notFound, fmtBytes, fmtMs, truncate, oneLine } from '../lib/ui.mjs';
 import { knowledgeState, isDerived, looksActive, parseAt, sessionStartT, readRows, eventText } from '../lib/util.mjs';
+import { capability, stageProgress } from '../lib/capabilities.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -20,10 +21,14 @@ define({
     all: { type: 'boolean', desc: 'Derive every saved session' },
     missing: { type: 'boolean', desc: 'Derive only sessions with no receipt or incomplete knowledge' },
     force: { type: 'boolean', desc: 'Also derive sessions that look like they are still recording' },
+    full: { type: 'boolean', desc: 'Rebuild all requested stages instead of reusing incremental artifacts' },
+    stages: { type: 'list', valueName: 'NAMES', desc: 'Run selected derivation stages (comma-separated)' },
   },
   examples: ['studio derive latest', 'studio derive 2026…abc --profile claude', 'studio derive --missing --json'],
   async run(ctx) {
     const f = ctx.flags;
+    if (f.stages && !f.stages.length) throw usageError('--stages needs at least one stage name.');
+    const { deriveAll } = await capability('../../src/replay/derive-all.mjs', ['deriveAll'], 'Full derivation');
     const targets = f.all || f.missing
       ? ctx.listSessions().map((m) => Session.open(ctx.paths.sessions, m.id))
         .filter((s) => (f.force || !looksActive(s)) && (!f.missing || !isDerived(s) || !['complete'].includes(knowledgeState(s))))
@@ -33,11 +38,11 @@ define({
     for (const s of targets) {
       ctx.out.info(`Deriving ${s.id} (${results.length + 1}/${targets.length})`);
       try {
-        const d = await derive(s, ctx.profileFor(s, f.profile), { families: ctx.families(), learner: ctx.learner(), onProgress: (n) => ctx.out.progress(`${n} raw records`) });
+        const d = await deriveAll(s, { profile: ctx.profileFor(s, f.profile), incremental: !f.full, stages: f.stages, onStage: stageProgress(ctx.out, s.id) });
         ctx.out.progressDone();
         results.push({
-          session: s.id, ok: true, rawRecords: d.records, streams: d.summary.streams.length, suggestions: d.report.suggestions.length,
-          verdict: d.receipt.verdict, knowledge: d.knowledge, recordCounts: d.recordCounts, familyCounts: d.familyCounts,
+          session: s.id, ok: !d.manifest?.error && d.manifest?.ok !== false && !['failed', 'error'].includes(d.manifest?.status), manifest: d.manifest, artifacts: d.artifacts,
+          ...(d.manifest?.error ? { error: d.manifest.error } : {}),
         });
       } catch (e) { ctx.out.progressDone(); results.push({ session: s.id, ok: false, error: String(e.message ?? e) }); }
     }
@@ -45,10 +50,8 @@ define({
     ctx.out.emit(targets.length === 1 && !f.all && !f.missing ? results[0] : { derived: results }, (o) => {
       for (const r of results) {
         if (!r.ok) { o.result(`${o.c.red('FAIL')} ${r.session}: ${r.error}`); continue; }
-        o.result(`Derived ${r.session}: ${r.rawRecords} raw records, ${r.streams} streams, ${r.suggestions} suggestions, verdict ${r.verdict}.`);
-        if (r.knowledge) o.line(`  knowledge: ${r.knowledge.error ? `FAILED at ${r.knowledge.stage}: ${r.knowledge.error}` : `${r.knowledge.types} type(s), ${r.knowledge.entities} entities, ${r.knowledge.edges} edges`}`);
-        for (const [k, v] of Object.entries(r.recordCounts ?? {})) o.line(`  records-${k}: ${v}`);
-        for (const [k, v] of Object.entries(r.familyCounts ?? {})) o.line(`  ${k}: ${v}`);
+        o.result(`Derived ${r.session}${r.manifest?.status ? `: ${r.manifest.status}` : '.'}`);
+        o.line(JSON.stringify(r.manifest, null, 2));
       }
     });
     if (failed.length) process.exitCode = 1;

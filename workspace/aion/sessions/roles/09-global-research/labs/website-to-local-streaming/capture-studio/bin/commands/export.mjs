@@ -1,7 +1,7 @@
 // export dataset|transcript|knowledge|graph|report|bundle|formats   (+ top-level "transcript")
 import path from 'node:path';
 import {
-  exportDataset, exportTranscript, exportKnowledge, exportGraph, exportReport, exportBundle, datasetCatalog,
+  exportDataset, exportTranscript, exportKnowledge, exportGraph, exportReport, exportBundle, exportSchemas, exportGraphRanked, datasetCatalog,
   DATASET_FORMATS, TRANSCRIPT_FORMATS, KNOWLEDGE_FORMATS, GRAPH_FORMATS, inferFormat,
 } from '../../src/export/export.mjs';
 import { define, defineGroup } from '../lib/registry.mjs';
@@ -159,9 +159,37 @@ define({
 });
 
 define({
+  name: 'export schemas', section: 'Export', usage: '[id|latest] [--type TYPE] [--out FILE]', summary: 'Export observed schemas as a draft-2020-12 JSON Schema definition bundle',
+  flags: {
+    type: { type: 'string', valueName: 'TYPE', desc: 'Only this type (exact id or name)' },
+    out: { type: 'string', alias: 'o', valueName: 'FILE', desc: 'Output file; "-" writes to stdout' },
+  },
+  async run(ctx) {
+    const session = ctx.session(ctx.args[0]);
+    const result = await exportSchemas(session, outFile(ctx, session, 'schemas', 'json'), { type: ctx.flags.type });
+    if (result.file !== '-') ctx.out.emit(result, (out) => showWrite(out, `${result.types} schemas`, result));
+  },
+});
+
+define({
+  name: 'export graph-ranked', section: 'Export', usage: '[id|latest] [--limit N] [--format F]', summary: 'Export graph nodes ranked by confidence-weighted PageRank',
+  flags: {
+    format: { type: 'string', alias: 'f', choices: DATASET_FORMATS, default: 'json', desc: 'Output format' },
+    out: { type: 'string', alias: 'o', valueName: 'FILE', desc: 'Output file; "-" writes to stdout' },
+    limit: { type: 'number', alias: 'n', valueName: 'N', default: 100, desc: 'Maximum ranked nodes' },
+    seeds: { type: 'list', valueName: 'EIDS', desc: 'Entity ids for personalized graph ranking' },
+  },
+  async run(ctx) {
+    const session = ctx.session(ctx.args[0]), f = ctx.flags;
+    const result = await exportGraphRanked(session, outFile(ctx, session, 'graph-ranked', f.format), { format: f.format, limit: f.limit, seeds: f.seeds });
+    if (result.file !== '-') ctx.out.emit(result, (out) => showWrite(out, `${result.nodes} ranked nodes`, result));
+  },
+});
+
+define({
   name: 'export formats', section: 'Export', summary: 'List the formats each export supports', noData: true,
   async run(ctx) {
-    const data = { dataset: DATASET_FORMATS, transcript: TRANSCRIPT_FORMATS, knowledge: KNOWLEDGE_FORMATS, graph: GRAPH_FORMATS, report: ['html'], bundle: ['directory'] };
+    const data = { dataset: DATASET_FORMATS, transcript: TRANSCRIPT_FORMATS, knowledge: KNOWLEDGE_FORMATS, graph: GRAPH_FORMATS, schemas: ['json-schema'], 'graph-ranked': DATASET_FORMATS, report: ['html'], bundle: ['directory'] };
     ctx.out.emit(data, (o) => o.kv(Object.entries(data).map(([k, v]) => [k, v.join(', ')]), 0));
   },
 });

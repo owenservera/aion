@@ -121,6 +121,7 @@ export function reportError(err, out) {
 // Map errors thrown by lower layers to friendly CLI errors.
 export function toCliError(err) {
   const msg = String(err?.message ?? err);
+  if (err?.code === 'CAPABILITY_UNAVAILABLE') return new CliError(msg, { exit: EXIT.ENVIRONMENT, code: err.code });
   if (err?.code === 'ECONNREFUSED' || /fetch failed|ECONNREFUSED|DevTools/i.test(msg) && /127\.0\.0\.1|DevTools|9222/.test(msg)) {
     return new CliError(`Cannot reach the capture browser: ${msg}`, { exit: EXIT.ENVIRONMENT, code: 'NO_BROWSER', hint: 'Run "studio launch" (or "studio doctor") first.' });
   }

@@ -6,11 +6,11 @@ import { problem, integer } from './http.mjs';
 export const EVENT_TYPES = ['status', 'started', 'stopped', 'warn', 'record', 'event', 'session.derived', 'learning.changed'];
 
 export class EventFeed extends EventEmitter {
-  constructor({ maxEvents = 1000, maxBytes = 4 * 1024 * 1024, maxClientBytes = 512 * 1024, maxClients = 32 } = {}) {
+  constructor({ maxEvents = 1000, maxBytes = 4 * 1024 * 1024, maxClientBytes = 512 * 1024, maxClients = 32, eventTypes = EVENT_TYPES } = {}) {
     super();
     this.epoch = randomBytes(8).toString('hex'); this.sequence = 0;
     this.events = []; this.bytes = 0; this.clients = new Set();
-    Object.assign(this, { maxEvents, maxBytes, maxClientBytes, maxClients });
+    Object.assign(this, { maxEvents, maxBytes, maxClientBytes, maxClients, eventTypes });
     this.closed = false;
   }
 
@@ -37,7 +37,8 @@ export class EventFeed extends EventEmitter {
   matches(filter, event) {
     return (!filter.session || filter.session === event.session)
       && (!filter.types.size || filter.types.has(event.type))
-      && (!filter.sid || event.data?.sid === filter.sid);
+      && (!filter.sid || event.data?.sid === filter.sid)
+      && (!filter.kinds?.size || filter.kinds.has(event.data?.kind) || filter.kinds.has(event.data?.k) || filter.kinds.has(event.type));
   }
 
   frame(entry, legacy) {
@@ -58,7 +59,8 @@ export class EventFeed extends EventEmitter {
     if (this.closed) throw problem(503, 'Event feed is closing');
     if (this.clients.size >= this.maxClients) throw problem(429, 'Too many event stream subscribers');
     const types = new Set(q.types ? String(q.types).split(',').filter(Boolean) : []);
-    for (const type of types) if (!EVENT_TYPES.includes(type)) throw problem(400, `Unknown event type: ${type}`);
+    for (const type of types) if (!this.eventTypes.includes(type)) throw problem(400, `Unknown event type: ${type}`);
+    const kinds = new Set(q.kind ? String(q.kind).split(',').filter(Boolean) : []);
     const cursor = req.headers['last-event-id'] ?? q.after;
     const replay = integer(q.replay, 0, this.maxEvents);
     let from = this.sequence, reset = null;
@@ -73,7 +75,7 @@ export class EventFeed extends EventEmitter {
       }
     } else if (replay) from = Math.max(0, this.sequence - replay);
     res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no', 'x-content-type-options': 'nosniff' });
-    const client = { res, types, session: q.session, sid: q.sid, legacy, cleanup: () => { clearInterval(client.timer); this.clients.delete(client); } };
+    const client = { res, types, kinds, session: q.session, sid: q.sid, legacy, cleanup: () => { clearInterval(client.timer); this.clients.delete(client); } };
     res.on('close', client.cleanup); res.on('error', client.cleanup);
     this.clients.add(client);
     this.write(client, 'retry: 2000\n\n');

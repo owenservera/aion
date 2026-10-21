@@ -3,12 +3,13 @@ import { existsSync } from 'node:fs';
 import { Session } from '../../src/store/session.mjs';
 import { TemporalGraph } from '../../src/intel/graph.mjs';
 import { buildSiteContinuity, siteFromSession, originFromSession } from '../../src/intel/continuity.mjs';
-import { search as searchRaw } from '../../src/replay/derive.mjs';
 import { formatRows, DATASET_FORMATS } from '../../src/export/export.mjs';
+import { schemaForType } from '../../src/export/schemas.mjs';
 import { define, defineGroup } from '../lib/registry.mjs';
 import { usageError, notFound, CliError, truncate, oneLine, fmtAgo, fmtPct } from '../lib/ui.mjs';
 import { needArg, knowledgeState, siteLabel, parseAt, sessionStartT } from '../lib/util.mjs';
 import { parseQuery, matches, attrSummary } from '../lib/query.mjs';
+import { capability } from '../lib/capabilities.mjs';
 
 defineGroup('knowledge', {
   summary: 'Query the discovered data model, entities, graph and cross-session continuity', section: 'Knowledge', default: 'status',
@@ -292,43 +293,49 @@ define({
 });
 
 define({
-  name: 'knowledge search', section: 'Knowledge', aliases: ['search'], usage: '<text…>', summary: 'Full-text search over entities, decoded stream events and rendered page text',
+  name: 'knowledge search', section: 'Knowledge', aliases: ['search'], usage: '<text…>', summary: 'Ranked search over the derived session corpus',
   flags: { ...scopeFlags, layers: { type: 'list', valueName: 'LIST', desc: 'Where to look: entities, events (L2 decoded), dom (L3 rendered). Default all' }, limit: { type: 'number', alias: 'n', valueName: 'N', default: 50, desc: 'Show at most N hits' }, format: tableFlags.format, fields: tableFlags.fields },
   examples: ['studio search "refund policy"', 'studio search invoice --site example.com --layers entities,dom --json'],
   async run(ctx) {
     const q = ctx.args.join(' ').trim();
     if (!q) throw usageError('Nothing to search for.', 'Example: studio search "release notes" --site example.com');
-    const layers = new Set(ctx.flags.layers ?? ['entities', 'events', 'dom']);
-    for (const l of layers) if (!['entities', 'events', 'dom'].includes(l)) throw usageError(`Unknown layer "${l}" (entities, events, dom).`);
-    const needle = q.toLowerCase();
+    if (!Number.isInteger(ctx.flags.limit) || ctx.flags.limit < 1) throw usageError('--limit must be a positive integer.');
+    const layers = ctx.flags.layers ? new Set(ctx.flags.layers) : null;
+    for (const l of layers ?? []) if (!['entities', 'events', 'dom'].includes(l)) throw usageError(`Unknown layer "${l}" (entities, events, dom).`);
+    const { searchSession } = await capability('../../src/replay/derive-all.mjs', ['searchSession'], 'Ranked session search');
     const hits = [];
     const sessions = scopeSessions(ctx);
-    if (layers.has('entities')) {
-      for (const s of sessions) {
-        for await (const e of entitiesOf(s)) {
-          if (hits.length >= ctx.flags.limit * 4) break;
-          let where = null, snippet = '';
-          for (const [k, v] of Object.entries(e.attrs ?? {})) {
-            const text = typeof v === 'string' ? v : JSON.stringify(v);
-            const i = String(text).toLowerCase().indexOf(needle);
-            if (i >= 0) { where = k; snippet = text.slice(Math.max(0, i - 50), i + 90); break; }
-          }
-          if (!where && String(e.key ?? '').toLowerCase().includes(needle)) { where = 'key'; snippet = String(e.key); }
-          if (where) hits.push({ session: s.id, layer: 'entity', ref: `${e.typeName ?? e.type}:${e.eid}`, field: where, snippet: oneLine(snippet) });
-        }
+    for (const s of sessions) {
+      const result = await searchSession(s, q, { limit: ctx.flags.limit * (layers ? 4 : 1) });
+      const rows = Array.isArray(result) ? result : result.hits ?? result.results ?? result.rows ?? [];
+      for (const h of rows) {
+        const source = h.source ?? h.document?.source ?? {};
+        const rawLayer = h.layer ?? source.layer ?? source.kind ?? (source.domId !== undefined ? 'dom' : source.eid ? 'entities' : 'events');
+        const layer = ({ L2: 'events', L3: 'dom', entity: 'entities', event: 'events' })[rawLayer] ?? rawLayer;
+        if (layers && !layers.has(layer)) continue;
+        hits.push({ ...h, session: s.id, layer, ref: h.ref ?? h.eid ?? source.eid ?? source.sid ?? h.id, snippet: oneLine(h.snippet ?? h.text ?? '') });
       }
     }
-    if (layers.has('events') || layers.has('dom')) {
-      const raw = await searchRaw(sessions, q, { limit: ctx.flags.limit * 4 });
-      for (const h of raw) {
-        if (h.layer === 'L2' && !layers.has('events')) continue;
-        if (h.layer === 'L3' && !layers.has('dom')) continue;
-        hits.push({ session: h.session, layer: h.layer === 'L2' ? 'event' : 'dom', ref: h.sid ?? `dom#${h.domId}`, field: '', snippet: oneLine(h.snippet) });
-      }
-    }
+    hits.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const shown = hits.slice(0, ctx.flags.limit);
-    await showRows(ctx, 'matches', shown, [{ title: 'SESSION', get: (h) => h.session.slice(0, 22) }, { title: 'LAYER', key: 'layer' }, { title: 'REF', key: 'ref', max: 34 }, { title: 'MATCH', get: (h) => `${h.field ? `${h.field}: ` : ''}${h.snippet}`, max: 90 }], { query: q, sessionsScanned: sessions.length, totalHits: hits.length });
+    await showRows(ctx, 'matches', shown, [{ title: 'SESSION', get: (h) => h.session.slice(0, 22) }, { title: 'SCORE', key: 'score', align: 'right' }, { title: 'LAYER', key: 'layer' }, { title: 'REF', key: 'ref', max: 34 }, { title: 'MATCH', key: 'snippet', max: 90 }], { query: q, sessionsScanned: sessions.length, returnedHits: hits.length, layerFiltering: layers ? 'Applied after per-session ranked retrieval; increase --limit for more candidates.' : undefined });
     if (!hits.length && !ctx.out.json && !ctx.flags.format) process.exitCode = 1;
+  },
+});
+
+define({
+  name: 'knowledge schema', section: 'Knowledge', usage: '<type> [--session ID] [--json-schema]',
+  summary: 'Inspect an observed type schema, optionally as portable JSON Schema',
+  flags: {
+    session: { type: 'string', alias: 's', valueName: 'ID', desc: 'Session reference (default latest)' },
+    'json-schema': { type: 'boolean', desc: 'Print a draft-2020-12 JSON Schema document' },
+  },
+  examples: ['studio kb schema Message --session latest', 'studio kb schema Message --json-schema'],
+  async run(ctx) {
+    const type = needArg(ctx, 0, 'type', 'studio kb schema Message --json-schema');
+    const session = ctx.session(ctx.flags.session);
+    const result = await schemaForType(session, type, { jsonSchema: !!ctx.flags['json-schema'] });
+    ctx.out.emit(result, (out) => out.result(JSON.stringify(result, null, 2)));
   },
 });
 

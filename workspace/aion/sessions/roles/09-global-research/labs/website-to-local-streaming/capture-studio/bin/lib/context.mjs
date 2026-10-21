@@ -14,7 +14,7 @@ export function buildContext({ def, flags, args, argv }) {
   if (!def.noData) ensureDataDirs(paths);
   const { settings, sources, problems } = resolveSettings({
     configFile: paths.config,
-    flags: { cdpPort: flags.port, json: flags.json, color: flags.color === undefined ? undefined : flags.color ? 'always' : 'never' },
+    flags: { cdpPort: def.name.startsWith('mirror ') ? undefined : flags.port, json: flags.json, color: flags.color === undefined ? undefined : flags.color ? 'always' : 'never' },
   });
   const out = createOutput({ json: settings.json || !!flags.json, quiet: !!flags.quiet, color: settings.color, verbose: !!flags.verbose });
   for (const p of problems) out.warn(`config: ${p}`);

@@ -1,8 +1,8 @@
 // Versioned integration surface. Reuses the storage/replay/intelligence APIs; no second truth store.
-import { readdirSync, existsSync, statSync } from 'node:fs';
+import { readdirSync, existsSync, statSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Session, listSessions } from '../store/session.mjs';
-import { stateAt, search } from '../replay/derive.mjs';
+import { stateAt } from '../replay/derive.mjs';
 import { StreamReducer } from '../replay/reducer.mjs';
 import { TemporalGraph } from '../intel/graph.mjs';
 import { ScopedLearner, SCOPES, ROLES, activeQuestions } from '../intel/learn.mjs';
@@ -10,6 +10,7 @@ import { buildSiteContinuity, siteFromSession, originFromSession } from '../inte
 import { VERSION } from '../config.mjs';
 import { EventFeed, EVENT_TYPES } from './event-feed.mjs';
 import { Webhooks } from './webhooks.mjs';
+import { registerCapabilities, LIVE_EVENTS } from './capabilities.mjs';
 import { problem, json, integer, text, object, storageName, timestamp, page, datasetPage } from './http.mjs';
 
 const str = { type: 'string' };
@@ -18,7 +19,7 @@ const timeQuery = { at: { description: 'Epoch milliseconds or ISO timestamp', ty
 const sessionQuery = { ...pagination, site: str, origin: str, status: str, profile: str, q: str };
 const objectSchema = (properties = {}, required = []) => ({ type: 'object', properties, ...(required.length ? { required } : {}) });
 
-export function createIntegrationHub({ paths, profileStore, learner, recorder, deriveSession, previewRecord, previewEvent, getPort, cdpPort }) {
+export function createIntegrationHub({ paths, profileStore, learner, recorder, deriveSession, previewRecord, previewEvent, getPort, cdpPort, deriving = new Set(), invalidateReplay = () => {} }) {
   const feed = new EventFeed();
   const webhooks = new Webhooks(feed, { forbiddenPorts: () => [getPort(), cdpPort] });
   const routes = [];
@@ -73,8 +74,8 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
     && (!q.q || [s.id, s.site, s.target?.title, s.target?.url].some((v) => String(v ?? '').toLowerCase().includes(String(q.q).toLowerCase()))));
   const profileFor = (s) => s.kv.get('PROFILE_SNAPSHOT') ?? profileStore.load(s.meta.profile?.name ?? 'generic');
 
-  function add(method, routePath, summary, handler, { query = {}, body, tool } = {}) {
-    routes.push({ method, path: '/api/v1' + routePath, parts: ('/api/v1' + routePath).split('/'), summary, handler, query, body, tool });
+  function add(method, routePath, summary, handler, { query = {}, body, tool, contentType = 'application/json' } = {}) {
+    routes.push({ method, path: '/api/v1' + routePath, parts: ('/api/v1' + routePath).split('/'), summary, handler, query, body, tool, contentType });
   }
 
   add('GET', '/health', 'Studio process health without probing Chrome', () => ({ version: VERSION, apiVersion: 1, time: new Date().toISOString(), recorder: recorder.status(), events: feed.info() }), { tool: 'studio_health' });
@@ -197,32 +198,13 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
     return buildSiteContinuity(paths.sessions, { site, origin, eid: q.eid ?? null, asOf: at, limit, includeHistory: !!q.eid });
   }, { query: { ...timeQuery, limit: pagination.limit, eid: str }, tool: 'get_continuity' });
 
-  add('GET', '/search', 'Search captured events/page text and inferred entities with explicit scan scope', async ({ q }) => {
-    const query = text(q.q, 'q', 1000).trim(), limit = integer(q.limit, 100, 1000, 1);
-    const mode = q.layer ?? 'all';
-    if (!['all', 'evidence', 'entities'].includes(mode)) throw problem(400, 'layer must be all, evidence or entities');
-    const cap = integer(q.sessions, 20, 100, 1);
-    const all = q.session ? [sessionOf(q.session).meta] : selectedSessions({ site: q.site, origin: q.origin });
-    const selected = all.slice(0, cap), hits = [], failures = [];
-    const needle = query.toLowerCase(); let scanned = 0;
-    for (const meta of selected) {
-      if (hits.length > limit) break;
-      const s = sessionOf(meta.id); scanned++;
-      if (mode !== 'entities') hits.push(...await search([s], query, { limit: limit + 1 - hits.length }));
-      if (mode !== 'evidence' && hits.length <= limit) {
-        try {
-          knowledge(s);
-          for await (const e of s.dataset('entities').iterate()) {
-            const hay = JSON.stringify({ eid: e.eid, type: e.typeName, attrs: e.attrs }), pos = hay.toLowerCase().indexOf(needle);
-            if (pos < 0) continue;
-            hits.push({ session: s.id, layer: 'knowledge', eid: e.eid, type: e.typeName, snippet: hay.slice(Math.max(0, pos - 60), pos + 140), inferred: true });
-            if (hits.length > limit) break;
-          }
-        } catch (e) { failures.push({ session: s.id, code: e.code ?? 'KNOWLEDGE_READ_FAILED' }); }
-      }
-    }
-    return { query, items: hits.slice(0, limit), limit, hasMore: hits.length > limit, sessionsScanned: scanned, sessionsSelected: selected.length, sessionsAvailable: all.length, sessionsNotScanned: all.length - scanned, knowledgeUnavailable: failures, complete: hits.length <= limit && scanned === all.length && !failures.length };
-  }, { query: { q: str, session: str, site: str, origin: str, sessions: { type: 'integer', minimum: 1, maximum: 100 }, limit: pagination.limit, layer: { type: 'string', enum: ['all', 'evidence', 'entities'] } }, tool: 'search_captures' });
+  const capabilities = registerCapabilities({ add, paths, recorder, profileStore, sessionOf, savedOnly, profileFor, selectedSessions, publish, deriving, invalidateReplay });
+  add('GET', '/live/view', 'Minimal live stream text viewer (also served at /live/view)', ({ res }) => {
+    if (!res) return { url: '/live/view', feed: '/api/v1/live' };
+    const html = readFileSync(new URL('./ui/live.html', import.meta.url), 'utf8');
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" });
+    res.end(html);
+  }, { tool: 'live_view', contentType: 'text/html' });
 
   const learnerDir = paths.learner ?? path.join(paths.root, 'learner');
   const readLearner = () => new ScopedLearner(learnerDir);
@@ -295,8 +277,8 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
     });
   }, { body: objectSchema({ expectedRevision: revisionSchema, kind: str, confidence: { type: 'number', minimum: 0, maximum: 1 }, accepted: { type: 'boolean' } }, ['expectedRevision', 'kind', 'confidence', 'accepted']) });
 
-  add('GET', '/events', 'Resumable live SSE previews; Last-Event-ID or after cursor, heartbeat and gap reset', ({ req, res, q }) => feed.subscribe(req, res, q, { status: recorder.status() }), { query: { types: str, session: str, sid: str, after: str, replay: { type: 'integer', minimum: 0, maximum: 1000 } } });
-  add('GET', '/integrations', 'Integration capabilities and privacy/delivery semantics', () => ({ apiVersion: 1, events: EVENT_TYPES, feed: feed.info(), endpoints: { events: '/api/v1/events', openapi: '/api/v1/openapi.json', tools: '/api/v1/integrations/tools', invoke: '/api/v1/integrations/tools/call', webhooks: '/api/v1/integrations/webhooks' }, authentication: 'x-studio-token or existing HttpOnly Studio cookie; same loopback Host/Origin policy', webhooks: { scope: 'literal-loopback-only', registration: 'process-lifetime', delivery: 'one attempt; unknown network effects are not retried', defaultPayload: 'metadata-only', maxSubscriptions: 16 }, tools: { protocol: 'MCP-style JSON manifest and invocation adapter, not a full MCP transport', readOnly: true } }));
+  add('GET', '/events', 'Resumable live SSE previews; Last-Event-ID or after cursor, heartbeat and gap reset', ({ req, res, q }) => feed.subscribe(req, res, q, { status: recorder.status() }), { query: { types: str, session: str, sid: str, after: str, replay: { type: 'integer', minimum: 0, maximum: 1000 } }, contentType: 'text/event-stream' });
+  add('GET', '/integrations', 'Integration capabilities and privacy/delivery semantics', () => ({ apiVersion: 1, events: EVENT_TYPES, liveEvents: LIVE_EVENTS, feed: feed.info(), liveFeed: capabilities.liveFeed.info(), endpoints: { events: '/api/v1/events', live: '/api/v1/live', liveView: '/live/view', mirrors: '/api/v1/mirrors', deriveAll: '/api/v1/sessions/{session}/derive-all', artifacts: '/api/v1/sessions/{session}/artifacts', schemas: '/api/v1/sessions/{session}/schemas', rankedGraph: '/api/v1/sessions/{session}/graph/ranked', timelines: '/api/v1/sessions/{session}/timelines', search: '/api/v1/search', openapi: '/api/v1/openapi.json', tools: '/api/v1/integrations/tools', invoke: '/api/v1/integrations/tools/call', webhooks: '/api/v1/integrations/webhooks' }, optionalCapabilities: 'Loaded on demand; HTTP 501 means the backend module or export is unavailable', authentication: 'x-studio-token or existing HttpOnly Studio cookie; same loopback Host/Origin policy', mirrors: { scope: 'literal-loopback-only', lifetime: 'Studio process', maxInstances: 8, privacy: 'Explicit start exposes captured replay data on the returned local mirror port; Studio authentication protects management endpoints, not the mirror backend' }, webhooks: { scope: 'literal-loopback-only', registration: 'process-lifetime', delivery: 'one attempt; unknown network effects are not retried', defaultPayload: 'metadata-only', maxSubscriptions: 16 }, tools: { protocol: 'MCP-style JSON manifest and invocation adapter, not a full MCP transport', readOnly: false, streaming: 'Live feed calls return a subscription descriptor; derive_all calls return final JSON. Use the declared HTTP endpoint for SSE progress.' } }));
   add('GET', '/integrations/webhooks', 'List process-local outbound webhook subscriptions', () => ({ items: webhooks.list() }));
   add('POST', '/integrations/webhooks', 'Opt in to signed loopback webhook deliveries', ({ body }) => webhooks.register(body), { body: objectSchema({ url: str, confirm: { const: true }, events: { type: 'array', items: { enum: EVENT_TYPES } }, session: str, includePayload: { type: 'boolean', default: false, description: 'Explicitly include private captured preview data in outbound local deliveries' } }, ['url', 'confirm']) });
   add('GET', '/integrations/webhooks/{id}/deliveries', 'Read bounded metadata-only webhook delivery receipts', ({ p, q }) => page(webhooks.get(p.id).receipts, q), { query: pagination });
@@ -306,12 +288,12 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
     return { schema: 'capture-studio.tools/1', protocol: 'MCP-style, not full MCP', tools: routes.filter((r) => r.tool).map((r) => ({
       name: r.tool, description: r.summary,
       inputSchema: objectSchema({ ...Object.fromEntries(r.parts.filter((s) => s.startsWith('{')).map((s) => [s.slice(1, -1), str])), ...r.query, ...(r.body?.properties ?? {}) }, [...r.parts.filter((s) => s.startsWith('{')).map((s) => s.slice(1, -1)), ...(r.body?.required ?? [])]),
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-      http: { method: r.method, path: r.path },
+      annotations: { readOnlyHint: r.method === 'GET', destructiveHint: r.method === 'DELETE', idempotentHint: r.method === 'GET', openWorldHint: false },
+      http: { method: r.method, path: r.path, contentType: r.contentType },
     })) };
   }
-  add('GET', '/integrations/tools', 'MCP-style manifest of read-only tools and JSON input schemas', toolsManifest);
-  add('POST', '/integrations/tools/call', 'Invoke a declared read-only tool with name and arguments', async ({ body }) => {
+  add('GET', '/integrations/tools', 'MCP-style tool manifest with mutation annotations and JSON input schemas', toolsManifest);
+  add('POST', '/integrations/tools/call', 'Invoke a declared tool; streaming GET tools return an HTTP subscription descriptor', async ({ body }) => {
     text(body.name, 'name'); const args = object(body.arguments ?? {}, 'arguments');
     const route = routes.find((r) => r.tool === body.name);
     if (!route) throw problem(404, 'Unknown integration tool', 'NOT_FOUND');
@@ -319,7 +301,9 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
     for (const name of schema.required ?? []) if (args[name] === undefined) throw problem(400, `Missing tool argument: ${name}`);
     for (const name of Object.keys(args)) if (!Object.hasOwn(schema.properties, name)) throw problem(400, `Unknown tool argument: ${name}`);
     const p = Object.fromEntries(route.parts.filter((s) => s.startsWith('{')).map((s) => { const name = s.slice(1, -1); return [name, text(args[name], name, 512)]; }));
-    const data = await route.handler({ p, q: args, body: args });
+    const data = route.contentType === 'text/event-stream' && route.method === 'GET'
+      ? { method: 'GET', url: route.path.replace(/\{([^}]+)\}/g, (_, name) => encodeURIComponent(p[name])) + (Object.keys(args).some((name) => Object.hasOwn(route.query, name)) ? '?' + new URLSearchParams(Object.entries(args).filter(([name]) => Object.hasOwn(route.query, name))).toString() : ''), contentType: 'text/event-stream', authentication: 'Studio cookie or x-studio-token; subscribe over HTTP' }
+      : await route.handler({ p, q: args, body: args });
     return { content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data, isError: false };
   }, { body: objectSchema({ name: str, arguments: { type: 'object' } }, ['name']) });
 
@@ -329,11 +313,12 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
       components: { securitySchemes: { StudioToken: { type: 'apiKey', in: 'header', name: 'x-studio-token' }, StudioCookie: { type: 'apiKey', in: 'cookie', name: 'studio_token' } } }, paths: {} };
     for (const r of routes) {
       const parameters = [...r.parts.filter((s) => s.startsWith('{')).map((s) => ({ name: s.slice(1, -1), in: 'path', required: true, schema: str })), ...Object.entries(r.query).map(([name, schema]) => ({ name, in: 'query', schema }))];
-      if (r.path === '/api/v1/events') parameters.push({ name: 'Last-Event-ID', in: 'header', schema: str });
+      if (r.contentType === 'text/event-stream' && r.method === 'GET') parameters.push({ name: 'Last-Event-ID', in: 'header', schema: str });
       (spec.paths[r.path] ??= {})[r.method.toLowerCase()] = { summary: r.summary, operationId: r.tool ?? `${r.method.toLowerCase()}_${r.path.replace(/[^a-z0-9]+/gi, '_')}`, parameters,
         ...(r.body ? { requestBody: { required: true, content: { 'application/json': { schema: r.body } } } } : {}),
-        responses: { 200: { description: 'Success', content: { [r.path === '/api/v1/events' ? 'text/event-stream' : 'application/json']: { schema: {} } } }, 400: { description: 'Invalid request' }, 401: { description: 'Studio authentication required' }, 404: { description: 'Resource unavailable' }, 409: { description: 'State/revision conflict or derived knowledge unavailable' }, 428: { description: 'Learner expectedRevision required' }, 429: { description: 'Integration capacity exceeded' } } };
+        responses: { 200: { description: r.contentType === 'text/event-stream' ? 'SSE stream; failures after headers are error events. Derive progress ends with complete or error.' : 'Success', content: { [r.contentType]: { schema: {} } } }, 400: { description: 'Invalid request' }, 401: { description: 'Studio authentication required' }, 404: { description: 'Resource unavailable' }, 409: { description: 'State/revision conflict or derived knowledge unavailable' }, 428: { description: 'Learner expectedRevision required' }, 429: { description: 'Integration capacity exceeded' }, 501: { description: 'Optional capability module or export is not available yet' }, 503: { description: 'Studio is closing' } } };
     }
+    spec.paths['/live/view'] = { $ref: '#/paths/~1api~1v1~1live~1view' };
     return spec;
   }
   add('GET', '/openapi.json', 'OpenAPI 3.1 description of the versioned integration API', openapi);
@@ -361,5 +346,5 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
     return true;
   }
 
-  return { handle, feed, publish, webhooks, close() { for (const [event, fn] of listeners) recorder.off(event, fn); webhooks.close(); feed.close(); } };
+  return { handle, feed, liveFeed: capabilities.liveFeed, publish, webhooks, close() { const closing = capabilities.close(); for (const [event, fn] of listeners) recorder.off(event, fn); webhooks.close(); feed.close(); return closing; } };
 }

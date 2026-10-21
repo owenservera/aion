@@ -6,6 +6,9 @@
 import { createWriteStream, createReadStream, existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, cpSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { exportSchemas } from './schemas.mjs';
+import { exportGraphRanked } from './graph-ranked.mjs';
+export { exportSchemas, exportGraphRanked };
 
 export const DATASET_FORMATS = ['jsonl', 'ndjson', 'json', 'csv', 'tsv', 'md', 'html'];
 export const TRANSCRIPT_FORMATS = ['md', 'html', 'json'];
@@ -472,6 +475,8 @@ export async function exportBundle(session, outDir, opts = {}) {
     ['transcript.html', () => exportTranscript(session, path.join(root, 'transcript.html'), { format: 'html' })],
     ['report.html', () => exportReport(session, path.join(root, 'report.html'))],
     ['knowledge.json', () => exportKnowledge(session, path.join(root, 'knowledge.json'), { format: 'json' })],
+    ['schemas.json', () => exportSchemas(session, path.join(root, 'schemas.json'))],
+    ['graph-ranked.json', () => exportGraphRanked(session, path.join(root, 'graph-ranked.json'))],
   ]) {
     try { await fn(); note(rel); } catch (e) { skipped.push({ name: rel, reason: e.message }); }
   }
