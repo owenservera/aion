@@ -10,6 +10,16 @@
 - These are **prepared tasking artifacts, not proof that agents have started**. GitHub commit alone cannot initiate their sessions. Owner may launch each using its command.
 - QA/Steering coordinates cross-lane integration and evidence without restricting Core development.
 
+## Architecture stewardship — accepted source of orientation (owner directive)
+
+QA/Steering owns keeping the **alignment, freshness and leverage interpretation** of Core's [seven-layer architecture](../../ops/capture-studio-core/LAYERED-CAKE.json) current across Core, UI and Systems. Core retains authorship of its detailed architecture JSON and ownership of backend/engine decisions; QA must not modify Core-owned files unilaterally. The owner's supplied architecture assessment is context, **not a new implementation acceptance**; it was pinned to old main `9fac8c50`, whereas the activation recon observed `cc536481` and subsequently this roadmap's main progressed.
+
+**Seven core layers, bottom to top:** (1) Capture & Observation, (2) Evidence & Memory, (3) Interpretation & Derivation, (4) Knowledge & Relationships, (5) Learning & Adaptation, (6) Behavior & Reconstruction, (7) Experience & Control. **Four vertical leverage threads** and **separate mission-critical operational foundation** remain canonical in `LAYERED-CAKE.json`; do not turn the seven layers into seven unrelated queues.
+
+**Source-assessment only:** layers 1–2 substantial; 3–7 partial. No percentages or independent QA pass results. Highest architectural discontinuity is agreement among **identity, semantics, time and provenance across sessions**, particularly under schema evolution. Other gaps: temporal retractions, correction propagation, causal/reconstruction fidelity, model/graph correction UX.
+
+**Steering implications:** prioritize cross-layer contracts and evidence continuity over isolated feature counts; ask Systems for risk-ranked schema/identity alternatives; keep UI wording honest about confidence and history; let Core choose implementation while QA independently tests. Distinguish observed code from tested behavior at every update.
+
 ## NOW — close the existing capture → knowledge → history vertical slice
 
 | Lane | Recommended work | Dependencies | Evidence / exit signal | Status |
