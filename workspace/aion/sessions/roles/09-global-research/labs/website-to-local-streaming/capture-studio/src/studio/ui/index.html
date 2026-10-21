@@ -331,7 +331,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtB = (n) => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
-const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, searchRequestSeq: 0, workflowStep: '', trail: [], authExpired: false, knowledge: null };
+const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, searchRequestSeq: 0, workflowStep: '', historicalAsOfLocal: '', trail: [], authExpired: false, knowledge: null };
 
 async function api(path, opts = {}) {
   const r = await fetch('/api/' + path, { method: opts.body ? 'POST' : 'GET', headers: opts.body ? { 'content-type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
@@ -383,6 +383,28 @@ function updateInvestigationTrail() {
   const knowledge = $('#trailKnowledge'); if (knowledge) knowledge.onclick = () => {
     S.workflowStep = ''; show('knowledge');
   };
+}
+function selectSessionContext(id) {
+  if (!id || S.sessionId === id) return;
+  S.sessionId = id; S.sid = null;
+  ++S.sessionRequestSeq; ++S.continuityRequestSeq; ++S.knowledgeRequestSeq; ++S.knowledgeDetailSeq; ++S.searchRequestSeq;
+  S.knowledge = null;
+  updateSrcNote();
+  const picker = $('#knowledgeSession');
+  if (picker && picker.value !== id) picker.value = id;
+  if ($('#sessions tbody') && S.sessions.length) renderSessions();
+}
+function updateHistoricalContext(value) {
+  S.historicalAsOfLocal = value || '';
+  const continuity = $('#continuityAsOf'), knowledge = $('#knowledgeAt');
+  if (continuity && continuity.value !== S.historicalAsOfLocal) continuity.value = S.historicalAsOfLocal;
+  if (knowledge && knowledge.value !== S.historicalAsOfLocal) knowledge.value = S.historicalAsOfLocal;
+  if (S.knowledge) {
+    S.knowledge = null; ++S.knowledgeRequestSeq; ++S.knowledgeDetailSeq;
+    $('#knowledgeState').textContent = 'Historical time changed. Select Explore knowledge to refresh results for this time.';
+    $('#knowledgeMetrics').textContent = '';
+    ['#knowledgeEntities','#knowledgeGraph','#knowledgeModel','#knowledgeDrift','#knowledgeDetail'].forEach((q) => $(q).innerHTML = knowledgeFallback('Historical time changed; reload knowledge.'));
+  }
 }
 function updateSrcNote() {
   const s = src();
@@ -494,7 +516,9 @@ $('#btnStop').onclick = guard(async () => {
   const r = await api('record/stop', { body: {} });
   S.sessionId = r.id;
   const rc = r.receipt;
-  $('#stopResult').innerHTML = `<div class="${r.verify.ok ? 'c-l3' : 'c-gap'}"><b>${r.verify.ok ? 'Saved and verified' : 'Saved with integrity warnings'}</b></div><div style="color:var(--muted)">Verdict ${esc(rc.verdict)}, transport ${esc(rc.actual_response_transport)}, ${rc.raw_chunks_received} chunks, ${fmtB(rc.raw_bytes_received)}, ${rc.replay_and_gap_diagnostics.gap_records} gaps. Open it under Sessions.</div>`;
+  $('#stopResult').innerHTML = `<div class="${r.verify.ok ? 'c-l3' : 'c-gap'}"><b>${r.verify.ok ? 'Saved and verified' : 'Saved with integrity warnings'}</b></div><div style="color:var(--muted)">Verdict ${esc(rc.verdict)}, transport ${esc(rc.actual_response_transport)}, ${rc.raw_chunks_received} chunks, ${fmtB(rc.raw_bytes_received)}, ${rc.replay_and_gap_diagnostics.gap_records} gaps. </div>`;
+  $('#stopResult').insertAdjacentHTML('beforeend', '<button id="openLastCapture">Investigate this recording</button>');
+  $('#openLastCapture').onclick = guard(async () => { show('sessions'); await openSession(r.id); });
   updateSrcNote();
 });
 $('#btnSnap').onclick = guard(async () => { const r = await api('live/snapshot', { body: {} }); toast(`Snapshot saved (${fmtB(r.bytes)})`); });
@@ -619,7 +643,7 @@ async function openSession(id) {
   ++S.knowledgeRequestSeq;
   ++S.knowledgeDetailSeq;
   S.knowledge = null;
-  S.sessionId = id; S.sid = null; S.workflowStep = ''; updateSrcNote();
+  selectSessionContext(id); S.sid = null; S.workflowStep = ''; updateSrcNote();
   renderSessions();
   $('#sessionDetail').innerHTML = '<div class="empty" role="status">Loading session details…</div>';
   let d;
@@ -645,7 +669,7 @@ async function openSession(id) {
     <h3>Time travel</h3><div class="row"><input type="range" id="tt" min="0" max="1000" value="1000" style="flex:1"><span id="ttLabel" class="mono"></span></div><div id="ttOut" style="margin-top:8px"></div>
     <div id="sessionKnowledgeStatus" role="status" class="small-note"></div>
     <h3>Continuity across sessions</h3>
-    <div class="row"><button id="bContinuity">Load same-site knowledge</button><input id="continuityAsOf" type="datetime-local" aria-label="Optional time for historical state"></div>
+    <div class="row"><button id="bContinuity">Load same-site knowledge</button><input id="continuityAsOf" type="datetime-local" aria-label="Optional time for historical state" value="${esc(S.historicalAsOfLocal)}"></div>
     <div id="continuityOut" role="status" aria-live="polite" style="margin:8px 0;color:var(--muted)">Joins only exact keyed identities. Keyless records remain session-local; absence is not deletion.</div>
     <h3>Lab receipt <button id="bCopy" style="margin-left:8px">Copy</button></h3>
     <div style="color:var(--muted);margin-bottom:6px">Metadata only, safe to paste into the research issue.</div>
@@ -654,6 +678,7 @@ async function openSession(id) {
   $('#bGoKnowledge').onclick = () => { S.workflowStep = ''; show('knowledge'); };
   $('#bDerive').onclick = guard(async () => { await api(`sessions/${id}/derive`, { body: {} }); toast('Datasets rebuilt from raw'); openSession(id); });
   $('#bVerify').onclick = guard(async () => { const v = await api(`sessions/${id}/verify`); toast(v.ok ? `Verified: ${v.records} records, ${v.gapRecords} declared gaps` : `Integrity problem: ${JSON.stringify(v.unexplained || v.segments.filter((s) => s.torn || s.shaMatches === false))}`); });
+  $('#continuityAsOf').onchange = () => updateHistoricalContext($('#continuityAsOf').value);
   $('#bContinuity').onclick = guard(async () => {
     const callSeq = ++S.continuityRequestSeq;
     const button = $('#bContinuity'), out = $('#continuityOut');
@@ -661,6 +686,7 @@ async function openSession(id) {
     out.textContent = 'Loading same-site evidence across saved sessions…';
     try {
       const selectedTime = $('#continuityAsOf').value;
+      if (selectedTime !== S.historicalAsOfLocal) updateHistoricalContext(selectedTime);
       const at = selectedTime ? new Date(selectedTime) : null;
       if (at && !Number.isFinite(at.getTime())) throw new Error('Enter a valid historical time.');
       const timeQuery = at ? '&at=' + encodeURIComponent(at.toISOString()) : '';
@@ -993,14 +1019,17 @@ async function loadKnowledge() {
   picker.innerHTML = '<option value="">Choose a recording</option>' + sessions.map((m) =>
     '<option value="' + esc(m.id) + '">' + esc((m.target?.title || m.site || m.id) + ' · ' + (m.createdAt ? new Date(m.createdAt).toLocaleDateString() : 'unknown date')) + '</option>').join('');
   picker.value = sessions.some((m) => m.id === prior) ? prior : '';
+  $('#knowledgeAt').value = S.historicalAsOfLocal;
   if (!picker.value) $('#knowledgeState').textContent = 'Choose a saved session, then select Explore knowledge.';
 }
 async function refreshKnowledge() {
   const id = knowledgeSessionId();
   if (!id) { $('#knowledgeState').textContent = 'Select a saved recording first.'; return; }
   const selectedTime = $('#knowledgeAt').value;
+  if (selectedTime !== S.historicalAsOfLocal) updateHistoricalContext(selectedTime);
   const at = selectedTime ? new Date(selectedTime) : null;
   if (at && !Number.isFinite(at.getTime())) { $('#knowledgeState').innerHTML = knowledgeMarkupError('Enter a valid as-of time.'); return; }
+  selectSessionContext(id);
   const epoch = ++S.knowledgeRequestSeq;
   ++S.knowledgeDetailSeq;
   S.knowledge = null;
@@ -1044,7 +1073,9 @@ async function refreshKnowledge() {
 $('#knowledgeRefresh').onclick = guard(refreshKnowledge);
 $('#knowledgeFilter').oninput = renderKnowledgeEntities;
 $('#graphFilter').oninput = renderKnowledgeGraph;
+$('#knowledgeAt').onchange = () => updateHistoricalContext($('#knowledgeAt').value);
 $('#knowledgeSession').onchange = () => {
+  selectSessionContext($('#knowledgeSession').value || null);
   ++S.knowledgeRequestSeq;
   ++S.knowledgeDetailSeq;
   S.knowledge = null;
