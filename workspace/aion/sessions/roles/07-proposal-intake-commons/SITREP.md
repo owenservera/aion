@@ -23,6 +23,18 @@ On `SITREP` reconcile the three tiers with [root governance](../../../../../REPO
 
 ---
 
+## Skill capability first pass — 2026-10-21 (source verified, local harness unverified)
+
+**Discovery:** [AION Master Skills Builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) and its V2/quality references read; current [opencode.jsonc](https://github.com/owenservera/aion/blob/main/opencode.jsonc) registers all twelve role skill directories, including Intake. All seven existing Intake named skill files have V2 name/description metadata. Peer Toolsmith verification-proof and Research source-intake were identified for reuse, not duplicated.
+
+**Implemented in place:** added [read-only proposal preflight](skills/reconcile-recover/scripts/preflight.mjs) and [fixture tests](skills/reconcile-recover/scripts/preflight.test.mjs) under existing [reconcile-recover](skills/reconcile-recover/SKILL.md), connected [raw-capture](skills/raw-capture/SKILL.md) and [publish-commons](skills/publish-commons/SKILL.md), and updated [skills overview](skills/README.md). It checks stored raw hashes/bytes, META/ATP identity, source states, symlinks, and optional INDEX reconciliation; never mutates originals, issues or approvals.
+
+**Test evidence:** 7/7 positive/negative fixture tests passed using Node 22.16.0 **inside a separate isolated execution container**; GitHub blob IDs for the committed script and test matched the byte-for-byte tested files. This is a **script test**, not a live proposal, local Windows execution or OpenCode/ZCode skill invocation.
+
+**Open capability gaps:** project-root V2 skill source registration is source-confirmed but actual Windows OpenCode load is not observed; ZCode skill import/enablement not configured or observed here. Top-level `skills/README.md` is an existing potential phantom flat skill in OpenCode V2 according to builder's audit guidance; preserve existing links and coordinate any safe migration with Toolsmith. The canonical proposal pool still lacks an authentic completed intake, so field acceptance remains unproven.
+
+**Continuous ownership:** on each SITREP compare skill portfolio with Immediate/CANON corrections, actual source/reviewer events, current peer reusable skills and recent harness evidence. Fix practical defects when justified; no invented skill quota or status churn. Next local handoff: run builder audit, test Node helper and prove `reconcile-recover` load in a real repo-root OpenCode V2 instance before claiming runtime readiness.
+
 ## Historical scaffold and assignments (2026-10-16–17; superseded where noted above)
 
 Created: 2026-10-16 (document scaffold).
