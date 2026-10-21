@@ -284,10 +284,12 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
   add('GET', '/integrations/webhooks/{id}/deliveries', 'Read bounded metadata-only webhook delivery receipts', ({ p, q }) => page(webhooks.get(p.id).receipts, q), { query: pagination });
   add('DELETE', '/integrations/webhooks/{id}', 'Unsubscribe; an in-flight request may already have reached its destination', ({ p }) => webhooks.remove(p.id));
 
+  // 'required' inside a query spec names mandatory query parameters; it is not a parameter itself.
+  const querySchema = (r) => Object.fromEntries(Object.entries(r.query ?? {}).filter(([name]) => name !== 'required'));
   function toolsManifest() {
     return { schema: 'capture-studio.tools/1', protocol: 'MCP-style, not full MCP', tools: routes.filter((r) => r.tool).map((r) => ({
       name: r.tool, description: r.summary,
-      inputSchema: objectSchema({ ...Object.fromEntries(r.parts.filter((s) => s.startsWith('{')).map((s) => [s.slice(1, -1), str])), ...r.query, ...(r.body?.properties ?? {}) }, [...r.parts.filter((s) => s.startsWith('{')).map((s) => s.slice(1, -1)), ...(r.body?.required ?? [])]),
+      inputSchema: objectSchema({ ...Object.fromEntries(r.parts.filter((s) => s.startsWith('{')).map((s) => [s.slice(1, -1), str])), ...querySchema(r), ...(r.body?.properties ?? {}) }, [...r.parts.filter((s) => s.startsWith('{')).map((s) => s.slice(1, -1)), ...(r.body?.required ?? []), ...(r.query?.required ?? [])]),
       annotations: { readOnlyHint: r.method === 'GET', destructiveHint: r.method === 'DELETE', idempotentHint: r.method === 'GET', openWorldHint: false },
       http: { method: r.method, path: r.path, contentType: r.contentType },
     })) };
@@ -312,7 +314,7 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
       servers: [{ url: `http://127.0.0.1:${getPort()}` }], security: [{ StudioToken: [] }, { StudioCookie: [] }],
       components: { securitySchemes: { StudioToken: { type: 'apiKey', in: 'header', name: 'x-studio-token' }, StudioCookie: { type: 'apiKey', in: 'cookie', name: 'studio_token' } } }, paths: {} };
     for (const r of routes) {
-      const parameters = [...r.parts.filter((s) => s.startsWith('{')).map((s) => ({ name: s.slice(1, -1), in: 'path', required: true, schema: str })), ...Object.entries(r.query).map(([name, schema]) => ({ name, in: 'query', schema }))];
+      const parameters = [...r.parts.filter((s) => s.startsWith('{')).map((s) => ({ name: s.slice(1, -1), in: 'path', required: true, schema: str })), ...Object.entries(querySchema(r)).map(([name, schema]) => ({ name, in: 'query', required: (r.query?.required ?? []).includes(name), schema }))];
       if (r.contentType === 'text/event-stream' && r.method === 'GET') parameters.push({ name: 'Last-Event-ID', in: 'header', schema: str });
       (spec.paths[r.path] ??= {})[r.method.toLowerCase()] = { summary: r.summary, operationId: r.tool ?? `${r.method.toLowerCase()}_${r.path.replace(/[^a-z0-9]+/gi, '_')}`, parameters,
         ...(r.body ? { requestBody: { required: true, content: { 'application/json': { schema: r.body } } } } : {}),

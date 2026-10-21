@@ -109,9 +109,8 @@ export async function startMirror({
     if (logs.length > maxLog) logs.splice(0, logs.length - maxLog);
   };
   const notify = (entry, phase) => {
-    entry.phase = phase;
     if (!onRequest) return;
-    try { const r = onRequest({ ...entry }); r?.catch?.(() => {}); } catch { /* observer errors never break serving */ }
+    try { const r = onRequest({ ...entry, phase }); r?.catch?.(() => {}); } catch { /* observer errors never break serving */ }
   };
 
   async function synthText(inc, ex) {

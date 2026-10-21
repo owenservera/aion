@@ -43,7 +43,9 @@ export function parseMessage(line) {
   }
   const hasId = Object.hasOwn(msg, 'id');
   if (msg.jsonrpc !== '2.0' || typeof msg.method !== 'string' || !msg.method || (hasId && !validId(msg.id))) {
-    return { error: rpcError(hasId && validId(msg.id) ? msg.id : null, ErrorCode.InvalidRequest, 'Invalid Request') };
+    // Without an id the peer expects no response; there is nothing to answer.
+    if (!hasId) return { notification: true, ignore: true };
+    return { error: rpcError(validId(msg.id) ? msg.id : null, ErrorCode.InvalidRequest, 'Invalid Request') };
   }
   if (msg.params !== undefined && (msg.params === null || typeof msg.params !== 'object' || Array.isArray(msg.params))) {
     if (!hasId) return { notification: true, method: msg.method, params: {}, ignore: true };

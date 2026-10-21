@@ -188,6 +188,8 @@ export async function callTool(runtime, name, args) {
   const res = await callRoute(runtime.hub, 'POST', '/api/v1/integrations/tools/call', { name, arguments: args });
   const parsed = parseBody(res);
   const argumentError = protocolArgumentError(res, parsed);
+  // A hub-rejected tool call is a tool-level failure, not a protocol error.
+  if (argumentError && res.statusCode === 400) return { content: [{ type: 'text', text: argumentError }], isError: true };
   if (argumentError) throw new RpcError(ErrorCode.InvalidParams, argumentError);
   if (res.statusCode >= 400 || (parsed.json && parsed.value?.error && !parsed.value?.content)) return toolError(res, parsed);
   if (parsed.json && Array.isArray(parsed.value?.content)) {

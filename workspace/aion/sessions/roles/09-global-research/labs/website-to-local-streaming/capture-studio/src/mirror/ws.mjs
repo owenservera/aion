@@ -135,7 +135,11 @@ export class WsConnection extends EventEmitter {
   close(code = 1000, reason = '') {
     if (this.state !== 'open') return;
     this.state = 'closing';
-    const r = Buffer.from(String(reason)).subarray(0, 123);
+    // Control-frame payloads cap the reason at 123 bytes; never split a multi-byte UTF-8 sequence.
+    let n = 123;
+    const full = Buffer.from(String(reason));
+    while (n > 0 && (full[n] & 0xc0) === 0x80) n--;
+    const r = full.subarray(0, n);
     const p = Buffer.alloc(2 + r.length);
     p.writeUInt16BE(code, 0); r.copy(p, 2);
     this._write(OP.CLOSE, p);

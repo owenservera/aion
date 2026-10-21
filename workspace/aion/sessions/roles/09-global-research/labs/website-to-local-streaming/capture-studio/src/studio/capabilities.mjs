@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { EventFeed } from './event-feed.mjs';
 import { integer, page, problem, storageName, text } from './http.mjs';
 
-export const LIVE_EVENTS = ['record', 'stream-open', 'event', 'text', 'stream-close', 'target'];
+export const LIVE_EVENTS = ['record', 'stream-open', 'event', 'text', 'stream-close', 'stream-update', 'lag', 'warn', 'close', 'target'];
 const str = { type: 'string' };
 const bool = { type: 'boolean' };
 const pagination = { offset: { type: 'integer', minimum: 0, maximum: 1000000 }, limit: { type: 'integer', minimum: 1, maximum: 1000 } };
@@ -13,6 +13,9 @@ const modules = {
   mirror: new URL('../mirror/index.mjs', import.meta.url),
   live: new URL('../capture/live-tap.mjs', import.meta.url),
 };
+// Route tables are a pure function of a saved session's files; cache per session dir so repeated
+// reads and tool calls do not rescan every record.
+const routeTableCache = new Map();
 
 async function capability(name, exports) {
   let module;
@@ -166,7 +169,7 @@ export function registerCapabilities({ add, recorder, profileStore, sessionOf, s
     hits.sort((a, b) => b.score - a.score || a.session.localeCompare(b.session));
     const hasMore = backendHasMore || hits.length > limit;
     return { query, items: hits.slice(0, limit), limit, hasMore, sessionsScanned: selected.length, sessionsSelected: selected.length, sessionsAvailable: all.length, sessionsNotScanned: all.length - selected.length, failures, complete: !hasMore && selected.length === all.length && !failures.length, ranking: 'descending backend score; session ID breaks ties', ...(mode !== 'all' ? { note: 'Layer filter is applied to each session’s bounded ranked candidates, not its entire corpus.' } : {}) };
-  }, { query: { q: str, session: str, site: str, origin: str, sessions: { type: 'integer', minimum: 1, maximum: 100 }, limit: pagination.limit, layer: { type: 'string', enum: ['all', 'evidence', 'entities'] } }, tool: 'search_captures' });
+  }, { query: { q: str, session: str, site: str, origin: str, sessions: { type: 'integer', minimum: 1, maximum: 100 }, limit: pagination.limit, layer: { type: 'string', enum: ['all', 'evidence', 'entities'] }, required: ['q'] }, tool: 'search_captures' });
 
   const mirrorInfo = ({ id, session, createdAt, instance }) => ({ id, session, createdAt, url: instance.url, port: instance.port });
   const mirrorOf = (id) => {
@@ -209,7 +212,7 @@ export function registerCapabilities({ add, recorder, profileStore, sessionOf, s
     mirrors.delete(mirror.id);
     return { stopped: mirror.id, session: mirror.session };
   }
-  add('DELETE', '/mirrors', 'Stop one mirror selected by its id query parameter', ({ q }) => removeMirror(q.id), { query: { id: str }, tool: 'stop_mirror_by_id' });
+  add('DELETE', '/mirrors', 'Stop one mirror selected by its id query parameter', ({ q }) => removeMirror(q.id), { query: { id: str, required: ['id'] }, tool: 'stop_mirror_by_id' });
   add('DELETE', '/mirrors/{id}', 'Stop one running replay mirror', ({ p }) => removeMirror(p.id), { tool: 'stop_mirror' });
   add('GET', '/mirrors/{id}', 'Read one running mirror', async ({ p }) => {
     await capability('mirror', ['startMirror']); return mirrorInfo(mirrorOf(p.id));
@@ -230,7 +233,14 @@ export function registerCapabilities({ add, recorder, profileStore, sessionOf, s
   add('GET', '/sessions/{session}/mirror/routes', 'Build a saved-session route table without starting a mirror', async ({ p }) => {
     const s = sessionOf(p.session); savedOnly(s);
     const { buildRouteTable } = await capability('mirror', ['buildRouteTable']);
-    return { session: s.id, routes: await buildRouteTable(s) };
+    const key = s.dir ?? s.id;
+    let pending = routeTableCache.get(key);
+    if (!pending) {
+      pending = (async () => { await new Promise((r) => setImmediate(r)); return buildRouteTable(s); })();
+      routeTableCache.set(key, pending);
+      pending.catch(() => { if (routeTableCache.get(key) === pending) routeTableCache.delete(key); });
+    }
+    return { session: s.id, routes: await pending };
   }, { tool: 'session_mirror_routes' });
 
   add('GET', '/live', 'Resumable live-tap SSE: record, stream-open, event, text, stream-close and target', async ({ req, res, q }) => {

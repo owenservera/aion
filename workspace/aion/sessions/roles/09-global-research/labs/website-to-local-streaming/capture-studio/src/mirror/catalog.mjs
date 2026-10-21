@@ -132,7 +132,13 @@ export function loadCatalog(sessionLike) {
       const ex = sid !== undefined ? current.get(sid) : undefined;
       if (!ex) continue;
       const seq = num(/"seq":(\d+)/, head), t = num(/"t":(\d+)/, head);
-      const seqTo = num(/"seqTo":(\d+)/, line.length < 4096 ? line.toString('utf8') : '') ?? seq;
+      let seqTo = num(/"seqTo":(\d+)/, line.subarray(0, 512).toString('utf8'));
+      if (seqTo === undefined && line.length < 4096) seqTo = num(/"seqTo":(\d+)/, line.toString('utf8'));
+      if (seqTo === undefined && line.length >= 4096) {
+        // A large body line can carry seqTo past any scanned prefix; parse only as a fallback.
+        try { const full = JSON.parse(line.toString('utf8')); if (Number.isFinite(Number(full?.seqTo))) seqTo = Number(full.seqTo); } catch { /* non-JSON line: keep the prefix result */ }
+      }
+      if (seqTo === undefined) seqTo = seq;
       if (seq !== undefined) ex.seqTo = Math.max(ex.seqTo ?? 0, seqTo ?? seq);
       if (t !== undefined) ex.lastT = t;
       if (k === 'ws.frame') {

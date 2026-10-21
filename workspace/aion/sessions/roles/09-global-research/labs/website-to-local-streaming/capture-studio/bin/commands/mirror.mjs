@@ -25,7 +25,10 @@ define({
     const { startMirror } = await capability('../../src/mirror/index.mjs', ['startMirror'], 'Session mirror');
     const session = ctx.session(ctx.args[0]);
     const mirror = await startMirror({ session, port: f.port, host: '127.0.0.1', speed: f.speed, instant: !!f.instant, synthesize: !!f.synthesize,
-      onRequest: (request) => ctx.out.info(`mirror: ${request.method ?? ''} ${request.path ?? request.url ?? ''} ${request.status ?? request.statusCode ?? ''}`.trim()),
+      onRequest: (request) => {
+        if (request.phase !== undefined && request.phase !== 'end') return;
+        ctx.out.info(`mirror: ${request.method ?? ''} ${request.path ?? request.url ?? ''} ${request.status ?? request.statusCode ?? ''}`.trim());
+      },
     });
     try {
       ctx.out.emit({ session: session.id, url: mirror.url, port: mirror.port }, (out) => out.result(`Mirror running at ${mirror.url}\nPress Ctrl+C to stop.`));

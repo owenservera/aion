@@ -298,6 +298,9 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   catch (e) { hub.close(); throw e; }
   const actualPort = server.address().port;
   port = actualPort;
+  // Self-capture guard: the studio's own UI/API/SSE requests must never become captured targets.
+  // The real port is only known after listen (port 0 selects a free one), so set it here.
+  recorder.ignoreTargetUrls = [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`];
   server.once('close', () => hub.close());
   return { server, recorder, integrations: hub, port: actualPort, token, url: `http://127.0.0.1:${actualPort}/?token=${token}`, close: async () => { try { if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); } finally { await hub.close(); server.close(); } } };
 }
