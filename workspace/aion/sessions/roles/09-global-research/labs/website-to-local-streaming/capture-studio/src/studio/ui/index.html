@@ -735,9 +735,6 @@ function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
   const out = $('#continuityOut'), st = view?.stats || {};
   const entities = Array.isArray(view?.entities) ? view.entities : [];
   const missing = (st.sessionsWithoutKnowledge?.length || 0) + (st.sessionsWithDerivationError?.length || 0);
-  const empty = knowledgeSafeList(st.sessionsSuccessfulEmpty).length;
-  const legacy = knowledgeSafeList(st.sessionsLegacyUnverified).length;
-  const collisions = Number(st.legacyEidCollisions) || 0;
   const summary = '<div class="continuity-summary"><span><b>' + esc(st.joinedEntities ?? 0) + '</b> cross-session keyed matches</span>' +
     '<span><b>' + esc(st.sessionsWithDerivedKnowledge ?? 0) + ' / ' + esc(st.sessionsDiscovered ?? 0) + '</b> sessions derived</span>' +
     '<span><b>' + esc(st.entitiesTotal ?? 0) + '</b> entities in scope</span></div>';
@@ -802,6 +799,9 @@ function knowledgeFallback(message) { return '<div class="empty">' + esc(message
 function knowledgeSafeList(value) { return Array.isArray(value) ? value : []; }
 function knowledgeSummary(view) {
   const st = view?.stats || {};
+  const empty = knowledgeSafeList(st.sessionsSuccessfulEmpty).length;
+  const legacy = knowledgeSafeList(st.sessionsLegacyUnverified).length;
+  const collisions = Number(st.legacyEidCollisions) || 0;
   const issues = knowledgeSafeList(st.sessionsWithoutKnowledge).length + knowledgeSafeList(st.sessionsWithDerivationError).length;
   const missing = issues ? '<div class="knowledge-warning">' + esc(issues) + ' recording(s) have absent or failed derived knowledge. This is incomplete evidence, not an empty result.</div>' : '';
   const limits = [];
