@@ -66,9 +66,14 @@ function buildEntities(type, clusters, method, basis, confidences = new Map()) {
     }
     const keyVal = type.key && method === 'key' ? String(inst[0].obj[type.key.field]) : null;
     const scope = scopeOf(inst[0].prov);
-    const eid = method === 'key' ? `${type.id}:k:${sha(`${scope}|${keyVal}`)}` : `${type.id}:e:${sha(inst.map(instanceSig).sort()[0])}`;
+    // Keyless ids anchor on the EARLIEST observation (members are sorted by t, seq, signature), so
+    // appending later evidence never renames an entity; only genuinely earlier evidence can.
+    const first = inst[0];
+    const anchorOf = (i) => `${instanceSig(i)}|${i.prov.index ?? ''}|${i.prov.mapKey ?? ''}|${i.prov.snapshot ?? ''}`;
+    const eid = method === 'key' ? `${type.id}:k:${sha(`${scope}|${keyVal}`)}` : `${type.id}:e:${sha(anchorOf(first))}`;
+    const anchor = { session: first.prov.session ?? null, sid: first.prov.sid ?? null, seq: first.prov.seq ?? null, domId: first.prov.domId ?? null, t: first.prov.t ?? null };
     const conf = confidences.get(label) ?? (method === 'key' ? { value: +Math.min(1, type.key?.score ?? 0.5).toFixed(3), basis: 'identity key score' } : { value: null, basis: 'unscored' });
-    entities.push({ eid, type: type.id, typeName: type.name, key: keyVal, scope, observations: inst.length, duplicates: inst.length - revisions.length, revisions, attrs: state, first: revisions[0]?.t ?? null, last: revisions[revisions.length - 1]?.t ?? null, method, confidence: conf.value, confidenceBasis: conf.basis });
+    entities.push({ eid, idBasis: method === 'key' ? 'key' : 'first-observation', anchor, type: type.id, typeName: type.name, key: keyVal, scope, observations: inst.length, duplicates: inst.length - revisions.length, revisions, attrs: state, first: revisions[0]?.t ?? null, last: revisions[revisions.length - 1]?.t ?? null, method, confidence: conf.value, confidenceBasis: conf.basis });
   }
   entities.sort((a, b) => (a.eid < b.eid ? -1 : 1));
   return { type: type.id, typeName: type.name, method, basis, entities };

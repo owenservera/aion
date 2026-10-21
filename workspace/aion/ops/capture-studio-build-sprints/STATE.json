@@ -43,7 +43,7 @@
       }
     }
   },
-  "chunk_index": 1,
+  "chunk_index": 2,
   "artifacts": {
     "recon": "RECON.md",
     "decision": "DECISION.md",
@@ -64,8 +64,8 @@
     }
   },
   "blockers": [],
-  "next_action": "Run BUILD at chunk_index 1 (C2). C3 is stuck-risk: High thinking.",
-  "handoff": "BUILD C1 done (CorpusCollector, familyRecordsFromEvent, derive streams all events). Next: C2 then C3 (stuck-risk, needs High).",
+  "next_action": "Run BUILD at chunk_index 2 (C3) with HIGH thinking, then C4.",
+  "handoff": "BUILD C1+C2 done. C3 (wire intelligence into derive) is stuck-risk and needs High thinking; then C4.",
   "last_completed_build_sprint": null,
   "testing_owner": "ChatGPT (separate QA workspace)",
   "physical_tests_by_any_phase": false,
@@ -80,9 +80,9 @@
   "handoff_next": {
     "phase": "BUILD",
     "model": "sonnet",
-    "thinking": "medium",
-    "prompt": "PHASES.md#BUILD or the CONTINUE prompt",
-    "note": "C3 is stuck-risk; use High thinking for that chunk"
+    "thinking": "high",
+    "prompt": "PHASES.md#BUILD",
+    "note": "C3 is stuck-risk; C4 can drop to Medium"
   },
   "continue_prompt": "PHASES.md#CONTINUE",
   "decision_sha": "f1bab393b6d03917d42e9f84d539e7a8f302890a",
@@ -98,7 +98,8 @@
       "id": "C2",
       "title": "Stable scoped identity and honest edge semantics",
       "stuck_risk": false,
-      "depends": []
+      "depends": [],
+      "done": true
     },
     {
       "id": "C3",
