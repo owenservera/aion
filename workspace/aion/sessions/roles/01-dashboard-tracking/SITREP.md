@@ -1,15 +1,27 @@
 # Dashboarding & Tracking — SITREP
 
 **Created:** 2026-10-16
-**Status:** Launch folder ready; independent chat/runtime not independently verified as started.
+**Status (2026-10-21):** Dashboard role bootstrap v1 recorded 5/5 and activated for owner-directed scoped work in ChatGPT; independent Windows/OpenCode/ZCode runtime remains unverified. Existing deployed dashboard is not an accepted three-view real-time product.
 **Assignment:** Own the AION Vercel dashboard, executive visual views and trusted cross-project status reporting. Three views: Overview, Machine = ACP (potential AUH product), Human visual-only until tapped. Track progress without fabricating data.
-**Initial focus:** Coordinate #16 and #17: dashboard build, instant ping UI and deployment blocker. Draw from verified telemetry and GitHub receipts; do not take over Grok Bot's escape-hatch mission.
+**Initial focus:** Coordinate #16 and #17: dashboard source, instant ping UI and measured acceptance. Draw from verified telemetry and GitHub receipts; do not take over Grok Bot's escape-hatch mission.
 **Chat URL:** Not yet supplied/verified.
 **Route Bot:** GitHub action-item routing allowed conceptually; destination and receipt must be verified before sending.
-**Latest evidence:** Bootstrap folder committed on AION `main`; no execution implied.
-**Next action:** Launch/read BOOTSTRAP.md; inspect real GitHub status; publish evidence as work occurs.
+**Latest evidence:** 2026-10-21 second-pass dashboard source and Vercel read-only inspection; receipt audit script committed and synthetic fixture tests passed. These are not live operational acceptance.
+**Next action:** Diagnose recent Vercel ignored-build-step cancellations without modifying production; obtain live event-to-visible receipt and three-view acceptance independently.
 
 ## Dated work / decisions / evidence
+
+### 2026-10-21 13:31 UTC — deep bootstrap II, source and live-control inventory
+
+**Checked:** repo root governance, AION STATE, role memory and skills, communications operating model and shared intelligence, Planning TASKS, issues #16/#17 (no comments returned), PM dashboard HTML/build/API/docs, connected Vercel project/production alias and 160 deployment records (two pages). No local Windows state inspected.
+
+**Corrections:** project `aion-pm-dashboard` exists; latest canceled Git deployment on 2026-10-21 13:10:56 UTC links to ignored-build-step documentation; recent 160 deployments reviewed were CANCELED, not the historical BLOCKED status. The production alias resolves to an earlier READY deployment from 2026-10-19. A canceled deployment is not itself proof that the current production alias is down. The existing HTML exposes single-page PM/inbox with 60-second `data.json` polling; no named Overview/Machine/Human view switch and no EventSource/WebSocket instant-ping path found. Do not claim #16/#17 acceptance.
+
+**Capability delivered:** `skills/dashboard-evidence-gates/scripts/verify-pings.mjs` and `verify-pings.test.mjs` — read-only structural audit for correlated send/visible receipts and required negatives; 12/12 synthetic Node 22 tests passed in a separate ephemeral environment during authoring. The checker always reports `live_verified:false`; real sources, timings, authorization and device observations still need independent confirmation. GitHub commit/readback is source delivery, **not** local skill activation.
+
+**Ownership and next:** Dashboard maintains presentation/evidence gate, Development/Windows validates actual runtime and Vercel operator config as authorized, Planning owns portfolio task roll-up. Prioritize diagnosing the ignored-build-step policy read-only and achieving the smallest 10-ping correlated live proof; no second site, new agent bus or fake green telemetry.
+
+
 Append here; cite links and timestamps. Preserve earlier entries.
 
 ### 2026-10-16 — Chief of Chiefs dispatch
