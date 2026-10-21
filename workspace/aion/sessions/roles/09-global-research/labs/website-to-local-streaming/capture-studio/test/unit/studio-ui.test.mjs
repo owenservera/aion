@@ -9,7 +9,8 @@ const script = html.split('<script>')[1]?.split('</script>')[0] ?? '';
 const start = script.indexOf('function formatEvidenceTime(');
 const end = script.indexOf('/* ---------------- profiles ---------------- */', start);
 const escLine = script.split('\n').find((line) => line.startsWith('const esc = '));
-const continuitySource = start >= 0 && end >= 0 ? script.slice(start, end) : '';
+const boundary = script.indexOf('/* ---------------- Knowledge workspace', start);
+const continuitySource = start >= 0 && end >= 0 ? script.slice(start, boundary > start ? boundary : end) : '';
 
 function harness({ view, detailResponse } = {}) {
   const elements = {
