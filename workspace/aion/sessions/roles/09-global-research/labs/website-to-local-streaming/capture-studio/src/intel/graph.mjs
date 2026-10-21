@@ -18,12 +18,14 @@ export class TemporalGraph {
     let n = this.nodes.get(eid);
     if (!n) { n = { eid, type, typeName, key, attrs: {}, history: [], firstT: null, lastT: null }; this.nodes.set(eid, n); }
     const before = n.attrs;
-    n.attrs = foldRevision({ ...n.attrs }, { values: attrs, removed });
+    const removedFields = Array.isArray(removed)
+      ? removed.filter((name) => typeof name === 'string' && name.length > 0) : [];
+    n.attrs = foldRevision({ ...n.attrs }, { values: attrs, removed: removedFields });
     if (Number.isFinite(t)) {
       n.firstT = n.firstT === null ? t : Math.min(n.firstT, t);
       n.lastT = n.lastT === null ? t : Math.max(n.lastT, t);
     }
-    const rev = { t, changed: changed ?? Object.keys(attrs).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(attrs[k])), values: attrs, ...(removed.length ? { removed: [...removed] } : {}), evidence };
+    const rev = { t, changed: changed ?? Object.keys(attrs).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(attrs[k])), values: attrs, ...(removedFields.length ? { removed: removedFields } : {}), evidence };
     n.history.push(rev);
     this.changes.push({ t, eid, revision: n.history.length, changed: rev.changed });
     return n;
