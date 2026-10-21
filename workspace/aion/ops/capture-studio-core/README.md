@@ -22,6 +22,8 @@
 - GitHub is the record; use small, scoped commits and preserve concurrent agents' work. No forced cross-lane workflow or model switching.
 - User's latest directive overrides older phased workflows and QA ownership text.
 
+**Standing pull queue:** [CONTINUOUS-QUEUE.md](CONTINUOUS-QUEUE.md). After each completed delivery, update verified evidence and pull the first unblocked NOW item; refresh against current main and avoid duplicate work.
+
 ## Fresh bootstrap
 Read current repository governance and actual Core source, Sprint 02 mission/checkpoint and relevant recent commits. Reconcile stale historical plans with current code; continue primary Core work independently. Report implemented vs unverified honestly. Do not infer that a GitHub commit wakes another agent.
 
