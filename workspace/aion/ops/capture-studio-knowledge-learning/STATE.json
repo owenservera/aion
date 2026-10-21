@@ -1,0 +1,23 @@
+{
+  "schema": "aion.capture-studio.knowledge-learning.worker.v1",
+  "created": "2026-10-21",
+  "baseline_sha": "1990a5243c07e125f40c76669c0b12a1f58cc437",
+  "status": "READY_FOR_SITREP_AND_BUILD",
+  "mission": "Drive L4 Knowledge & Relationships and L5 Learning & Adaptation toward criterion-based independently accepted 100%",
+  "acceptance": {
+    "knowledge": {
+      "verified": 0,
+      "total": 7
+    },
+    "learning": {
+      "verified": 0,
+      "total": 7
+    },
+    "note": "zero means no independently accepted criterion in this worker record yet, not zero existing capability"
+  },
+  "next": "Refresh main and run SITREP, then first unblocked L4/L5 queue item",
+  "owner": "Knowledge & Learning worker",
+  "steering": "QA",
+  "avoid_concurrent_core_writes": true,
+  "independent_qa_pending": true
+}
