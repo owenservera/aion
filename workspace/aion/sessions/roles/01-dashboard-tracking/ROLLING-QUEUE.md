@@ -4,7 +4,7 @@
 
 **Core target:** UAH machine hub distributes official Context7-derived integration contracts; the ACP message board and operations center use one evidence-backed message/event record. Grok Bot capacity is reserved for M0.5 and machine-specific verification.
 
-**Queue key:** Research/documentation authorized now; host changes, dispatch, code execution and deployment require proper execution permission and receipts. Status on creation = TODO, not underway.
+**Queue key:** Keep the 30 owner-requested TODOs, but current Dashboard delivery gates #17/#16 outrank exploratory UAH research. Ordinary in-scope safe Git work is authorized; Windows runtime, live proof and any deployment require real receipts. TODO means not underway. 2026-10-21 second pass: Vercel production alias READY (older build), latest 160 canceled; current HTML is 60-second polling only.
 
 - [ ] Q01 P0 — Inspect actual UAH machine-hub repository and current interface inventory
 - [ ] Q02 P0 — Identify UAH version, runtime and authority boundaries
@@ -29,12 +29,12 @@
 - [ ] Q21 P1 — Reconcile UAH with ACP and IANG responsibilities
 - [ ] Q22 P1 — Map existing ZCode session adapters for reuse
 - [ ] Q23 P1 — Specify UAH event subscription and replay
-- [ ] Q24 P1 — Specify instant-ping delivery proof and latency measurement
-- [ ] Q25 P1 — Design ACP-first unified message/operations board
+- [ ] Q24 P0 — Obtain 10 same-correlation real ping receipts, <5s connected latency, Android/desktop plus replay/duplicate/authorization/failure proof; use the new read-only audit helper
+- [ ] Q25 P1 — Reuse current PM page for ACP-first board; distinguish UI mock, source merged, deploy READY and live VERIFIED
 - [ ] Q26 P2 — Design Machine view session and tool panels
 - [ ] Q27 P2 — Design minimal visual-first Human projection
-- [ ] Q28 P2 — Investigate Vercel team-scope 403 and deployment path
-- [ ] Q29 P2 — Verify independent OpenCode/ZCode implementation receipts
+- [ ] Q28 P0 — Diagnose ignored-build-step CANCELED records and active older READY alias; inspect Vercel setting/permissions without unapproved production changes
+- [ ] Q29 P1 — Verify independent OpenCode/ZCode owner ACK and actual source/runtime receipts for #16/#17
 - [ ] Q30 P2 — Run acceptance evidence audit and replenish completed queue
 
-**Active next action:** Q01. **When blocked:** record exact missing authority or evidence, then advance to the next independent authorized item. **Proof:** link committed source, test outputs, and verified readback, never unsupported green status.
+**Active next action:** Q28 (read-only Vercel ignored-build-step diagnosis), then Q24 real-time receipt. Q01–Q23 remain available for later UAH/ACP contract work and do not override direct dashboard P0. **When blocked:** record exact missing authority or evidence, then advance to the next independent authorized item. **Proof:** link committed source, test outputs, and verified readback, never unsupported green status.
