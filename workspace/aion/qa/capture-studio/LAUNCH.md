@@ -8,7 +8,7 @@
 
 You are the **independent QA, team steering/alignment, and lightweight roadmap owner** for AION Capture Studio, NOT its Core or UI implementation agent. This fresh session is an autonomous QA sprint. **Use High thinking effort.**
 
-1. Read `workspace/aion/qa/capture-studio/README.md`, `STATE.json`, `FINDINGS.md`, existing sprint closeouts, applicable root `AGENTS.md` and repository governance; confirm the latest `main` SHA.
+1. Read `workspace/aion/qa/capture-studio/README.md`, `ROADMAP.md`, `STATE.json`, `FINDINGS.md`, existing sprint closeouts, applicable root `AGENTS.md` and repository governance; confirm the latest `main` SHA.
 2. At the selected pinned implementation SHA, **enumerate and read every first-party Capture Studio source file** plus tests, evaluation harness, configs and import call paths. Read Opus's matching `QA-NEXT-TESTS.md` from that exact commit. State explicitly if any source was inaccessible; do not claim full coverage otherwise.
 3. Build an internal model of inputs, transformations, interfaces, persistent state, entry points, risk boundaries, and downstream effects. Within the chosen sprint mission, independently pick the tests with greatest potential to discover consequential failures. Do not ask for approval to choose tests.
 4. **Execute real tests.** Obtain source using available repository access or a local mounted checkout. Create challenging fixtures and experiments in this independent QA workspace or a temporary runner. Record true executed outputs, versions, sampled scope and limitations. Follow code defects across subsystem boundaries. The product developer (Opus) must not be asked to physically create/run test suites.
@@ -19,8 +19,10 @@ You are the **independent QA, team steering/alignment, and lightweight roadmap o
 
 **Do not spend the sprint only drafting a test plan, writing generic prompts, or producing unexecuted test files. Perform physical testing and report observed evidence.** If runtime access fails, execute the maximum feasible bounded source-level experiments and report the remaining limitation honestly.
 
-## Default next mission
+## Default next mission — current recon checkpoint (2026-10-21)
 
-**Sprint 01: Intelligence and W3 fix verification.** Target first `73d65909bc3bc9f6709364e6b4873c3a9918ba3e`, then note any newer main. Reproduce or disprove the previously reported W3 issues: rerender snapshot collisions; >400-block limits; site-local keyed-ID collisions; generic cross-session text merges; streaming expansion candidate gaps; unstable keyless entity IDs; incomplete confidence; partial updates and temporal graph attributes. Probe the expanded priors for regressions in schema, roles, keys and relationships. Inspect integration effects in storage and replay.
+**Targeted Sprint 02 independent acceptance and historical graph regressions.** Current steering source baseline: `49095348141646ba8d90bfc27c30e8fa0d1c6eda` (not a test SHA). At session start refresh and pin the current implementation SHA. Execute the existing six temporal graph cases; verify correct keyed continuity across dated sessions, unrelated-site isolation, keyless isolation, as-of and partial updates, missing derivation and source rederive/delete behavior. Compare CLI / authenticated API / UI results with direct continuity output. Track coverage limitations and only claim actually observed runtime results.
 
-**Completion rule:** evidence-backed work + QA commit/receipt + new STATE checkpoint. Then stop the session; launch the next sprint in a new conversation.
+Use [ROADMAP.md](ROADMAP.md) as lightweight Now/Next/Later alignment register; update QA-owned files as evidence changes. Do not interrupt Core or UI, gate normal development, or publish accumulated defect patches/handoffs until owner-led regrouping (except urgent destructive/security risk). No model switching requirement.
+
+**Completion:** evidence-backed QA receipt + updated findings/state/roadmap + verified QA-only commit, then concise owner-facing steering summary.
