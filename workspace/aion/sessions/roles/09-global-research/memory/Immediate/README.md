@@ -1,5 +1,26 @@
-# Immediate — 09-global-research
+# AION Research — Immediate Context
 
-Live task context, active dependencies, blockers, user corrections and next actions; consult every interaction and update whenever material work changes.
+**Evidence checkpoint:** 2026-10-21 GitHub read of `owenservera/aion/main`, [Research issue #30](https://github.com/owenservera/aion/issues/30), [Planning tasks](../../../02-long-term-planning-alignment/TASKS.md), [Development desk](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/workers/development/DELIVERABLES.md), and relevant agent communications. This is **not** current Windows/local or external-provider telemetry. **Recheck on every interaction; do not treat this date as perpetual freshness.**
 
-Initialized 2026-10-21 as an unpopulated agent-owned memory tier. The agent independently chooses and maintains a useful first pass; do not manufacture content or duplicate globally canonical trackers.
+## Live context that changes research decisions
+
+- **Prototype dependency:** [Planning AION-P01/P02/P03](../../../02-long-term-planning-alignment/TASKS.md) prioritizes diagnosed `REGISTRATION_FAILED` (last recorded host attempt), exact-thread watch-only receive I1, then real two-way `aion chat chief`. [PR #62](https://github.com/owenservera/aion/pull/62) **merged source**; account registration/live I1, I2/I3 and Windows build alignment remain **unverified in the read sources**. This is Development/Windows/Toolsmith implementation work; Research only supplies a specific high-impact external fact when requested/justified.
+- **Introspection:** [Planning P04](../../../02-long-term-planning-alignment/TASKS.md) remains an independent acceptance line; a [2026-10-19 UIA positive receipt](https://github.com/owenservera/aion/blob/main/workspace/aion/agents/windows-master/LIVE-INTEGRATION-2026-10-19.md) does not complete negative/independent proof or imply Chrome-extension send works.
+- **Research inbox:** [Issue #30](https://github.com/owenservera/aion/issues/30) contained **four comments at 2026-10-21 check**: registered Artificial Analysis, remote research deep dive, owner-scoped personal visualization objective, and [bounded graph pilot](https://github.com/owenservera/aion/issues/30#issuecomment-6314557916). This is the last-processed evidence checkpoint **not a promise there are no newer comments**.
+- **Personal visual-tool research:** [9-node/8-edge planning GraphML pilot](../../pilots/aion-prototype-dependencies.graphml) committed, suited for Gephi Lite comparison with the actual Planning table. Gephi Lite, Excalidraw, React Flow primary-source comparison is documented in issue #30; **no real user-interface pilot or adoption proved**.
+- **Recurring model intelligence:** Artificial Analysis [registered source](https://github.com/owenservera/aion/issues/30#issuecomment-6296277193), not a verified API connection/data stream. [Research schedules](../../SCHEDULES.md) record daily Intake enabled (last observed run 2026-10-21 07:14 UTC) and weekly Frontier enabled without an observed completed run at last direct check. Re-read automation history before making a current claim.
+- **Peer links:** [Intake 07 ↔ Research provisional](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intake--research-provisional/README.md) has a Role 09 trial response, no real source handoff outcome yet; [Research ↔ Planning provisional](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/research-planning/README.md) is invitation-only, **no verified Planning agreement**. GitHub notes aren't dispatch.
+
+## Next useful research actions (not Development assignments)
+
+1. For any new external request or meaningful source delta, dedupe against [issue #30](https://github.com/owenservera/aion/issues/30), investigate, and publish **one** evidence-backed recommendation to the actual source owner/recipient. A no-change pass publishes nothing.
+2. Continue personal-visualization investigation with a **falsifiable user task**, actual friction/privacy/license checks, and the same [GraphML sample](../../pilots/aion-prototype-dependencies.graphml). Record user-tested outcomes only if such evidence is actually obtained; don't ask for unnecessary installation or call it a tested success.
+3. React to a specific native Development/Toolsmith evidence gap only if a primary provider document, existing module, method or test could materially shorten I1/I2. Otherwise keep the critical path clear.
+
+## Gaps / things not to assume
+
+Current Windows checkout/build/installed extension/registration diagnosis; exact-thread I1 live acceptance; an independently complete GitHub portfolio inventory; NotebookLM/API account access; current external model quota or provider support; actual recipient ACK from an issue/comment; empirical Gephi Lite usefulness. These are **unknown**, not automatically blocked and not reasons to add new bureaucracy.
+
+**Source of current team-useful analysis:** [shared Research intelligence](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/09-global-research/README.md) and [ACTIVE index](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/ACTIVE.md). Do not replicate those tables in memory.
+
+**Refresh behavior:** On **every** interaction, use this page as a hypothesis to verify against newest material relevant to the question; correct material drift here. On **SITREP**, compare issues, peer notes, repo source, shared intelligence and dated receipts. Drop completed/stale items instead of adding a timeline; skip writing when nothing changed.
