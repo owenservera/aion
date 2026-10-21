@@ -1,0 +1,20 @@
+{
+  "name": "article",
+  "version": 1,
+  "description": "Mostly static structured pages: articles, docs and product pages with headings, text and media.",
+  "members": [],
+  "detect": [
+    { "signal": "headings_outline", "minHeadings": 2, "weight": 0.3, "label": "a heading outline" },
+    { "signal": "media", "weight": 0.25, "label": "images, video or downloads" },
+    { "signal": "static_long_text", "weight": 0.35, "label": "long text without streaming" }
+  ],
+  "entities": {
+    "page": {
+      "fields": {
+        "title": { "type": "string" },
+        "url": { "type": "url" },
+        "blocks": { "type": "blocks" }
+      }
+    }
+  }
+}

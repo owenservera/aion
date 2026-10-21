@@ -3,10 +3,17 @@
 //   json-patch : RFC 6902 operations  { op, path, value }  (or arrays of them)
 //   path-ops   : compact operations   { p: "/a/b", o: "append|replace|add|remove|patch", v }
 //                where a bare { v: "..." } continues appending to the previous path.
+//   typed-events : { type: "x_start" | "x_delta" | "x_stop" | "a.b.delta" | "...done", index?, delta? }
+//                start events carry objects, delta events append strings to the indexed block,
+//                stop/done events finalise. Detected from the event-type shape, not the provider.
 // Anything else is treated as a full document replacement when it is a plain object.
 // Every applied operation counts as a revision, so intermediate states can be replayed.
 
 const PATH_OPS = new Set(['append', 'replace', 'add', 'remove', 'patch', 'set', 'truncate']);
+const TYPED = /(^|[._])(start|stop|delta|done|created|completed|added|in_progress)$/;
+const TYPED_START = /(^|[._])(start|created|added|in_progress)$/;
+const TYPED_STOP = /(^|[._])(stop|done|completed)$/;
+const INDEX_KEYS = ['index', 'output_index', 'content_index'];
 
 function parsePointer(p) {
   if (p === '' || p === '/' || p === undefined || p === null) return [];
@@ -30,6 +37,7 @@ export function detectDialect(json) {
   const arr = Array.isArray(json) ? json : [json];
   if (!arr.length || arr.some((x) => !x || typeof x !== 'object')) return null;
   if (arr.every((x) => typeof x.op === 'string' && typeof x.path === 'string')) return 'json-patch';
+  if (!Array.isArray(json) && typeof json.type === 'string' && TYPED.test(json.type)) return 'typed-events';
   if (!Array.isArray(json)) {
     const keys = Object.keys(json);
     if (keys.length && keys.every((k) => ['p', 'o', 'v', 'c'].includes(k)) && ('v' in json || 'o' in json)) {
@@ -53,6 +61,7 @@ export class DeltaAssembler {
     if (json === undefined || this.dialect === 'none') return false;
     const d = this.dialect === 'auto' ? detectDialect(json) : this.dialect;
     if (d === 'json-patch') { this.detected.add(d); for (const op of [].concat(json)) this._jsonPatch(op); this.revisions++; return true; }
+    if (d === 'typed-events') { this.detected.add(d); if (this._typed(json)) { this.revisions++; return true; } this.unapplied++; return false; }
     if (d === 'path-ops') {
       this.detected.add(d);
       // A path-op with an object value at the root and no op is a full document.
@@ -108,6 +117,43 @@ export class DeltaAssembler {
     this.lastPath = path;
     const mode = op.o ?? 'append';
     this._set(parsePointer(path), op.v === undefined ? undefined : structuredClone(op.v), mode === 'set' ? 'replace' : mode);
+  }
+
+  _typed(ev) {
+    const t = ev.type;
+    if (this.doc === undefined || typeof this.doc !== 'object' || this.doc === null) this.doc = {};
+    const key = INDEX_KEYS.filter((k) => Number.isInteger(ev[k])).map((k) => ev[k]).join('.');
+    const rootObj = () => { for (const [k, v] of Object.entries(this.doc)) if (k !== 'blocks' && v && typeof v === 'object' && !Array.isArray(v)) return v; return this.doc; };
+    const objectFields = Object.entries(ev).filter(([k, v]) => k !== 'type' && k !== 'delta' && !INDEX_KEYS.includes(k) && v && typeof v === 'object' && !Array.isArray(v));
+    if (TYPED_START.test(t)) {
+      if (!objectFields.length) return false;
+      for (const [k, v] of objectFields) {
+        if (key) { this.doc.blocks ??= {}; this.doc.blocks[key] = { ...(this.doc.blocks[key] ?? {}), ...structuredClone(v) }; }
+        else this.doc[k] = { ...(this.doc[k] ?? {}), ...structuredClone(v) };
+      }
+      return true;
+    }
+    if (/delta/.test(t)) {
+      const target = key ? ((this.doc.blocks ??= {})[key] ??= {}) : rootObj();
+      const d = ev.delta;
+      if (typeof d === 'string') target.text = (target.text ?? '') + d;
+      else if (d && typeof d === 'object') {
+        for (const [k, v] of Object.entries(d)) {
+          if (k === 'type') continue;
+          // Block-level string deltas append; message-level fields (stop reasons) replace.
+          if (key && typeof v === 'string') target[k] = (typeof target[k] === 'string' ? target[k] : '') + v;
+          else target[k] = structuredClone(v);
+        }
+      } else return false;
+      for (const [k, v] of objectFields) rootObj()[k] = structuredClone(v);
+      return true;
+    }
+    if (TYPED_STOP.test(t)) {
+      for (const [k, v] of objectFields) this.doc[k] = { ...(this.doc[k] ?? {}), ...structuredClone(v) };
+      if (key && this.doc.blocks?.[key]) this.doc.blocks[key]._done = true; else if (!objectFields.length) this.doc._done = true;
+      return true;
+    }
+    return false;
   }
 
   // Longest string leaves are the most likely human-visible text.

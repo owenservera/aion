@@ -42,6 +42,24 @@ export class StreamReducer {
   _emitEvents(s, evs, rec, out) {
     for (const ev of evs) {
       const e = { sid: s.sid, seq: rec.seq, t: rec.t, layer: 'L2', ...ev };
+      // Duplicate / out-of-order detection from protocol ids or sequence-like fields.
+      if (ev.id !== undefined && ev.id !== '') {
+        s._ids ??= new Set();
+        if (s._ids.has(ev.id)) { e.duplicate = true; s.duplicates = (s.duplicates ?? 0) + 1; } else s._ids.add(ev.id);
+      }
+      const j = ev.json;
+      if (j && typeof j === 'object' && !Array.isArray(j)) {
+        const k = ['seq', 'sequence', 'sequence_number', 'sequenceNumber', 'offset', 'event_seq'].find((x) => typeof j[x] === 'number');
+        if (k) {
+          const key = `${k}|${j.type ?? ''}`;
+          s._lastNum ??= {};
+          if (s._lastNum[key] !== undefined) {
+            if (j[k] === s._lastNum[key]) { e.duplicate = true; s.duplicates = (s.duplicates ?? 0) + 1; }
+            else if (j[k] < s._lastNum[key]) { e.outOfOrder = true; s.outOfOrder = (s.outOfOrder ?? 0) + 1; }
+          }
+          s._lastNum[key] = Math.max(j[k], s._lastNum[key] ?? -Infinity);
+        }
+      }
       if (ev.json !== undefined) {
         if (s._delta.apply(ev.json)) e.revision = s._delta.revisions;
       }
@@ -93,7 +111,7 @@ export class StreamReducer {
         break;
       }
       case 'done': { const s = this._stream(rec.sid); s.status = 'complete'; s.encodedDataLength = rec.encodedDataLength; s.endT = rec.t; this._finish(s, rec, out); break; }
-      case 'fail': { const s = this._stream(rec.sid); s.status = rec.canceled ? 'canceled' : 'failed'; s.error = rec.errorText; s.endT = rec.t; this._finish(s, rec, out); break; }
+      case 'fail': { const s = this._stream(rec.sid); s.status = rec.canceled ? 'canceled' : 'failed'; s.error = rec.errorText; s.endT = rec.t; if (s.bytes > 0) s.interrupted = true; this._finish(s, rec, out); break; }
       case 'body.excluded': { const s = this._stream(rec.sid); s.bodyExcluded = rec.reason; break; }
       case 'es.msg': {
         const s = this._stream(rec.sid);
@@ -133,6 +151,8 @@ export class StreamReducer {
         break;
       }
       case 'lifecycle': this.lifecycle.push(rec); break;
+      case 'pause': for (const sid of rec.openStreams ?? []) { const s = this.streams.get(sid); if (s) { s.coverage = 'paused_during_stream'; s.pausedGaps = (s.pausedGaps ?? 0) + 1; } } this.lifecycle.push(rec); break;
+      case 'resume': this.lifecycle.push(rec); this.paused = (this.paused ?? []).concat([{ ms: rec.pausedMs, notCaptured: rec.notCaptured }]); break;
       default: break;
     }
     return out;
@@ -146,6 +166,13 @@ export class StreamReducer {
   // Summary for UI / receipts (no payload content).
   summary() {
     const streams = [...this.streams.values()].map((s) => ({ ...s, transport: s.transport ?? transportOf(s), deltaRevisions: s._delta.revisions, deltaDialects: [...s._delta.detected] }));
+    // Reconnects: a stream to the same endpoint that starts soon after another one failed/closed.
+    const ep = (s) => { try { const u = new URL(s.url); return `${s.method ?? s.kind}|${u.host}${u.pathname}`; } catch { return s.url; } };
+    for (const s of streams) {
+      if (!['failed', 'canceled', 'closed'].includes(s.status) || !s.endT) continue;
+      const next = streams.find((x) => x !== s && ep(x) === ep(s) && x.startedT >= s.endT && x.startedT - s.endT < 15000);
+      if (next && !next.reconnectOf) { next.reconnectOf = s.sid; next.lifecycleNote = `reconnect ${Math.round((next.startedT - s.endT) / 100) / 10}s after ${s.sid} ${s.status}`; }
+    }
     const counts = {};
     for (const s of streams) counts[s.transport] = (counts[s.transport] ?? 0) + 1;
     return { streams, transportCounts: counts, gaps: this.gaps.length, navs: this.nav.length, actions: this.actions.length, domBatches: this.dom.batches, domBlocks: this.dom.blocks.size };

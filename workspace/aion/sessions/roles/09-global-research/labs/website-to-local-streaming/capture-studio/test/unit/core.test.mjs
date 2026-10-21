@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { RawLog } from '../../src/store/raw-log.mjs';
@@ -72,4 +72,42 @@ test('target picking and loopback enforcement', () => {
   assert.throws(() => pickTarget(t));
   assert.throws(() => assertLoopbackUrl('ws://192.168.1.5:9222/devtools/browser/x'));
   assertLoopbackUrl('ws://127.0.0.1:9222/devtools/browser/x');
+});
+
+test('gaps spanning segment rotation and a gap pending at shutdown are both declared and verified', async () => {
+  const root = tmp();
+  const s = Session.create(root, { site: 'rot', rawOptions: { maxQueueBytes: 3000, writeDelayMs: 30, segmentBytes: 1500 } });
+  // Several overflow episodes interleaved with drains, across many small segments.
+  for (let round = 0; round < 5; round++) {
+    for (let i = 0; i < 80; i++) s.raw.append({ k: 'chunk', sid: `r${round}`, b64: 'y'.repeat(60) });
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  // Leave an overflow episode open at shutdown.
+  for (let i = 0; i < 200; i++) s.raw.append({ k: 'chunk', sid: 'final', b64: 'z'.repeat(60) });
+  assert.ok(s.raw.dropped, 'an overflow episode is still open at close');
+  await s.raw.close();
+  const v = await s.verify();
+  assert.equal(v.ok, true, JSON.stringify(v));
+  assert.ok(v.segments.length > 2, 'rotation happened');
+  assert.ok(v.gapRecords >= 2);
+  assert.equal(v.droppedRecords, s.raw.stats.droppedRecords, 'every dropped record is declared');
+  assert.equal(v.records + v.droppedRecords, s.raw.seq, 'seq accounting: written + declared-dropped = issued');
+  const recs = []; for await (const r of s.records()) recs.push(r);
+  const lastGap = recs.filter((r) => r.k === 'gap').at(-1);
+  assert.ok(lastGap.sids.includes('final'), 'shutdown gap names the affected stream');
+});
+
+test('verify flags an undeclared hole and a tampered segment', async () => {
+  const root = tmp();
+  const s = Session.create(root, { site: 'tamper' });
+  for (let i = 0; i < 50; i++) s.raw.append({ k: 'chunk', sid: 's', b64: 'q' });
+  await s.raw.close();
+  const seg = path.join(s.dir, 'raw', '000001.jsonl');
+  const lines = readFileSync(seg, 'utf8').split('\n');
+  lines.splice(10, 1); // silently remove one record
+  writeFileSync(seg, lines.join('\n'));
+  const v = await s.verify();
+  assert.equal(v.ok, false);
+  assert.equal(v.unexplainedSeqGaps, 1);
+  assert.equal(v.segments[0].shaMatches, false);
 });

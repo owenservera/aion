@@ -1,0 +1,25 @@
+{
+  "name": "content-feed",
+  "version": 1,
+  "description": "Paginated or infinite-scroll lists of items such as posts, results or products.",
+  "members": [],
+  "detect": [
+    { "signal": "pagination", "weight": 0.4, "label": "the same endpoint is fetched page by page" },
+    { "signal": "collection_with", "fields": ["title|name|headline", "url|href|link|permalink", "time|date|created|published"], "weight": 0.3, "label": "items with title, link and date" },
+    { "signal": "scroll_then_fetch", "weight": 0.3, "label": "scrolling loads more data" }
+  ],
+  "entities": {
+    "item": {
+      "key": "id",
+      "openFields": true,
+      "fields": {
+        "id": { "type": "id", "required": true, "names": ["id", "uuid", "slug", "key"] },
+        "title": { "type": "string", "required": true, "names": ["title", "name", "headline", "label"], "prefer": "longest" },
+        "url": { "type": "url", "names": ["url", "href", "link", "permalink"] },
+        "published_at": { "type": "time", "names": ["published_at", "created_at", "date", "time", "timestamp"] },
+        "author": { "type": "string", "names": ["author", "author.name", "user", "by"] },
+        "summary": { "type": "text", "names": ["summary", "excerpt", "description", "snippet", "body"] }
+      }
+    }
+  }
+}

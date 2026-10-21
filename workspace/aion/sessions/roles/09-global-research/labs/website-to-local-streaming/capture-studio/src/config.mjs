@@ -20,6 +20,7 @@ export function dataPaths(dataDir = defaultDataDir()) {
     root: dataDir,
     sessions: path.join(dataDir, 'sessions'),
     profiles: path.join(dataDir, 'profiles'),
+    families: path.join(dataDir, 'families'),
     chromeProfile: path.join(dataDir, 'chrome-profile'),
   };
 }

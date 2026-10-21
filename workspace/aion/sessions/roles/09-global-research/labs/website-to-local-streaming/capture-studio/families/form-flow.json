@@ -1,0 +1,21 @@
+{
+  "name": "form-flow",
+  "version": 1,
+  "description": "Forms and multi-step flows. Records structure (steps, field names and types, outcomes), never typed values.",
+  "members": [],
+  "detect": [
+    { "signal": "form_steps", "weight": 0.4, "label": "several Next/Continue/Submit steps" },
+    { "signal": "submit_then_request", "weight": 0.35, "label": "submitting sends data to the site" },
+    { "signal": "dom_inputs", "minInputs": 3, "weight": 0.2, "label": "several input fields" }
+  ],
+  "entities": {
+    "step": {
+      "fields": {
+        "label": { "type": "string" },
+        "action": { "type": "string" },
+        "endpoint": { "type": "string" },
+        "outcome": { "type": "string", "names": ["status", "result", "step", "next", "message"] }
+      }
+    }
+  }
+}

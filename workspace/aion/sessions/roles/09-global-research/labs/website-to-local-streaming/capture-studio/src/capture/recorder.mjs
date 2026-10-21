@@ -14,7 +14,7 @@ import { redactUrl } from './redact.mjs';
 import { collectorSourceSha, VERSION } from '../config.mjs';
 
 export class Recorder extends EventEmitter {
-  constructor({ sessionsDir, profileStore, port = 9222, rawOptions = {}, allBodies = false, liveEventsPerStream = 2000 }) {
+  constructor({ sessionsDir, profileStore, familyStore = null, port = 9222, rawOptions = {}, allBodies = false, liveEventsPerStream = 2000, maxSessionBytes = 0 }) {
     super();
     this.setMaxListeners(50);
     this.sessionsDir = sessionsDir;
@@ -23,6 +23,9 @@ export class Recorder extends EventEmitter {
     this.rawOptions = rawOptions;
     this.allBodies = allBodies;
     this.liveEventsPerStream = liveEventsPerStream;
+    this.familyStore = familyStore;
+    this.maxSessionBytes = maxSessionBytes; // 0 = unlimited; otherwise stop cleanly with reason quota_reached
+    this.paused = false;
     this.state = 'idle';
   }
 
@@ -127,8 +130,29 @@ export class Recorder extends EventEmitter {
     } catch { /* ignore */ }
   }
 
+  // Pause: the user deliberately stops capturing without detaching. Records that arrive while paused
+  // are counted per kind and declared in the resume record, so they are never mistaken for loss.
+  pause() {
+    if (this.state !== 'recording' || this.paused) return false;
+    this._append({ k: 'pause', openStreams: this.net.openStreams() });
+    this.paused = true; this.pausedCounts = {}; this.pausedAt = Date.now();
+    this.emit('status', this.status());
+    return true;
+  }
+  resume() {
+    if (!this.paused) return false;
+    this.paused = false;
+    this._append({ k: 'resume', pausedMs: Date.now() - this.pausedAt, notCaptured: this.pausedCounts, coverage: 'Streams open across the pause are missing the bytes received while paused.' });
+    this.emit('status', this.status());
+    return true;
+  }
+
   _append(rec) {
     if (!this.session || this.session.raw.closed) return null;
+    if (this.paused && !['run.end', 'lifecycle', 'pause'].includes(rec.k)) { this.pausedCounts[rec.k] = (this.pausedCounts[rec.k] ?? 0) + 1; return null; }
+    if (this.maxSessionBytes && this.session.raw.stats.bytes + this.session.raw.queueBytes > this.maxSessionBytes && this.state === 'recording' && !this._quotaHit) {
+      this._quotaHit = true; setImmediate(() => this.stop({ reason: 'quota_reached' }));
+    }
     const seq = this.session.raw.append(rec);
     if (seq === null) return null;
     const full = { seq, t: Date.now(), ...rec };
@@ -146,15 +170,21 @@ export class Recorder extends EventEmitter {
     if (!this.session) return;
     const st = this.status();
     this.session.kv.set('STATE', st);
-    this.session.kv.set('SHAPES', this.shapes.report(this.reducer));
+    this.session.kv.set('SHAPES', this.liveReport());
     this.session.meta.stats = st.stats;
     this.session.saveMeta();
+  }
+
+  liveReport() {
+    const families = this.familyStore ? this.familyStore.names().map((n) => this.familyStore.load(n)) : [];
+    return this.shapes.report(this.reducer, { families, profile: this.profile, domInspect: this.lastInspect, domTurns: this.lastTurns });
   }
 
   status() {
     if (!this.session) return { state: this.state };
     return {
       state: this.state,
+      paused: this.paused,
       id: this.session.id,
       startedAt: this.startedAt,
       pageUrl: redactUrl(this.pageUrl ?? ''),
@@ -177,6 +207,11 @@ export class Recorder extends EventEmitter {
     clearInterval(this.persistTimer); clearInterval(this.statusTimer);
     const open = this.net.openStreams();
     this._append({ k: 'run.end', reason, openStreamsAtEnd: open, coverage: open.length ? 'Streams listed in openStreamsAtEnd were still receiving data; their suffix is UNKNOWN.' : 'All observed streams reached a terminal state.' });
+    // Final rendered-structure observation while still attached (feeds family records and shapes).
+    if (this.profile.dom?.enabled !== false && this.page && !this.page.detached) {
+      try { this.session.kv.set('DOM_INSPECT', await this.dom.inspect()); } catch (e) { this.session.kv.set('DOM_INSPECT', { error: String(e.message ?? e) }); }
+      try { const t = await this.dom.turns(); this.session.kv.set('DOM_TURNS', t); this._append({ k: 'dom.turns', count: t.length, roles: [...new Set(t.map((x) => x.role))] }); } catch { /* page gone */ }
+    }
     try { await this.dom.clearHighlight(); } catch { /* ignore */ }
     try { await this.page?.send('Network.disable'); } catch { /* ignore */ }
     try { if (this.page && !this.page.detached) await this.conn.send('Target.detachFromTarget', { sessionId: this.page.sessionId }); } catch { /* ignore */ }
@@ -196,7 +231,9 @@ export class Recorder extends EventEmitter {
   }
 
   // Studio helpers (only while recording).
-  async inspectDom() { return this.dom.inspect(); }
+  async inspectDom() { const r = await this.dom.inspect(); this.lastInspect = r; return r; }
+  async domTurns() { const t = await this.dom.turns(); this.lastTurns = t; return t; }
+  async domBlocks(id) { return this.dom.blocksOf(id); }
   async snapshotDom() {
     const snap = await this.dom.snapshot();
     if (snap) { this.session.kv.set(`DOM_SNAPSHOT_${Date.now()}.html`, snap.html); this._append({ k: 'dom.snapshot', url: redactUrl(snap.url), title: snap.title, bytes: Buffer.byteLength(snap.html ?? ''), redactions: snap.redactions }); }

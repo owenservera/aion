@@ -135,18 +135,114 @@
     if (heads.length) proposals.push({ kind: 'headings', count: heads.length, outline: [...heads].slice(0, 40).map((h) => ({ id: idOf(h), level: Number(h.tagName[1]), text: visibleText(h).slice(0, 100) })) });
     const links = [...root.querySelectorAll('a[href]')].filter((a) => /^https?:/.test(a.href));
     if (links.length) proposals.push({ kind: 'links', count: links.length, external: links.filter((a) => a.host !== location.host).length, sample: links.slice(0, 15).map((a) => ({ id: idOf(a), text: visibleText(a).slice(0, 80), href: a.href })) });
-    const forms = root.querySelectorAll('form, textarea, [contenteditable="true"]');
+    const media = [...root.querySelectorAll('img, video, audio, a[download]')].concat([...root.querySelectorAll('a[href]')].filter((a) => FILE_EXT.test(a.getAttribute('href') || '')));
+    if (media.length) proposals.push({ kind: 'media', count: media.length, items: media.slice(0, 20).map((m) => ({ id: idOf(m), tag: m.tagName, src: m.currentSrc || m.src || m.href, alt: m.alt || undefined, label: (m.getAttribute('download') || m.textContent || '').trim().slice(0, 60) || undefined })) });
+    const forms = root.querySelectorAll('form, textarea, input:not([type=hidden]), select, [contenteditable="true"]');
     if (forms.length) proposals.push({ kind: 'inputs', count: forms.length, items: [...forms].slice(0, 10).map(describe) });
     const busy = document.querySelectorAll('[aria-busy="true"], [aria-live]');
     if (busy.length) proposals.push({ kind: 'live_regions', count: busy.length, items: [...busy].slice(0, 10).map(describe) });
-    return { url: location.href, title: document.title, at: Date.now(), proposals };
+    const tt = turns();
+    if (tt.length) proposals.push({ kind: 'turns', count: tt.length, roles: [...new Set(tt.map((t) => t.role))], roleAttribute: tt[0].roleAttribute, ids: tt.slice(0, 20).map((t) => t.domId) });
+    return { url: location.href, title: document.title, at: Date.now(), textLength: (document.body?.innerText || '').length, proposals };
+  }
+
+  // ---- structured content blocks ----------------------------------------------------------
+  const FILE_EXT = /\.(pdf|zip|csv|xlsx?|docx?|pptx?|txt|json|md|png|jpe?g|gif|mp3|mp4|wav|tar|gz)(\?|#|$)/i;
+  function inlines(el) {
+    const out = [];
+    const walk = (n) => {
+      for (const c of n.childNodes) {
+        if (c.nodeType === 3) { if (c.nodeValue) out.push({ t: 'text', text: c.nodeValue }); continue; }
+        if (c.nodeType !== 1 || ignore.has(c.tagName)) continue;
+        const tag = c.tagName;
+        if (tag === 'A') out.push({ t: (c.closest('sup') || /citation|cite|source/i.test(c.className + ' ' + (c.getAttribute('data-testid') || ''))) ? 'citation' : 'link', text: (c.innerText || c.textContent || '').trim(), href: c.href });
+        else if (tag === 'CODE') out.push({ t: 'code', text: c.textContent });
+        else if (tag === 'STRONG' || tag === 'B') out.push({ t: 'strong', text: c.textContent });
+        else if (tag === 'EM' || tag === 'I') out.push({ t: 'em', text: c.textContent });
+        else if (tag === 'BR') out.push({ t: 'text', text: '\n' });
+        else if (c.matches('.katex, math, mjx-container')) out.push({ t: 'equation', tex: texOf(c) });
+        else walk(c);
+      }
+    };
+    walk(el);
+    return out;
+  }
+  const texOf = (el) => (el.querySelector('annotation[encoding="application/x-tex"]')?.textContent || el.getAttribute('data-tex') || el.textContent || '').trim();
+  const cellText = (c) => (c.innerText || c.textContent || '').trim();
+  function blocks(root, depth = 0) {
+    const out = [];
+    if (!root || depth > 12) return out;
+    let para = null;
+    const flushPara = () => { if (para && para.text.trim()) out.push(para); para = null; };
+    for (const n of root.childNodes) {
+      if (n.nodeType === 3) { if (n.nodeValue.trim()) { para = para || { type: 'paragraph', text: '', inline: [] }; para.text += n.nodeValue; para.inline.push({ t: 'text', text: n.nodeValue }); } continue; }
+      if (n.nodeType !== 1 || ignore.has(n.tagName)) continue;
+      const tag = n.tagName;
+      const id = idOf(n);
+      if (/^(SPAN|STRONG|B|EM|I|CODE|A|SUP|SUB|MARK|SMALL|BR)$/.test(tag) && !n.matches('.katex-display') && !(tag === 'A' && (n.hasAttribute('download') || FILE_EXT.test(n.getAttribute('href') || '')))) {
+        para = para || { type: 'paragraph', text: '', inline: [] };
+        para.text += n.textContent; para.inline.push(...inlines({ childNodes: [n] }));
+        continue;
+      }
+      flushPara();
+      if (/^H[1-6]$/.test(tag)) out.push({ type: 'heading', id, level: Number(tag[1]), text: cellText(n), inline: inlines(n) });
+      else if (tag === 'P') out.push({ type: 'paragraph', id, text: n.textContent, inline: inlines(n) });
+      else if (tag === 'UL' || tag === 'OL') out.push({ type: 'list', id, ordered: tag === 'OL', start: tag === 'OL' ? Number(n.getAttribute('start') || 1) : undefined, items: [...n.children].filter((li) => li.tagName === 'LI').map((li) => ({ id: idOf(li), blocks: blocks(li, depth + 1) })) });
+      else if (tag === 'TABLE') {
+        const head = [...n.querySelectorAll('thead th')].map(cellText);
+        const rows = [...n.querySelectorAll('tbody tr, tr')].filter((r) => !r.closest('thead')).map((r) => [...r.children].map(cellText));
+        const headers = head.length ? head : (rows.length && n.querySelector('tr th') ? rows.shift() : []);
+        out.push({ type: 'table', id, headers, rows });
+      }
+      else if (tag === 'PRE') { const code = n.querySelector('code'); out.push({ type: 'code', id, language: ((code?.className || '').match(/language-([\w+#-]+)/) || [])[1] || n.getAttribute('data-language') || undefined, text: (code || n).textContent }); }
+      else if (tag === 'BLOCKQUOTE') out.push({ type: 'quote', id, blocks: blocks(n, depth + 1) });
+      else if (tag === 'IMG') out.push({ type: 'image', id, src: n.currentSrc || n.src, alt: n.alt || undefined, width: n.naturalWidth || undefined, height: n.naturalHeight || undefined });
+      else if (tag === 'VIDEO' || tag === 'AUDIO') out.push({ type: 'media', id, kind: tag.toLowerCase(), src: n.currentSrc || n.src || n.querySelector('source')?.src });
+      else if (tag === 'HR') out.push({ type: 'rule', id });
+      else if (n.matches('.katex-display, mjx-container[display="true"], math[display="block"]')) out.push({ type: 'equation', id, display: true, tex: texOf(n) });
+      else if (tag === 'A' && (n.hasAttribute('download') || FILE_EXT.test(n.getAttribute('href') || ''))) out.push({ type: 'file', id, name: (n.getAttribute('download') || n.textContent || '').trim(), href: n.href });
+      else if (tag === 'FIGURE') out.push({ type: 'figure', id, blocks: blocks(n, depth + 1), caption: n.querySelector('figcaption') ? cellText(n.querySelector('figcaption')) : undefined });
+      else if (tag === 'DETAILS') out.push({ type: 'details', id, summary: n.querySelector('summary') ? cellText(n.querySelector('summary')) : undefined, open: n.open, blocks: blocks(n, depth + 1) });
+      else if (tag === 'svg' || tag === 'SVG' || tag === 'CANVAS') out.push({ type: 'graphic', id, kind: tag.toLowerCase(), label: n.getAttribute('aria-label') || undefined });
+      else if (tag === 'BUTTON' || tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') { /* controls are not content */ }
+      else out.push(...blocks(n, depth + 1));
+    }
+    flushPara();
+    return out;
+  }
+
+  // ---- conversation-like turns (generic: any attribute whose value is a role word) -------
+  const ROLE_WORDS = new Set(['user', 'assistant', 'human', 'ai', 'model', 'bot', 'system', 'tool']);
+  const SKIP_ATTR = new Set(['class', 'id', 'style', 'href', 'src', 'type', 'name', 'value', 'placeholder', 'aria-label', 'title', 'alt']);
+  function turns() {
+    const cands = [];
+    for (const el of document.querySelectorAll('body *')) {
+      if (ignore.has(el.tagName)) continue;
+      for (const a of el.attributes) {
+        if (SKIP_ATTR.has(a.name)) continue;
+        const v = a.value.trim().toLowerCase();
+        if (ROLE_WORDS.has(v)) { cands.push({ el, attr: a.name, role: v }); break; }
+      }
+    }
+    // Keep the outermost element per attribute name.
+    const set = new Set(cands.map((c) => c.el));
+    const outer = cands.filter((c) => { for (let p = c.el.parentElement; p; p = p.parentElement) if (set.has(p) && cands.find((x) => x.el === p && x.attr === c.attr)) return false; return true; });
+    // The attribute name used by the most candidates with >= 2 distinct roles wins.
+    const byAttr = new Map();
+    for (const c of outer) { if (!byAttr.has(c.attr)) byAttr.set(c.attr, []); byAttr.get(c.attr).push(c); }
+    const best = [...byAttr.values()].filter((g) => new Set(g.map((c) => c.role)).size >= 2 || g.length >= 2).sort((a, b) => b.length - a.length)[0] || [];
+    return best.slice(0, 500).map((c, i) => {
+      const idAttr = [...c.el.attributes].find((a) => /(^|-)(message|turn|item)?-?id$/.test(a.name) && a.name !== 'id');
+      const text = (c.el.innerText || c.el.textContent || '').trim();
+      return { index: i, id: idAttr ? idAttr.value : idOf(c.el), domId: idOf(c.el), role: c.role, roleAttribute: c.attr, text: text.length > cfg.maxBlockTextBytes ? text.slice(0, cfg.maxBlockTextBytes) : text, truncated: text.length > cfg.maxBlockTextBytes ? text.length : undefined, blocks: blocks(c.el) };
+    });
   }
 
   function snapshot() {
     return { url: location.href, title: document.title, html: document.documentElement.outerHTML, textLength: (document.body?.innerText || '').length };
   }
 
-  globalThis.__aionCapture = { version: 1, inspect, snapshot, node: (id) => nodes.get(id)?.deref() || null, stop: () => mo.disconnect() };
+  globalThis.__aionCapture = { version: 1, inspect, snapshot, turns, blocks: (id) => blocks(nodes.get(id)?.deref()), node: (id) => nodes.get(id)?.deref() || null, stop: () => mo.disconnect() };
   mo.observe(document, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-busy', 'aria-expanded', 'data-state', 'hidden', 'open'] });
   send({ type: 'agent.ready', url: location.href, title: document.title });
   return 'started';

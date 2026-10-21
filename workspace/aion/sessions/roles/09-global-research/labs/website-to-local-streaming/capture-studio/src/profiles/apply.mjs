@@ -21,6 +21,14 @@ export function applySuggestion(profile, suggestion, { action = 'accept', edits 
       break;
     }
     case 'retain_revisions': p.shapes.retention[prop.endpoint] = prop.choice ?? 'all'; break;
+    case 'link_family': {
+      p.family = prop.family;
+      const chosen = (edits.mappings ?? prop.mappings ?? []).filter((m) => !m.skip);
+      p.familyMappings = chosen.map((m) => ({ entity: m.entity, source: m.source, fields: m.fields, confidence: m.confidence }));
+      break;
+    }
+    case 'add_family_mapping': (p.familyMappings ??= []).push(prop.mapping); break;
+    case 'remap_family': if (prop.mapping) p.familyMappings[prop.index] = prop.mapping; break;
     default: break; // observation-only suggestion: confirmation is recorded below
   }
   p.shapes.accepted = p.shapes.accepted.filter((x) => x.id !== suggestion.id);

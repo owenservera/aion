@@ -68,7 +68,33 @@ export class DomObserver {
     return r.result;
   }
 
-  async inspect() { return (await this._evalInMain('globalThis.__aionCapture && globalThis.__aionCapture.inspect()')).value; }
+  async inspect() {
+    const r = (await this._evalInMain('globalThis.__aionCapture && globalThis.__aionCapture.inspect()')).value;
+    if (r) r.a11y = await this.accessibility().catch((e) => ({ error: String(e.message ?? e) }));
+    return r;
+  }
+
+  async turns() {
+    const t = (await this._evalInMain('globalThis.__aionCapture && globalThis.__aionCapture.turns()')).value ?? [];
+    for (const x of t) { const s = scrubText(x.text ?? ''); x.text = s.text; if (s.redactions.length) x.redactions = s.redactions.length; scrubBlocks(x.blocks); }
+    return t;
+  }
+
+  async blocksOf(nodeId) { const b = (await this._evalInMain(`globalThis.__aionCapture && globalThis.__aionCapture.blocks(${Number(nodeId)})`)).value ?? []; scrubBlocks(b); return b; }
+
+  // Read-only summary of the browser's accessibility tree: semantics independent of markup.
+  async accessibility() {
+    const { nodes } = await this.session.send('Accessibility.getFullAXTree', { depth: 60 });
+    const roles = {}; const landmarks = []; const live = [];
+    for (const n of nodes) {
+      if (n.ignored) continue;
+      const role = n.role?.value; if (!role) continue;
+      roles[role] = (roles[role] ?? 0) + 1;
+      if (['main', 'navigation', 'banner', 'contentinfo', 'complementary', 'search', 'form', 'region'].includes(role)) landmarks.push({ role, name: n.name?.value?.slice(0, 60) });
+      const lv = n.properties?.find((p) => p.name === 'live'); if (lv && lv.value?.value !== 'off') live.push({ role, name: n.name?.value?.slice(0, 60), live: lv.value?.value });
+    }
+    return { nodes: nodes.length, roles, landmarks: landmarks.slice(0, 30), liveRegions: live.slice(0, 20) };
+  }
 
   async snapshot() {
     const v = (await this._evalInMain('globalThis.__aionCapture && globalThis.__aionCapture.snapshot()')).value;
@@ -90,3 +116,13 @@ export class DomObserver {
 }
 
 function scrubUrl(u) { return u ? redactUrl(u) : u; }
+
+function scrubBlocks(blocks) {
+  for (const b of blocks ?? []) {
+    if (typeof b.text === 'string') b.text = scrubText(b.text).text;
+    for (const i of b.inline ?? []) if (typeof i.text === 'string') i.text = scrubText(i.text).text;
+    if (b.rows) b.rows = b.rows.map((r) => r.map((c) => scrubText(c).text));
+    scrubBlocks(b.blocks);
+    for (const it of b.items ?? []) scrubBlocks(it.blocks);
+  }
+}

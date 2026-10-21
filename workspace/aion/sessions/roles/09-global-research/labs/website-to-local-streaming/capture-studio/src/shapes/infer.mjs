@@ -2,6 +2,8 @@
 // Observed values are kept apart from inferred meaning: every suggestion carries its evidence
 // and a confidence, and nothing is applied until the user accepts it.
 import { createHash } from 'node:crypto';
+import { gatherEvidence, detectFamilies, proposeFamilyLink, applyMapping, endpointPattern } from '../families/families.mjs';
+import { ruleMatchesEvent } from './extract.mjs';
 
 const DISCRIMINATORS = ['type', 'event', 'kind', 'op', 'o', 'action', 'method', 'name', 'object'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -119,7 +121,8 @@ export class ShapeInferencer {
   }
 
   // Build the full report: groups (schemas) + ranked, actionable suggestions.
-  report(reducer, { domBlocks } = {}) {
+  report(reducer, opts = {}) {
+    const { domBlocks } = opts;
     const summary = reducer.summary();
     for (const s of summary.streams) {
       if (s.deltaRevisions > 1 && (s.status !== 'open')) {
@@ -132,7 +135,19 @@ export class ShapeInferencer {
       fields: Object.fromEntries([...g.fields].slice(0, 200).map(([p, f]) => [p, f.toJSON()])),
       collections: [...g.arrays].map(([p, a]) => ({ path: p, avgItems: +(a.items / a.observations).toFixed(1), keys: [...a.keyCounts].sort((x, y) => y[1] - x[1]).slice(0, 20).map(([k, n]) => ({ key: k, presence: +(n / Math.min(a.items, a.observations * 50)).toFixed(2) })) })),
     }));
-    return { generatedAt: new Date().toISOString(), endpoints: endpointTable(summary.streams), groups, suggestions: suggest(summary, groups, reducer, domBlocks) };
+    const suggestions = suggest(summary, groups, reducer, domBlocks);
+    const ctx = { families: opts.families ?? [], profile: opts.profile ?? null, domInspect: opts.domInspect ?? null, domTurns: opts.domTurns ?? null };
+    const evidence = gatherEvidence(reducer, { domInspect: ctx.domInspect, domTurns: ctx.domTurns });
+    const families = ctx.families.length ? detectFamilies(ctx.families, evidence) : [];
+    suggestions.push(...familySuggestions(families, ctx, evidence), ...driftSuggestions(ctx.profile, reducer, evidence));
+    // Corrections persist: apply accepted renames and mark decided suggestions.
+    const acc = new Map((ctx.profile?.shapes?.accepted ?? []).map((x) => [x.id, 'accepted']));
+    for (const x of ctx.profile?.shapes?.excluded ?? []) acc.set(x.id, 'rejected');
+    const renames = ctx.profile?.shapes?.renames ?? {};
+    for (const g of suggestions) { if (acc.has(g.id)) g.decided = acc.get(g.id); if (g.kind === 'event_type' && renames[g.evidence?.group]) g.title += ` — named “${renames[g.evidence.group]}”`; }
+    for (const g of groups) if (renames[g.key]) g.name = renames[g.key];
+    suggestions.sort((a, b) => (a.decided ? 1 : 0) - (b.decided ? 1 : 0) || b.confidence - a.confidence);
+    return { generatedAt: new Date().toISOString(), endpoints: endpointTable(summary.streams), groups, families, suggestions, quality: quality(summary, reducer, suggestions, families, ctx, evidence) };
   }
 }
 
@@ -260,3 +275,94 @@ export function endpointRegex(endpoint) {
 }
 
 function fmtBytes(n) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`; }
+
+
+// ---------------------------------------------------------------------------------------------
+// Families: membership proposals with evidence and an editable field mapping.
+// ---------------------------------------------------------------------------------------------
+function familySuggestions(detections, ctx, evidence) {
+  const out = [];
+  const best = detections[0];
+  if (!best || best.score < 0.5) return out;
+  const fam = ctx.families.find((f) => f.name === best.family);
+  const linked = ctx.profile?.family === best.family && (ctx.profile.familyMappings ?? []).length > 0;
+  const links = proposeFamilyLink(fam, evidence);
+  const chosen = [];
+  const seen = new Set();
+  for (const l of links) { const k = l.source.kind; if (seen.has(k)) continue; seen.add(k); chosen.push(l); }
+  if (!linked) {
+    const runnerUp = detections[1] && detections[1].score >= 0.5 ? ` Also plausible: ${detections[1].family} (${Math.round(detections[1].score * 100)}%).` : '';
+    out.push({
+      id: `family_membership-${sid8(best.family + '|' + (ctx.profile?.name ?? ''))}`, kind: 'family_membership',
+      title: `This site looks like the “${best.family}” family`,
+      detail: `${fam.description} Evidence: ${best.evidence.map((e) => e.why).join('; ')}.${chosen.length ? ` Proposed mapping from ${chosen.map((c) => c.endpointLabel).join(' and ')} into ${[...new Set(chosen.map((c) => c.entity))].join(', ')} records.` : ' No field mapping could be proposed yet; record more activity.'}${runnerUp}`,
+      confidence: +best.score.toFixed(2), evidence: { detection: best, alternatives: detections.slice(1, 3) },
+      proposal: { op: 'link_family', family: best.family, mappings: chosen.map((c) => ({ entity: c.entity, source: c.source, fields: c.fields, confidence: c.confidence, missing: c.missing })) },
+    });
+  } else {
+    // Already linked: offer additional evidence sources not yet mapped (e.g. DOM turns).
+    const have = new Set((ctx.profile.familyMappings ?? []).map((m) => `${m.entity}|${m.source.kind}|${m.source.endpoint ?? ''}`));
+    for (const c of chosen) {
+      const k = `${c.entity}|${c.source.kind}|${c.source.endpoint ?? ''}`;
+      if (have.has(k)) continue;
+      out.push({ id: `family_source-${sid8(k)}`, kind: 'family_source', title: `Add ${c.endpointLabel} as a source of ${best.family} ${c.entity} records`, detail: `Mapped fields: ${Object.entries(c.fields).map(([f, m]) => `${f} ← ${m.path.replace(/^\$\.?/, '')}`).join(', ')}.`, confidence: c.confidence, evidence: { samples: c.samples }, proposal: { op: 'add_family_mapping', mapping: { entity: c.entity, source: c.source, fields: c.fields } } });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Drift: accepted rules/mappings that stopped matching what the site now sends.
+// ---------------------------------------------------------------------------------------------
+function driftSuggestions(profile, reducer, evidence) {
+  const out = [];
+  if (!profile) return out;
+  const streams = [...reducer.streams.values()];
+  for (const rule of profile.records ?? []) {
+    if (rule.source !== 'event' || !rule.endpoint) continue;
+    const re = new RegExp(rule.endpoint);
+    const sts = streams.filter((s) => re.test(templateUrl(s.url)));
+    if (!sts.length) continue;
+    const matched = sts.reduce((a, s) => a + (s._events ?? []).filter((e) => ruleMatchesEvent(rule, e, s)).length, 0);
+    const events = sts.reduce((a, s) => a + (s._events ?? []).length, 0);
+    if (events >= 3 && matched === 0) out.push({ id: `drift-${sid8('rule|' + rule.name)}`, kind: 'drift', title: `Record rule “${rule.name}” no longer matches`, detail: `${sts.length} stream(s) from its endpoint carried ${events} events, none with ${rule.discriminatorPath ?? 'its selector'} = “${rule.discriminator}”. The site may have changed; review the current event types and re-link.`, confidence: 0.75, evidence: { rule: rule.name, streams: sts.length, events }, proposal: null });
+  }
+  (profile.familyMappings ?? []).forEach((m, i) => {
+    if (m.source.kind !== 'assembled') return;
+    const re = new RegExp(m.source.endpoint);
+    const docs = evidence.assembled.filter((a) => re.test(templateUrl(a.url)));
+    if (!docs.length) return;
+    const recs = docs.map((d) => applyMapping(m, d.doc));
+    const broken = Object.keys(m.fields).filter((f) => recs.filter((r) => r[f] === undefined || r[f] === null || r[f] === '').length > recs.length / 2);
+    const req = broken.filter((f) => ['text', 'role', 'id', 'title'].includes(f));
+    if (req.length) out.push({ id: `drift-${sid8('map|' + i + '|' + m.source.endpoint)}`, kind: 'drift', title: `Family mapping lost ${req.join(', ')}`, detail: `In ${docs.length} assembled stream(s), ${req.map((f) => `${f} (${m.fields[f].path})`).join(', ')} resolved to nothing in most records. The site's payload shape probably changed.`, confidence: 0.8, evidence: { mappingIndex: i, broken }, proposal: { op: 'remap_family', index: i } });
+  });
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Calibration: explicit quality scores with what each one is based on.
+// ---------------------------------------------------------------------------------------------
+function quality(summary, reducer, suggestions, families, ctx, evidence) {
+  const streams = summary.streams;
+  const terminal = streams.filter((s) => s.status !== 'open');
+  const complete = streams.filter((s) => s.status === 'complete' || s.status === 'closed');
+  const withText = suggestions.filter((g) => g.kind === 'correlation').length;
+  const uncorrelated = suggestions.filter((g) => g.kind === 'uncorrelated_ui').length;
+  const shapeConf = suggestions.filter((g) => ['event_type', 'collection'].includes(g.kind));
+  const fam = families[0];
+  const mappingConf = ctx.profile?.familyMappings?.length ? Math.min(...ctx.profile.familyMappings.map((m) => m.confidence ?? 0.7)) : null;
+  return {
+    completeness: { score: terminal.length ? +(complete.length / terminal.length).toFixed(2) : null, basis: `${complete.length}/${terminal.length} finished streams reached a clean end; ${reducer.gaps.length} capture gap(s); ${streams.filter((s) => s.status === 'incomplete_at_stop').length} still open at stop` },
+    shapeDetection: { score: shapeConf.length ? +(shapeConf.reduce((a, g) => a + g.confidence, 0) / shapeConf.length).toFixed(2) : null, basis: `${shapeConf.length} event-type/collection shape(s); confidence grows with repeated observations` },
+    rawToRendered: { score: withText + uncorrelated ? +(withText / (withText + uncorrelated)).toFixed(2) : null, basis: `${withText} raw↔page correlation(s), ${uncorrelated} large page block(s) without a matching raw event` },
+    familyFit: { score: fam ? fam.score : null, basis: fam ? `${fam.family}: ${fam.evidence.length} signal(s)` : 'no family definitions loaded' },
+    familyMapping: { score: mappingConf, basis: mappingConf === null ? 'no accepted family mapping' : 'lowest accepted mapping confidence' },
+    assumptions: [
+      'Streams that started before attach are not observed.',
+      'Decoded and assembled content is derived from raw bytes; raw is the source of truth.',
+      'Credential-like values are masked in place and the masking is recorded per chunk.',
+      'Family membership and field mappings are heuristic until you accept them.',
+    ],
+  };
+}

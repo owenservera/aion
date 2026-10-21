@@ -1,0 +1,24 @@
+{
+  "name": "data-table",
+  "version": 1,
+  "description": "Dashboards and grids: tables of rows whose numeric cells change over time.",
+  "members": [],
+  "detect": [
+    { "signal": "dom_table_or_grid", "weight": 0.35, "label": "page shows a table or grid" },
+    { "signal": "numeric_updates", "weight": 0.35, "label": "numeric fields change across updates" },
+    { "signal": "collection", "minItems": 3, "weight": 0.2, "label": "repeated records with consistent fields" }
+  ],
+  "entities": {
+    "row": {
+      "key": "key",
+      "openFields": true,
+      "revisions": "time_series",
+      "fields": {
+        "key": { "type": "id", "names": ["id", "key", "symbol", "name", "code", "slug"] },
+        "label": { "type": "string", "names": ["name", "label", "title", "symbol"] },
+        "value": { "type": "number", "names": ["value", "price", "amount", "count", "total", "score"] },
+        "updated_at": { "type": "time", "names": ["updated_at", "timestamp", "ts", "time", "at"] }
+      }
+    }
+  }
+}

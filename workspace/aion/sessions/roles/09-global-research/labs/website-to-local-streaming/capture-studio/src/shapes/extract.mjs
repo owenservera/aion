@@ -25,18 +25,21 @@ export function select(value, path) {
 export function ruleMatchesEvent(rule, ev, stream) {
   if (rule.source !== 'event' || ev.json === undefined) return false;
   if (rule.endpoint && !new RegExp(rule.endpoint).test(templateUrl(stream?.url ?? ''))) return false;
-  if (rule.discriminatorPath) {
-    const v = rule.discriminatorPath === 'event' ? ev.event : select(ev.json, rule.discriminatorPath)[0];
-    if (v !== rule.discriminator) return false;
-  }
-  return true;
+  const disc = (d) => !d.discriminatorPath || (d.discriminatorPath === 'event' ? ev.event : select(ev.json, d.discriminatorPath)[0]) === d.discriminator;
+  if (rule.anyOf) return rule.anyOf.some(disc);
+  return disc(rule);
 }
 
 export function extractRecords(rule, ev, stream) {
   const items = select(ev.json, rule.itemsPath ?? '$');
-  return items.filter((x) => x && typeof x === 'object').map((item) => {
+  return items.filter((x) => x && typeof x === 'object' && (!rule.itemFilter || select(x, rule.itemFilter.path)[0] === rule.itemFilter.equals)).map((item) => {
     const rec = { _rule: rule.name, _sid: ev.sid, _seq: ev.seq, _t: ev.t };
-    for (const [name, p] of Object.entries(rule.fields ?? {})) { const v = select(item, p); rec[name] = v.length <= 1 ? v[0] : v; }
+    for (const [name, spec] of Object.entries(rule.fields ?? {})) {
+      const f = typeof spec === 'string' ? { path: spec } : spec;
+      if (f.exclude) continue;
+      const v = select(item, f.path);
+      rec[f.as ?? name] = coerce(v.length <= 1 ? v[0] : v, f.type);
+    }
     if (rule.key) rec._key = select(item, rule.key)[0];
     return rec;
   });
@@ -47,4 +50,17 @@ export function extractFromAssembled(rule, doc, stream) {
   if (rule.source !== 'assembled' || !doc) return [];
   if (rule.endpoint && !new RegExp(rule.endpoint).test(templateUrl(stream?.url ?? ''))) return [];
   return extractRecords({ ...rule, source: 'event' }, { json: doc, sid: stream.sid, seq: null, t: stream.endT }, stream);
+}
+
+// Field types chosen in the model editor are applied on output; the raw value stays on disk.
+export function coerce(v, type) {
+  if (v === undefined || v === null || !type || type === 'auto') return v;
+  try {
+    if (type === 'number') { const n = typeof v === 'number' ? v : Number(v); return Number.isNaN(n) ? v : n; }
+    if (type === 'string' || type === 'text') return typeof v === 'string' ? v : JSON.stringify(v);
+    if (type === 'boolean') return typeof v === 'boolean' ? v : ['true', '1', 'yes'].includes(String(v).toLowerCase());
+    if (type === 'time') { const d = typeof v === 'number' ? new Date(v < 1e12 ? v * 1000 : v) : new Date(v); return Number.isNaN(d.getTime()) ? v : d.toISOString(); }
+    if (type === 'json') return typeof v === 'string' ? JSON.parse(v) : v;
+  } catch { return v; }
+  return v;
 }

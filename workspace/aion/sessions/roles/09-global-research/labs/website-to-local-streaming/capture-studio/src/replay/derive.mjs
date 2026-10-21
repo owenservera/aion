@@ -1,11 +1,15 @@
 // Offline reconstruction from the raw log: datasets, shapes, receipt, time travel, raw bytes.
+import { readdirSync } from 'node:fs';
+import path from 'node:path';
 import { StreamReducer, transportOf } from './reducer.mjs';
 import { ShapeInferencer, templateUrl } from '../shapes/infer.mjs';
 import { ruleMatchesEvent, extractRecords, extractFromAssembled } from '../shapes/extract.mjs';
 import { collectorSourceSha } from '../config.mjs';
+import { extractFamilyRecords } from '../families/families.mjs';
 
-export async function derive(session, profile, { onProgress } = {}) {
-  const reducer = new StreamReducer({ deltaDialect: profile?.decode?.delta ?? 'auto', keepEvents: false });
+export async function derive(session, profile, { onProgress, families } = {}) {
+  // Events kept in memory are bounded per stream (evidence + drift); the dataset keeps all of them.
+  const reducer = new StreamReducer({ deltaDialect: profile?.decode?.delta ?? 'auto', keepEvents: true, maxEventsPerStream: 400 });
   const shapes = new ShapeInferencer();
   const ds = {
     events: session.dataset('events'), streams: session.dataset('streams'), timeline: session.dataset('timeline'),
@@ -14,6 +18,9 @@ export async function derive(session, profile, { onProgress } = {}) {
   const rules = profile?.records ?? [];
   const recordSets = new Map(rules.map((r) => [r.name, session.dataset(`records-${r.name}`)]));
   for (const d of recordSets.values()) d.reset();
+  // "final" revision mode keeps only the latest record per identity; "all" streams every observation.
+  const finals = new Map(rules.filter((r) => r.revisions === 'final' && r.key).map((r) => [r.name, new Map()]));
+  const emit = (rule, recs) => { const f = finals.get(rule.name); if (!f) return recordSets.get(rule.name).push(recs); for (const r of recs) { const prev = f.get(r._key); f.set(r._key, { ...r, _revision: (prev?._revision ?? 0) + 1 }); } };
   let n = 0, batch = [];
   const flush = () => { if (batch.length) { ds.events.push(batch); batch = []; } };
   for await (const rec of session.records()) {
@@ -22,7 +29,7 @@ export async function derive(session, profile, { onProgress } = {}) {
       batch.push(ev);
       const st = reducer.streams.get(ev.sid);
       shapes.observeEvent(ev, st);
-      for (const rule of rules) if (ruleMatchesEvent(rule, ev, st)) recordSets.get(rule.name).push(extractRecords(rule, ev, st));
+      for (const rule of rules) if (ruleMatchesEvent(rule, ev, st)) emit(rule, extractRecords(rule, ev, st));
     }
     if (batch.length > 500) flush();
     if (['action', 'nav', 'gap', 'run.start', 'run.end', 'lifecycle', 'done', 'fail', 'stream.armed', 'stream.arm_failed', 'ws.open', 'ws.close'].includes(rec.k)) {
@@ -36,15 +43,25 @@ export async function derive(session, profile, { onProgress } = {}) {
   for (const rule of rules.filter((r) => r.source === 'assembled')) {
     for (const s of reducer.streams.values()) recordSets.get(rule.name).push(extractFromAssembled(rule, s._delta.doc, s));
   }
-  const report = shapes.report(reducer);
+  for (const [name, f] of finals) recordSets.get(name).push([...f.values()]);
+  const domInspect = session.kv.get('DOM_INSPECT') ?? null;
+  const domTurns = session.kv.get('DOM_TURNS') ?? [];
+  const familyList = families ? families.names().map((n) => families.load(n)) : [];
+  const report = shapes.report(reducer, { families: familyList, profile, domInspect, domTurns });
   session.kv.set('SHAPES', report);
+  const familySets = extractFamilyRecords(profile, reducer, { session, domTurns });
+  const familyCounts = {};
+  for (const name of listFamilyDatasets(session)) session.dataset(name).reset();
+  for (const [name, recs] of Object.entries(familySets)) { session.dataset(name).push(recs); familyCounts[name] = recs.length; }
   const assembled = {};
   for (const s of reducer.streams.values()) if (s._delta.revisions > 0) assembled[s.sid] = { endpoint: `${s.method ?? 'GET'} ${templateUrl(s.url)}`, revisions: s._delta.revisions, dialects: [...s._delta.detected], doc: s._delta.doc };
   session.kv.set('ASSEMBLED', assembled);
   session.kv.set('DOM_BLOCKS', [...reducer.dom.blocks.values()]);
   const receipt = buildReceipt(session, reducer, summary);
+  receipt.quality = Object.fromEntries(Object.entries(report.quality).filter(([k]) => k !== 'assumptions').map(([k, v]) => [k, v.score]));
+  receipt.family = report.families[0] ? { best: report.families[0].family, score: report.families[0].score, linked: profile?.family ?? null } : null;
   session.kv.set('RECEIPT', receipt);
-  return { records: n, summary, report, receipt, recordCounts: Object.fromEntries([...recordSets].map(([k, d]) => [k, d.count])) };
+  return { records: n, summary, report, receipt, familyCounts, recordCounts: Object.fromEntries([...recordSets].map(([k, d]) => [k, d.count])) };
 }
 
 // Metadata-only lab receipt in the format of EXPERIMENTS.md. Safe to paste into an issue:
@@ -92,7 +109,12 @@ export function buildReceipt(session, reducer, summary = reducer.summary()) {
     other_account_or_sensitive_data_collected: 'NO (credential policy: cookies/auth headers dropped, auth endpoints metadata-only, in-body tokens masked)',
     live_evidence_reference_private_or_redacted: `local session ${m.id}`,
     verdict,
+    verdict_scope: 'Describes only this capture experiment: the browser build, tab, profile and responses observed in this session. It does not certify other sites, other transports, continuous capture, or completeness of server-side data.',
   };
+}
+
+function listFamilyDatasets(session) {
+  try { return readdirSync(path.join(session.dir, 'datasets')).filter((f) => f.startsWith('family-') && f.endsWith('.jsonl')).map((f) => f.slice(0, -6)); } catch { return []; }
 }
 
 // Raw bytes of one stream reassembled from disk, with the chunk map.
