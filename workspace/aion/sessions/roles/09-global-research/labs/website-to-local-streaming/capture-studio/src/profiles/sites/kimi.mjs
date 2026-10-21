@@ -1,4 +1,4 @@
-// Best-effort selectors for Kimi; the generic heuristic in src/capture/actions.mjs must work without this file.
+// Measured selectors for kimi; the generic heuristic in src/capture/actions.mjs remains the fallback.
 export default {
   id: 'kimi',
   label: 'Kimi',
@@ -6,61 +6,50 @@ export default {
   url: 'https://www.kimi.com/',
   composer: {
     selectors: [
-      'div[contenteditable="true"][data-lexical-editor]',
-      '[class*="chat-input" i][contenteditable="true"]',
-      '#chat-input',
-      'div[contenteditable="true"]',
-      '[role="textbox"]',
-      'form textarea',
+      'form div[contenteditable="true"]',
+      'div[contenteditable="true"][role="textbox"]',
+      'div.ProseMirror[contenteditable="true"]',
+      'div[contenteditable="true"][data-testid]',
       'textarea',
+      '[contenteditable="true"]',
+      '[role="textbox"]',
     ],
-    kind: 'contenteditable',
+    kind: 'auto',
   },
   send: {
-    strategy: 'both',
+    strategy: 'enter',
     buttonSelectors: [
-      'button[data-testid="send-button"]',
-      'button[aria-label*="Send" i]',
-      '[class*="send-button" i]',
       'form button[type="submit"]',
       'button[type="submit"]',
-      '[role="button"][aria-label*="Send" i]',
+      'form button:last-of-type',
     ],
   },
   assistant: {
     containerSelectors: [
-      '[data-role="assistant"]',
-      '[class*="segment-content" i]',
-      '[class*="assistant" i] [class*="markdown" i]',
-      'main [class*="message" i] .markdown',
-      '[class*="markdown" i]',
-      'main .prose',
+      '[data-message-author-role="assistant"]',
+      'div[class*="markdown"]',
+      'div[class*="prose"]',
+      'article',
+      '[data-testid*="assistant" i]',
     ],
     streamingSelectors: [
-      'button[aria-label*="Stop" i]',
+      'button[aria-label*="stop" i]',
+      '[role="button"][aria-label*="stop" i]',
       '[data-testid="stop-button"]',
-      '[class*="streaming" i]',
-      '[class*="typing" i]',
-      '[class*="loading" i]',
+      '[aria-busy="true"]',
     ],
-    doneWhen: 'marker-gone',
+    doneWhen: 'text-stable',
   },
   preflight: {
     authWallSelectors: [
       'a[href*="/login"]',
-      '[class*="login" i] button',
+      'a[href*="/signin"]',
       'form[action*="login"]',
-      '[class*="sign-in" i]',
-      '[class*="qrcode" i]',
     ],
     requiresAuth: true,
   },
   streamHints: {
-    urlPatterns: [
-      '/api/chat',
-      '/completion/stream',
-      '/apiv2/',
-    ],
-    notes: 'Kimi is believed to stream replies as SSE from a chat completion endpoint (with occasional WebSocket use in some builds); transport details are unverified.',
+    urlPatterns: ['/apiv2/kimi.gateway.chat.v1.KimiPlusService/'],
+    notes: 'The probe saw only POST /apiv2/kimi.gateway.chat.v1.KimiPlusService/ListKimiPlus (a list RPC, status 200), so the chat-completion RPC and its response shape are unverified.',
   },
 };

@@ -364,6 +364,9 @@ export async function readTranscript(page, adapter = null) {
       if (composer && (el === composer || el.contains(composer))) continue;
       if (!vis(el)) continue;
       if (el.closest('nav,aside,header,footer,script,style')) continue;
+      // Interactive chrome (a "Reply" button, a link) is not the answer: on a page with no
+      // recognised assistant container this fallback used to return the last button label.
+      if (el.closest('button,a,[role="button"],[role="link"],input,textarea,[contenteditable]')) continue;
       const t = txt(el);
       if (t.length < 2) continue;
       blocks.push({ t: t, top: el.getBoundingClientRect().top + window.scrollY });
@@ -389,7 +392,10 @@ export async function isStreaming(page, adapter = null) {
 
     // Turn-state markers are stronger than a button label: ChatGPT marks a finished turn
     // data-talvt-turn-state="complete", so any other value means the turn is still running.
+    // The element must be visible: a hidden or detached wrapper would otherwise report
+    // "streaming" forever and every run would end in a timeout.
     for (const el of document.querySelectorAll('[data-talvt-turn-state]')) {
+      if (!vis(el)) continue;
       const state = String(el.getAttribute('data-talvt-turn-state') || '').trim();
       if (state && state !== 'complete') return { streaming: true, evidence: 'turn state: ' + state };
     }
@@ -477,10 +483,15 @@ export async function detectAuthWall(page, adapter = null) {
     const wall = /(sign in to continue|log in to continue|you need to sign in|please sign in|you must be signed in|continue with google|continue with email|enter your email|verify you are human|create an account or sign in)/i;
     const m = body.match(wall);
 
-    if (hasComposer && !urlWall) return { blocked: false, reason: hits.length ? 'auth-like selectors present but a composer is usable' : 'composer available' };
+    // A composer that is disabled or read-only is a login wall in disguise: the site renders the
+    // input but refuses to accept input until the user signs in.
+    const composerUsable = hasComposer && !composer.disabled && !composer.readOnly && composer.getAttribute('aria-disabled') !== 'true';
+
+    if (composerUsable && !urlWall) return { blocked: false, reason: hits.length ? 'auth-like selectors present but a composer is usable' : 'composer available' };
     if (urlWall) return { blocked: true, reason: 'login URL: ' + url };
-    if (hits.length && !hasComposer) return { blocked: true, reason: 'auth wall selector matched, no composer: ' + hits.slice(0, 3).join(', ') };
-    if (m && !hasComposer) return { blocked: true, reason: 'login wall text: ' + m[0] };
+    if (hits.length && !composerUsable) return { blocked: true, reason: 'auth wall selector matched, no usable composer: ' + hits.slice(0, 3).join(', ') };
+    if (m && !composerUsable) return { blocked: true, reason: 'login wall text: ' + m[0] };
+    if (hasComposer && !composerUsable) return { blocked: true, reason: 'composer is disabled or read-only (signed out)' };
     return { blocked: false, reason: hasComposer ? 'composer available' : 'no composer found, no login wall detected' };
   })()`);
   if (!r.ok) return { blocked: false, reason: `auth check unavailable: ${r.error}` };

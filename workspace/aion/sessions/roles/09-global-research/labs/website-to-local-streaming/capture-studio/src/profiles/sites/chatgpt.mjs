@@ -1,4 +1,4 @@
-// Best-effort selectors for ChatGPT; the generic heuristic in src/capture/actions.mjs must work without this file.
+// Measured selectors for chatgpt; the generic heuristic in src/capture/actions.mjs remains the fallback.
 export default {
   id: 'chatgpt',
   label: 'ChatGPT',
@@ -6,44 +6,40 @@ export default {
   url: 'https://chatgpt.com/',
   composer: {
     selectors: [
-      '#prompt-textarea',
       'form div[contenteditable="true"]',
+      '#prompt-textarea',
       'div.ProseMirror[contenteditable="true"]',
-      'textarea[data-id="root"]',
+      '[data-testid="prompt-textarea"]',
+      'textarea',
       '[contenteditable="true"]',
       '[role="textbox"]',
-      'textarea',
-      '[contenteditable="true"][id*="prompt" i]',
     ],
     kind: 'auto',
   },
   send: {
-    strategy: 'both',
+    strategy: 'enter',
     buttonSelectors: [
       'button[data-testid="send-button"]',
-      'button[aria-label="Send prompt"]',
       '#composer-submit-button',
       'form button[type="submit"]',
-      '[aria-label*="Send" i]',
       'button[type="submit"]',
     ],
   },
   assistant: {
     containerSelectors: [
+      '[data-markdown-text-style="assistant-message"]',
+      '[data-content-search-unit-key$="assistant"]',
+      '[data-chatgpt-search-unit-key$="assistant"]',
       '[data-message-author-role="assistant"]',
-      '[data-testid^="conversation-turn-"] .markdown',
-      'div.agent-turn div.markdown',
-      'article[data-testid^="conversation-turn"]',
-      'main div.markdown',
-      '[class*="markdown"]',
+      'article',
+      '[data-testid*="assistant" i]',
     ],
     streamingSelectors: [
+      '[data-talvt-turn-state]:not([data-talvt-turn-state="complete"])',
       '[data-testid="stop-button"]',
-      'button[aria-label="Stop streaming"]',
+      'button[aria-label*="Detener" i]',
       'button[aria-label*="Stop" i]',
-      '.result-streaming',
-      '[class*="streaming"]',
-      '[class*="loading"]',
+      '[aria-busy="true"]',
     ],
     doneWhen: 'marker-gone',
   },
@@ -53,17 +49,11 @@ export default {
       'a[href*="/auth/login"]',
       'button[data-testid="welcome-login"]',
       'form[action*="login"]',
-      '[class*="login" i]',
     ],
     requiresAuth: true,
   },
   streamHints: {
-    urlPatterns: [
-      '/backend-api/conversation',
-      '/backend-api/f/conversation',
-      '/backend-api/conversation/init',
-      '/backend-anon/conversation',
-    ],
-    notes: 'ChatGPT streams replies as server-sent events (SSE) over POST to /backend-api/conversation; payload shape changes often, so treat this as best-effort and unverified for the current build.',
+    urlPatterns: ['/backend-api/conversation', '/backend-api/f/conversation', '/backend-api/conversation/init'],
+    notes: 'Conversation turns POST to /backend-api/* (probe also saw POST /ces/v1/rgstr and one wss://codex-cloud-backend websocket); the reply body is a stream whose exact shape is unverified.',
   },
 };
