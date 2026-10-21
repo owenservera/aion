@@ -1,0 +1,19 @@
+{
+  "name": "aion-capture-studio",
+  "version": "0.1.0",
+  "description": "Local, read-only website capture studio: records browser-received raw streams (L1), decoded protocol envelopes (L2) and rendered DOM (L3) from a user-selected Chrome tab via the Chrome DevTools Protocol, infers data shapes and saves reusable site profiles.",
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "studio": "bin/studio.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"test/unit/**/*.test.mjs\"",
+    "test:e2e": "node --test \"test/e2e/**/*.test.mjs\"",
+    "studio": "node bin/studio.mjs"
+  }
+}
