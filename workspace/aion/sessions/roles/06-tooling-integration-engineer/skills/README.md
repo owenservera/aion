@@ -54,3 +54,7 @@ One problem → select skill → verify environment → run authorized implement
 - Chrome: `Manifest V3 native messaging Windows registry host manifest connectNative service worker lifecycle chrome.debugger CDP target attachment permissions`
 - MCP: `Create minimal MCP server tools and resources over stdio with MCP TypeScript SDK; versioned examples`
 - ACP: `ACP JSON-RPC stdio initialize protocolVersion clientCapabilities agentCapabilities session/new session/prompt session/update cancellation`
+
+## Shared skills builder (OpenCode V2)
+
+This existing Toolsmith library remains the canonical owner of its current skills. Toolsmith also stewards the [shared AION builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) and helps others connect verified skills to their actual harness. Audit older runbooks for V2 discoverability and reuse rather than recreating them. The first pass should prioritize real recurring gaps, not a numerical quota.
