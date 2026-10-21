@@ -141,8 +141,23 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
   nav button { white-space:nowrap; padding:8px 9px; }
   .split, .detail, .panel { min-width:0; }
   .scroll { max-width:100%; }
+  .knowledge-grid { grid-template-columns:1fr; }
   #sessionDetail, #continuityOut { min-width:0; overflow-wrap:anywhere; }
 }
+
+/* Evidence-first knowledge workspace */
+.knowledge-grid { display:grid; grid-template-columns:minmax(280px, 1fr) minmax(300px, 1.2fr); gap:14px; align-items:start; }
+.knowledge-grid > * { min-width:0; }
+.knowledge-metrics { display:flex; flex-wrap:wrap; gap:8px 16px; margin:12px 0; font-variant-numeric:tabular-nums; }
+.knowledge-metrics span { padding:4px 0; }
+.knowledge-entry { border-top:1px solid var(--line); padding:9px 12px; display:flex; align-items:center; gap:9px; }
+.knowledge-entry .row-action { flex:1; overflow-wrap:anywhere; min-width:0; }
+.knowledge-detail-field { overflow-wrap:anywhere; border-bottom:1px solid var(--line); padding:6px 0; }
+.knowledge-detail-field pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:230px; overflow:auto; }
+.knowledge-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:6px 0 12px; }
+.knowledge-warning { padding:8px 12px; border-left:3px solid var(--act); background:var(--hover); margin:8px 0; }
+.knowledge-link { border:0; background:transparent; color:var(--l1); text-decoration:underline; cursor:pointer; padding:0; }
+@media (max-width:950px) { .knowledge-grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -164,6 +179,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
     <button data-view="streams">Streams</button>
     <button data-view="shapes">Shapes</button>
     <button data-view="sessions">Sessions</button>
+    <button data-view="knowledge">Knowledge</button>
     <button data-view="profiles">Profiles</button>
     <button data-view="search">Search</button>
     <div class="src" id="srcNote">Showing the live recording</div>
@@ -242,6 +258,42 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
       </div>
     </section>
 
+    <section class="view" id="v-knowledge">
+      <h2>Knowledge workspace</h2>
+      <p class="lede">Explore what the Studio inferred from saved observations. Source recordings are evidence; entities, relationships and drift candidates are interpretations, not verified account identities.</p>
+      <div class="row" style="margin-bottom:10px">
+        <label for="knowledgeSession">Recording <select id="knowledgeSession" aria-label="Select saved recording"><option value="">Choose a recording</option></select></label>
+        <button id="knowledgeRefresh">Explore knowledge</button>
+        <label for="knowledgeAt">As of <input id="knowledgeAt" type="datetime-local" aria-label="Knowledge history as of time"></label>
+        <button id="knowledgeOpenSession">Open recording</button>
+      </div>
+      <div id="knowledgeState" role="status" aria-live="polite" class="small-note">Choose a saved session to explore. No network scan runs until requested.</div>
+      <div class="knowledge-metrics" id="knowledgeMetrics"></div>
+      <div class="knowledge-grid">
+        <div class="panel">
+          <div class="pad"><b>Entities across recordings</b><p class="small-note">Linked by exact website origin, inferred type and keyed identity. A matching origin does not prove account identity.</p>
+            <label for="knowledgeFilter">Find entity <input id="knowledgeFilter" type="search" placeholder="Type, key, origin or ID" autocomplete="off"></label>
+          </div>
+          <div class="scroll" style="max-height:45vh"><div id="knowledgeEntities" aria-label="Knowledge entities"><div class="empty">Load knowledge to see entities.</div></div></div>
+        </div>
+        <div class="panel pad" id="knowledgeDetail" role="region" aria-label="Selected evidence details"><div class="empty">Select an entity or relationship to inspect evidence.</div></div>
+      </div>
+      <div class="knowledge-grid" style="margin-top:14px">
+        <div class="panel">
+          <div class="pad"><b>Session graph</b><p class="small-note">Relationship edges are inferred, unless their saved status says otherwise. A temporal association is not proof of causation.</p>
+            <label for="graphFilter">Find graph node <input id="graphFilter" type="search" placeholder="Type, key or identity" autocomplete="off"></label>
+          </div>
+          <div class="scroll" style="max-height:42vh" id="knowledgeGraph"><div class="empty">Open a derived recording to inspect its graph.</div></div>
+        </div>
+        <div class="panel pad" id="knowledgeModel"><div class="empty">Model types and structural interpretation will appear here.</div></div>
+      </div>
+      <div class="panel pad" style="margin-top:14px">
+        <h3>Possible type changes across recordings</h3>
+        <p class="small-note">Review only. These are unconfirmed structural similarities, never automatic identity merges or correction actions.</p>
+        <div id="knowledgeDrift"><div class="empty">No drift hints loaded.</div></div>
+      </div>
+    </section>
+
     <section class="view" id="v-profiles">
       <h2>Site profiles</h2>
       <p class="lede">Each save creates a new version. Roll back if a site redesign or a bad suggestion broke capture.</p>
@@ -265,7 +317,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtB = (n) => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
-const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0 };
+const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledge: null };
 
 async function api(path, opts = {}) {
   const r = await fetch('/api/' + path, { method: opts.body ? 'POST' : 'GET', headers: opts.body ? { 'content-type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
@@ -286,7 +338,7 @@ function show(v) {
     else b.removeAttribute('aria-current');
   });
   document.querySelectorAll('section.view').forEach((s) => s.classList.toggle('on', s.id === 'v-' + v));
-  const load = ({ streams: loadStreams, shapes: loadShapes, sessions: loadSessions, profiles: loadProfiles, capture: loadTargets })[v];
+  const load = ({ streams: loadStreams, shapes: loadShapes, sessions: loadSessions, profiles: loadProfiles, capture: loadTargets, knowledge: loadKnowledge })[v];
   if (load) guard(load)();
 }
 function updateSrcNote() {
@@ -513,6 +565,8 @@ $('#refreshSessions').onclick = guard(loadSessions);
 async function openSession(id) {
   const requestSeq = ++S.sessionRequestSeq;
   ++S.continuityRequestSeq;
+  ++S.knowledgeRequestSeq;
+  S.knowledge = null;
   S.sessionId = id; S.sid = null; updateSrcNote();
   renderSessions();
   $('#sessionDetail').innerHTML = '<div class="empty" role="status">Loading session details…</div>';
@@ -531,7 +585,7 @@ async function openSession(id) {
     <h3 style="margin-top:0">${esc(m.target?.title || m.site)}</h3>
     <div style="color:var(--muted);overflow-wrap:anywhere">${esc(m.target?.url || '')}</div>
     <div style="margin:8px 0">${esc(m.browser || '')}, profile ${esc(m.profile?.name)} v${m.profile?.version}, ended: ${esc(m.endReason || m.status)}${m.integrity ? `, integrity ${m.integrity.ok ? '<span class="c-l3">verified</span>' : '<span class="c-gap">warnings</span>'}` : ''}</div>
-    <div class="row"><button id="bDerive">Rebuild datasets</button><button id="bVerify">Check integrity</button><a href="/api/sessions/${encodeURIComponent(id)}/transcript"><button>Download transcript</button></a></div>
+    <div class="row"><button id="bGoKnowledge">Explore knowledge</button><button id="bDerive">Rebuild datasets</button><button id="bVerify">Check integrity</button><a href="/api/sessions/${encodeURIComponent(id)}/transcript"><button>Download transcript</button></a></div>
     <h3>Export</h3><div class="row">${datasets.map((ds) => `<span>${esc(ds)}: ${['jsonl', 'json', 'csv', 'md'].map((f) => `<a href="/api/sessions/${encodeURIComponent(id)}/export?dataset=${encodeURIComponent(ds)}&format=${f}">${f}</a>`).join(' ')}</span>`).join('') || '<span style="color:var(--muted)">Rebuild datasets first.</span>'}</div>
     <h3>Time travel</h3><div class="row"><input type="range" id="tt" min="0" max="1000" value="1000" style="flex:1"><span id="ttLabel" class="mono"></span></div><div id="ttOut" style="margin-top:8px"></div>
     <h3>Continuity across sessions</h3>
@@ -540,6 +594,7 @@ async function openSession(id) {
     <h3>Lab receipt <button id="bCopy" style="margin-left:8px">Copy</button></h3>
     <div style="color:var(--muted);margin-bottom:6px">Metadata only, safe to paste into the research issue.</div>
     <pre class="panel receipt mono" id="receipt">${esc(d.receipt ? JSON.stringify(d.receipt, null, 2) : 'Rebuild datasets to produce the receipt.')}</pre></div>`;
+  $('#bGoKnowledge').onclick = () => show('knowledge');
   $('#bDerive').onclick = guard(async () => { await api(`sessions/${id}/derive`, { body: {} }); toast('Datasets rebuilt from raw'); openSession(id); });
   $('#bVerify').onclick = guard(async () => { const v = await api(`sessions/${id}/verify`); toast(v.ok ? `Verified: ${v.records} records, ${v.gapRecords} declared gaps` : `Integrity problem: ${JSON.stringify(v.unexplained || v.segments.filter((s) => s.torn || s.shaMatches === false))}`); });
   $('#bContinuity').onclick = guard(async () => {
@@ -590,7 +645,7 @@ function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
     '<span><b>' + esc(st.sessionsWithDerivedKnowledge ?? 0) + ' / ' + esc(st.sessionsDiscovered ?? 0) + '</b> sessions derived</span>' +
     '<span><b>' + esc(st.entitiesTotal ?? 0) + '</b> entities in scope</span></div>';
   const incomplete = missing ? '<div class="feedback-error">' + esc(missing) + ' saved session(s) lack successful derived knowledge. This view may be incomplete.</div>' : '';
-  const notices = '<p class="small-note">Conservative matches require the same verified site, type, key and identity. Session-local or ambiguous identities stay separate. Missing observations do not mean deletion; cross-session confidence is not calibrated.</p>' +
+  const notices = '<p class="small-note">Conservative matches require the same detected website origin, inferred type, key and identity. Session-local or ambiguous identities stay separate. Missing observations do not mean deletion; cross-session confidence is not calibrated.</p>' +
     (view?.asOf != null ? '<p class="small-note">Historical state as of ' + esc(formatEvidenceTime(view.asOf)) + '. Untimed revisions cannot establish past state.</p>' : '') +
     (st.untimedRevisions ? '<p class="small-note">' + esc(st.untimedRevisions) + ' untimed revision(s) are not evidence of historical state.</p>' : '');
   const rows = entities.map((e, i) => '<tr><td><button class="continuity-detail" data-index="' + i + '" aria-label="Inspect evidence for ' + esc(e.typeName || e.type || e.id) + '">Evidence</button></td>' +
@@ -623,7 +678,7 @@ function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
         esc(r.session || '') + '</td><td>' + esc(Array.isArray(r.changed) ? r.changed.join(', ') : 'Not recorded') +
         '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td></tr>').join('');
       detail.innerHTML = '<h3>Entity evidence</h3><p class="small-note">Identity: ' +
-        esc(e.identityBasis === 'exact-site-type-key' ? 'Exact site + type + key + identity' : 'Session-local; not merged') +
+        esc(e.identityBasis === 'exact-site-type-key' ? 'Exact detected origin + inferred type + key + identity' : 'Session-local; not merged') +
         ' · ' + esc(e.sessionCount ?? 0) + ' session(s) · ' + esc(e.revisions ?? 0) + ' revision(s)</p>' +
         '<h3>Observed attributes</h3><pre class="mono">' + esc(JSON.stringify(e.attrs ?? {}, null, 2)) + '</pre>' +
         '<h3>Revision provenance</h3>' + (provenance.length > 200 ? '<p class="small-note">Showing latest 200 of ' + esc(provenance.length) + ' revisions; use the API for the full record.</p>' : '') + '<div class="continuity-history"><table><thead><tr><th>Observed</th><th>Source session</th><th>Fields changed</th><th>Evidence basis</th></tr></thead><tbody>' +
@@ -635,6 +690,206 @@ function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
     }
   }));
 }
+
+
+/* ---------------- Knowledge workspace (read-only, existing Core API) ---------------- */
+function knowledgeText(value) { return value == null ? 'Unavailable' : String(value); }
+function knowledgeTime(value) {
+  if (value === undefined || value === null || value === '') return 'Time not recorded';
+  const n = typeof value === 'number' ? value : Date.parse(value);
+  return Number.isFinite(n) ? new Date(n).toLocaleString() : 'Time not recorded';
+}
+function knowledgeSessionId() { return $('#knowledgeSession').value || S.sessionId || ''; }
+function knowledgeMarkupError(message) { return '<div class="feedback-error" role="alert">' + esc(message) + '</div>'; }
+function knowledgeFallback(message) { return '<div class="empty">' + esc(message) + '</div>'; }
+function knowledgeSafeList(value) { return Array.isArray(value) ? value : []; }
+function knowledgeSummary(view) {
+  const st = view?.stats || {};
+  const issues = knowledgeSafeList(st.sessionsWithoutKnowledge).length + knowledgeSafeList(st.sessionsWithDerivationError).length;
+  const missing = issues ? '<div class="knowledge-warning">' + esc(issues) + ' recording(s) have absent or failed derived knowledge. This is incomplete evidence, not an empty result.</div>' : '';
+  const limits = [];
+  if ((st.truncated ?? 0) > 0) limits.push(esc(st.truncated) + ' entities beyond this preview');
+  if ((st.typeDriftHintsTruncated ?? 0) > 0) limits.push(esc(st.typeDriftHintsTruncated) + ' additional type-drift hints');
+  if ((st.typeDriftVariantsOmitted ?? 0) > 0) limits.push(esc(st.typeDriftVariantsOmitted) + ' comparison variants not assessed');
+  return '<span><b>' + esc(st.entitiesTotal ?? 0) + '</b> entities</span>' +
+    '<span><b>' + esc(st.joinedEntities ?? 0) + '</b> linked by key</span>' +
+    '<span><b>' + esc(st.sessionsWithDerivedKnowledge ?? 0) + '/' + esc(st.sessionsDiscovered ?? 0) + '</b> recordings derived</span>' +
+    (issues ? '<span class="c-gap"><b>' + esc(issues) + '</b> incomplete</span>' : '') +
+    (limits.length ? '<span class="c-act">' + limits.join(' · ') + '</span>' : '') + missing;
+}
+function renderKnowledgeEntities() {
+  const k = S.knowledge; if (!k) return;
+  const q = $('#knowledgeFilter').value.trim().toLocaleLowerCase();
+  const entities = knowledgeSafeList(k.continuity?.entities);
+  const visible = entities.filter((e) => [e.typeName, e.type, e.key, e.origin, e.id].some((x) => String(x ?? '').toLocaleLowerCase().includes(q)));
+  $('#knowledgeEntities').innerHTML = visible.length ? visible.map((e) => {
+    const index = entities.indexOf(e);
+    const scope = e.identityBasis === 'exact-site-type-key' ? 'Linked by key · same detected origin, not verified account' : 'Session-local · no automatic cross-session join';
+    return '<div class="knowledge-entry"><button class="row-action" data-ke="' + index + '">' + esc(e.typeName || e.type || 'Unknown entity') + ' · ' + esc(e.key ?? 'No key') +
+      '<div class="small-note">' + esc(scope) + ' · ' + esc(e.sessionCount ?? 0) + ' recording(s) · ' + esc(e.revisions ?? 0) + ' revisions</div></button></div>';
+  }).join('') : knowledgeFallback(q ? 'No entities match this filter.' : 'No derived entities are visible in this preview.');
+  $('#knowledgeEntities').querySelectorAll('button[data-ke]').forEach((b) => b.onclick = guard(() => openKnowledgeEntity(entities[Number(b.dataset.ke)])));
+}
+function renderKnowledgeGraph() {
+  const k = S.knowledge; if (!k) return;
+  const g = k.graph;
+  const host = $('#knowledgeGraph');
+  if (g?.error) { host.innerHTML = knowledgeMarkupError('Could not load graph: ' + g.error); return; }
+  if (!g?.data) { host.innerHTML = knowledgeFallback('No saved graph. This recording may not have been derived.'); return; }
+  const nodes = knowledgeSafeList(g.data.nodes), edges = knowledgeSafeList(g.data.edges);
+  const q = $('#graphFilter').value.trim().toLocaleLowerCase();
+  const matching = nodes.map((n, i) => ({ n, i })).filter(({ n }) => [n.typeName, n.eid, n.key].some((x) => String(x ?? '').toLocaleLowerCase().includes(q))).slice(0, 200);
+  host.innerHTML = '<div class="pad small-note">' + esc(nodes.length) + ' nodes · ' + esc(edges.length) + ' edges' +
+    (nodes.length > 200 ? ' · at most 200 matching nodes shown' : '') + '</div>' +
+    (matching.map(({ n, i }) => '<div class="knowledge-entry"><button class="row-action" data-gn="' + i + '">' + esc(n.typeName || 'Graph node') +
+      ' · ' + esc(n.key ?? n.eid) + '<div class="small-note">Inferred node · ' + esc(knowledgeSafeList(n.history).length) + ' revisions</div></button></div>').join('') ||
+      knowledgeFallback(q ? 'No graph nodes match this filter.' : 'This derived graph has no nodes.'));
+  host.querySelectorAll('button[data-gn]').forEach((b) => b.onclick = guard(() => openKnowledgeNode(nodes[Number(b.dataset.gn)], edges)));
+}
+function renderKnowledgeModel() {
+  const k = S.knowledge; if (!k) return;
+  const host = $('#knowledgeModel'), result = k.model;
+  if (result?.error) { host.innerHTML = knowledgeMarkupError('Could not load model: ' + result.error); return; }
+  if (!result?.data) { host.innerHTML = knowledgeFallback('No derived model saved for this recording.'); return; }
+  const data = result.data;
+  if (data.error) { host.innerHTML = knowledgeMarkupError('Derivation failed at ' + knowledgeText(data.stage) + ': ' + knowledgeText(data.error)); return; }
+  const types = knowledgeSafeList(data.types);
+  host.innerHTML = '<h3>Inferred record types</h3><p class="small-note">' + esc(types.length) + ' modeled types. Types are interpretations of captured data; a field rename may create a new type.</p>' +
+    (types.slice(0, 100).map((t) => '<div class="knowledge-detail-field"><b>' + esc(t.name || t.id || 'Unnamed type') + '</b><div class="small-note">Key field: ' +
+      esc(t.key?.field ?? t.keyField ?? 'Not established') + ' · Fields: ' + esc(knowledgeSafeList(t.fields).map((f) => f.name || f).join(', ') || 'Not declared') + '</div></div>').join('') ||
+      knowledgeFallback('Model exists, but no inferred record types were saved.')) +
+    (types.length > 100 ? '<p class="small-note">Preview limited to 100 types.</p>' : '');
+}
+function renderKnowledgeDrift() {
+  const k = S.knowledge; if (!k) return;
+  const hints = knowledgeSafeList(k.continuity?.typeDriftHints);
+  $('#knowledgeDrift').innerHTML = hints.length ? hints.map((h) =>
+    '<div class="knowledge-detail-field"><b>Unconfirmed possible same record type</b>' +
+    '<div class="small-note">Detected origin: ' + esc(h.origin ?? 'Unknown') + ' · Key: ' + esc(h.keyField ?? 'Unknown') + ' = ' + esc(h.key ?? '') +
+    ' · Field overlap: ' + esc(Math.round((Number(h.structuralFieldOverlap) || 0) * 100)) + '% (structural, not confidence)</div>' +
+    '<div class="small-note">' + knowledgeSafeList(h.candidates).map((c) => esc(c.typeName || c.type || 'Type') + ' (' + esc(c.id || 'No qualified ID') + ')').join(' ⇄ ') +
+    '</div><div class="small-note">No merge or correction performed. Same origin cannot establish same account.</div></div>'
+  ).join('') : knowledgeFallback('No review-only type-drift hints returned. This does not prove the schema was unchanged.');
+}
+function knowledgeSourceLinks(history) {
+  const seen = new Set();
+  const ids = knowledgeSafeList(history).map((r) => r.evidence?.session ?? r.session).filter((id) => {
+    if (!id || seen.has(id)) return false;
+    seen.add(id); return true;
+  }).slice(0, 10);
+  return ids.length ? '<div class="knowledge-toolbar">' + ids.map((id, i) =>
+    '<button data-source="' + i + '">Open source recording ' + esc(String(id).slice(0, 14)) + '</button>').join('') + '</div>' : '<p class="small-note">Specific source recording was not recorded for this item.</p>';
+}
+function wireKnowledgeSources(history) {
+  const seen = [...new Set(knowledgeSafeList(history).map((r) => r.evidence?.session ?? r.session).filter(Boolean))].slice(0, 10);
+  $('#knowledgeDetail').querySelectorAll('button[data-source]').forEach((b) => b.onclick = guard(async () => {
+    const id = seen[Number(b.dataset.source)]; if (!id) return;
+    show('sessions');
+    await openSession(id);
+  }));
+}
+async function openKnowledgeEntity(entity) {
+  const k = S.knowledge, epoch = S.knowledgeRequestSeq;
+  if (!k || !entity) return;
+  const host = $('#knowledgeDetail');
+  host.innerHTML = '<div role="status" class="empty">Loading entity revisions…</div>';
+  try {
+    const query = new URLSearchParams({ eid: entity.id, limit: '1' });
+    if (k.at) query.set('at', k.at);
+    const full = await api('sessions/' + encodeURIComponent(k.sessionId) + '/continuity?' + query.toString());
+    if (epoch !== S.knowledgeRequestSeq || S.view !== 'knowledge') return;
+    const e = knowledgeSafeList(full.entities)[0];
+    if (!e) { host.innerHTML = knowledgeFallback('Entity history unavailable at the selected time.'); return; }
+    const history = knowledgeSafeList(e.history);
+    host.innerHTML = '<h3>' + esc(e.typeName || e.type || 'Entity') + '</h3><div class="small-note">Inferred identity: ' + esc(e.id) +
+      '</div><div class="knowledge-warning">' + (e.identityBasis === 'exact-site-type-key' ? 'Linked by key and exact detected origin; same account is not verified.' : 'Provisional/session-local identity, not linked across recordings.') +
+      ' Attributes represent observations, not a guaranteed current or complete state.</div>' +
+      '<div class="knowledge-detail-field"><b>Recorded attribute values</b><pre class="mono">' + esc(JSON.stringify(e.attrs ?? {}, null, 2)) + '</pre></div>' +
+      '<h3>Revision provenance</h3><div class="scroll" style="max-height:30vh"><table><thead><tr><th>Observed</th><th>Source</th><th>Changed fields</th><th>Basis</th></tr></thead><tbody>' +
+      history.slice(-150).map((r) => '<tr><td>' + esc(knowledgeTime(r.t)) + '</td><td class="mono">' + esc(r.session || 'Unknown') +
+        '</td><td>' + esc(knowledgeSafeList(r.changed).join(', ') || 'Unspecified') + '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td></tr>').join('') +
+      '</tbody></table></div>' + (history.length > 150 ? '<p class="small-note">Latest 150 revisions shown; full history available through Core API.</p>' : '') +
+      '<h3>Source recordings</h3>' + knowledgeSourceLinks(history);
+    wireKnowledgeSources(history);
+  } catch (err) {
+    if (epoch === S.knowledgeRequestSeq && S.view === 'knowledge') host.innerHTML = knowledgeMarkupError('Could not load entity history: ' + err.message);
+  }
+}
+function openKnowledgeNode(node, edges) {
+  if (!node) return;
+  const related = knowledgeSafeList(edges).filter((e) => e.from === node.eid || e.to === node.eid);
+  const history = knowledgeSafeList(node.history);
+  const host = $('#knowledgeDetail');
+  host.innerHTML = '<h3>' + esc(node.typeName || 'Graph node') + '</h3><p class="small-note">Inferred, session-specific graph identity ' + esc(node.eid) + '</p>' +
+    '<div class="knowledge-detail-field"><b>Observed attributes</b><pre class="mono">' + esc(JSON.stringify(node.attrs ?? {}, null, 2)) + '</pre></div>' +
+    '<h3>Relationships (' + esc(related.length) + ')</h3>' +
+    (related.slice(0, 100).map((r) => '<div class="knowledge-detail-field"><b>' + esc(r.kind || 'relationship') +
+      '</b><div class="small-note">From ' + esc(r.from) + ' → ' + esc(r.to) + ' · ' + esc(r.status || 'hypothesis') +
+      ' · ' + (r.confidence == null ? 'Confidence not provided' : 'Inferred score: ' + esc(r.confidence)) +
+      ' · Observed ' + esc(knowledgeTime(r.t)) + '</div></div>').join('') || knowledgeFallback('No relationships recorded for this node.')) +
+    (related.length > 100 ? '<p class="small-note">Latest preview limited to 100 relationships.</p>' : '') +
+    '<h3>Evidence</h3>' + knowledgeSourceLinks(history);
+  wireKnowledgeSources(history);
+}
+async function loadKnowledge() {
+  const picker = $('#knowledgeSession'), prior = picker.value || S.sessionId || '';
+  const data = await api('sessions');
+  const sessions = knowledgeSafeList(data);
+  picker.innerHTML = '<option value="">Choose a recording</option>' + sessions.map((m) =>
+    '<option value="' + esc(m.id) + '">' + esc((m.target?.title || m.site || m.id) + ' · ' + (m.createdAt ? new Date(m.createdAt).toLocaleDateString() : 'unknown date')) + '</option>').join('');
+  picker.value = sessions.some((m) => m.id === prior) ? prior : '';
+  if (!picker.value) $('#knowledgeState').textContent = 'Choose a saved session, then select Explore knowledge.';
+}
+async function refreshKnowledge() {
+  const id = knowledgeSessionId();
+  if (!id) { $('#knowledgeState').textContent = 'Select a saved recording first.'; return; }
+  const selectedTime = $('#knowledgeAt').value;
+  const at = selectedTime ? new Date(selectedTime) : null;
+  if (at && !Number.isFinite(at.getTime())) { $('#knowledgeState').innerHTML = knowledgeMarkupError('Enter a valid as-of time.'); return; }
+  const epoch = ++S.knowledgeRequestSeq;
+  S.knowledge = null;
+  $('#knowledgeState').textContent = 'Reading derived model, graph and exact-origin continuity from saved recordings…';
+  for (const target of ['#knowledgeEntities', '#knowledgeGraph', '#knowledgeModel', '#knowledgeDrift', '#knowledgeDetail'])
+    $(target).innerHTML = knowledgeFallback('Loading…');
+  $('#knowledgeMetrics').textContent = '';
+  const suffix = at ? '&at=' + encodeURIComponent(at.toISOString()) : '';
+  const endpoints = ['sessions/' + encodeURIComponent(id) + '/continuity?limit=100' + suffix,
+    'sessions/' + encodeURIComponent(id) + '/graph',
+    'sessions/' + encodeURIComponent(id) + '/model'];
+  const results = await Promise.allSettled(endpoints.map((p) => api(p)));
+  if (epoch !== S.knowledgeRequestSeq || S.view !== 'knowledge') return;
+  const [continuity, graph, model] = results.map((r) => r.status === 'fulfilled'
+    ? { data: r.value } : { error: r.reason?.message || 'Unknown API error' });
+  S.knowledge = { sessionId: id, at: at ? at.toISOString() : '', continuity: continuity.data, graph, model };
+  const partial = results.filter((r) => r.status === 'rejected').length;
+  $('#knowledgeState').innerHTML = partial
+    ? knowledgeMarkupError(partial + ' of 3 read-only knowledge requests failed; successful sections are still available.')
+    : '<span class="c-l3">Read-only knowledge loaded.</span> Choose an entity or graph node to inspect. No identities or corrections were changed.';
+  $('#knowledgeMetrics').innerHTML = continuity.data ? knowledgeSummary(continuity.data) : knowledgeMarkupError('Continuity unavailable: ' + continuity.error);
+  if (continuity.error) $('#knowledgeEntities').innerHTML = knowledgeMarkupError('Continuity unavailable: ' + continuity.error);
+  else renderKnowledgeEntities();
+  renderKnowledgeGraph();
+  renderKnowledgeModel();
+  if (continuity.error) $('#knowledgeDrift').innerHTML = knowledgeMarkupError('Type-drift hints unavailable: ' + continuity.error);
+  else renderKnowledgeDrift();
+  $('#knowledgeDetail').innerHTML = knowledgeFallback('Select an entity or graph node to inspect its evidence.');
+}
+$('#knowledgeRefresh').onclick = guard(refreshKnowledge);
+$('#knowledgeFilter').oninput = renderKnowledgeEntities;
+$('#graphFilter').oninput = renderKnowledgeGraph;
+$('#knowledgeSession').onchange = () => {
+  ++S.knowledgeRequestSeq;
+  S.knowledge = null;
+  $('#knowledgeMetrics').textContent = '';
+  $('#knowledgeState').textContent = 'Selection changed. Choose Explore knowledge to load this recording.';
+  ['#knowledgeEntities','#knowledgeGraph','#knowledgeModel','#knowledgeDrift','#knowledgeDetail'].forEach((target) => $(target).innerHTML = knowledgeFallback('Select Explore knowledge to refresh.'));
+};
+$('#knowledgeOpenSession').onclick = guard(async () => {
+  const id = knowledgeSessionId();
+  if (!id) return toast('Select a saved recording first.');
+  show('sessions');
+  await openSession(id);
+});
 
 /* ---------------- profiles ---------------- */
 async function loadProfiles() {
