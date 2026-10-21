@@ -50,7 +50,14 @@ function recordRevisions(entity, sessionId, sessionCreatedAt) {
 }
 
 function safeJoin(entity, site) {
-  return entity.method === 'key' && entity.key !== null && entity.key !== undefined
+  // The keyed resolver stringifies inferred key values. A missing field can therefore
+  // appear as the literal "undefined" (or "null") and must never establish a
+  // cross-session identity. Conservatively isolate ambiguous literal keys too.
+  const key = entity.key;
+  const usableKey = (typeof key === 'string' || typeof key === 'number')
+    && String(key).trim().length > 0
+    && !['undefined', 'null', 'nan'].includes(String(key).trim().toLowerCase());
+  return entity.method === 'key' && usableKey
     && entity.scope === site && !!entity.type && !!entity.eid;
 }
 
@@ -143,7 +150,7 @@ export async function buildSiteContinuity(sessionsDir, {
     site, asOf: requestedAt, entities: returned, stats,
     limitations: [
       'Joins require exactly matching site, type, keyed value and eid; schema drift is not silently reconciled.',
-      'Keyless observations remain separate across sessions; missing observations are not deletions.',
+      'Keyless and missing/ambiguous keyed observations remain separate across sessions; missing observations are not deletions.',
       'Historical state uses saved revision values; missing or untimed evidence cannot establish an as-of state.',
       'No copied knowledge index is stored; results recompute from extant derived session data.',
       'Reading all saved sessions has cost proportional to their derived entity and revision count.',
