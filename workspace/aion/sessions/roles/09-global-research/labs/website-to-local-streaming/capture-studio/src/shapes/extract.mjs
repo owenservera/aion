@@ -1,25 +1,45 @@
 // Apply accepted profile rules to decoded events -> structured records (datasets).
 import { templateUrl } from './infer.mjs';
 
-// Minimal JSONPath: $.a.b, $.a[*].b, $["weird key"], $[0]
-export function select(value, path) {
-  if (!path || path === '$') return [value];
+const selectorCache = new Map();
+
+// Fully consumed, cached JSONPath subset. Unsupported syntax cannot silently select the root
+// or a shorter prefix, and inherited prototype properties are never payload observations.
+export function compileSelector(path) {
+  if (!path || path === '$') return (value) => [value];
+  if (typeof path !== 'string') throw new TypeError('Selection path must be a string');
+  if (selectorCache.has(path)) return selectorCache.get(path);
   const tokens = [];
-  const re = /\.([A-Za-z_$][\w$]*)|\[\*\]|\[(\d+)\]|\["((?:[^"\\]|\\.)*)"\]/g;
-  let m, rest = path.replace(/^\$/, '');
-  while ((m = re.exec(rest))) tokens.push(m[1] !== undefined ? { key: m[1] } : m[2] !== undefined ? { index: Number(m[2]) } : m[3] !== undefined ? { key: JSON.parse(`"${m[3]}"`) } : { star: true });
-  let cur = [value];
-  for (const t of tokens) {
-    const next = [];
-    for (const v of cur) {
-      if (v === null || v === undefined) continue;
-      if (t.star) { if (Array.isArray(v)) next.push(...v); else if (typeof v === 'object') next.push(...Object.values(v)); }
-      else if (t.index !== undefined) { if (Array.isArray(v) && v[t.index] !== undefined) next.push(v[t.index]); }
-      else if (typeof v === 'object' && t.key in v) next.push(v[t.key]);
-    }
-    cur = next;
+  const re = /\.([A-Za-z_$][\w$]*)|\[\*\]|\[(\d+)\]|\["((?:[^"\\]|\\.)*)"\]/y;
+  const rest = path.replace(/^\$/, '');
+  let offset = 0;
+  while (offset < rest.length) {
+    re.lastIndex = offset; const match = re.exec(rest);
+    if (!match) throw new Error(`Unsupported selection path at offset ${offset}: ${path}`);
+    tokens.push(match[1] !== undefined ? { key: match[1] } : match[2] !== undefined ? { index: Number(match[2]) } : match[3] !== undefined ? { key: JSON.parse(`"${match[3]}"`) } : { star: true });
+    offset = re.lastIndex;
   }
-  return cur;
+  const selector = (value) => {
+    let cur = [value];
+    for (const t of tokens) {
+      const next = [];
+      for (const v of cur) {
+        if (v === null || v === undefined) continue;
+        if (t.star) { if (typeof v === 'object') for (const x of Object.values(v)) next.push(x); }
+        else if (t.index !== undefined) { if (Array.isArray(v) && Object.hasOwn(v, t.index)) next.push(v[t.index]); }
+        else if (typeof v === 'object' && Object.hasOwn(v, t.key)) next.push(v[t.key]);
+      }
+      cur = next;
+    }
+    return cur;
+  };
+  if (selectorCache.size >= 256) selectorCache.delete(selectorCache.keys().next().value);
+  selectorCache.set(path, selector); return selector;
+}
+
+// Invalid drafts return no selected values; compileSelector exposes diagnostics to editors.
+export function select(value, path) {
+  try { return compileSelector(path)(value); } catch { return []; }
 }
 
 export function ruleMatchesEvent(rule, ev, stream) {
@@ -56,9 +76,9 @@ export function extractFromAssembled(rule, doc, stream) {
 export function coerce(v, type) {
   if (v === undefined || v === null || !type || type === 'auto') return v;
   try {
-    if (type === 'number') { const n = typeof v === 'number' ? v : Number(v); return Number.isNaN(n) ? v : n; }
+    if (type === 'number') { if (typeof v !== 'number' && (typeof v !== 'string' || !v.trim())) return v; const n = Number(v); return Number.isFinite(n) ? n : v; }
     if (type === 'string' || type === 'text') return typeof v === 'string' ? v : JSON.stringify(v);
-    if (type === 'boolean') return typeof v === 'boolean' ? v : ['true', '1', 'yes'].includes(String(v).toLowerCase());
+    if (type === 'boolean') { if (typeof v === 'boolean') return v; const s = String(v).trim().toLowerCase(); return ['true', '1', 'yes'].includes(s) ? true : ['false', '0', 'no'].includes(s) ? false : v; }
     if (type === 'time') { const d = typeof v === 'number' ? new Date(v < 1e12 ? v * 1000 : v) : new Date(v); return Number.isNaN(d.getTime()) ? v : d.toISOString(); }
     if (type === 'json') return typeof v === 'string' ? JSON.parse(v) : v;
   } catch { return v; }

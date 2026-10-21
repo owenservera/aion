@@ -5,7 +5,7 @@
 import { Session, listSessions } from '../store/session.mjs';
 import { existsSync } from 'node:fs';
 import { siteOf } from '../profiles/profiles.mjs';
-import { foldRevision } from './history.mjs';
+import { foldRevision, summarizeRevisions } from './history.mjs';
 
 export function siteFromSession(meta = {}) {
   try {
@@ -268,6 +268,7 @@ export async function buildSiteContinuity(sessionsDir, {
       timedRevisions: times.length, untimedRevisions: revisions.length - times.length,
       firstT: times.length ? times[0] : null, lastT: times.length ? times[times.length - 1] : null,
       attrs,
+      activity: summarizeRevisions(revisions),
       ...(includeHistory && materialize ? { history: revisions.map(({ sessionCreatedAt, ...r }) => r) } : {}),
     };
     entries.push(result);

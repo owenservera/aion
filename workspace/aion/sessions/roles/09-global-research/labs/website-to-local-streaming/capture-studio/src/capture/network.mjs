@@ -22,11 +22,23 @@ export class NetworkRecorder extends EventEmitter {
     this.getPageUrl = getPageUrl;
     this.options = options;
     this.reqs = new Map();             // sid -> state
-    this.stats = { requests: 0, outOfScope: 0, metadataOnly: 0, streamed: 0, armFailed: 0, retrospective: 0, chunks: 0, bytes: 0, wsFrames: 0, esMessages: 0, sensitiveExcluded: 0, redactions: 0 };
-    this.sessions = new Map();         // sessionId -> tag
+    this.stats = {
+      requests: 0, outOfScope: 0, metadataOnly: 0, streamed: 0, armFailed: 0, armRetried: 0,
+      retrospective: 0, chunks: 0, bytes: 0, wsFrames: 0, wsControlFrames: 0, esMessages: 0,
+      sensitiveExcluded: 0, redactions: 0, truncatedStreams: 0, reattaches: 0, handlerErrors: 0,
+    };
+    this.sessions = new Map();         // sessionId -> { tag, session, targetInfo }
+    // 0 = unlimited. A per-stream cap keeps one runaway response from filling the disk; the cut is
+    // always recorded as body.truncated so the coverage stays explicit.
+    this.maxStreamBytes = options.maxStreamBytes ?? profile?.capture?.maxStreamBytes ?? 0;
+    this.armRetries = options.armRetries ?? profile?.capture?.armRetries ?? 1;
+    this.armRetryDelayMs = options.armRetryDelayMs ?? 60;
   }
 
-  setProfile(p) { this.profile = p; }
+  setProfile(p) {
+    this.profile = p;
+    if (this.options.maxStreamBytes === undefined) this.maxStreamBytes = p?.capture?.maxStreamBytes ?? this.maxStreamBytes;
+  }
 
   _sid(tag, requestId) { return `${tag}:${requestId}`; }
 
@@ -46,9 +58,10 @@ export class NetworkRecorder extends EventEmitter {
   }
 
   async attach(session, tag, targetInfo = {}) {
-    this.sessions.set(session.sessionId, tag);
-    const on = (ev, fn) => session.on(ev, (p) => { try { fn(p); } catch (e) { this.emit('error', e); } });
+    this.sessions.set(session.sessionId, { tag, session, targetInfo });
+    const on = (ev, fn) => session.on(ev, (p) => { try { fn(p); } catch (e) { this.stats.handlerErrors++; this.emit('error', e); } });
     on('Network.requestWillBeSent', (p) => this._onRequest(session, tag, p, targetInfo));
+    on('Network.webSocketWillSendHandshakeRequest', (p) => this._onWsHandshakeRequest(tag, p));
     on('Network.responseReceived', (p) => this._onResponse(session, tag, p));
     on('Network.dataReceived', (p) => this._onData(tag, p));
     on('Network.loadingFinished', (p) => this._onFinished(session, tag, p));
@@ -62,6 +75,44 @@ export class NetworkRecorder extends EventEmitter {
     on('Network.webSocketClosed', (p) => { const st = this.reqs.get(this._sid(tag, p.requestId)); if (!st) return; if (!st.ignored) this.append({ k: 'ws.close', sid: st.sid, ct: p.timestamp }); this.reqs.delete(st.sid); });
     await session.send('Network.enable', { maxTotalBufferSize: 256 * 1024 * 1024, maxResourceBufferSize: 64 * 1024 * 1024, maxPostDataSize: 1024 * 1024 });
     // Keep the browser cache from hiding traffic? No: altering cache behaviour changes the page.
+  }
+
+  // Re-arm after a DevTools reconnect. Requests that were in flight keep their sid, but their
+  // byte stream cannot be resumed: Chrome only streams content for requests armed while live.
+  // Those streams are therefore marked, never silently continued.
+  async reattach(session, tag, targetInfo = {}) {
+    this.stats.reattaches++;
+    const orphaned = [];
+    for (const st of this.reqs.values()) {
+      if (st.ignored || !st.body) continue;
+      if (!st.sid.startsWith(`${tag}:`)) continue;
+      st.armed = false; st.reattachOrphan = true;
+      orphaned.push(st.sid);
+      this.append({ k: 'body.excluded', sid: st.sid, reason: 'devtools_reconnect_stream_not_resumable' });
+    }
+    await this.attach(session, tag, targetInfo);
+    return { orphaned };
+  }
+
+  // Annotate every in-flight stream when the DevTools transport drops.
+  markConnectionLost(reason = 'devtools_connection_lost') {
+    const open = [];
+    for (const st of this.reqs.values()) { if (st.ignored) continue; open.push(st.sid); st.connectionLost = reason; }
+    return open;
+  }
+
+  detachSession(sessionId) {
+    const entry = this.sessions.get(sessionId);
+    this.sessions.delete(sessionId);
+    if (!entry) return 0;
+    let n = 0;
+    for (const [sid, st] of [...this.reqs]) {
+      if (!sid.startsWith(`${entry.tag}:`)) continue;
+      if (!st.ignored) this.append({ k: 'fail', sid, errorText: 'target detached', canceled: false, chunks: st.chunks ?? 0, bytes: st.bytes ?? 0 });
+      this.reqs.delete(sid);
+      n++;
+    }
+    return n;
   }
 
   _onRequest(session, tag, p, targetInfo) {
@@ -107,15 +158,15 @@ export class NetworkRecorder extends EventEmitter {
     if (p.type === 'WebSocket') return;
     st.arming = true;
     try {
-      const res = await session.send('Network.streamResourceContent', { requestId: p.requestId });
+      const res = await this._armStream(session, p.requestId, st);
       st.armed = true;
       this.stats.streamed++;
-      this.append({ k: 'stream.armed', sid, mode: 'stream', bufferedBytes: res.bufferedData ? Buffer.from(res.bufferedData, 'base64').length : 0 });
+      this.append({ k: 'stream.armed', sid, mode: 'stream', bufferedBytes: res.bufferedData ? Buffer.from(res.bufferedData, 'base64').length : 0, ...(st.armAttempts > 1 ? { attempts: st.armAttempts } : {}) });
       if (res.bufferedData) this._chunk(st, Buffer.from(res.bufferedData, 'base64'), { pre: true });
     } catch (e) {
       this.stats.armFailed++;
       st.armFailed = String(e.message ?? e);
-      this.append({ k: 'stream.arm_failed', sid, error: st.armFailed });
+      this.append({ k: 'stream.arm_failed', sid, error: st.armFailed, attempts: st.armAttempts ?? 1 });
     } finally {
       st.arming = false;
       // Chunks that raced the arming response are written after bufferedData, preserving byte order.
@@ -125,7 +176,31 @@ export class NetworkRecorder extends EventEmitter {
     }
   }
 
+  // Arming can lose a race with the response pipeline; one short retry recovers the common
+  // "not yet streamable" case. Chunks that arrive meanwhile are queued (st.arming), so byte
+  // order is preserved across the retry.
+  async _armStream(session, requestId, st) {
+    let last;
+    for (let attempt = 1; attempt <= 1 + Math.max(0, this.armRetries); attempt++) {
+      st.armAttempts = attempt;
+      try { return await session.send('Network.streamResourceContent', { requestId }); }
+      catch (e) {
+        last = e;
+        const msg = String(e?.message ?? e);
+        // Permanent refusals are not worth retrying.
+        if (/not supported|already finished|No resource|Invalid|cannot be/i.test(msg)) break;
+        if (attempt <= this.armRetries) { this.stats.armRetried++; await new Promise((r) => setTimeout(r, this.armRetryDelayMs * attempt)); }
+      }
+    }
+    throw last;
+  }
+
   _chunk(st, buf, extra = {}) {
+    if (this.maxStreamBytes && st.bytes >= this.maxStreamBytes) {
+      if (!st.truncated) { st.truncated = true; this.stats.truncatedStreams++; this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes, cap: this.maxStreamBytes, reason: 'max_stream_bytes' }); }
+      st.droppedByCap = (st.droppedByCap ?? 0) + buf.length;
+      return;
+    }
     const { bytes, redactions } = scrubSecrets(buf);
     st.chunks++; st.bytes += bytes.length;
     this.stats.chunks++; this.stats.bytes += bytes.length;
@@ -167,7 +242,11 @@ export class NetworkRecorder extends EventEmitter {
         this.append({ k: 'body.unavailable', sid: st.sid, error: String(e.message ?? e) });
       }
     }
-    this.append({ k: 'done', sid: st.sid, ct: p.timestamp, encodedDataLength: p.encodedDataLength, chunks: st.chunks, bytes: st.bytes });
+    this.append({
+      k: 'done', sid: st.sid, ct: p.timestamp, encodedDataLength: p.encodedDataLength, chunks: st.chunks, bytes: st.bytes,
+      ...(st.truncated ? { truncated: true, droppedByCap: st.droppedByCap ?? 0 } : {}),
+      ...(st.unarmedDataEvents ? { unarmedDataEvents: st.unarmedDataEvents } : {}),
+    });
     this.reqs.delete(st.sid);
   }
 
@@ -192,8 +271,16 @@ export class NetworkRecorder extends EventEmitter {
     if (!this.profile.capture?.websockets) { this.reqs.set(sid, { sid, ignored: true }); return; }
     const pol = this._policy(p.url, null); // WebSockets are governed by capture.websockets, not resource types
     if (!pol.capture || !pol.body) { this.reqs.set(sid, { sid, ignored: !pol.capture, body: false }); if (pol.capture) this.append({ k: 'ws.open', sid, url: redactUrl(p.url), policy: `metadata_only:${pol.reason}` }); return; }
-    this.reqs.set(sid, { sid, ws: true, body: true, frames: 0 });
+    this.reqs.set(sid, { sid, url: p.url, ws: true, body: true, frames: 0, bytes: 0, chunks: 0 });
     this.append({ k: 'ws.open', sid, url: redactUrl(p.url), initiator: p.initiator?.type, target: targetInfo.type ?? 'page' });
+  }
+
+  _onWsHandshakeRequest(tag, p) {
+    const st = this.reqs.get(this._sid(tag, p.requestId));
+    if (!st || st.ignored) return;
+    const headers = redactHeaders(p.request?.headers ?? {});
+    const proto = headers['sec-websocket-protocol'] ?? headers['Sec-WebSocket-Protocol'];
+    this.append({ k: 'ws.handshake_request', sid: st.sid, ct: p.timestamp, headers, ...(proto ? { requestedProtocols: String(proto).split(/\s*,\s*/) } : {}) });
   }
 
   _onWsHandshake(tag, p) {
@@ -211,14 +298,31 @@ export class NetworkRecorder extends EventEmitter {
       return;
     }
     this.stats.wsFrames++;
+    if (f.opcode === 8 || f.opcode === 9 || f.opcode === 10 || f.opcode === 0) this.stats.wsControlFrames++;
+    st.frames = (st.frames ?? 0) + 1;
+    if (this.maxStreamBytes && (st.bytes ?? 0) >= this.maxStreamBytes) {
+      if (!st.truncated) { st.truncated = true; this.stats.truncatedStreams++; this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes ?? 0, cap: this.maxStreamBytes, reason: 'max_stream_bytes' }); }
+      this.append({ k: 'ws.frame_meta', sid: st.sid, dir, opcode: f.opcode, size: (f.payloadData ?? '').length, ct: p.timestamp, droppedByCap: true });
+      return;
+    }
     let payload = f.payloadData ?? '';
     let redactions = [];
     if (f.opcode === 2) { const r = scrubSecrets(Buffer.from(payload, 'base64')); payload = r.bytes.toString('base64'); redactions = r.redactions; }
     else { const r = scrubText(payload); payload = r.text; redactions = r.redactions; }
+    st.bytes = (st.bytes ?? 0) + (f.opcode === 2 ? Buffer.from(payload, 'base64').length : Buffer.byteLength(payload));
     const rec = { k: 'ws.frame', sid: st.sid, dir, opcode: f.opcode, payload, ct: p.timestamp };
     if (redactions.length) { rec.redactions = redactions; this.stats.redactions += redactions.length; }
     this.append(rec);
   }
 
   openStreams() { return [...this.reqs.values()].filter((s) => !s.ignored).map((s) => s.sid); }
+
+  // Same set with enough detail for a coverage note (what exactly is still in flight).
+  openStreamDetail() {
+    return [...this.reqs.values()].filter((s) => !s.ignored).map((s) => ({
+      sid: s.sid, url: s.url ? redactUrl(s.url) : undefined, ws: !!s.ws, body: !!s.body,
+      chunks: s.chunks ?? 0, bytes: s.bytes ?? 0, frames: s.frames ?? 0,
+      armed: !!s.armed, truncated: !!s.truncated,
+    }));
+  }
 }

@@ -1,0 +1,156 @@
+// derive, replay
+import { writeFileSync, mkdirSync } from 'node:fs';
+import path from 'node:path';
+import { Session } from '../../src/store/session.mjs';
+import { derive, stateAt, streamBytes } from '../../src/replay/derive.mjs';
+import { DeltaAssembler } from '../../src/decode/delta.mjs';
+import { isStreaming } from '../../src/replay/reducer.mjs';
+import { define } from '../lib/registry.mjs';
+import { usageError, notFound, fmtBytes, fmtMs, truncate, oneLine } from '../lib/ui.mjs';
+import { knowledgeState, isDerived, looksActive, parseAt, sessionStartT, readRows, eventText } from '../lib/util.mjs';
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ---------------------------------------------------------------------------------------------
+define({
+  name: 'derive', section: 'Replay and derive', usage: '[id|latest] [--all|--missing]', summary: 'Rebuild datasets, shapes, knowledge and the receipt from raw',
+  description: 'Everything derived is recomputable from the raw log; raw is never modified. Use --profile to derive with a different profile (for example after accepting suggestions) and --all / --missing for batches.',
+  flags: {
+    profile: { type: 'string', alias: 'p', valueName: 'NAME', desc: 'Derive with this profile instead of the one recorded with the session' },
+    all: { type: 'boolean', desc: 'Derive every saved session' },
+    missing: { type: 'boolean', desc: 'Derive only sessions with no receipt or incomplete knowledge' },
+    force: { type: 'boolean', desc: 'Also derive sessions that look like they are still recording' },
+  },
+  examples: ['studio derive latest', 'studio derive 2026…abc --profile claude', 'studio derive --missing --json'],
+  async run(ctx) {
+    const f = ctx.flags;
+    const targets = f.all || f.missing
+      ? ctx.listSessions().map((m) => Session.open(ctx.paths.sessions, m.id))
+        .filter((s) => (f.force || !looksActive(s)) && (!f.missing || !isDerived(s) || !['complete'].includes(knowledgeState(s))))
+      : [ctx.session(ctx.args[0])];
+    if (!targets.length) { ctx.out.emit({ derived: [] }, (o) => o.result('Nothing to derive.')); return; }
+    const results = [];
+    for (const s of targets) {
+      ctx.out.info(`Deriving ${s.id} (${results.length + 1}/${targets.length})`);
+      try {
+        const d = await derive(s, ctx.profileFor(s, f.profile), { families: ctx.families(), learner: ctx.learner(), onProgress: (n) => ctx.out.progress(`${n} raw records`) });
+        ctx.out.progressDone();
+        results.push({
+          session: s.id, ok: true, rawRecords: d.records, streams: d.summary.streams.length, suggestions: d.report.suggestions.length,
+          verdict: d.receipt.verdict, knowledge: d.knowledge, recordCounts: d.recordCounts, familyCounts: d.familyCounts,
+        });
+      } catch (e) { ctx.out.progressDone(); results.push({ session: s.id, ok: false, error: String(e.message ?? e) }); }
+    }
+    const failed = results.filter((r) => !r.ok);
+    ctx.out.emit(targets.length === 1 && !f.all && !f.missing ? results[0] : { derived: results }, (o) => {
+      for (const r of results) {
+        if (!r.ok) { o.result(`${o.c.red('FAIL')} ${r.session}: ${r.error}`); continue; }
+        o.result(`Derived ${r.session}: ${r.rawRecords} raw records, ${r.streams} streams, ${r.suggestions} suggestions, verdict ${r.verdict}.`);
+        if (r.knowledge) o.line(`  knowledge: ${r.knowledge.error ? `FAILED at ${r.knowledge.stage}: ${r.knowledge.error}` : `${r.knowledge.types} type(s), ${r.knowledge.entities} entities, ${r.knowledge.edges} edges`}`);
+        for (const [k, v] of Object.entries(r.recordCounts ?? {})) o.line(`  records-${k}: ${v}`);
+        for (const [k, v] of Object.entries(r.familyCounts ?? {})) o.line(`  ${k}: ${v}`);
+      }
+    });
+    if (failed.length) process.exitCode = 1;
+  },
+});
+
+// ---------------------------------------------------------------------------------------------
+define({
+  name: 'replay', section: 'Replay and derive', usage: '[id|latest] [--stream SID | --at TIME | --bytes]', summary: 'Replay a captured stream with its original timing, or time-travel to a moment',
+  description: [
+    'Three modes, all offline from the saved session:',
+    '  --stream SID   replay one stream\'s decoded events with the original timing (--speed 2 doubles it, --instant removes waits).',
+    '                 Streams that assemble into a document (chat completions, patch streams) replay as the growing text;',
+    '                 use --events to see each protocol event instead. Without --stream the busiest streaming stream is used.',
+    '  --at TIME      reconstruct the state of every stream, rendered block and action at a moment:',
+    '                 an ISO date, epoch ms, or +SECONDS after the session start.',
+    '  --bytes        write the stream\'s raw bytes exactly as received (to --out FILE or stdout).',
+  ].join('\n'),
+  flags: {
+    stream: { type: 'string', alias: 's', valueName: 'SID', desc: 'Stream id to replay (see "studio session streams")' },
+    at: { type: 'string', valueName: 'TIME', desc: 'Time-travel: ISO date, epoch ms or +SECONDS from start' },
+    bytes: { type: 'boolean', desc: 'Emit the raw bytes of --stream' },
+    out: { type: 'string', alias: 'o', valueName: 'FILE', desc: 'Write output to FILE (bytes mode) instead of stdout' },
+    speed: { type: 'number', valueName: 'X', default: 1, desc: 'Playback speed multiplier' },
+    instant: { type: 'boolean', desc: 'No waiting between events' },
+    'max-wait': { type: 'number', valueName: 'MS', default: 1500, desc: 'Cap on any single wait, in milliseconds' },
+    events: { type: 'boolean', desc: 'Show protocol events instead of the assembled text' },
+    limit: { type: 'number', alias: 'n', valueName: 'N', desc: 'Stop after N events' },
+  },
+  examples: ['studio replay latest', 'studio replay latest --stream s12 --speed 4', 'studio replay latest --at +12.5 --json', 'studio replay latest --stream s12 --bytes --out stream.bin'],
+  async run(ctx) {
+    const s = ctx.session(ctx.args[0]);
+    const f = ctx.flags;
+    if (f.at !== undefined && (f.stream || f.bytes)) throw usageError('--at cannot be combined with --stream/--bytes.');
+    if (f.speed <= 0) throw usageError('--speed must be greater than 0.');
+    await ctx.ensureDerived(s, { need: 'RECEIPT' });
+    const profile = ctx.profileFor(s);
+
+    // ---- time travel --------------------------------------------------------------------
+    if (f.at !== undefined) {
+      const t = parseAt(f.at, await sessionStartT(s));
+      const st = await stateAt(s, t, profile);
+      ctx.out.emit(st, (o) => {
+        o.heading(`${s.id} at ${new Date(t).toISOString()}`);
+        o.table(st.streams, [{ title: 'SID', key: 'sid' }, { title: 'TRANSPORT', get: (x) => x.transport }, { title: 'STATUS', get: (x) => x.status }, { title: 'BYTES', get: (x) => fmtBytes(x.bytes), align: 'right' }, { title: 'EVENTS', get: (x) => x.events, align: 'right' }, { title: 'ENDPOINT', get: (x) => x.endpoint, max: 60 }], { empty: 'No streams had started yet.' });
+        const withText = st.streams.filter((x) => x.assembledTexts?.length);
+        for (const x of withText) { o.line(''); o.line(o.c.bold(`${x.sid} assembled so far`)); for (const tx of x.assembledTexts) o.line(`  ${truncate(oneLine(tx.text ?? tx), 200)}`); }
+        o.line('');
+        o.kv([['visible blocks', st.dom.length], ['last navigation', st.nav.at(-1)?.url], ['recent actions', st.actions.slice(-3).map((a) => `${a.kind}${a.target?.label ? ` “${truncate(a.target.label, 24)}”` : ''}`).join(', ')], ['gaps so far', st.gaps.length]]);
+      });
+      return;
+    }
+
+    // ---- pick the stream ----------------------------------------------------------------
+    const streams = await readRows(s, 'streams');
+    let sid = f.stream;
+    if (!sid) {
+      const busiest = streams.filter((x) => isStreaming(x) && (x.events ?? 0) > 0).sort((a, b) => (b.events ?? 0) - (a.events ?? 0))[0];
+      if (!busiest) throw notFound(`${s.id} has no streaming stream with decoded events.`, `Browse streams with "studio session streams ${s.id}" or use --at to time-travel.`);
+      sid = busiest.sid;
+      ctx.out.info(`Replaying ${sid}: ${busiest.endpoint ?? busiest.url} (${busiest.events} events). Choose another with --stream.`);
+    }
+    const meta = streams.find((x) => x.sid === sid);
+    if (!meta) throw notFound(`No stream "${sid}" in ${s.id}.`, `List streams with "studio session streams ${s.id}".`);
+
+    // ---- raw bytes ----------------------------------------------------------------------
+    if (f.bytes) {
+      const { bytes, map } = await streamBytes(s, sid);
+      if (f.out) { mkdirSync(path.dirname(path.resolve(f.out)), { recursive: true }); writeFileSync(f.out, bytes); }
+      else if (ctx.out.json) { ctx.out.emit({ session: s.id, sid, total: bytes.length, chunks: map }); return; }
+      else process.stdout.write(bytes);
+      if (f.out) ctx.out.emit({ session: s.id, sid, file: path.resolve(f.out), bytes: bytes.length, chunks: map.length }, (o) => o.result(`Wrote ${fmtBytes(bytes.length)} (${map.length} chunks) to ${path.resolve(f.out)}`));
+      return;
+    }
+
+    // ---- timed replay -------------------------------------------------------------------
+    const assembledDoc = s.kv.get('ASSEMBLED', {})?.[sid];
+    const assemble = !!assembledDoc && !f.events;
+    const asm = assemble ? new DeltaAssembler(profile.decode?.delta ?? 'auto') : null;
+    let shown = '', prevT = null, n = 0, waited = 0, firstT = null, lastT = null;
+    const wait = async (t) => {
+      if (f.instant || prevT === null) return;
+      const ms = Math.min(f['max-wait'], Math.max(0, (t - prevT) / f.speed));
+      if (ms > 1) { waited += ms; await sleep(ms); }
+    };
+    const frames = [];
+    for (const ev of await readRows(s, 'events', { filter: (e) => e.sid === sid, limit: f.limit ?? Infinity })) {
+      await wait(ev.t);
+      prevT = ev.t; firstT ??= ev.t; lastT = ev.t; n++;
+      if (ctx.out.json) { frames.push({ seq: ev.seq, t: ev.t, offsetMs: ev.t - firstT, text: eventText(ev) }); continue; }
+      if (asm) {
+        if (ev.json === undefined || !asm.apply(structuredClone(ev.jsonNested?.json ?? ev.json))) continue;
+        const text = asm.texts(1)[0]?.text ?? '';
+        if (text.startsWith(shown)) ctx.out.raw(text.slice(shown.length));
+        else ctx.out.raw(`\n↻ ${text}`);
+        shown = text;
+      } else {
+        ctx.out.raw(`${oneLine(eventText(ev))}\n`);
+      }
+    }
+    if (ctx.out.json) { ctx.out.emit({ session: s.id, sid, events: n, durationMs: lastT - firstT, frames }); return; }
+    if (asm && shown) ctx.out.raw('\n');
+    ctx.out.info(`Replayed ${n} event(s) over ${fmtMs(lastT - firstT)} of original time${f.instant ? '' : ` (waited ${fmtMs(waited)} at ${f.speed}x)`}.`);
+  },
+});

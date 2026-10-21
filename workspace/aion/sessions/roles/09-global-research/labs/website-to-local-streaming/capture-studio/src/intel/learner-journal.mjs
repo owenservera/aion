@@ -58,6 +58,19 @@ export class LearnerJournal {
     if (snap.integrity) { const { integrity, ...body } = snap; if (digest(body) !== integrity) throw new Error('Learner snapshot integrity mismatch'); }
     return snap;
   }
+  diff(fromRevision, toRevision = this.version()) {
+    return diffLearnerStates(this.at(fromRevision), this.at(toRevision));
+  }
+  lineage({ limit = 50 } = {}) {
+    const revisions = this.versions().slice().reverse().slice(0, Number.isInteger(limit) && limit > 0 ? limit : 50);
+    return revisions.map((revision) => {
+      const state = this.at(revision);
+      return { revision, parentRevision: state.parentRevision ?? null, savedAt: state.savedAt ?? null,
+        integrityRecorded: !!state.integrity, models: Object.keys(state.models ?? {}).length,
+        acceptedCorrections: (state.corrections ?? []).filter((c) => !c.reverted && c.status !== 'rejected').length,
+        pendingProposals: (state.proposals ?? []).filter((p) => p.status === 'proposed').length };
+    });
+  }
   commit(state, expectedRevision) {
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw new RangeError('Invalid expected revision');
     mkdirSync(this.dir, { recursive: true });
@@ -84,4 +97,20 @@ export class LearnerJournal {
       return next;
     } finally { rmSync(this.lockDir, { recursive: true, force: true }); }
   }
+}
+
+// Metadata-only model evolution: no features, names, values or evidence contents copied.
+export function diffLearnerStates(before = {}, after = {}) {
+  const oldIds = new Map((before.corrections ?? []).map((c) => [c.id, c]));
+  const newIds = new Map((after.corrections ?? []).map((c) => [c.id, c]));
+  const oldModels = new Set(Object.keys(before.models ?? {})), newModels = new Set(Object.keys(after.models ?? {}));
+  const calibrationCount = (state) => Object.values(state.calibrator?.bins ?? {}).reduce((sum, bins) => sum + bins.reduce((n, bin) => n + bin.n, 0), 0);
+  return { fromRevision: revisionOf(before), toRevision: revisionOf(after),
+    correctionsAdded: [...newIds.keys()].filter((id) => !oldIds.has(id)),
+    correctionsRemoved: [...oldIds.keys()].filter((id) => !newIds.has(id)),
+    correctionsReverted: [...newIds].filter(([id, c]) => c.reverted && !oldIds.get(id)?.reverted).map(([id]) => id),
+    modelCountDelta: newModels.size - oldModels.size,
+    modelsAdded: [...newModels].filter((key) => !oldModels.has(key)).length,
+    modelsRemoved: [...oldModels].filter((key) => !newModels.has(key)).length,
+    calibrationObservationsDelta: calibrationCount(after) - calibrationCount(before) };
 }

@@ -13,6 +13,7 @@ import path from 'node:path';
 import { ROLES, PRIOR_FIELDS, PRIOR_ROLES } from './priors.mjs';
 import { tokens } from './schema.mjs';
 import { LearnerJournal } from './learner-journal.mjs';
+import { wilsonInterval } from './statistics.mjs';
 
 export { ROLES };
 
@@ -45,7 +46,7 @@ export function fieldFeatures(name, d = {}, ctx = {}) {
   if (ctx.depth !== undefined) f.push(`depth:${Math.min(ctx.depth, 3)}`);
   if (ctx.inArray) f.push('in_array');
   if (ctx.isKeyCandidate) f.push('keycand');
-  return f;
+  return [...new Set(f)];
 }
 
 // Turn a prior tuple into a pseudo schema description so priors and live data share features.
@@ -68,9 +69,19 @@ export class RoleModel {
   }
   train(features, role, weight = 1) {
     if (!ROLES.includes(role)) throw new Error(`unknown role ${role}`);
+    if (!Number.isFinite(weight) || weight <= 0) throw new RangeError('Training weight must be positive and finite');
     this.classCounts[role] += weight;
-    for (const f of features) { this.featCounts[role][f] = (this.featCounts[role][f] ?? 0) + weight; this.featTotals[role] += weight; this.vocab.add(f); }
+    for (const f of new Set(features)) { if (typeof f !== 'string' || !f) continue; this.featCounts[role][f] = (this.featCounts[role][f] ?? 0) + weight; this.featTotals[role] += weight; this.vocab.add(f); }
     this.examples += weight;
+  }
+  trainBatch(examples) { for (const e of examples) this.train(e.features, e.role, e.weight ?? 1); return this; }
+  decay(factor = 0.99) {
+    if (!Number.isFinite(factor) || factor <= 0 || factor > 1) throw new RangeError('Decay factor must be in (0, 1]');
+    for (const role of ROLES) {
+      this.classCounts[role] *= factor; this.featTotals[role] *= factor;
+      for (const feature of Object.keys(this.featCounts[role])) this.featCounts[role][feature] *= factor;
+    }
+    this.examples *= factor; return this;
   }
   // Log-likelihood contributions (unnormalised) so several scoped models can be combined.
   logScores(features) {
@@ -78,18 +89,33 @@ export class RoleModel {
     const out = {};
     for (const r of ROLES) {
       let s = Math.log((this.classCounts[r] + this.alpha) / (total + this.alpha * ROLES.length));
-      for (const f of features) s += Math.log(((this.featCounts[r][f] ?? 0) + this.alpha) / (this.featTotals[r] + this.alpha * V));
+      // Unseen features provide no learned evidence; don't bias toward small classes.
+      for (const f of new Set(features)) if (this.vocab.has(f)) s += Math.log(((this.featCounts[r][f] ?? 0) + this.alpha) / (this.featTotals[r] + this.alpha * V));
       out[r] = s;
     }
     return out;
   }
   predict(features) { return softmax(this.logScores(features)); }
+  explain(features, { limit = 12 } = {}) {
+    const dist = this.predict(features), ranked = Object.entries(dist).sort((a, b) => b[1] - a[1]);
+    const [winner, runnerUp] = ranked.map(([role]) => role), V = Math.max(1, this.vocab.size);
+    const contributions = [...new Set(features)].filter((f) => this.vocab.has(f)).map((feature) => ({ feature,
+      logOdds: Math.log(((this.featCounts[winner][feature] ?? 0) + this.alpha) / (this.featTotals[winner] + this.alpha * V))
+        - Math.log(((this.featCounts[runnerUp][feature] ?? 0) + this.alpha) / (this.featTotals[runnerUp] + this.alpha * V)) }))
+      .sort((a, b) => Math.abs(b.logOdds) - Math.abs(a.logOdds) || a.feature.localeCompare(b.feature));
+    return { role: winner, runnerUp, dist, margin: ranked[0][1] - ranked[1][1], examples: this.examples,
+      knownFeatures: contributions.length, unknownFeatures: [...new Set(features)].filter((f) => !this.vocab.has(f)), contributions: contributions.slice(0, limit) };
+  }
   toJSON() { return { classCounts: this.classCounts, featCounts: this.featCounts, featTotals: this.featTotals, vocab: [...this.vocab], examples: this.examples }; }
 }
 
 export function softmax(scores) {
-  const m = Math.max(...Object.values(scores));
-  const e = Object.fromEntries(Object.entries(scores).map(([k, v]) => [k, Math.exp(v - m)]));
+  const entries = Object.entries(scores); if (!entries.length) return {};
+  const infinite = entries.filter(([, v]) => v === Infinity);
+  if (infinite.length) return Object.fromEntries(entries.map(([k, v]) => [k, v === Infinity ? 1 / infinite.length : 0]));
+  if (entries.every(([, v]) => !Number.isFinite(v))) return Object.fromEntries(entries.map(([k]) => [k, 1 / entries.length]));
+  const m = Math.max(...entries.map(([, v]) => Number.isFinite(v) ? v : -Infinity));
+  const e = Object.fromEntries(entries.map(([k, v]) => [k, Number.isFinite(v) ? Math.exp(v - m) : 0]));
   const z = Object.values(e).reduce((a, b) => a + b, 0);
   return Object.fromEntries(Object.entries(e).map(([k, v]) => [k, v / z]));
 }
@@ -206,7 +232,7 @@ export class ScopedLearner {
     const legacyKey = !ctx.origin && !ctx.account && !ctx.page && !ctx.instanceId
       ? `${ctx.site ?? ''}|${ctx.typeKey ?? ''}|${name}` : null;
     const override = this.overrides[key] ?? (legacyKey ? this.overrides[legacyKey] : null);
-    if (override) return { dist: { [override]: 1 }, role: override, confidence: 1, source: 'instance-override' };
+    if (override) return { dist: { [override]: 1 }, role: override, confidence: 1, calibrated: 1, entropy: 0, margin: 1, source: 'instance-override' };
     const feats = fieldFeatures(name, d, ctx);
     const total = this.global.logScores(feats);
     let source = 'prior';
@@ -219,7 +245,8 @@ export class ScopedLearner {
     }
     const dist = softmax(total);
     const [role, p] = argmax(dist);
-    return { dist, role, confidence: p,
+    const ranked = Object.values(dist).sort((a, b) => b - a);
+    return { dist, role, confidence: p, margin: p - (ranked[1] ?? 0),
       calibrated: this.calibrator.calibrate('field_role', p), entropy: entropy(dist), source, features: feats };
   }
   _validate({ scope, name, role, ctx = {}, weight = 5 }) {
@@ -310,17 +337,38 @@ export class ScopedLearner {
 // --------------------------------------------------------------------------------------------
 export class Calibrator {
   constructor(state) { this.bins = state?.bins ?? {}; this.nBins = 10; }
-  _b(p) { return Math.min(this.nBins - 1, Math.floor(p * this.nBins)); }
+  _b(p) { return Math.max(0, Math.min(this.nBins - 1, Math.floor(p * this.nBins))); }
   observe(kind, p, accepted) {
+    if (!Number.isFinite(p) || p < 0 || p > 1) throw new RangeError('Confidence must be in [0, 1]');
     const k = (this.bins[kind] ??= Array.from({ length: this.nBins }, () => ({ n: 0, pos: 0, psum: 0 })));
     const b = k[this._b(p)]; b.n++; b.psum += p; if (accepted) b.pos++;
   }
   calibrate(kind, p) {
+    if (!Number.isFinite(p)) return null;
+    p = Math.max(0, Math.min(1, p));
     const k = this.bins[kind]; if (!k) return p;
     const b = k[this._b(p)]; if (b.n < 3) return p;
-    // Laplace-smoothed observed rate, shrunk toward the raw score when evidence is thin.
-    const rate = (b.pos + 1) / (b.n + 2), w = Math.min(1, b.n / 20);
-    return +(w * rate + (1 - w) * p).toFixed(3);
+    return +this.reliability(kind)[this._b(p)].calibrated.toFixed(3);
+  }
+  reliability(kind) {
+    const bins = this.bins[kind] ?? Array.from({ length: this.nBins }, () => ({ n: 0, pos: 0, psum: 0 }));
+    // Pool-adjacent-violators: more confident bins cannot acquire lower calibrated rates.
+    // Five pseudo-observations at the bin midpoint regularise thin/empty bins.
+    const blocks = [];
+    bins.forEach((bin, i) => {
+      blocks.push({ from: i, to: i, sum: bin.pos + 5 * (i + 0.5) / this.nBins, weight: bin.n + 5 });
+      while (blocks.length > 1) {
+        const a = blocks[blocks.length - 2], b = blocks.at(-1);
+        if (a.sum / a.weight <= b.sum / b.weight) break;
+        blocks.splice(-2, 2, { from: a.from, to: b.to, sum: a.sum + b.sum, weight: a.weight + b.weight });
+      }
+    });
+    return bins.map((bin, i) => {
+      const block = blocks.find((v) => i >= v.from && i <= v.to);
+      return { from: i / this.nBins, to: (i + 1) / this.nBins, observations: bin.n,
+        acceptanceRate: bin.n ? bin.pos / bin.n : null, rawMean: bin.n ? bin.psum / bin.n : null,
+        calibrated: block.sum / block.weight, interval: wilsonInterval(bin.pos, bin.n) };
+    });
   }
   ece(kind) {
     const k = this.bins[kind]; if (!k) return null;
@@ -332,9 +380,11 @@ export class Calibrator {
 
 // Static ECE for a list of (confidence, correct) pairs.
 export function expectedCalibrationError(pairs, nBins = 10) {
+  if (!Number.isInteger(nBins) || nBins < 1) throw new RangeError('nBins must be a positive integer');
   const bins = Array.from({ length: nBins }, () => ({ n: 0, c: 0, p: 0 }));
-  for (const [p, ok] of pairs) { const b = bins[Math.min(nBins - 1, Math.floor(p * nBins))]; b.n++; b.p += p; if (ok) b.c++; }
-  const N = pairs.length || 1;
+  let count = 0;
+  for (const [p, ok] of pairs) { if (!Number.isFinite(p) || p < 0 || p > 1) continue; const b = bins[Math.min(nBins - 1, Math.floor(p * nBins))]; b.n++; b.p += p; if (ok) b.c++; count++; }
+  const N = count || 1;
   return +bins.reduce((a, b) => a + (b.n ? (b.n / N) * Math.abs(b.c / b.n - b.p / b.n) : 0), 0).toFixed(4);
 }
 
@@ -342,10 +392,20 @@ export function expectedCalibrationError(pairs, nBins = 10) {
 // Active learning: the questions whose answers reduce the most expected uncertainty.
 // items: [{ id, kind, entropy|dist, impact (instances affected), prompt, choices }]
 // --------------------------------------------------------------------------------------------
-export function activeQuestions(items, n = 5) {
-  return items
+export function activeQuestions(items, n = 5, { maxPerGroup = Infinity } = {}) {
+  const ranked = items
     .map((it) => { const h = it.entropy ?? (it.dist ? entropy(it.dist) : 0); return { ...it, entropy: +h.toFixed(3), value: +(h * Math.log2(1 + (it.impact ?? 1))).toFixed(3) }; })
     .filter((x) => x.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, n);
+    .sort((a, b) => b.value - a.value || String(a.id).localeCompare(String(b.id)));
+  const groups = new Map(), seen = new Set(), chosen = [];
+  if (!(n > 0)) return chosen;
+  for (const item of ranked) {
+    const id = item.id ?? item.prompt;
+    if (id !== undefined && seen.has(id)) continue;
+    const group = item.group ?? item.typeKey ?? item.kind ?? 'other';
+    if ((groups.get(group) ?? 0) >= maxPerGroup) continue;
+    groups.set(group, (groups.get(group) ?? 0) + 1); if (id !== undefined) seen.add(id);
+    chosen.push(item); if (chosen.length >= n) break;
+  }
+  return chosen;
 }

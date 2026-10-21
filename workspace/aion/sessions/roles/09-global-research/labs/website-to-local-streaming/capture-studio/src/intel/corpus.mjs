@@ -3,6 +3,8 @@
 import { templateUrl } from '../shapes/infer.mjs';
 import { shapeKey } from './schema.mjs';
 
+export { CorpusSearchIndex, indexCorpus, rankCorpus } from './search.mjs';
+
 const PATCH_DIALECTS = new Set(['path-ops', 'json-patch', 'typed-events']);
 
 export function discriminatorOf(ev) {

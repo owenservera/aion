@@ -1,4 +1,5 @@
 import { foldRevision } from './history.mjs';
+import { stableStringify } from './similarity.mjs';
 
 // Canonical temporal evidence graph.
 //
@@ -27,6 +28,11 @@ export class TemporalGraph {
     }
     const rev = { t, changed: changed ?? Object.keys(attrs).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(attrs[k])), values: attrs, ...(removedFields.length ? { removed: removedFields } : {}), evidence };
     n.history.push(rev);
+    if (n.history.length > 1 && Number.isFinite(t) && t < n.lastT) {
+      // Online callers may ingest late evidence; current attrs must follow event time.
+      n.history.sort((a, b) => (a.t ?? Infinity) - (b.t ?? Infinity));
+      n.attrs = n.history.reduce((state, revision) => foldRevision(state, revision), {});
+    }
     this.changes.push({ t, eid, revision: n.history.length, changed: rev.changed });
     return n;
   }
@@ -34,11 +40,21 @@ export class TemporalGraph {
   relate({ kind, from, to, confidence, status = 'hypothesis', evidence, t, attrs }) {
     const id = `${kind}:${from}->${to}`;
     const prev = this.edges.get(id);
-    if (prev && prev.confidence >= confidence) return prev;
-    const startedAt = prev?.t ?? (Number.isFinite(t) ? t : null);
+    const when = Number.isFinite(t) ? t : null;
+    const score = Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : null;
+    const startedAt = Number.isFinite(prev?.t) && when !== null ? Math.min(prev.t, when) : prev?.t ?? when;
     const statusHistory = prev?.statusHistory ?? (prev ? [{ t: prev.t ?? null, status: prev.status }] : [{ t: startedAt, status }]);
-    const e = { id, kind, from, to, confidence: +(+confidence).toFixed(3),
-      status: prev?.status ?? status, statusHistory, evidence, t: startedAt, ...(attrs ? { attrs } : {}) };
+    if (statusHistory.length && (statusHistory[0].t === null || statusHistory[0].t === prev?.t)) statusHistory[0] = { ...statusHistory[0], t: startedAt };
+    const observations = prev?.observations ?? [];
+    const observation = { t: when, confidence: score, evidence, ...(attrs ? { attrs } : {}) };
+    if (!observations.some((o) => stableStringify(o) === stableStringify(observation))) observations.push(observation);
+    const stronger = !prev || (score ?? -1) > (prev.confidence ?? -1);
+    const e = { id, kind, from, to, confidence: stronger ? score : prev.confidence,
+      status: prev?.status ?? status, statusHistory,
+      evidence: stronger ? evidence : prev.evidence, t: startedAt,
+      observations, support: observations.length,
+      lastT: observations.reduce((latest, o) => o.t === null ? latest : latest === null ? o.t : Math.max(latest, o.t), null),
+      ...((stronger ? attrs : prev?.attrs) ? { attrs: stronger ? attrs : prev.attrs } : {}) };
     this.edges.set(id, e);
     return e;
   }
@@ -72,12 +88,19 @@ export class TemporalGraph {
         .filter((h) => Number.isFinite(h.t) && h.t <= t).sort((a, b) => a.t - b.t);
       const historicalStatus = statuses.at(-1)?.status;
       if (!historicalStatus || historicalStatus === 'rejected') continue;
-      edges.push({ ...e, status: historicalStatus });
+      const observations = (e.observations ?? []).filter((o) => Number.isFinite(o.t) && o.t <= t).sort((a, b) => a.t - b.t);
+      const best = observations.reduce((a, b) => !a || (b.confidence ?? -1) > (a.confidence ?? -1) ? b : a, null);
+      edges.push({ ...e, status: historicalStatus, statusHistory: statuses,
+        ...(best ? { confidence: best.confidence, evidence: best.evidence, attrs: best.attrs } : {}),
+        observations, support: observations.length, lastT: observations.at(-1)?.t ?? e.t });
     }
     return { t, nodes, edges };
   }
 
   neighbors(eid) { return [...this.edges.values()].filter((e) => e.from === eid || e.to === eid); }
+
+  neighborhood(eid, options = {}) { return graphNeighborhood(this, eid, options); }
+  rank(options = {}) { return rankGraphNodes(this, options); }
 
   toJSON() {
     return { types: [...this.types.values()], nodes: [...this.nodes.values()], edges: [...this.edges.values()], stats: { nodes: this.nodes.size, edges: this.edges.size, changes: this.changes.length, byKind: countBy([...this.edges.values()], 'kind'), byStatus: countBy([...this.edges.values()], 'status') } };
@@ -102,17 +125,28 @@ export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps =
     // Current state = folded state; also carry the entity's identity confidence.
     const node = g.nodes.get(e.eid);
     node.attrs = e.revisions.some((r) => r.removed?.length) ? nFromHistory(node.history) : e.attrs; node.confidence = e.confidence; node.confidenceBasis = e.confidenceBasis; node.idBasis = e.idBasis; node.anchor = e.anchor;
-    if (e.key !== null) keyIndex.set(`${e.type}|${e.scope}|${e.key}`, e.eid);
+    if (e.key !== null && e.method === 'key') {
+      const key = JSON.stringify([e.type, e.scope, e.keyType ?? typeof e.attrs?.[model.types.find((t) => t.id === e.type)?.key?.field], e.key]);
+      const matches = keyIndex.get(key) ?? []; matches.push(e.eid); keyIndex.set(key, matches);
+    }
   }
   // Instance-level reference edges from type-level inclusion dependencies.
   for (const rel of model.relationships) {
     if (rel.kind !== 'references') continue;
     const src = resolutions.find((r) => r.type === rel.from);
     for (const e of src?.entities ?? []) {
-      const v = e.attrs?.[rel.field];
-      if (v === undefined || v === null) continue;
-      const target = keyIndex.get(`${rel.to}|${e.scope}|${String(v)}`);
-      if (target) g.relate({ kind: 'references', from: e.eid, to: target, confidence: rel.confidence, evidence: { relationship: rel.id, field: rel.field }, t: e.first });
+      // Reference values may change. Never backdate final-state foreign keys to entity birth.
+      const revisions = e.revisions?.length ? e.revisions : [{ t: e.first, values: e.attrs }];
+      for (const rv of revisions) {
+        const v = rv.values?.[rel.field];
+        if (v === undefined || v === null) continue;
+        const matches = keyIndex.get(JSON.stringify([rel.to, e.scope, typeof v, String(v)]));
+        if (matches?.length !== 1) continue;
+        const target = matches[0], targetTime = g.nodes.get(target)?.firstT;
+        g.relate({ kind: 'references', from: e.eid, to: target, confidence: rel.confidence,
+          evidence: { relationship: rel.id, field: rel.field, session: rv.session ?? session?.id, sid: rv.sid, seq: rv.seq, observedAt: rv.t },
+          t: Number.isFinite(rv.t) && Number.isFinite(targetTime) ? Math.max(rv.t, targetTime) : null });
+      }
     }
   }
   // Composition at instance level: same observation, nested path.
@@ -121,10 +155,78 @@ export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps =
     const parent = resolutions.find((r) => r.type === rel.from), child = resolutions.find((r) => r.type === rel.to);
     if (!parent || !child) continue;
     const bySeq = new Map();
-    for (const e of parent.entities) for (const rv of e.revisions) if (rv.seq !== null && rv.seq !== undefined) bySeq.set(`${rv.session ?? ''}|${rv.sid}|${rv.seq}`, e.eid);
-    for (const e of child.entities) for (const rv of e.revisions) { const p = bySeq.get(`${rv.session ?? ''}|${rv.sid}|${rv.seq}`); if (p) g.relate({ kind: 'contains', from: p, to: e.eid, confidence: rel.confidence, evidence: { relationship: rel.id }, t: rv.t }); }
+    for (const e of parent.entities) for (const rv of e.occurrences ?? e.revisions) if (rv.seq !== null && rv.seq !== undefined) {
+      const key = JSON.stringify([rv.session ?? '', rv.sid, rv.seq]), entries = bySeq.get(key) ?? [];
+      entries.push({ eid: e.eid, location: rv.location }); bySeq.set(key, entries);
+    }
+    for (const e of child.entities) for (const rv of e.occurrences ?? e.revisions) {
+      const candidates = (bySeq.get(JSON.stringify([rv.session ?? '', rv.sid, rv.seq])) ?? [])
+        .filter((p) => !p.location || !rv.location || rv.location.startsWith(p.location + '.') || rv.location.startsWith(p.location + '['));
+      const unique = [...new Set(candidates.map((p) => p.eid))];
+      if (unique.length === 1) g.relate({ kind: 'contains', from: unique[0], to: e.eid, confidence: rel.confidence,
+        evidence: { relationship: rel.id, session: rv.session ?? session?.id, sid: rv.sid, seq: rv.seq, location: rv.location }, t: rv.t });
+    }
   }
   for (const h of renderedHyps) if (h.to) g.relate({ kind: 'rendered_as', from: h.from.entity ?? `stream:${h.from.stream}`, to: `dom:${h.to.element}`, confidence: h.score, status: h.status === 'likely' ? 'hypothesis' : h.status, evidence: h.features, t: h.t ?? null });
   for (const h of actionHyps) g.relate({ kind: 'preceded', from: `action:${h.from.actionSeq}`, to: `stream:${h.to.sid}`, confidence: h.score, status: h.status === 'likely' ? 'hypothesis' : h.status, evidence: { ...h.features, scoredRelation: h.relation, score: h.score }, t: h.t ?? null });
   return g;
+}
+
+function graphView(graph, at) {
+  if (at !== undefined && !Number.isFinite(at)) throw new RangeError('Historical time must be finite');
+  if (at !== undefined && typeof graph.stateAt === 'function') return graph.stateAt(at);
+  const view = { nodes: graph.nodes instanceof Map ? [...graph.nodes.values()] : graph.nodes ?? [],
+    edges: graph.edges instanceof Map ? [...graph.edges.values()] : graph.edges ?? [] };
+  if (at === undefined) return view;
+  const temporal = new TemporalGraph();
+  temporal.nodes = new Map(view.nodes.map((n) => [n.eid, n]));
+  temporal.edges = new Map(view.edges.map((e) => [e.id, e]));
+  return temporal.stateAt(at);
+}
+
+export function graphNeighborhood(graph, eid, { depth = 2, direction = 'both', kinds, minConfidence = 0, maxNodes = 200, at } = {}) {
+  if (!['both', 'out', 'in'].includes(direction)) throw new Error('Invalid traversal direction');
+  const view = graphView(graph, at), adjacency = new Map();
+  const allowed = view.edges.filter((e) => e.status !== 'rejected' && (e.confidence ?? 0) >= minConfidence && (!kinds || kinds.includes(e.kind)));
+  for (const edge of allowed) {
+    for (const [from, to] of [...(direction !== 'in' ? [[edge.from, edge.to]] : []), ...(direction !== 'out' ? [[edge.to, edge.from]] : [])]) {
+      if (!adjacency.has(from)) adjacency.set(from, []); adjacency.get(from).push({ to, edge });
+    }
+  }
+  const cap = Number.isInteger(maxNodes) && maxNodes > 0 ? maxNodes : 200;
+  const distances = new Map([[eid, 0]]), queue = [eid], edges = new Map(); let truncated = false;
+  for (let i = 0; i < queue.length; i++) {
+    const id = queue[i], distance = distances.get(id); if (distance >= depth) continue;
+    for (const next of adjacency.get(id) ?? []) {
+      if (!distances.has(next.to)) {
+        if (distances.size >= cap) { truncated = true; continue; }
+        distances.set(next.to, distance + 1); queue.push(next.to);
+      }
+      edges.set(next.edge.id, next.edge);
+    }
+  }
+  const nodes = new Map(view.nodes.map((node) => [node.eid, node]));
+  return { root: eid, nodes: queue.map((id) => ({ ...(nodes.get(id) ?? { eid: id, external: true }), distance: distances.get(id) })), edges: [...edges.values()], truncated };
+}
+
+// Confidence-weighted PageRank, with optional query-biased seeds. Rejected edges never vote.
+export function rankGraphNodes(graph, { damping = 0.85, iterations = 60, tolerance = 1e-8, seeds = [], at } = {}) {
+  if (!Number.isFinite(damping) || damping <= 0 || damping >= 1) throw new RangeError('damping must be in (0, 1)');
+  const view = graphView(graph, at), ids = view.nodes.map((n) => n.eid).sort(), known = new Set(ids);
+  if (!ids.length) return [];
+  const selected = new Set(seeds.filter((id) => known.has(id)));
+  const teleport = new Map(ids.map((id) => [id, selected.size ? (selected.has(id) ? 1 / selected.size : 0) : 1 / ids.length]));
+  const outgoing = new Map(ids.map((id) => [id, []])), totals = new Map();
+  for (const edge of view.edges) if (edge.status !== 'rejected' && known.has(edge.from) && known.has(edge.to) && edge.confidence > 0) {
+    outgoing.get(edge.from).push(edge); totals.set(edge.from, (totals.get(edge.from) ?? 0) + edge.confidence);
+  }
+  let ranks = new Map(teleport);
+  for (let step = 0; step < iterations; step++) {
+    let dangling = 0; for (const id of ids) if (!totals.get(id)) dangling += ranks.get(id);
+    const next = new Map(ids.map((id) => [id, (1 - damping + damping * dangling) * teleport.get(id)]));
+    for (const id of ids) for (const edge of outgoing.get(id)) next.set(edge.to, next.get(edge.to) + damping * ranks.get(id) * edge.confidence / totals.get(id));
+    const delta = ids.reduce((sum, id) => sum + Math.abs(next.get(id) - ranks.get(id)), 0); ranks = next;
+    if (delta < tolerance) break;
+  }
+  return ids.map((eid) => ({ eid, score: +ranks.get(eid).toFixed(8) })).sort((a, b) => b.score - a.score || a.eid.localeCompare(b.eid));
 }

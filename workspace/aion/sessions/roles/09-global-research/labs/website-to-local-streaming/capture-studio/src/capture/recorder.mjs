@@ -3,8 +3,8 @@
 // record through the StreamReducer (L2) so the live studio shows exactly what replay would.
 import { EventEmitter } from 'node:events';
 import os from 'node:os';
-import { CdpConnection } from '../cdp/client.mjs';
-import { browserVersion, listTargets, pickTarget } from '../cdp/discovery.mjs';
+import { CdpConnection, sleep } from '../cdp/client.mjs';
+import { browserVersion, listTargets, pickTarget, browserWsUrl, targetStillPresent } from '../cdp/discovery.mjs';
 import { Session } from '../store/session.mjs';
 import { NetworkRecorder } from './network.mjs';
 import { DomObserver } from './dom.mjs';
@@ -14,7 +14,11 @@ import { redactUrl } from './redact.mjs';
 import { collectorSourceSha, VERSION } from '../config.mjs';
 
 export class Recorder extends EventEmitter {
-  constructor({ sessionsDir, profileStore, familyStore = null, port = 9222, rawOptions = {}, allBodies = false, liveEventsPerStream = 2000, maxSessionBytes = 0, learner = null }) {
+  constructor({
+    sessionsDir, profileStore, familyStore = null, port = 9222, rawOptions = {}, allBodies = false,
+    liveEventsPerStream = 2000, maxSessionBytes = 0, learner = null, maxStreamBytes = 0,
+    reconnect = true, maxReconnectAttempts = 6, reconnectBaseDelayMs = 400, heartbeatMs = 15_000,
+  }) {
     super();
     this.setMaxListeners(50);
     this.sessionsDir = sessionsDir;
@@ -26,6 +30,15 @@ export class Recorder extends EventEmitter {
     this.familyStore = familyStore;
     this.learner = learner; // optional ScopedLearner: supplies the suggestion calibrator
     this.maxSessionBytes = maxSessionBytes; // 0 = unlimited; otherwise stop cleanly with reason quota_reached
+    this.maxStreamBytes = maxStreamBytes;   // 0 = unlimited per-stream body cap
+    // DevTools transport resilience. Reconnecting cannot resume a response body that was already
+    // in flight (Chrome only streams content for requests armed while live), so every reconnect is
+    // recorded with an explicit coverage note and affected streams are marked.
+    this.reconnect = reconnect;
+    this.maxReconnectAttempts = maxReconnectAttempts;
+    this.reconnectBaseDelayMs = reconnectBaseDelayMs;
+    this.heartbeatMs = heartbeatMs;
+    this.reconnects = 0;
     this.paused = false;
     this.state = 'idle';
   }
@@ -60,15 +73,16 @@ export class Recorder extends EventEmitter {
     this.eventsDs = this.session.dataset('events');
 
     const append = (rec) => this._append(rec);
-    this.net = new NetworkRecorder({ append, profile, getPageUrl: () => this.pageUrl, options: { allBodies: this.allBodies } });
+    this.net = new NetworkRecorder({ append, profile, getPageUrl: () => this.pageUrl, options: { allBodies: this.allBodies, maxStreamBytes: this.maxStreamBytes } });
     this.net.on('error', (e) => this.emit('warn', e));
     this.dom = new DomObserver({ append, profile });
 
-    this.conn = await CdpConnection.connect(version.webSocketDebuggerUrl);
-    this.conn.on('close', () => this._onLost('devtools_connection_closed'));
+    this.targetId = target.id;
+    this.conn = await CdpConnection.connect(version.webSocketDebuggerUrl, { requestTimeoutMs: 30_000 });
+    if (this.heartbeatMs) this.conn.startHeartbeat({ intervalMs: this.heartbeatMs });
+    this._wireConnection();
     this.page = await this.conn.attach(target.id);
-    this.page.on('detached', (p) => this._onLost(`target_detached:${p?.reason ?? 'unknown'}`));
-    this.page.on('Inspector.targetCrashed', () => this._onLost('target_crashed'));
+    this._wirePage();
 
     this.state = 'recording';
     this.startedAt = Date.now();
@@ -77,7 +91,47 @@ export class Recorder extends EventEmitter {
       coverage: 'Requests and WebSocket connections opened before this record are not observed at all (a long-lived socket stays invisible until the page reconnects or is reloaded); history earlier than attach is unknown unless the page re-sends it.',
     });
 
-    await this.net.attach(this.page, 'p', { type: 'page' });
+    await this._setupPage({ reconnected: false });
+
+    // Apify-style persistState: periodic durable run state for crash forensics/resume.
+    this.persistTimer = setInterval(() => this._persist(), 5000);
+    this.statusTimer = setInterval(() => this.emit('status', this.status()), 1000);
+    this.emit('started', { id: this.session.id, target, profile: { name: profile.name, version: profile.version } });
+    return this.session;
+  }
+
+  // Connection-level listeners. Re-wired on every (re)connection.
+  _wireConnection() {
+    this.conn.on('close', () => this._onLost('devtools_connection_closed'));
+    this.conn.on('unhealthy', (e) => this._append({ k: 'lifecycle', event: 'devtools_heartbeat_failed', error: String(e?.message ?? e) }));
+    this.childN ??= 0;
+    // Child targets (out-of-process iframes, dedicated workers) carry their own network traffic.
+    this.conn.on('child-attached', async (p, parentSessionId) => {
+      if (parentSessionId !== this.page?.sessionId) return;
+      const child = this.conn.session(p.sessionId);
+      if (!child) return;
+      const tag = `c${++this.childN}`;
+      this._append({ k: 'lifecycle', event: 'child_target_attached', tag, targetType: p.targetInfo.type, url: redactUrl(p.targetInfo.url) });
+      try {
+        await this.net.attach(child, tag, p.targetInfo);
+        await child.send('Runtime.runIfWaitingForDebugger').catch(() => {});
+      } catch (e) { this._append({ k: 'lifecycle', event: 'child_target_failed', tag, error: String(e.message ?? e) }); }
+      child.on('detached', () => this.net.detachSession(p.sessionId));
+    });
+  }
+
+  _wirePage() {
+    this.page.on('detached', (p) => this._onLost(`target_detached:${p?.reason ?? 'unknown'}`));
+    this.page.on('Inspector.targetCrashed', () => this._onLost('target_crashed'));
+  }
+
+  // Everything that must exist on the page session: network observation, page lifecycle, the DOM
+  // agent and auto-attach. Idempotent, so it can be re-run after a reconnect.
+  async _setupPage({ reconnected = false } = {}) {
+    const append = (rec) => this._append(rec);
+    const profile = this.profile;
+    if (reconnected) await this.net.reattach(this.page, 'p', { type: 'page' });
+    else await this.net.attach(this.page, 'p', { type: 'page' });
     await this.page.send('Page.enable');
     this.page.on('Page.frameNavigated', ({ frame }) => {
       if (frame.parentId) return;
@@ -96,29 +150,47 @@ export class Recorder extends EventEmitter {
 
     if (profile.dom?.enabled !== false) {
       try { await this.dom.attach(this.page); }
-      catch (e) { append({ k: 'lifecycle', event: 'dom_agent_failed', error: String(e.message ?? e) }); }
+      catch (e) { append({ k: 'lifecycle', event: 'dom_agent_failed', error: String(e.message ?? e), reconnected }); }
     }
+    await this.page.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true })
+      .catch((e) => append({ k: 'lifecycle', event: 'auto_attach_unavailable', error: String(e.message) }));
+  }
 
-    // Child targets (out-of-process iframes, dedicated workers) carry their own network traffic.
-    let childN = 0;
-    this.conn.on('child-attached', async (p, parentSessionId) => {
-      if (parentSessionId !== this.page.sessionId) return;
-      const child = this.conn.session(p.sessionId);
-      if (!child) return;
-      const tag = `c${++childN}`;
-      append({ k: 'lifecycle', event: 'child_target_attached', tag, targetType: p.targetInfo.type, url: redactUrl(p.targetInfo.url) });
-      try {
-        await this.net.attach(child, tag, p.targetInfo);
-        await child.send('Runtime.runIfWaitingForDebugger').catch(() => {});
-      } catch (e) { append({ k: 'lifecycle', event: 'child_target_failed', tag, error: String(e.message ?? e) }); }
-    });
-    await this.page.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true }).catch((e) => append({ k: 'lifecycle', event: 'auto_attach_unavailable', error: String(e.message) }));
-
-    // Apify-style persistState: periodic durable run state for crash forensics/resume.
-    this.persistTimer = setInterval(() => this._persist(), 5000);
-    this.statusTimer = setInterval(() => this.emit('status', this.status()), 1000);
-    this.emit('started', { id: this.session.id, target, profile: { name: profile.name, version: profile.version } });
-    return this.session;
+  // Reconnect the DevTools transport and re-attach to the same tab.
+  // Returns true when recording continues; false when the run must stop.
+  async _tryReconnect(reason) {
+    if (!this.reconnect || this.state !== 'recording' || this._reconnecting) return false;
+    this._reconnecting = true;
+    const lostAt = Date.now();
+    const openStreams = this.net.openStreams();
+    this._append({ k: 'reconnect.attempt', reason, openStreams, coverage: 'Bytes delivered while the DevTools transport was down are UNOBSERVED; response bodies already in flight cannot be re-armed and are marked body.excluded.' });
+    try {
+      for (let attempt = 1; attempt <= this.maxReconnectAttempts; attempt++) {
+        await sleep(Math.min(8000, this.reconnectBaseDelayMs * 2 ** (attempt - 1)));
+        if (this.state !== 'recording') break;
+        try {
+          const present = await targetStillPresent(this.targetId, { port: this.port });
+          if (!present.present) { this._append({ k: 'reconnect.failed', reason: 'target_gone', attempt }); return false; }
+          const wsUrl = await browserWsUrl({ port: this.port });
+          const conn = await CdpConnection.connect(wsUrl, { requestTimeoutMs: 30_000 });
+          this.conn = conn;
+          if (this.heartbeatMs) conn.startHeartbeat({ intervalMs: this.heartbeatMs });
+          this._wireConnection();
+          this.page = await conn.attach(this.targetId);
+          this._wirePage();
+          await this._setupPage({ reconnected: true });
+          this.reconnects++;
+          this._append({ k: 'reconnect.ok', reason, attempt, downtimeMs: Date.now() - lostAt, openStreams, reconnects: this.reconnects });
+          this.emit('reconnected', { attempt, downtimeMs: Date.now() - lostAt });
+          return true;
+        } catch (e) {
+          this._lastReconnectError = String(e?.message ?? e);
+          this._append({ k: 'lifecycle', event: 'reconnect_attempt_failed', attempt, error: this._lastReconnectError });
+        }
+      }
+      this._append({ k: 'reconnect.failed', reason, attempts: this.maxReconnectAttempts, error: this._lastReconnectError ?? 'unknown' });
+      return false;
+    } finally { this._reconnecting = false; }
   }
 
   _maybeSwitchProfile(url) {
@@ -193,12 +265,24 @@ export class Recorder extends EventEmitter {
       queue: this.session.raw.queueDepth,
       stats: { raw: { ...this.session.raw.stats }, network: { ...this.net.stats }, dom: { ...this.dom.stats } },
       openStreams: this.net.openStreams().length,
-      summary: { transportCounts: this.reducer.summary().transportCounts, gaps: this.reducer.gaps.length },
+      transport: {
+        reconnects: this.reconnects,
+        reconnecting: !!this._reconnecting,
+        lastReconnectError: this._lastReconnectError ?? null,
+        cdp: this.conn ? { closed: this.conn.closed, lastPingMs: this.conn.lastPingMs ?? null, sent: this.conn.stats.sent, events: this.conn.stats.events, timeouts: this.conn.stats.timeouts } : null,
+      },
+      summary: (() => { const s = this.reducer.summary(); return { transportCounts: s.transportCounts, transportDetailCounts: s.transportDetailCounts, appProtocols: s.appProtocols, gaps: this.reducer.gaps.length, stalledStreams: s.stalledStreams, totals: s.totals }; })(),
     };
   }
 
   async _onLost(reason) {
     if (this.state !== 'recording') return;
+    // Only a dropped DevTools transport is recoverable: a detached or crashed target means the
+    // tab the person chose is gone, and silently re-attaching to something else would be a lie.
+    if (reason === 'devtools_connection_closed' && this.reconnect) {
+      this.net.markConnectionLost(reason);
+      if (await this._tryReconnect(reason)) return;
+    }
     await this.stop({ reason });
   }
 
@@ -206,8 +290,13 @@ export class Recorder extends EventEmitter {
     if (this.state !== 'recording') return null;
     this.state = 'stopping';
     clearInterval(this.persistTimer); clearInterval(this.statusTimer);
+    this.conn?.stopHeartbeat?.();
     const open = this.net.openStreams();
-    this._append({ k: 'run.end', reason, openStreamsAtEnd: open, coverage: open.length ? 'Streams listed in openStreamsAtEnd were still receiving data; their suffix is UNKNOWN.' : 'All observed streams reached a terminal state.' });
+    this._append({
+      k: 'run.end', reason, openStreamsAtEnd: open, openStreamDetail: this.net.openStreamDetail?.() ?? undefined,
+      reconnects: this.reconnects,
+      coverage: open.length ? 'Streams listed in openStreamsAtEnd were still receiving data; their suffix is UNKNOWN.' : 'All observed streams reached a terminal state.',
+    });
     // Final rendered-structure observation while still attached (feeds family records and shapes).
     if (this.profile.dom?.enabled !== false && this.page && !this.page.detached) {
       try { this.session.kv.set('DOM_INSPECT', await this.dom.inspect()); } catch (e) { this.session.kv.set('DOM_INSPECT', { error: String(e.message ?? e) }); }
@@ -224,6 +313,8 @@ export class Recorder extends EventEmitter {
     this.session.meta.endedAt = new Date().toISOString();
     this.session.meta.endReason = reason;
     this.session.meta.integrity = { ok: verify.ok, records: verify.records, gapRecords: verify.gapRecords, droppedRecords: verify.droppedRecords };
+    this.session.meta.transport = { reconnects: this.reconnects, maxStreamBytes: this.maxStreamBytes || null };
+    try { this.session.meta.rawIndex = this.session.rawStats(); } catch { /* index is derived data */ }
     this.session.saveMeta();
     this.state = 'idle';
     const result = { id: this.session.id, dir: this.session.dir, reason, verify, summary: this.reducer.summary() };

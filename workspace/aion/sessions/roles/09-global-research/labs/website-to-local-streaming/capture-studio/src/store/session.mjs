@@ -1,13 +1,18 @@
 // Session storage, modelled on Apify's storage triad:
-//   raw/       append-only source of truth (RawLog)          ~ request/response stream archive
-//   datasets/  append-only structured records (JSONL)         ~ Apify Dataset
-//   kv/        named JSON/blob values (INPUT, STATE, ...)     ~ Apify Key-Value Store
+//   raw/       append-only source of truth (RawLog) + derived seek index   ~ request/response archive
+//   datasets/  append-only structured records (JSONL)                      ~ Apify Dataset
+//   kv/        named JSON/blob values (INPUT, STATE, ...)                  ~ Apify Key-Value Store
 // plus session.json with run metadata, status and stats.
+//
+// Reads go through store/raw-index.mjs, which seeks with the sparse index when one exists and
+// falls back to a full ordered scan when it does not. The index is always rebuildable.
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, appendFileSync, renameSync, createReadStream, statSync, rmSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import readline from 'node:readline';
 import path from 'node:path';
 import { RawLog } from './raw-log.mjs';
+import { iterateRaw, iterateStreamRecords, loadRawIndex, buildRawIndex, rawStats, readStreamIndex, readManifest, segmentFiles } from './raw-index.mjs';
+import { compactSession, estimateCompaction, dirBytes } from './compact.mjs';
 
 export class KeyValueStore {
   constructor(dir) { this.dir = dir; mkdirSync(dir, { recursive: true }); }
@@ -26,6 +31,9 @@ export class KeyValueStore {
     const raw = readFileSync(p, 'utf8');
     return p.endsWith('.json') ? JSON.parse(raw) : raw;
   }
+  has(key) { return existsSync(this._p(key)); }
+  remove(key) { const p = this._p(key); if (existsSync(p)) { rmSync(p); return true; } return false; }
+  stat(key) { const p = this._p(key); return existsSync(p) ? { key, bytes: statSync(p).size, modified: statSync(p).mtimeMs } : null; }
   keys() { return readdirSync(this.dir).filter((f) => !f.endsWith('.tmp')); }
 }
 
@@ -38,12 +46,31 @@ export class Dataset {
     this.count += arr.length;
   }
   reset() { if (existsSync(this.file)) rmSync(this.file); this.count = 0; }
-  async *iterate() {
+  exists() { return existsSync(this.file); }
+  bytes() { return existsSync(this.file) ? statSync(this.file).size : 0; }
+  async *iterate({ from = 0, limit = Infinity, filter = null } = {}) {
     if (!existsSync(this.file)) return;
     const rl = readline.createInterface({ input: createReadStream(this.file), crlfDelay: Infinity });
-    for await (const line of rl) if (line.trim()) yield JSON.parse(line);
+    let i = 0, yielded = 0;
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      if (i++ < from) continue;
+      let v; try { v = JSON.parse(line); } catch { continue; }
+      if (filter && !filter(v)) continue;
+      yield v;
+      if (++yielded >= limit) return;
+    }
   }
   async toArray(limit = Infinity) { const out = []; for await (const i of this.iterate()) { out.push(i); if (out.length >= limit) break; } return out; }
+  async size() { let n = 0; for await (const _ of this.iterate()) n++; return n; }  // eslint-disable-line no-unused-vars
+  // Last n records without loading the whole file into memory.
+  async tail(n = 50) {
+    const ring = new Array(n);
+    let i = 0;
+    for await (const v of this.iterate()) { ring[i % n] = v; i++; }
+    if (i <= n) return ring.slice(0, i);
+    return [...ring.slice(i % n), ...ring.slice(0, i % n)];
+  }
 }
 
 export function newSessionId(site = 'site') {
@@ -78,33 +105,64 @@ export class Session {
   }
 
   get id() { return this.meta.id; }
+  get rawDir() { return path.join(this.dir, 'raw'); }
   dataset(name) { return new Dataset(path.join(this.dir, 'datasets', `${name}.jsonl`)); }
+  datasets() {
+    const d = path.join(this.dir, 'datasets');
+    if (!existsSync(d)) return [];
+    return readdirSync(d).filter((f) => f.endsWith('.jsonl')).map((f) => ({ name: f.slice(0, -6), bytes: statSync(path.join(d, f)).size }));
+  }
   saveMeta() { const p = path.join(this.dir, 'session.json'); writeFileSync(p + '.tmp', JSON.stringify(this.meta, null, 2)); renameSync(p + '.tmp', p); }
 
   // Iterate raw records in seq order across all segments (including an unclosed one after a crash).
-  async *records({ fromSeq = 0 } = {}) {
-    const rawDir = path.join(this.dir, 'raw');
-    if (!existsSync(rawDir)) return;
-    const files = readdirSync(rawDir).filter((f) => /^\d{6}\.jsonl$/.test(f)).sort();
-    for (const f of files) {
-      const rl = readline.createInterface({ input: createReadStream(path.join(rawDir, f)), crlfDelay: Infinity });
-      for await (const line of rl) {
-        if (!line) continue;
-        let r;
-        try { r = JSON.parse(line); } catch { yield { k: 'corrupt', file: f, note: 'unparseable line (likely torn write at crash)' }; continue; }
-        if (r.seq > fromSeq) yield r;
-      }
-    }
+  // Accepts the original { fromSeq } plus optional toSeq / time window / kind and stream filters.
+  // When a seek index exists it is used to skip straight to the first interesting byte.
+  async *records(opts = {}) {
+    if (!existsSync(this.rawDir)) return;
+    yield* iterateRaw(this.rawDir, opts);
+  }
+
+  // Records belonging to one stream (skips whole segments via the stream locator).
+  async *streamRecords(sid, opts = {}) {
+    if (!existsSync(this.rawDir)) return;
+    yield* iterateStreamRecords(this.rawDir, sid, opts);
+  }
+
+  // Index access / maintenance -----------------------------------------------------------------
+  rawIndex() { return loadRawIndex(this.rawDir); }
+  rawStats() { return rawStats(this.rawDir); }
+  streamIndex() { return readStreamIndex(this.rawDir); }
+  manifest() { return readManifest(this.rawDir); }
+  segments() { return segmentFiles(this.rawDir); }
+  async reindex(opts = {}) { return buildRawIndex(this.rawDir, { write: true, ...opts }); }
+  async ensureIndex(opts = {}) {
+    const idx = loadRawIndex(this.rawDir);
+    if (idx.indexed) return { alreadyIndexed: true, segments: idx.segments.length };
+    return buildRawIndex(this.rawDir, { write: true, ...opts });
+  }
+
+  // Compaction ---------------------------------------------------------------------------------
+  async compact(opts = {}) { return compactSession(this, opts); }
+  async compactionEstimate(opts = {}) { return estimateCompaction(this, opts); }
+
+  bytes() {
+    return {
+      raw: dirBytes(this.rawDir),
+      datasets: dirBytes(path.join(this.dir, 'datasets')),
+      kv: dirBytes(path.join(this.dir, 'kv')),
+    };
   }
 
   // Integrity check against the manifest: hashes, record counts, seq continuity.
+  // Merged (compacted) records declare the range they stand for via seqTo, and gap records declare
+  // dropped ranges; any other hole is reported as unexplained.
   async verify() {
-    const rawDir = path.join(this.dir, 'raw');
+    const rawDir = this.rawDir;
     const manifestPath = path.join(rawDir, 'manifest.json');
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : { segments: [] };
-    const bySeg = new Map(manifest.segments.map((s) => [s.file, s]));
+    const bySeg = new Map((manifest.segments ?? []).map((s) => [s.file, s]));
     const files = existsSync(rawDir) ? readdirSync(rawDir).filter((f) => /^\d{6}\.jsonl$/.test(f)).sort() : [];
-    const report = { segments: [], ok: true, seqGaps: [], gapRecords: 0, droppedRecords: 0, records: 0 };
+    const report = { segments: [], ok: true, seqGaps: [], gapRecords: 0, droppedRecords: 0, records: 0, mergedRecords: 0, compacted: !!manifest.compacted };
     let lastSeq = 0;
     for (const f of files) {
       const p = path.join(rawDir, f);
@@ -121,10 +179,11 @@ export class Session {
       if (r.k === 'corrupt') { report.ok = false; continue; }
       report.records++;
       if (r.seq !== lastSeq + 1) report.seqGaps.push({ from: lastSeq + 1, to: r.seq - 1 });
-      lastSeq = r.seq;
+      lastSeq = r.seqTo ?? r.seq;
+      if (r.seqTo !== undefined && r.seqTo > r.seq) { report.mergedRecords++; ranges.push([r.seq + 1, r.seqTo]); }
       if (r.k === 'gap') { report.gapRecords++; report.droppedRecords += r.droppedRecords ?? 0; ranges.push([r.droppedSeqFrom, r.droppedSeqTo]); }
     }
-    // A seq hole is expected only if a gap record declares that dropped range.
+    // A seq hole is expected only if a gap record or a merged record declares that range.
     const unexplained = report.seqGaps.filter((g) => !ranges.some(([a, b]) => a <= g.from && g.to <= b));
     report.unexplainedSeqGaps = unexplained.length;
     if (unexplained.length) { report.ok = false; report.unexplained = unexplained.slice(0, 20); }
@@ -137,10 +196,11 @@ export function listSessions(sessionsDir) {
   return readdirSync(sessionsDir)
     .filter((d) => existsSync(path.join(sessionsDir, d, 'session.json')))
     .map((d) => {
-      const meta = JSON.parse(readFileSync(path.join(sessionsDir, d, 'session.json'), 'utf8'));
+      let meta;
+      try { meta = JSON.parse(readFileSync(path.join(sessionsDir, d, 'session.json'), 'utf8')); } catch { meta = { id: d, status: 'unreadable_metadata' }; }
       let bytes = 0;
       const raw = path.join(sessionsDir, d, 'raw');
-      if (existsSync(raw)) for (const f of readdirSync(raw)) bytes += statSync(path.join(raw, f)).size;
+      if (existsSync(raw)) for (const f of readdirSync(raw)) { try { bytes += statSync(path.join(raw, f)).size; } catch { /* ignore */ } }
       return { ...meta, rawBytes: bytes };
     })
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -158,3 +218,5 @@ export function resolveSessionDir(sessionsDir, idOrPrefix) {
   if (hits.length === 1) return path.join(sessionsDir, hits[0]);
   throw new Error(hits.length ? `"${idOrPrefix}" matches ${hits.length} sessions.` : `No session "${idOrPrefix}".`);
 }
+
+export { buildRawIndex, loadRawIndex, iterateRaw, compactSession, estimateCompaction };

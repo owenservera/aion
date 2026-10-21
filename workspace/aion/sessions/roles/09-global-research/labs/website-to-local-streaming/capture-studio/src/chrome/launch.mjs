@@ -4,7 +4,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { isReachable, browserVersion } from '../cdp/discovery.mjs';
+import { isReachable, browserVersion, waitForReachable, discoveryProbe } from '../cdp/discovery.mjs';
 
 export function chromeCandidates(env = process.env, platform = process.platform) {
   const c = [];
@@ -59,4 +59,41 @@ export async function launchChrome({ profileDir, port = 9222, url = 'about:blank
     await new Promise((r) => setTimeout(r, 250));
   }
   throw new Error(`Chrome started (pid ${child.pid}) but DevTools did not answer on 127.0.0.1:${port}. Close other Chrome windows using that profile and retry.`);
+}
+
+// Attach if DevTools is already listening, otherwise launch and wait for it. Retries the launch
+// once, because a profile that was closed uncleanly can refuse the first start.
+export async function ensureChrome({ profileDir, port = 9222, url = 'about:blank', headless = false, extraArgs = [], attempts = 2, readyTimeoutMs = 20_000 } = {}) {
+  let last;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const r = await launchChrome({ profileDir, port, url, headless, extraArgs });
+      if (await waitForReachable({ port }, { timeoutMs: readyTimeoutMs })) return { ...r, attempt: i };
+      last = new Error('DevTools endpoint did not become reachable');
+    } catch (e) { last = e; }
+    await new Promise((r) => setTimeout(r, 500 * i));
+  }
+  throw new Error(`Could not get a usable DevTools endpoint on 127.0.0.1:${port}: ${last?.message ?? last}`);
+}
+
+// Is a browser already serving DevTools on this port, and is it the profile we expect?
+export async function chromeStatus({ port = 9222, profileDir = null } = {}) {
+  const probe = await discoveryProbe({ port });
+  return {
+    port,
+    reachable: probe.reachable,
+    browser: probe.browser ?? null,
+    protocol: probe.protocol ?? null,
+    pages: probe.counts?.page ?? 0,
+    targets: probe.counts ?? {},
+    latencyMs: probe.latencyMs ?? null,
+    error: probe.error ?? null,
+    expectedProfileDir: profileDir,
+    executable: (() => { try { return findChrome(); } catch { return null; } })(),
+  };
+}
+
+// Available Chrome-family builds on this machine (first entry is the one launchChrome would use).
+export function chromeInstalls(env = process.env, platform = process.platform) {
+  return chromeCandidates(env, platform).filter((p) => p && existsSync(p));
 }

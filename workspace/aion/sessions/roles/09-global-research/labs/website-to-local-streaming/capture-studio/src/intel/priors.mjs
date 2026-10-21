@@ -70,5 +70,29 @@ add('metadata', [
   ['op', 'string', null, 6, 0.05, { enum: true }], ['path', 'string', 'pointer', 20, 0.3], ['request_id', 'string', 'hex_id', 32, 1], ['schema', 'string', null, 8, 0.02, { enum: true }], ['checksum', 'string', 'hex_id', 40, 1],
 ]);
 
+// Additional cross-domain conventions; still soft priors, never hardcoded site semantics.
+add('reference', [
+  ['tenant_id', 'string', 'uuid', 36, 0.05], ['workspaceId', 'string', 'token_id', 20, 0.1],
+  ['reply_to_id', 'string', 'uuid', 36, 0.4], ['belongs_to', 'string', 'token_id', 18, 0.3],
+  ['repository_id', 'integer', null, null, 0.1], ['asset_id', 'string', 'uuid', 36, 0.3],
+]);
+add('timestamp', [
+  ['observed_at', 'string', 'iso_time', 24, 0.9], ['deletedAt', 'string', 'iso_time', 24, 0.7],
+  ['received_at', 'integer', 'epoch_ms', null, 0.95], ['scheduled_for', 'string', 'iso_time', 24, 0.8],
+]);
+add('metadata', [
+  ['revision', 'integer', null, null, 0.6], ['correlation_id', 'string', 'uuid', 36, 1],
+  ['span_id', 'string', 'hex_id', 16, 1], ['next_cursor', 'string', 'token_id', 32, 1],
+  ['operation', 'string', null, 10, 0.05, { enum: true }], ['schema_version', 'integer', null, null, 0.01],
+]);
+add('count', [
+  ['total_count', 'integer', null, null, 0.3], ['remaining', 'integer', null, null, 0.4],
+  ['offset', 'integer', null, null, 0.7], ['page_size', 'integer', null, null, 0.1],
+]);
+add('measure', [
+  ['confidence', 'number', null, null, 0.8], ['probability', 'number', null, null, 0.8],
+  ['progress', 'number', null, null, 0.7, { volatile: true }], ['distance', 'number', null, null, 0.9],
+]);
+
 export const PRIOR_FIELDS = P.map(([, ...rest]) => rest);
 export const PRIOR_ROLES = P.map(([role]) => role);

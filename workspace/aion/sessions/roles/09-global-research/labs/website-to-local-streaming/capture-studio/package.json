@@ -9,11 +9,19 @@
     "node": ">=22"
   },
   "bin": {
-    "studio": "bin/studio.mjs"
+    "studio": "bin/studio.mjs",
+    "capture-studio": "bin/studio.mjs"
   },
   "scripts": {
     "test": "node --test \"test/unit/**/*.test.mjs\"",
     "test:e2e": "node --test \"test/e2e/**/*.test.mjs\"",
-    "studio": "node bin/studio.mjs"
+    "studio": "node bin/studio.mjs",
+    "start": "node bin/studio.mjs start",
+    "doctor": "node bin/studio.mjs doctor",
+    "capture": "node bin/studio.mjs capture",
+    "sessions": "node bin/studio.mjs sessions",
+    "knowledge": "node bin/studio.mjs knowledge",
+    "learn": "node bin/studio.mjs learn status",
+    "help": "node bin/studio.mjs help"
   }
 }

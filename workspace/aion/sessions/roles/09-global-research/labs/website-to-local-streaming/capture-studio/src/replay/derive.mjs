@@ -185,10 +185,13 @@ function listFamilyDatasets(session) {
 }
 
 // Raw bytes of one stream reassembled from disk, with the chunk map.
+// Uses the per-stream locator and seek index when present (whole segments are skipped), and
+// falls back to an ordered full scan when the session has no index.
 export async function streamBytes(session, sid) {
   const parts = [], map = [];
   let offset = 0;
-  for await (const r of session.records()) {
+  const iter = typeof session.streamRecords === 'function' ? session.streamRecords(sid) : session.records();
+  for await (const r of iter) {
     if (r.sid !== sid) continue;
     if (r.k === 'chunk' || r.k === 'body') {
       const b = Buffer.from(r.b64 ?? '', 'base64');
@@ -206,12 +209,53 @@ export async function streamBytes(session, sid) {
 // Time travel: state of streams, assembled content and visible DOM blocks at wall time t.
 export async function stateAt(session, t, profile) {
   const reducer = new StreamReducer({ deltaDialect: profile?.decode?.delta ?? 'auto', keepEvents: false });
-  for await (const r of session.records()) { if (r.t > t) break; reducer.ingest(r); }
+  for await (const r of session.records({ toT: t })) { if (r.t > t) break; reducer.ingest(r); }
   const s = reducer.summary();
   return {
-    t, streams: s.streams.map((x) => ({ sid: x.sid, endpoint: `${x.method ?? ''} ${templateUrl(x.url)}`, status: x.status, bytes: x.bytes, events: x.events, transport: transportOf(x), assembledTexts: reducer.assembled(x.sid)?.texts?.slice(0, 3) })),
+    t, streams: s.streams.map((x) => ({ sid: x.sid, endpoint: `${x.method ?? ''} ${templateUrl(x.url)}`, status: x.status, bytes: x.bytes, events: x.events, transport: transportOf(x), transportDetail: x.transportDetail, assembledTexts: reducer.assembled(x.sid)?.texts?.slice(0, 3) })),
     dom: [...reducer.dom.blocks.values()].filter((b) => !b.removed).slice(-200),
     actions: reducer.actions.slice(-20), nav: reducer.nav.slice(-5), gaps: reducer.gaps,
+  };
+}
+
+// Re-decode ONE stream from raw bytes, independently of any other stream. Cheap enough to run
+// interactively (the stream locator skips every segment the stream does not appear in) and the
+// single place that answers "what exactly did this endpoint send, and what did we make of it".
+export async function reconstructStream(session, sid, { profile, dialect, limitEvents = 2000 } = {}) {
+  const reducer = new StreamReducer({
+    deltaDialect: dialect ?? profile?.decode?.delta ?? 'auto',
+    keepEvents: true, maxEventsPerStream: limitEvents, deltaOpsLog: 200,
+  });
+  const iter = typeof session.streamRecords === 'function' ? session.streamRecords(sid) : session.records();
+  let records = 0;
+  for await (const r of iter) {
+    if (r.sid !== sid && !['run.start', 'run.end'].includes(r.k)) continue;
+    reducer.ingest(r);
+    records++;
+  }
+  const stream = reducer.summary().streams.find((s) => s.sid === sid) ?? null;
+  const delta = reducer.deltaOf(sid);
+  return {
+    sid, records, stream,
+    events: reducer.eventsOf(sid),
+    assembled: reducer.assembled(sid),
+    deltaStats: delta?.stats() ?? null,
+    opsLog: delta?.opsLog ?? [],
+  };
+}
+
+// Human-visible text of one stream, reconstructed from raw bytes.
+export async function streamText(session, sid, opts = {}) {
+  const r = await reconstructStream(session, sid, opts);
+  const texts = r.assembled?.texts ?? [];
+  const fromEvents = r.events.filter((e) => typeof e.text === 'string' && e.text.length > 0).map((e) => e.text);
+  return {
+    sid,
+    assembledText: texts[0]?.text ?? null,
+    assembledPath: texts[0]?.path ?? null,
+    revisions: r.assembled?.revisions ?? 0,
+    blocks: r.assembled?.blocks ?? [],
+    eventTextChars: fromEvents.reduce((a, s) => a + s.length, 0),
   };
 }
 

@@ -7,6 +7,8 @@
 //   - Every decision carries the statistic it was based on, so uncertainty is inspectable.
 // Memory is bounded: distinct-value tracking caps out, variant tracking drops high-cardinality tags.
 
+import { CardinalitySketch } from './statistics.mjs';
+
 const DISTINCT_CAP = 200;
 const TAG_MAX_VALUES = 24;
 const KEY_CAP = 400;
@@ -65,9 +67,12 @@ export class SchemaNode {
     return this;
   }
 
+  merge(other) { if (!(other instanceof SchemaNode)) throw new TypeError('Expected SchemaNode'); if (other === this) throw new Error('Cannot merge a schema into itself'); mergeInto(this, other); return this; }
+
   _str(s) {
     const st = (this.str ??= { n: 0, lenSum: 0, lenMin: Infinity, lenMax: 0, distinct: new Map(), overflow: false, formats: {}, examples: [] });
     st.n++; st.lenSum += s.length; st.lenMin = Math.min(st.lenMin, s.length); st.lenMax = Math.max(st.lenMax, s.length);
+    (st.sketch ??= new CardinalitySketch()).add(s);
     if (!st.overflow) { st.distinct.set(s, (st.distinct.get(s) ?? 0) + 1); if (st.distinct.size > DISTINCT_CAP) { st.overflow = true; st.distinct = new Map(); } }
     for (const [f, test] of Object.entries(FORMAT_TESTS)) if (test(s)) st.formats[f] = (st.formats[f] ?? 0) + 1;
     if (st.examples.length < 3 && !st.examples.includes(s)) st.examples.push(s.length > 120 ? s.slice(0, 117) + '…' : s);
@@ -75,7 +80,11 @@ export class SchemaNode {
 
   _num(x) {
     const st = (this.num ??= { n: 0, min: Infinity, max: -Infinity, sum: 0, distinct: new Set(), overflow: false, epochS: 0, epochMs: 0, changes: 0, last: undefined, examples: [] });
+    if (!Number.isFinite(x)) { st.nonFinite = (st.nonFinite ?? 0) + 1; return; }
     st.n++; st.min = Math.min(st.min, x); st.max = Math.max(st.max, x); st.sum += x;
+    const delta = x - (st.mean ?? 0); st.mean = (st.mean ?? 0) + delta / st.n;
+    st.m2 = (st.m2 ?? 0) + delta * (x - st.mean);
+    (st.sketch ??= new CardinalitySketch()).add(x);
     if (st.last !== undefined && st.last !== x) st.changes++;
     st.last = x;
     if (!st.overflow) { st.distinct.add(x); if (st.distinct.size > DISTINCT_CAP) { st.overflow = true; st.distinct = new Set(); } }
@@ -104,7 +113,7 @@ export class SchemaNode {
     const sig = keys.slice().sort().join('|');
     st.fieldSets.set(sig, (st.fieldSets.get(sig) ?? 0) + 1);
     if (st.fieldSets.size > 500) st.fieldSets = new Map([...st.fieldSets].sort((a, b) => b[1] - a[1]).slice(0, 200));
-    for (const k of keys) {
+    for (const k of keys.filter((key) => st.fields.has(key))) {
       const v = o[k];
       if (typeof v !== 'string' || v.length > 48) continue;
       let t = st.tags.get(k);
@@ -113,7 +122,7 @@ export class SchemaNode {
       let g = t.get(v);
       if (!g) { if (t.size >= TAG_MAX_VALUES) { st.tags.set(k, null); continue; } g = { n: 0, keys: new Map() }; t.set(v, g); }
       g.n++;
-      for (const kk of keys) if (kk !== k) g.keys.set(kk, (g.keys.get(kk) ?? 0) + 1);
+      for (const kk of keys) if (kk !== k && st.fields.has(kk)) g.keys.set(kk, (g.keys.get(kk) ?? 0) + 1);
     }
   }
 
@@ -126,7 +135,8 @@ export class SchemaNode {
     out.type = main.length === 0 ? 'null' : main.length === 1 ? main[0][0] : (main.every(([k]) => k === 'integer' || k === 'number') ? 'number' : 'union');
     if (out.type === 'union') out.union = main.map(([k, n]) => ({ kind: k, share: +(n / total).toFixed(3) }));
     if (this.str) out.string = describeString(this.str);
-    if (this.num) out.number = describeNumber(this.num);
+    if (this.num?.n) out.number = describeNumber(this.num);
+    if (this.num?.nonFinite) out.nonFiniteNumbers = this.num.nonFinite;
     if (this.bool) out.boolean = { trueShare: +(this.bool.t / (this.bool.t + this.bool.f)).toFixed(3) };
     if (this.arr) out.array = { avgLen: +(this.arr.lenSum / this.arr.n).toFixed(2), maxLen: this.arr.lenMax, emptyShare: +(this.arr.empty / this.arr.n).toFixed(3), items: this.arr.items.describe(`${name}[*]`) };
     if (this.obj) { const od = describeObject(this.obj, name); if (out.type === 'union') out.object = od; else Object.assign(out, od); }
@@ -144,13 +154,13 @@ function describeString(st) {
     // Enum: few distinct values, each repeated, short.
     const idLike = ['uuid', 'hex_id', 'token_id', 'url', 'iso_time', 'email'].some((f) => formats[f]);
     if (!idLike && st.distinct.size <= 12 && st.n >= Math.max(4, st.distinct.size * 2) && d.avgLen <= 40) d.enum = [...st.distinct].sort((a, b) => b[1] - a[1]).map(([v, n]) => ({ value: v, share: +(n / st.n).toFixed(3) }));
-  } else { d.distinct = `>${DISTINCT_CAP}`; d.uniqueness = 1; }
+   } else { d.distinct = `>${DISTINCT_CAP}`; d.estimatedDistinct = Math.min(st.n, Math.max(DISTINCT_CAP + 1, st.sketch?.estimate() ?? DISTINCT_CAP + 1)); d.uniqueness = +(d.estimatedDistinct / st.n).toFixed(3); d.cardinalityEstimated = true; }
   return d;
 }
 
 function describeNumber(st) {
-  const d = { n: st.n, min: st.min, max: st.max, mean: +(st.sum / st.n).toFixed(3), examples: st.examples, changeRate: +(st.changes / Math.max(1, st.n - 1)).toFixed(3) };
-  if (!st.overflow) { d.distinct = st.distinct.size; d.uniqueness = +(st.distinct.size / st.n).toFixed(3); } else { d.distinct = `>${DISTINCT_CAP}`; d.uniqueness = 1; }
+  const d = { n: st.n, min: st.min, max: st.max, mean: +((st.mean ?? st.sum / st.n)).toFixed(3), variance: +((st.m2 ?? 0) / Math.max(1, st.n - 1)).toFixed(4), examples: st.examples, changeRate: +(st.changes / Math.max(1, st.n - 1)).toFixed(3) };
+  if (!st.overflow) { d.distinct = st.distinct.size; d.uniqueness = +(st.distinct.size / st.n).toFixed(3); } else { d.distinct = `>${DISTINCT_CAP}`; d.estimatedDistinct = Math.min(st.n, Math.max(DISTINCT_CAP + 1, st.sketch?.estimate() ?? DISTINCT_CAP + 1)); d.uniqueness = +(d.estimatedDistinct / st.n).toFixed(3); d.cardinalityEstimated = true; }
   if (st.epochS / st.n >= 0.9) d.format = 'epoch_s'; else if (st.epochMs / st.n >= 0.9) d.format = 'epoch_ms';
   return d;
 }
@@ -200,14 +210,59 @@ function detectTag(st, n) {
 }
 
 function mergeInto(target, src) {
-  // Approximate merge for map values: replay summary statistics structurally.
+  // Merge sufficient statistics; no synthetic observations or double-counted examples.
   target.count += src.count;
   for (const [k, c] of Object.entries(src.kinds)) target.kinds[k] = (target.kinds[k] ?? 0) + c;
-  if (src.str) { const t = (target.str ??= { n: 0, lenSum: 0, lenMin: Infinity, lenMax: 0, distinct: new Map(), overflow: false, formats: {}, examples: [] }); t.n += src.str.n; t.lenSum += src.str.lenSum; t.lenMin = Math.min(t.lenMin, src.str.lenMin); t.lenMax = Math.max(t.lenMax, src.str.lenMax); for (const [f, c] of Object.entries(src.str.formats)) t.formats[f] = (t.formats[f] ?? 0) + c; if (!t.overflow && !src.str.overflow) for (const [v, c] of src.str.distinct) t.distinct.set(v, (t.distinct.get(v) ?? 0) + c); else t.overflow = true; if (t.distinct.size > DISTINCT_CAP) { t.overflow = true; t.distinct = new Map(); } for (const e of src.str.examples) if (t.examples.length < 3) t.examples.push(e); }
-  if (src.num) { const t = (target.num ??= { n: 0, min: Infinity, max: -Infinity, sum: 0, distinct: new Set(), overflow: false, epochS: 0, epochMs: 0, changes: 0, last: undefined, examples: [] }); t.n += src.num.n; t.min = Math.min(t.min, src.num.min); t.max = Math.max(t.max, src.num.max); t.sum += src.num.sum; t.epochS += src.num.epochS; t.epochMs += src.num.epochMs; t.changes += src.num.changes; if (!t.overflow && !src.num.overflow) for (const v of src.num.distinct) t.distinct.add(v); else t.overflow = true; for (const e of src.num.examples) if (t.examples.length < 3) t.examples.push(e); }
+  if (src.str) {
+    const s = src.str, t = (target.str ??= { n: 0, lenSum: 0, lenMin: Infinity, lenMax: 0, distinct: new Map(), overflow: false, formats: {}, examples: [] });
+    t.n += s.n; t.lenSum += s.lenSum; t.lenMin = Math.min(t.lenMin, s.lenMin); t.lenMax = Math.max(t.lenMax, s.lenMax);
+    if (s.sketch) (t.sketch ??= new CardinalitySketch()).merge(s.sketch);
+    for (const [f, c] of Object.entries(s.formats)) t.formats[f] = (t.formats[f] ?? 0) + c;
+    if (!t.overflow && !s.overflow) for (const [v, c] of s.distinct) t.distinct.set(v, (t.distinct.get(v) ?? 0) + c);
+    else t.overflow = true;
+    if (t.distinct.size > DISTINCT_CAP) t.overflow = true;
+    if (t.overflow) t.distinct.clear();
+    for (const e of s.examples) if (t.examples.length < 3 && !t.examples.includes(e)) t.examples.push(e);
+  }
+  if (src.num) {
+    const s = src.num, t = (target.num ??= { n: 0, min: Infinity, max: -Infinity, sum: 0, distinct: new Set(), overflow: false, epochS: 0, epochMs: 0, changes: 0, last: undefined, examples: [] });
+    const total = t.n + s.n, delta = (s.mean ?? 0) - (t.mean ?? 0);
+    t.m2 = (t.m2 ?? 0) + (s.m2 ?? 0) + (total ? delta * delta * t.n * s.n / total : 0);
+    t.mean = total ? ((t.mean ?? 0) * t.n + (s.mean ?? 0) * s.n) / total : 0;
+    t.n = total; t.min = Math.min(t.min, s.min); t.max = Math.max(t.max, s.max); t.sum += s.sum;
+    t.epochS += s.epochS; t.epochMs += s.epochMs; t.changes += s.changes;
+    t.nonFinite = (t.nonFinite ?? 0) + (s.nonFinite ?? 0);
+    if (s.sketch) (t.sketch ??= new CardinalitySketch()).merge(s.sketch);
+    if (!t.overflow && !s.overflow) for (const v of s.distinct) t.distinct.add(v); else t.overflow = true;
+    if (t.distinct.size > DISTINCT_CAP) t.overflow = true;
+    if (t.overflow) t.distinct.clear();
+    for (const e of s.examples) if (t.examples.length < 3 && !t.examples.includes(e)) t.examples.push(e);
+  }
   if (src.bool) { const t = (target.bool ??= { t: 0, f: 0 }); t.t += src.bool.t; t.f += src.bool.f; }
   if (src.arr) { const t = (target.arr ??= { n: 0, lenSum: 0, lenMax: 0, empty: 0, items: new SchemaNode() }); t.n += src.arr.n; t.lenSum += src.arr.lenSum; t.lenMax = Math.max(t.lenMax, src.arr.lenMax); t.empty += src.arr.empty; mergeInto(t.items, src.arr.items); }
-  if (src.obj) { const t = (target.obj ??= { n: 0, fields: new Map(), keyOverflow: false, keysPerObj: 0, tags: new Map(), fieldSets: new Map() }); t.n += src.obj.n; t.keysPerObj += src.obj.keysPerObj; t.keyOverflow ||= src.obj.keyOverflow; for (const [k, c] of src.obj.fields) { if (!t.fields.has(k)) t.fields.set(k, new SchemaNode()); mergeInto(t.fields.get(k), c); } for (const [k, g] of src.obj.tags) { if (g === null) { t.tags.set(k, null); continue; } if (t.tags.get(k) === null) continue; const tg = t.tags.get(k) ?? new Map(); for (const [v, gg] of g) { const x = tg.get(v) ?? { n: 0, keys: new Map() }; x.n += gg.n; for (const [kk, c] of gg.keys) x.keys.set(kk, (x.keys.get(kk) ?? 0) + c); tg.set(v, x); } t.tags.set(k, tg); } }
+  if (src.obj) {
+    const s = src.obj, t = (target.obj ??= { n: 0, fields: new Map(), keyOverflow: false, keysPerObj: 0, tags: new Map(), fieldSets: new Map() });
+    t.n += s.n; t.keysPerObj += s.keysPerObj; t.keyOverflow ||= s.keyOverflow;
+    for (const [k, c] of s.fields) {
+      if (!t.fields.has(k)) { if (t.fields.size >= KEY_CAP) { t.keyOverflow = true; continue; } t.fields.set(k, new SchemaNode()); }
+      mergeInto(t.fields.get(k), c);
+    }
+    for (const [k, g] of s.tags) {
+      if (!t.fields.has(k)) continue;
+      if (g === null) { t.tags.set(k, null); continue; }
+      if (t.tags.get(k) === null) continue;
+      const tg = t.tags.get(k) ?? new Map();
+      for (const [v, gg] of g) {
+        if (!tg.has(v) && tg.size >= TAG_MAX_VALUES) { t.tags.set(k, null); break; }
+        const x = tg.get(v) ?? { n: 0, keys: new Map() }; x.n += gg.n;
+        for (const [kk, c] of gg.keys) if (t.fields.has(kk)) x.keys.set(kk, (x.keys.get(kk) ?? 0) + c);
+        tg.set(v, x);
+      }
+      if (t.tags.get(k) !== null) t.tags.set(k, tg);
+    }
+    for (const [signature, count] of s.fieldSets) t.fieldSets.set(signature, (t.fieldSets.get(signature) ?? 0) + count);
+    if (t.fieldSets.size > 500) t.fieldSets = new Map([...t.fieldSets].sort((a, b) => b[1] - a[1]).slice(0, 200));
+  }
 }
 
 export function jaccard(a, b) { if (!a.size && !b.size) return 1; let i = 0; for (const x of a) if (b.has(x)) i++; return i / (a.size + b.size - i); }

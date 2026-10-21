@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { SchemaNode, schemaSimilarity, alignFields, nameSimilarity, tokens, sampleIndices, shapeKey } from './schema.mjs';
 import { ScopedLearner, argmax } from './learn.mjs';
 import { shingles, containment } from './identity.mjs';
+import { stableStringify, typedValueKey } from './similarity.mjs';
 
 const h = (s) => createHash('sha1').update(s).digest('hex').slice(0, 10);
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
@@ -24,22 +25,23 @@ function looksDynamicKeys(o) {
 
 function collectInstances(value, path, out, prov, depth = 0) {
   if (depth > 12) return;
-  if (Array.isArray(value)) { for (const i of sampleIndices(value.length, (i) => shapeKey(value[i]), { head: 400, stride: 400 })) collectInstances(value[i], `${path}[*]`, out, { ...prov, index: i }, depth + 1); return; }
+  if (Array.isArray(value)) { for (const i of sampleIndices(value.length, (i) => shapeKey(value[i]), { head: 400, stride: 400 })) collectInstances(value[i], `${path}[*]`, out, { ...prov, index: i, location: `${prov.location ?? path}[${i}]` }, depth + 1); return; }
   if (!isObj(value)) return;
-  if (looksDynamicKeys(value)) { const ents = Object.entries(value); for (const i of sampleIndices(ents.length, (i) => shapeKey(ents[i][1]), { head: 400, stride: 400 })) collectInstances(ents[i][1], `${path}[*]`, out, { ...prov, mapKey: ents[i][0] }, depth + 1); return; }
+  if (looksDynamicKeys(value)) { const ents = Object.entries(value); for (const i of sampleIndices(ents.length, (i) => shapeKey(ents[i][1]), { head: 400, stride: 400 })) collectInstances(ents[i][1], `${path}[*]`, out, { ...prov, mapKey: ents[i][0], location: `${prov.location ?? path}[${JSON.stringify(ents[i][0])}]` }, depth + 1); return; }
   const list = out.get(path) ?? [];
-  if (list.length < VAL_CAP) list.push({ obj: value, prov });
+  const provenance = { ...prov, path, location: prov.location ?? path };
+  if (list.length < VAL_CAP) list.push({ obj: value, prov: provenance });
   else {
     // Past the cap (deterministic): a new shape is always kept; otherwise a stride replacement
     // keeps the sample spread over the whole stream instead of only its head.
     list._seen = (list._seen ?? VAL_CAP) + 1;
     list._shapes ??= new Set(list.map((x) => shapeKey(x.obj)));
     const sh = shapeKey(value);
-    if (!list._shapes.has(sh)) { list._shapes.add(sh); list.push({ obj: value, prov }); }
-    else if (list._seen % 7 === 0) { const j = (list._seen * 7919) % VAL_CAP; if (shapeKey(list[j].obj) === sh) list[j] = { obj: value, prov }; }
+    if (!list._shapes.has(sh)) { list._shapes.add(sh); list.push({ obj: value, prov: provenance }); }
+    else if (list._seen % 7 === 0) { const j = (list._seen * 7919) % VAL_CAP; if (shapeKey(list[j].obj) === sh) list[j] = { obj: value, prov: provenance }; }
   }
   out.set(path, list);
-  for (const [k, v] of Object.entries(value)) if (v && typeof v === 'object') collectInstances(v, `${path}.${k}`, out, prov, depth + 1);
+  for (const [k, v] of Object.entries(value)) if (v && typeof v === 'object') collectInstances(v, `${path}.${k}`, out, { ...prov, location: `${prov.location ?? path}[${JSON.stringify(k)}]` }, depth + 1);
 }
 
 // Envelope: a small wrapper whose meaning is "there is a payload inside" (type + data, v, o/p).
@@ -85,7 +87,7 @@ export function discoverModel(corpus, { learner = new ScopedLearner(), ctx = {},
 
   // 3. Merge the same entity type observed in several groups/positions (order-independent),
   //    then decide primary vs foreign keys on the merged types.
-  const merged = mergeTypes(kept);
+  const merged = mergeTypes(kept, learner, ctx);
   resolveForeignKeys(merged);
   markWeakEntities(merged);
   uniqueNames(merged);
@@ -159,7 +161,7 @@ export function inferKey(fields, instances) {
     const present = vals.filter((v) => v !== undefined && v !== null && v !== '');
     if (present.length < Math.max(2, N * 0.9)) continue;
     const groups = new Map();
-    instances.forEach((i, n) => { const v = i.obj[f.name]; if (v === undefined || v === null) return; const k = String(v); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(n); });
+    instances.forEach((i, n) => { const v = i.obj[f.name]; if (v === undefined || v === null || v === '') return; const k = typedValueKey(v); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(n); });
     const G = groups.size;
     // (a) uniqueness inside each observation that holds several instances
     let multi = 0, uniqueIn = 0;
@@ -168,7 +170,7 @@ export function inferKey(fields, instances) {
       if (idxs.length < 2) continue;
       multi++;
       const byVal = new Map();
-      for (const n of idxs) { const k = String(instances[n].obj[f.name]); if (!byVal.has(k)) byVal.set(k, new Set()); byVal.get(k).add(JSON.stringify(instances[n].obj)); }
+      for (const n of idxs) { const k = typedValueKey(instances[n].obj[f.name]); if (!byVal.has(k)) byVal.set(k, new Set()); byVal.get(k).add(stableStringify(instances[n].obj)); }
       if ([...byVal.values()].every((states) => states.size === 1)) uniqueIn++;
     }
     const intraUnique = multi ? uniqueIn / multi : 1;
@@ -177,7 +179,7 @@ export function inferKey(fields, instances) {
     for (const idxs of groups.values()) {
       if (idxs.length < 2) continue;
       recurring++;
-      if (new Set(idxs.map((n) => JSON.stringify(instances[n].obj))).size > 1) recurringChanged++;
+      if (new Set(idxs.map((n) => stableStringify(instances[n].obj))).size > 1) recurringChanged++;
     }
     const stability = recurring ? recurringChanged / recurring : 0;
     if (G === 1 && !(N >= 2 && stability > 0)) continue; // constant field, unless one entity evolving
@@ -231,7 +233,7 @@ function contentCoherence(groups, instances, contentFields) {
 // (revision stability of the owning type, field named after the other type, key strength).
 // All decisions are computed first and applied together, so input order cannot matter.
 function resolveForeignKeys(types) {
-  const vals = new Map(types.map((t) => [t, t.key && !t.key.weak ? new Set(t.instances.map((i) => i.obj[t.key.field]).filter((v) => v !== undefined && v !== null).map(String)) : null]));
+  const vals = new Map(types.map((t) => [t, t.key && !t.key.weak ? new Set(t.instances.map((i) => i.obj[t.key.field]).filter((v) => v !== undefined && v !== null).map(typedValueKey)) : null]));
   const contained = (a, b) => { const A = vals.get(a), B = vals.get(b); if (!A || !B || !A.size) return false; let i = 0; for (const v of A) if (B.has(v)) i++; return i / A.size >= 0.8; };
   const primaryLikelihood = (t, other) => {
     const k = t.key, toks = tokens(k.field), own = tokens(t.name), oth = tokens(other.name);
@@ -301,7 +303,7 @@ function suggestName(c, fields) {
 // Merge types that are the same entity seen in different places (e.g. list endpoint + detail
 // endpoint, page 1 + page 2, history + live stream).
 // ---------------------------------------------------------------------------------------------
-function keyValues(t) { if (!t.key) return new Set(); return new Set(t.instances.map((i) => i.obj[t.key.field]).filter((v) => v !== undefined && v !== null).map(String)); }
+function keyValues(t) { if (!t.key) return new Set(); return new Set(t.instances.map((i) => i.obj[t.key.field]).filter((v) => v !== undefined && v !== null).map(typedValueKey)); }
 
 function mergeEvidence(o, t) {
   const sim = schemaSimilarity(o.schema, t.schema);
@@ -316,7 +318,7 @@ function mergeEvidence(o, t) {
 // Order-independent average-linkage agglomeration: inputs are sorted by a content-derived id,
 // all pairwise evidence is computed up front, and the best eligible pair (by average evidence
 // over cluster members, ties by id) merges first. The result does not depend on input order.
-function mergeTypes(types) {
+function mergeTypes(types, learner, ctx) {
   const items = [...types].sort((a, b) => (a.id < b.id ? -1 : 1));
   const ev = new Map();
   for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) ev.set(`${i}|${j}`, mergeEvidence(items[i], items[j]));
@@ -349,10 +351,21 @@ function mergeTypes(types) {
       for (const f of t.fields) if (!have.has(f.name)) target.fields.push({ ...f, presence: (f.presence ?? 1) * t.support / target.support });
       target.confidence = +Math.min(1, target.confidence + 0.05).toFixed(3);
     }
-    if (members.length > 1 && target.key) {
-      // Re-infer the key over the union of instances (merged evidence can change the answer).
-      const k = inferKey(target.fields, target.instances);
-      if (k) target.key = k;
+    if (members.length > 1) {
+      // Refresh every field's distribution and presence, not just new field names.
+      const allInstances = members.flatMap((member) => member.instances);
+      target.instances = sampleIndices(allInstances.length,
+        (i) => `${allInstances[i].prov.group}|${shapeKey(allInstances[i].obj)}`,
+        { head: 2000, stride: 2000, perShape: 3, maxShapes: 128 }).map((i) => allInstances[i]);
+      const schemaNode = new SchemaNode();
+      for (const member of members) for (const instance of member.instances) schemaNode.observe(instance.obj);
+      const schema = schemaNode.describe(target.path);
+      if (schema.type === 'object') {
+        const rebuilt = buildType({ group: target.groups[0], path: target.path, source: target.source, schema, instances: target.instances }, learner, ctx);
+        target.schema = schema; target.fields = rebuilt.fields; target.key = rebuilt.key;
+        target.tagged = rebuilt.tagged; target.confidence = rebuilt.confidence;
+        target.confidenceBasis = { ...rebuilt.confidenceBasis, mergedTypes: members.length, totalSupport: target.support, sampledInstances: target.instances.length };
+      } else target.confidenceBasis = { ...target.confidenceBasis, mergedSchemaUnresolved: schema.type };
     }
     return target;
   });
@@ -383,7 +396,7 @@ function references(types) {
     for (const f of a.fields) {
       if (a.key && !a.key.weak && f.name === a.key.field) continue;
       if (!['string', 'integer', 'number'].includes(f.type)) continue;
-      const vals = new Set(a.instances.map((i) => i.obj[f.name]).filter((v) => v !== undefined && v !== null && v !== '').map(String));
+      const vals = new Set(a.instances.map((i) => i.obj[f.name]).filter((v) => v !== undefined && v !== null && v !== '').map(typedValueKey));
       if (!vals.size) continue;
       let matched = false;
       for (const b of keyed) {
@@ -394,10 +407,22 @@ function references(types) {
         const nameHint = tokens(f.name).some((tk) => tokens(b.t.name).includes(tk) || nameSimilarity(tk, b.t.name) > 0.8) ? 0.15 : 0;
         const idLike = (f.dist?.reference ?? 0) + (f.dist?.id ?? 0);
         const support = Math.min(1, Math.log2(1 + inter) / 4);
+        // A coincidentally shared small integer domain is not enough to infer a reference.
+        if (!nameHint && idLike < 0.4 && inter < 3) continue;
         const confidence = +Math.min(1, 0.45 * containment + 0.2 * support + 0.2 * idLike + nameHint).toFixed(3);
         if (confidence < 0.5) continue;
         matched = true;
-        rels.push({ id: `rel-${h(a.id + f.name + b.t.id)}`, kind: 'references', from: a.id, field: f.name, to: b.t.id, toField: b.t.key.field, cardinality: 'many-to-one', confidence, evidence: { containment: +containment.toFixed(3), sharedValues: inter, distinctValues: vals.size, nameHint: !!nameHint }, status: 'hypothesis' });
+        const owners = new Map(), targets = new Map(); let completeOwners = !!(a.key && !a.key.weak);
+        if (completeOwners) for (const instance of a.instances) {
+          const value = instance.obj[f.name], owner = instance.obj[a.key.field];
+          if (value === undefined || value === null || value === '') continue;
+          if (owner === undefined || owner === null || owner === '') { completeOwners = false; continue; }
+          const vk = typedValueKey(value), ok = typedValueKey(owner);
+          if (!owners.has(vk)) owners.set(vk, new Set()); owners.get(vk).add(ok);
+          if (!targets.has(ok)) targets.set(ok, new Set()); targets.get(ok).add(vk);
+        }
+        const oneToOne = completeOwners && owners.size > 0 && [...owners.values(), ...targets.values()].every((set) => set.size === 1);
+        rels.push({ id: `rel-${h(a.id + f.name + b.t.id)}`, kind: 'references', from: a.id, field: f.name, to: b.t.id, toField: b.t.key.field, cardinality: oneToOne ? 'one-to-one-observed' : 'many-to-one', confidence, evidence: { containment: +containment.toFixed(3), targetCoverage: +(inter / b.vals.size).toFixed(3), sharedValues: inter, distinctValues: vals.size, nameHint: !!nameHint }, status: 'hypothesis' });
       }
       const idNamed = /(_id|Id|_uuid|Uuid|_ref|Ref|_key)$/.test(f.name), idFormat = f.formats.some((x) => ['uuid', 'hex_id', 'token_id'].includes(x));
       if (!matched && (idNamed || (idFormat && f.role === 'reference')) && f.roleConfidence > 0.4) {

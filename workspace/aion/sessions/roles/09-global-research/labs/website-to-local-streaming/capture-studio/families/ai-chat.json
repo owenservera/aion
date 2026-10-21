@@ -1,6 +1,6 @@
 {
   "name": "ai-chat",
-  "version": 1,
+  "version": 2,
   "description": "Conversational AI web apps (for example chatgpt.com, claude.ai). One shared model for conversations, turns and rich message content, whatever the provider's wire protocol.",
   "members": ["chatgpt", "claude"],
   "detect": [
@@ -8,7 +8,15 @@
     { "signal": "streaming_text", "minRevisions": 5, "minChars": 20, "weight": 0.3, "label": "text grows incrementally while streaming" },
     { "signal": "field_name", "names": ["conversation_id", "conversationId", "thread_id", "threadId", "chat_id", "chatId", "conversation_uuid"], "weight": 0.15, "label": "conversation identifier field" },
     { "signal": "input_then_stream", "weight": 0.2, "label": "typing then Enter/Send starts a streaming response" },
-    { "signal": "dom_role_turns", "weight": 0.25, "label": "page shows alternating user/assistant turns" }
+    { "signal": "dom_role_turns", "weight": 0.25, "label": "page shows alternating user/assistant turns" },
+    { "signal": "delta_dialect", "any": ["typed-events", "path-ops", "json-patch", "ot-ops"], "weight": 0.2, "label": "answer assembled from incremental operations" },
+    { "signal": "event_type", "names": ["delta", "message_start", "message_stop", "content_block", "completion", "response.output", "text_delta"], "weight": 0.2, "label": "start/delta/stop event vocabulary" },
+    { "signal": "nested_blocks", "minItems": 2, "weight": 0.15, "label": "typed content blocks inside a message" },
+    { "signal": "tool_calls", "weight": 0.1, "label": "tool or function call payloads" },
+    { "signal": "citations", "weight": 0.05, "label": "citations with links" },
+    { "signal": "enum_field", "field": "role", "values": ["user", "assistant", "system", "tool", "human", "model"], "minValues": 2, "weight": 0.15, "label": "role field with a conversational vocabulary" },
+    { "signal": "transport", "any": ["HTTP_SSE", "HTTP_NDJSON", "HTTP_CHUNKED_JSON", "HTTP_STREAMED", "WEBSOCKET"], "weight": 0.1, "label": "a streaming response transport" },
+    { "signal": "static_long_text", "not": true, "weight": 0.05, "label": "not a static document page", "whyNot": "content arrives over the wire rather than in the initial page" }
   ],
   "entities": {
     "conversation": {

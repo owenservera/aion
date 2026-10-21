@@ -4,6 +4,8 @@
 import { createHash } from 'node:crypto';
 import { gatherEvidence, detectFamilies, proposeFamilyLink, applyMapping, endpointPattern } from '../families/families.mjs';
 import { ruleMatchesEvent } from './extract.mjs';
+import { sampleIndices, shapeKey } from '../intel/schema.mjs';
+import { OnlineSchemaProfiler } from './profiler.mjs';
 
 const DISCRIMINATORS = ['type', 'event', 'kind', 'op', 'o', 'action', 'method', 'name', 'object'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,6 +27,7 @@ export function templateUrl(url) {
 const sid8 = (s) => createHash('sha1').update(s).digest('hex').slice(0, 10);
 const short = (v) => { const s = typeof v === 'string' ? v : JSON.stringify(v); return s && s.length > 120 ? s.slice(0, 117) + '…' : s; };
 const typeOf = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
+const fieldPath = (name) => /^[A-Za-z_$][\w$]*$/.test(name) ? `$.${name}` : `$[${JSON.stringify(name)}]`;
 
 class FieldStats {
   constructor() { this.count = 0; this.types = {}; this.distinct = new Set(); this.distinctOverflow = false; this.examples = []; this.strLenMax = 0; this.strLenSum = 0; this.strN = 0; this.numMin = Infinity; this.numMax = -Infinity; this.flags = {}; }
@@ -77,14 +80,16 @@ function walk(v, path, depth, group) {
   if (Array.isArray(v)) {
     const objs = v.filter((x) => x && typeof x === 'object' && !Array.isArray(x));
     if (objs.length) {
-      const a = group.arrays.get(path) ?? { observations: 0, items: 0, keyCounts: new Map() };
+      const a = group.arrays.get(path) ?? { observations: 0, items: 0, sampledItems: 0, keyCounts: new Map() };
       a.observations++; a.items += objs.length;
-      for (const o of objs.slice(0, 50)) for (const k of Object.keys(o)) a.keyCounts.set(k, (a.keyCounts.get(k) ?? 0) + 1);
+      const indices = sampleIndices(objs.length, (i) => shapeKey(objs[i]), { head: 30, stride: 20, perShape: 2, maxShapes: 16 });
+      a.sampledItems += indices.length;
+      for (const i of indices) for (const k of Object.keys(objs[i])) a.keyCounts.set(k, (a.keyCounts.get(k) ?? 0) + 1);
       group.arrays.set(path, a);
     }
-    for (const x of v.slice(0, 50)) walk(x, `${path}[*]`, depth + 1, group);
+    for (const i of sampleIndices(v.length, (i) => shapeKey(v[i]), { head: 30, stride: 20, perShape: 2, maxShapes: 16 })) walk(v[i], `${path}[*]`, depth + 1, group);
   } else if (v && typeof v === 'object') {
-    for (const [k, x] of Object.entries(v)) walk(x, `${path}.${/^[A-Za-z_$][\w$]*$/.test(k) ? k : `[${JSON.stringify(k)}]`}`, depth + 1, group);
+    for (const [k, x] of Object.entries(v)) walk(x, /^[A-Za-z_$][\w$]*$/.test(k) ? `${path}.${k}` : `${path}[${JSON.stringify(k)}]`, depth + 1, group);
   }
 }
 
@@ -99,7 +104,7 @@ function discriminatorOf(ev) {
 }
 
 export class ShapeInferencer {
-  constructor() { this.groups = new Map(); this.assembled = new Map(); }
+  constructor(options = {}) { this.groups = new Map(); this.assembled = new Map(); this.profiler = new OnlineSchemaProfiler(options); }
 
   observeEvent(ev, stream) {
     if (ev.json === undefined) return;
@@ -109,6 +114,7 @@ export class ShapeInferencer {
     let g = this.groups.get(key);
     if (!g) { g = new Group(key, { endpoint, discriminatorPath: d.path, discriminator: d.value, source: ev.type, dir: ev.dir }); this.groups.set(key, g); }
     g.observe(ev.json, ev.t, ev.sid);
+    this.profiler.observe(key, ev.json, ev);
   }
 
   observeAssembled(stream, doc) {
@@ -117,7 +123,7 @@ export class ShapeInferencer {
     const key = `${endpoint} :: (assembled)`;
     let g = this.assembled.get(key);
     if (!g) { g = new Group(key, { endpoint, discriminator: '(assembled document)', source: 'assembled' }); this.assembled.set(key, g); }
-    g.observe(doc, Date.now(), stream.sid);
+    g.observe(doc, stream.endT ?? stream.lastChunkT ?? null, stream.sid);
   }
 
   // Build the full report: groups (schemas) + ranked, actionable suggestions.
@@ -133,7 +139,7 @@ export class ShapeInferencer {
     const groups = [...this.groups.values(), ...this.assembled.values()].map((g) => ({
       key: g.key, endpoint: g.endpoint, discriminator: g.discriminator, discriminatorPath: g.discriminatorPath, source: g.source, count: g.count, streams: g.streams.size,
       fields: Object.fromEntries([...g.fields].slice(0, 200).map(([p, f]) => [p, f.toJSON()])),
-      collections: [...g.arrays].map(([p, a]) => ({ path: p, avgItems: +(a.items / a.observations).toFixed(1), keys: [...a.keyCounts].sort((x, y) => y[1] - x[1]).slice(0, 20).map(([k, n]) => ({ key: k, presence: +(n / Math.min(a.items, a.observations * 50)).toFixed(2) })) })),
+      collections: [...g.arrays].map(([p, a]) => ({ path: p, avgItems: +(a.items / a.observations).toFixed(1), sampledItems: a.sampledItems, keys: [...a.keyCounts].sort((x, y) => y[1] - x[1]).slice(0, 20).map(([k, n]) => ({ key: k, presence: +(n / Math.max(1, a.sampledItems)).toFixed(2) })) })),
     }));
     const suggestions = suggest(summary, groups, reducer, domBlocks);
     const ctx = { families: opts.families ?? [], profile: opts.profile ?? null, domInspect: opts.domInspect ?? null, domTurns: opts.domTurns ?? null };
@@ -150,7 +156,8 @@ export class ShapeInferencer {
     // often suggestions of this kind and score were actually accepted by the user.
     for (const g of suggestions) g.calibratedConfidence = opts.calibrator ? opts.calibrator.calibrate(`suggestion:${g.kind}`, g.confidence) : g.confidence;
     suggestions.sort((a, b) => (a.decided ? 1 : 0) - (b.decided ? 1 : 0) || b.confidence - a.confidence);
-    return { generatedAt: new Date().toISOString(), endpoints: endpointTable(summary.streams), groups, families, suggestions, quality: quality(summary, reducer, suggestions, families, ctx, evidence) };
+    return { generatedAt: new Date().toISOString(), endpoints: endpointTable(summary.streams), groups, families, suggestions,
+      schemaProfiles: this.profiler.report(), quality: quality(summary, reducer, suggestions, families, ctx, evidence) };
   }
 }
 
@@ -201,7 +208,7 @@ function suggest(summary, groups, reducer, domBlocks) {
       if (c.avgItems < 2 || c.keys.length < 2) continue;
       const idKey = c.keys.find((k) => /(^|_)id$|Id$|^uuid$|^key$/.test(k.key))?.key;
       push('collection', `${g.key}|${c.path}`, `Collection at ${c.path.replace(/^\$\.?/, '') || '(root)'}: ~${c.avgItems} records × ${c.keys.length} fields`, `In “${g.discriminator}” events of ${g.endpoint}. Fields: ${c.keys.slice(0, 8).map((k) => k.key).join(', ')}${idKey ? `; identity key: ${idKey}` : '; no obvious identity key'}. Save as a record type?`, idKey ? 0.8 : 0.6, { group: g.key, path: c.path, keys: c.keys },
-        { op: 'record_rule', rule: { name: suggestName(g, c.path), source: 'event', endpoint: endpointRegex(g.endpoint), discriminatorPath: g.discriminatorPath, discriminator: g.discriminator, itemsPath: c.path + '[*]', key: idKey ? `$.${idKey}` : null, fields: Object.fromEntries(c.keys.slice(0, 16).map((k) => [k.key, `$.${k.key}`])) } });
+        { op: 'record_rule', rule: { name: suggestName(g, c.path), source: 'event', endpoint: endpointRegex(g.endpoint), discriminatorPath: g.discriminatorPath, discriminator: g.discriminator, itemsPath: c.path + '[*]', key: idKey ? fieldPath(idKey) : null, fields: Object.fromEntries(c.keys.slice(0, 16).map((k) => [k.key, fieldPath(k.key)])) } });
     }
     for (const [p, f] of Object.entries(g.fields)) {
       if (p === '$') continue;

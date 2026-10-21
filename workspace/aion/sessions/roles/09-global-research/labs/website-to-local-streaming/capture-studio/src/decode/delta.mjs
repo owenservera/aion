@@ -1,23 +1,47 @@
 // Generic delta/patch assembler. Many streaming UIs send a document once and then patches.
-// Two widely used dialects are recognised automatically:
-//   json-patch : RFC 6902 operations  { op, path, value }  (or arrays of them)
-//   path-ops   : compact operations   { p: "/a/b", o: "append|replace|add|remove|patch", v }
-//                where a bare { v: "..." } continues appending to the previous path.
-//   typed-events : { type: "x_start" | "x_delta" | "x_stop" | "a.b.delta" | "...done", index?, delta? }
-//                start events carry objects, delta events append strings to the indexed block,
-//                stop/done events finalise. Detected from the event-type shape, not the provider.
+// The dialects below are recognised automatically from operation shape, never from a provider
+// name, so a new site that uses a known encoding is reconstructed without any configuration:
+//
+//   json-patch        RFC 6902 operations { op, path, value } (add/remove/replace/move/copy/test)
+//   json-merge-patch  RFC 7386 recursive merge where null deletes a key
+//   path-ops          compact ops { p: "/a/b", o: "append|replace|add|remove|patch", v }
+//                     where a bare { v: "..." } continues appending to the previous path
+//   dotted-set        { path: "a.b.c", value } / { key, value } with dot-separated paths
+//   array-splice      { path, splice: [start, deleteCount, ...items] }
+//   put-merge         { put: { path, data } } / { merge: { path, data } } tree writes
+//   ot-ops            { ops: [{ insert }, { retain }, { delete }] } text operational transforms
+//   typed-events      { type: "x_start" | "x_delta" | "x_stop" | "a.b.delta", index?, delta? }
+//                     start events carry objects, delta events append strings to the indexed
+//                     block, stop/done events finalise
+//
 // Anything else is treated as a full document replacement when it is a plain object.
 // Every applied operation counts as a revision, so intermediate states can be replayed.
 
-const PATH_OPS = new Set(['append', 'replace', 'add', 'remove', 'patch', 'set', 'truncate']);
-const TYPED = /(^|[._])(start|stop|delta|done|created|completed|added|in_progress)$/;
+const PATH_OPS = new Set(['append', 'replace', 'add', 'remove', 'patch', 'set', 'truncate', 'insert', 'delete', 'merge', 'splice', 'increment']);
+const TYPED = /(^|[._])(start|stop|delta|done|created|completed|added|in_progress|chunk|partial|update|updated)$/;
 const TYPED_START = /(^|[._])(start|created|added|in_progress)$/;
 const TYPED_STOP = /(^|[._])(stop|done|completed)$/;
-const INDEX_KEYS = ['index', 'output_index', 'content_index'];
+const TYPED_DELTA = /(delta|chunk|partial)/;
+const INDEX_KEYS = ['index', 'output_index', 'content_index', 'block_index', 'candidate_index', 'choice_index'];
+const DELTA_KEYS = ['delta', 'text_delta', 'chunk', 'partial', 'diff'];
+// Field names whose string values are incremental content rather than a replaced attribute.
+const TEXT_DELTA_FIELD = /^(text|content|value|token|tokens|append|partial|chunk|delta|body|output_text|message_text|answer|completion)$/i;
 
-function parsePointer(p) {
+export function parsePointer(p) {
   if (p === '' || p === '/' || p === undefined || p === null) return [];
   return String(p).split('/').slice(1).map((s) => s.replace(/~1/g, '/').replace(/~0/g, '~'));
+}
+
+export function parseDotted(p) {
+  if (p === undefined || p === null || p === '') return [];
+  return String(p).split('.').flatMap((seg) => {
+    const parts = [];
+    const m = /^([^[]*)((\[\d+\])*)$/.exec(seg);
+    if (!m) return [seg];
+    if (m[1]) parts.push(m[1]);
+    for (const idx of (m[2] ?? '').match(/\d+/g) ?? []) parts.push(idx);
+    return parts;
+  });
 }
 
 function getParent(doc, parts, create) {
@@ -33,6 +57,26 @@ function getParent(doc, parts, create) {
   return node;
 }
 
+export function getPointer(doc, parts) {
+  let node = doc;
+  for (const k of parts) {
+    if (node === undefined || node === null || typeof node !== 'object') return undefined;
+    node = node[k];
+  }
+  return node;
+}
+
+// RFC 7386 JSON merge patch (null deletes).
+export function applyMergePatch(target, patch) {
+  if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) return structuredClone(patch);
+  const base = (target && typeof target === 'object' && !Array.isArray(target)) ? target : {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null) delete base[k];
+    else base[k] = applyMergePatch(base[k], v);
+  }
+  return base;
+}
+
 export function detectDialect(json) {
   const arr = Array.isArray(json) ? json : [json];
   if (!arr.length || arr.some((x) => !x || typeof x !== 'object')) return null;
@@ -43,40 +87,100 @@ export function detectDialect(json) {
     if (keys.length && keys.every((k) => ['p', 'o', 'v', 'c'].includes(k)) && ('v' in json || 'o' in json)) {
       if (json.o === undefined || PATH_OPS.has(json.o)) return 'path-ops';
     }
+    if (Array.isArray(json.ops) && json.ops.length && json.ops.every((o) => o && typeof o === 'object' && ('insert' in o || 'retain' in o || 'delete' in o))) return 'ot-ops';
+    if (Array.isArray(json.splice) && json.splice.length >= 2 && typeof json.splice[0] === 'number') return 'array-splice';
+    if ((json.put && typeof json.put === 'object' && 'path' in json.put) || (json.merge && typeof json.merge === 'object' && 'path' in json.merge)) return 'put-merge';
+    if (keys.length <= 3 && typeof json.path === 'string' && !json.path.startsWith('/') && json.path.includes('.') && ('value' in json || 'v' in json)) return 'dotted-set';
+    if (keys.length === 2 && typeof json.key === 'string' && 'value' in json && json.key.includes('.')) return 'dotted-set';
   }
   return null;
 }
 
 export class DeltaAssembler {
-  constructor(dialect = 'auto') {
-    this.dialect = dialect;
+  // new DeltaAssembler('auto') (legacy) or new DeltaAssembler({ dialect, opsLog, snapshotEvery })
+  constructor(arg = 'auto') {
+    const opts = typeof arg === 'string' ? { dialect: arg } : (arg ?? {});
+    this.dialect = opts.dialect ?? 'auto';
     this.doc = undefined;
     this.lastPath = null;
     this.revisions = 0;
     this.detected = new Set();
     this.unapplied = 0;
+    this.ops = {};                                   // op name -> count
+    this.errors = [];                                // bounded list of refused operations
+    this.maxErrors = opts.maxErrors ?? 20;
+    this.opsLogLimit = opts.opsLog ?? 200;            // bounded op trail (no payloads)
+    this.opsLog = [];
+    this.snapshotEvery = opts.snapshotEvery ?? 0;     // 0 = no intermediate snapshots
+    this.maxSnapshots = opts.maxSnapshots ?? 20;
+    this.snapshots = [];
+    this.pathRevisions = new Map();                   // pointer -> times written
+    this.replacements = 0;
+    this.lastAppliedAt = null;
+  }
+
+  _note(op, path) {
+    this.ops[op] = (this.ops[op] ?? 0) + 1;
+    if (path !== undefined && path !== null) this.pathRevisions.set(String(path), (this.pathRevisions.get(String(path)) ?? 0) + 1);
+    if (this.opsLogLimit > 0) {
+      this.opsLog.push({ r: this.revisions + 1, op, path: path === undefined ? undefined : String(path) });
+      if (this.opsLog.length > this.opsLogLimit) this.opsLog.shift();
+    }
+  }
+
+  _fail(reason, detail) {
+    this.unapplied++;
+    if (this.errors.length < this.maxErrors) this.errors.push({ reason, detail: detail === undefined ? undefined : String(detail).slice(0, 120) });
+    return false;
+  }
+
+  _commit() {
+    this.revisions++;
+    this.lastAppliedAt = Date.now();
+    if (this.snapshotEvery && this.revisions % this.snapshotEvery === 0) {
+      this.snapshots.push({ revision: this.revisions, doc: structuredClone(this.doc) });
+      if (this.snapshots.length > this.maxSnapshots) this.snapshots.shift();
+    }
+    return true;
   }
 
   apply(json) {
     if (json === undefined || this.dialect === 'none') return false;
     const d = this.dialect === 'auto' ? detectDialect(json) : this.dialect;
-    if (d === 'json-patch') { this.detected.add(d); for (const op of [].concat(json)) this._jsonPatch(op); this.revisions++; return true; }
-    if (d === 'typed-events') { this.detected.add(d); if (this._typed(json)) { this.revisions++; return true; } this.unapplied++; return false; }
+    if (d === 'json-patch') {
+      this.detected.add(d);
+      for (const op of [].concat(json)) this._jsonPatch(op);
+      return this._commit();
+    }
+    if (d === 'json-merge-patch') { this.detected.add(d); this.doc = applyMergePatch(this.doc, json); this._note('merge-patch', ''); return this._commit(); }
+    if (d === 'typed-events') { this.detected.add(d); if (this._typed(json)) return this._commit(); return this._fail('typed_event_not_applicable', json.type); }
+    if (d === 'ot-ops') { this.detected.add(d); if (this._otOps(json)) return this._commit(); return this._fail('ot_ops_empty'); }
+    if (d === 'array-splice') { this.detected.add(d); if (this._splice(json)) return this._commit(); return this._fail('splice_target_missing', json.path); }
+    if (d === 'put-merge') { this.detected.add(d); if (this._putMerge(json)) return this._commit(); return this._fail('put_merge_invalid'); }
+    if (d === 'dotted-set') {
+      this.detected.add(d);
+      const parts = parseDotted(json.path ?? json.key);
+      this._ensureDoc();
+      this._set(parts, structuredClone('value' in json ? json.value : json.v), 'replace');
+      this._note('dotted-set', (json.path ?? json.key));
+      return this._commit();
+    }
     if (d === 'path-ops') {
       this.detected.add(d);
       // A path-op with an object value at the root and no op is a full document.
       if ((json.p === undefined || json.p === '') && json.o === undefined && json.v && typeof json.v === 'object' && !Array.isArray(json.v)) {
-        this.doc = structuredClone(json.v); this.lastPath = null; this.revisions++; return true;
+        this.doc = structuredClone(json.v); this.lastPath = null; this._note('document', ''); this.replacements++; return this._commit();
       }
-      this._pathOp(json); this.revisions++; return true;
+      this._pathOp(json); return this._commit();
     }
     if (json && typeof json === 'object' && !Array.isArray(json) && this.dialect === 'auto') {
       // Plain object: keep as the latest full snapshot only if nothing patch-like has been seen
       // or it clearly carries a document (heuristic: many keys).
-      if (!this.detected.size || Object.keys(json).length >= 3) { this.doc = structuredClone(json); this.revisions++; return true; }
+      if (!this.detected.size || Object.keys(json).length >= 3) {
+        this.doc = structuredClone(json); this._note('document', ''); this.replacements++; return this._commit();
+      }
     }
-    this.unapplied++;
-    return false;
+    return this._fail('no_dialect_match');
   }
 
   _ensureDoc() { if (this.doc === undefined || this.doc === null || typeof this.doc !== 'object') this.doc = {}; }
@@ -92,31 +196,118 @@ export class DeltaAssembler {
       else if (Array.isArray(cur)) cur.push(...[].concat(value));
       else if (cur === undefined) parent[key] = value;
       else parent[key] = value;
-    } else if (mode === 'add' && Array.isArray(parent) && (key === '-' || /^\d+$/.test(key))) {
+    } else if ((mode === 'add' || mode === 'insert') && Array.isArray(parent) && (key === '-' || /^\d+$/.test(key))) {
       if (key === '-') parent.push(value); else parent.splice(Number(key), 0, value);
-    } else if (mode === 'remove') {
+    } else if (mode === 'remove' || mode === 'delete') {
       if (Array.isArray(parent)) parent.splice(Number(key), 1); else delete parent[key];
     } else if (mode === 'truncate') {
       const cur = parent[key];
       if (typeof cur === 'string' || Array.isArray(cur)) parent[key] = cur.slice(0, Number(value));
+    } else if (mode === 'merge') {
+      parent[key] = applyMergePatch(parent[key], value);
+    } else if (mode === 'increment') {
+      parent[key] = (typeof parent[key] === 'number' ? parent[key] : 0) + (typeof value === 'number' ? value : 1);
     } else parent[key] = value;
   }
 
   _jsonPatch(op) {
     const parts = parsePointer(op.path);
-    if (op.op === 'add') this._set(parts, structuredClone(op.value), 'add');
-    else if (op.op === 'replace') this._set(parts, structuredClone(op.value), 'replace');
-    else if (op.op === 'remove') this._set(parts, undefined, 'remove');
-    else this.unapplied++; // move/copy/test are rare in streams; counted, not guessed
+    switch (op.op) {
+      case 'add': this._set(parts, structuredClone(op.value), 'add'); this._note('add', op.path); return true;
+      case 'replace': this._set(parts, structuredClone(op.value), 'replace'); this._note('replace', op.path); return true;
+      case 'remove': this._set(parts, undefined, 'remove'); this._note('remove', op.path); return true;
+      case 'move': {
+        const from = parsePointer(op.from);
+        const v = getPointer(this.doc, from);
+        if (v === undefined) return this._fail('move_source_missing', op.from);
+        this._set(from, undefined, 'remove');
+        this._set(parts, structuredClone(v), 'add');
+        this._note('move', op.path);
+        return true;
+      }
+      case 'copy': {
+        const v = getPointer(this.doc, parsePointer(op.from));
+        if (v === undefined) return this._fail('copy_source_missing', op.from);
+        this._set(parts, structuredClone(v), 'add');
+        this._note('copy', op.path);
+        return true;
+      }
+      case 'test': {
+        const v = getPointer(this.doc, parts);
+        const ok = JSON.stringify(v) === JSON.stringify(op.value);
+        this._note('test', op.path);
+        if (!ok) this._fail('test_failed', op.path);
+        return ok;
+      }
+      default: return this._fail('unknown_json_patch_op', op.op);
+    }
   }
 
   _pathOp(op) {
     if (op.o === 'patch' && Array.isArray(op.v)) { for (const sub of op.v) this._pathOp(sub); return; }
     const path = op.p !== undefined ? op.p : this.lastPath;
-    if (path === null || path === undefined) { this.unapplied++; return; }
+    if (path === null || path === undefined) { this._fail('path_op_without_path'); return; }
     this.lastPath = path;
     const mode = op.o ?? 'append';
+    this._note(mode, path);
     this._set(parsePointer(path), op.v === undefined ? undefined : structuredClone(op.v), mode === 'set' ? 'replace' : mode);
+  }
+
+  _splice(op) {
+    this._ensureDoc();
+    const parts = op.path ? (String(op.path).startsWith('/') ? parsePointer(op.path) : parseDotted(op.path)) : [];
+    const [start, del, ...items] = op.splice;
+    if (!parts.length) {
+      if (!Array.isArray(this.doc)) this.doc = Array.isArray(this.doc) ? this.doc : [];
+      this.doc.splice(start, del ?? 0, ...structuredClone(items));
+      this._note('splice', op.path ?? '');
+      return true;
+    }
+    const parent = getParent(this.doc, parts, true);
+    const key = parts[parts.length - 1];
+    if (!Array.isArray(parent[key])) parent[key] = [];
+    parent[key].splice(start, del ?? 0, ...structuredClone(items));
+    this._note('splice', op.path);
+    return true;
+  }
+
+  _putMerge(op) {
+    const spec = op.put ?? op.merge;
+    if (!spec || typeof spec !== 'object') return false;
+    const raw = spec.path ?? '';
+    const parts = String(raw).startsWith('/') ? parsePointer(raw) : parseDotted(String(raw).replace(/^\/+|\/+$/g, '').replace(/\//g, '.'));
+    const data = 'data' in spec ? spec.data : spec.value;
+    if (op.put) {
+      if (!parts.length) { this.doc = structuredClone(data); this.replacements++; }
+      else this._set(parts, structuredClone(data), 'replace');
+      this._note('put', raw);
+    } else {
+      if (!parts.length) this.doc = applyMergePatch(this.doc, data);
+      else this._set(parts, structuredClone(data), 'merge');
+      this._note('merge', raw);
+    }
+    return true;
+  }
+
+  // Operational-transform text ops (Quill/Delta style): insert/retain/delete over a text doc.
+  _otOps(json) {
+    const path = typeof json.path === 'string' ? json.path : null;
+    const parts = path ? (path.startsWith('/') ? parsePointer(path) : parseDotted(path)) : ['text'];
+    this._ensureDoc();
+    const parent = getParent(this.doc, parts, true);
+    const key = parts[parts.length - 1];
+    let text = typeof parent[key] === 'string' ? parent[key] : '';
+    let cursor = 0;
+    let applied = false;
+    for (const op of json.ops) {
+      if (typeof op.retain === 'number') { cursor = Math.min(text.length, cursor + op.retain); applied = true; }
+      else if (typeof op.delete === 'number') { text = text.slice(0, cursor) + text.slice(cursor + op.delete); applied = true; }
+      else if (typeof op.insert === 'string') { text = text.slice(0, cursor) + op.insert + text.slice(cursor); cursor += op.insert.length; applied = true; }
+      else if (op.insert !== undefined) { (this.doc.embeds ??= []).push(structuredClone(op.insert)); applied = true; }
+    }
+    parent[key] = text;
+    this._note('ot-ops', path ?? 'text');
+    return applied;
   }
 
   _typed(ev) {
@@ -124,33 +315,44 @@ export class DeltaAssembler {
     if (this.doc === undefined || typeof this.doc !== 'object' || this.doc === null) this.doc = {};
     const key = INDEX_KEYS.filter((k) => Number.isInteger(ev[k])).map((k) => ev[k]).join('.');
     const rootObj = () => { for (const [k, v] of Object.entries(this.doc)) if (k !== 'blocks' && v && typeof v === 'object' && !Array.isArray(v)) return v; return this.doc; };
-    const objectFields = Object.entries(ev).filter(([k, v]) => k !== 'type' && k !== 'delta' && !INDEX_KEYS.includes(k) && v && typeof v === 'object' && !Array.isArray(v));
+    const objectFields = Object.entries(ev).filter(([k, v]) => k !== 'type' && !DELTA_KEYS.includes(k) && !INDEX_KEYS.includes(k) && v && typeof v === 'object' && !Array.isArray(v));
     if (TYPED_START.test(t)) {
       if (!objectFields.length) return false;
       for (const [k, v] of objectFields) {
         if (key) { this.doc.blocks ??= {}; this.doc.blocks[key] = { ...(this.doc.blocks[key] ?? {}), ...structuredClone(v) }; }
         else this.doc[k] = { ...(this.doc[k] ?? {}), ...structuredClone(v) };
       }
+      this._note('typed-start', key || '');
       return true;
     }
-    if (/delta/.test(t)) {
+    if (TYPED_DELTA.test(t)) {
       const target = key ? ((this.doc.blocks ??= {})[key] ??= {}) : rootObj();
-      const d = ev.delta;
+      const dk = DELTA_KEYS.find((k) => ev[k] !== undefined);
+      const d = dk ? ev[dk] : undefined;
       if (typeof d === 'string') target.text = (target.text ?? '') + d;
       else if (d && typeof d === 'object') {
         for (const [k, v] of Object.entries(d)) {
           if (k === 'type') continue;
-          // Block-level string deltas append; message-level fields (stop reasons) replace.
-          if (key && typeof v === 'string') target[k] = (typeof target[k] === 'string' ? target[k] : '') + v;
+          // Block-level string deltas append. At message level, a string under a content-bearing
+          // name still appends (an unindexed "delta.text" stream is an append stream); anything
+          // else (stop reasons, usage counters) replaces.
+          if (typeof v === 'string' && (key || TEXT_DELTA_FIELD.test(k))) target[k] = (typeof target[k] === 'string' ? target[k] : '') + v;
           else target[k] = structuredClone(v);
         }
-      } else return false;
+      } else {
+        // Some encodings put the incremental text directly on a sibling field.
+        const inline = ['text', 'content', 'value', 'token', 'append'].find((k) => typeof ev[k] === 'string');
+        if (inline) target.text = (target.text ?? '') + ev[inline];
+        else return false;
+      }
       for (const [k, v] of objectFields) rootObj()[k] = structuredClone(v);
+      this._note('typed-delta', key || '');
       return true;
     }
     if (TYPED_STOP.test(t)) {
       for (const [k, v] of objectFields) this.doc[k] = { ...(this.doc[k] ?? {}), ...structuredClone(v) };
       if (key && this.doc.blocks?.[key]) this.doc.blocks[key]._done = true; else if (!objectFields.length) this.doc._done = true;
+      this._note('typed-stop', key || '');
       return true;
     }
     return false;
@@ -166,4 +368,53 @@ export class DeltaAssembler {
     walk(this.doc, '');
     return out.sort((a, b) => b.text.length - a.text.length);
   }
+
+  // Text of a specific pointer or dotted path.
+  textOf(path) {
+    const parts = String(path ?? '').startsWith('/') ? parsePointer(path) : parseDotted(path);
+    const v = getPointer(this.doc, parts);
+    return typeof v === 'string' ? v : undefined;
+  }
+
+  // Indexed blocks produced by typed-event streams, in index order.
+  blocks() {
+    const b = this.doc?.blocks;
+    if (!b || typeof b !== 'object') return [];
+    return Object.entries(b)
+      .map(([k, v]) => ({ index: k, done: !!v?._done, ...v }))
+      .sort((x, y) => String(x.index).localeCompare(String(y.index), undefined, { numeric: true }));
+  }
+
+  // The longest text leaf: what a reader would consider "the content".
+  primaryText(minLength = 1) { return this.texts(minLength)[0]?.text; }
+
+  stats() {
+    let bytes = 0;
+    try { bytes = Buffer.byteLength(JSON.stringify(this.doc ?? null)); } catch { bytes = -1; }
+    return {
+      revisions: this.revisions, unapplied: this.unapplied, replacements: this.replacements,
+      dialects: [...this.detected], ops: { ...this.ops }, paths: this.pathRevisions.size,
+      docBytes: bytes, errors: this.errors.slice(0, 5), snapshots: this.snapshots.length,
+    };
+  }
+
+  // Deterministic end-of-stream marker so consumers can tell "finished" from "cut off".
+  finalize({ complete = true } = {}) {
+    if (this.doc && typeof this.doc === 'object' && !Array.isArray(this.doc)) {
+      if (!complete) this.doc._incomplete = true;
+    }
+    return this.stats();
+  }
+}
+
+// Rebuild a document from an ordered list of decoded JSON payloads (or decoded events).
+export function reconstruct(items, { dialect = 'auto', opsLog = 0, snapshotEvery = 0 } = {}) {
+  const a = new DeltaAssembler({ dialect, opsLog, snapshotEvery });
+  let applied = 0;
+  for (const it of items ?? []) {
+    const json = it && typeof it === 'object' && 'json' in it ? it.json : it;
+    if (json === undefined) continue;
+    if (a.apply(json)) applied++;
+  }
+  return { doc: a.doc, applied, assembler: a, ...a.stats() };
 }

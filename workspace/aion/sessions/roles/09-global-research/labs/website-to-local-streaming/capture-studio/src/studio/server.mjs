@@ -21,6 +21,8 @@ import { StreamReducer } from '../replay/reducer.mjs';
 import { VERSION } from '../config.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
 import { buildSiteContinuity, siteFromSession, originFromSession, continuityTime } from '../intel/continuity.mjs';
+import { createIntegrationHub } from './integration-hub.mjs';
+import { problem, storageName } from './http.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
@@ -40,15 +42,20 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
     if (replayCache.size > 3) replayCache.delete(replayCache.keys().next().value);
     return r;
   }
-  const clients = new Set();
-  const broadcast = (type, data) => { const msg = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`; for (const c of clients) c.write(msg); };
-
-  recorder.on('status', (s) => broadcast('status', s));
-  recorder.on('started', (s) => broadcast('started', s));
-  recorder.on('stopped', (r) => broadcast('stopped', { id: r.id, reason: r.reason, verify: r.verify }));
-  recorder.on('warn', (e) => broadcast('warn', { message: String(e.message ?? e) }));
-  recorder.on('record', (r) => broadcast('record', preview(r)));
-  recorder.on('event', (e) => broadcast('event', previewEvent(e)));
+  const deriving = new Set();
+  async function deriveSession(session, profileName) {
+    if (deriving.has(session.id)) throw problem(409, 'Session derivation is already running', 'DERIVATION_BUSY');
+    if (['recording', 'stopping'].includes(recorder.state) && recorder.session?.id === session.id) throw problem(409, 'Stop capture before deriving this session', 'SESSION_ACTIVE');
+    deriving.add(session.id); replayCache.delete(session.id);
+    try {
+      const profile = profileName ? profileStore.load(storageName(profileName, 'profile'))
+        : session.kv.get('PROFILE_SNAPSHOT') ?? profileStore.load(session.meta.profile?.name ?? 'generic');
+      const result = await derive(session, profile, famOpt);
+      hub.publish('session.derived', { id: session.id, records: result.records, knowledge: result.knowledge, recordCounts: result.recordCounts, familyCounts: result.familyCounts }, session.id);
+      return result;
+    } finally { deriving.delete(session.id); }
+  }
+  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, cdpPort });
 
   const tokenBuf = Buffer.from(token);
   const authed = (req) => {
@@ -70,10 +77,12 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (!authed(req)) return send(res, 401, url.pathname.startsWith('/api') ? { error: 'unauthorized' } : 'Open the studio using the tokenized URL printed in the terminal.');
       if (url.pathname === '/') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:" }); return res.end(readFileSync(UI)); }
       if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'not found' });
-      const body = req.method === 'POST' ? await readBody(req) : {};
+      const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
+      if (await hub.handle(req, res, url, body)) return;
       return await route(req, res, url, body);
     } catch (e) {
-      send(res, 500, { error: String(e.message ?? e) });
+      if (res.headersSent) res.destroy();
+      else send(res, e.status ?? 500, { error: String(e.message ?? e), ...(e.code ? { code: e.code } : {}) });
     }
   });
 
@@ -81,18 +90,22 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
     const p = url.pathname.slice(5).split('/').map(decodeURIComponent);
     const q = Object.fromEntries(url.searchParams);
     const [a, b, c, d] = p;
-    const sessionOf = (id) => Session.open(paths.sessions, id);
+    const sessionOf = (id) => {
+      if (id !== undefined) storageName(id, 'session');
+      try { return Session.open(paths.sessions, id); }
+      catch (e) {
+        if (/No session|No sessions/.test(e.message)) throw problem(404, e.message, 'NOT_FOUND');
+        if (/matches \d+ sessions/.test(e.message)) throw problem(409, e.message, 'AMBIGUOUS_SESSION');
+        throw e;
+      }
+    };
 
     if (a === 'status') {
       const reachable = await isReachable({ port: cdpPort });
       return send(res, 200, { version: VERSION, cdpPort, chrome: reachable ? (await browserVersion({ port: cdpPort })).Browser : null, recorder: recorder.status(), dataDir: paths.root });
     }
     if (a === 'live' && req.method === 'GET' && !b) {
-      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
-      res.write(`event: status\ndata: ${JSON.stringify(recorder.status())}\n\n`);
-      clients.add(res);
-      const ka = setInterval(() => res.write(': ka\n\n'), 15000);
-      req.on('close', () => { clients.delete(res); clearInterval(ka); });
+      hub.feed.subscribe(req, res, q, { legacy: true, status: recorder.status() });
       return;
     }
     if (a === 'targets') return send(res, 200, await listTargets({ port: cdpPort }));
@@ -102,7 +115,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       const r = await recorder.stop({ reason: 'user_stop' });
       if (!r) return send(res, 409, { error: 'not recording' });
       const s = sessionOf(r.id);
-      const dres = await derive(s, profileStore.load(s.meta.profile.name), famOpt);
+      const dres = await deriveSession(s);
       return send(res, 200, { id: r.id, verify: r.verify, receipt: dres.receipt, recordCounts: dres.recordCounts, familyCounts: dres.familyCounts });
     }
     if (a === 'live') {
@@ -130,7 +143,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         return send(res, 200, s.kv.get('KNOWLEDGE_STATUS', null) ??
           { status: 'legacy-unverified', note: 'No versioned derivation outcome marker' });
       }
-      if (c === 'derive') { replayCache.delete(s.id); const r = await derive(s, profileStore.load(body.profile ?? s.meta.profile.name), famOpt); return send(res, 200, { records: r.records, receipt: r.receipt, recordCounts: r.recordCounts, familyCounts: r.familyCounts, transportCounts: r.summary.transportCounts }); }
+      if (c === 'derive') { if (req.method !== 'POST') return send(res, 405, { error: 'POST required' }); const r = await deriveSession(s, body.profile); return send(res, 200, { records: r.records, receipt: r.receipt, recordCounts: r.recordCounts, familyCounts: r.familyCounts, transportCounts: r.summary.transportCounts }); }
       if (c === 'verify') return send(res, 200, await s.verify());
       if (c === 'streams') return send(res, 200, await s.dataset('streams').toArray());
       if (c === 'shapes') return send(res, 200, s.kv.get('SHAPES') ?? null);
@@ -152,10 +165,11 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (c === 'dom') return send(res, 200, s.kv.get('DOM_BLOCKS') ?? []);
       if (c === 'turns') return send(res, 200, s.kv.get('DOM_TURNS') ?? []);
       if (c === 'inspect') return send(res, 200, s.kv.get('DOM_INSPECT') ?? null);
-      if (c === 'dataset') return send(res, 200, await s.dataset(d).toArray(Number(q.limit ?? 500)));
+      if (c === 'dataset') return send(res, 200, await s.dataset(storageName(d, 'dataset')).toArray(Number(q.limit ?? 500)));
       if (c === 'delete') {
         if (body.confirm !== true) return send(res, 400, { error: 'confirm required' });
-        if (recorder.state === 'recording' && recorder.session?.id === s.id) return send(res, 409, { error: 'stop the recording first' });
+        if (['recording', 'stopping'].includes(recorder.state) && recorder.session?.id === s.id) return send(res, 409, { error: 'stop the recording first' });
+        if (deriving.has(s.id)) return send(res, 409, { error: 'wait for derivation to finish' });
         replayCache.delete(s.id); rmSync(s.dir, { recursive: true, force: true });
         return send(res, 200, { deleted: s.id });
       }
@@ -190,6 +204,8 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       }
       if (c === 'at') return send(res, 200, await stateAt(s, Number(q.t), profileStore.load(s.meta.profile.name)));
       if (c === 'export') {
+        storageName(q.dataset, 'dataset');
+        if (!['jsonl', 'json', 'csv', 'md'].includes(q.format ?? 'jsonl')) return send(res, 400, { error: 'Unsupported export format' });
         const dir = mkdtempSync(path.join(os.tmpdir(), 'studio-export-'));
         const fmt = q.format ?? 'jsonl';
         const file = path.join(dir, `${s.id}-${q.dataset}.${fmt}`);
@@ -272,10 +288,12 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
     return send(res, 404, { error: 'unknown endpoint' });
   }
 
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
+  try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }); }
+  catch (e) { hub.close(); throw e; }
   const actualPort = server.address().port;
   port = actualPort;
-  return { server, recorder, port: actualPort, token, url: `http://127.0.0.1:${actualPort}/?token=${token}`, close: async () => { if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); for (const c of clients) c.end(); server.close(); } };
+  server.once('close', () => hub.close());
+  return { server, recorder, integrations: hub, port: actualPort, token, url: `http://127.0.0.1:${actualPort}/?token=${token}`, close: async () => { try { if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); } finally { hub.close(); server.close(); } } };
 }
 
 function listDatasets(s) {
@@ -283,6 +301,7 @@ function listDatasets(s) {
 }
 
 function send(res, code, data) {
+  if (res.destroyed || res.writableEnded) return;
   const isStr = typeof data === 'string';
   res.writeHead(code, { 'content-type': isStr ? 'text/plain; charset=utf-8' : 'application/json', 'cache-control': 'no-store' });
   res.end(isStr ? data : JSON.stringify(data));
@@ -290,9 +309,22 @@ function send(res, code, data) {
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    let n = 0; const parts = [];
-    req.on('data', (c) => { n += c.length; if (n > 8 * 1024 * 1024) { reject(new Error('body too large')); req.destroy(); } else parts.push(c); });
-    req.on('end', () => { try { resolve(parts.length ? JSON.parse(Buffer.concat(parts).toString('utf8')) : {}); } catch (e) { reject(e); } });
+    let n = 0, oversized = false; const parts = [];
+    req.on('error', reject);
+    req.on('aborted', () => reject(problem(400, 'Request body aborted')));
+    req.on('data', (c) => {
+      n += c.length;
+      if (n > 8 * 1024 * 1024) { if (!oversized) { oversized = true; parts.length = 0; reject(problem(413, 'body too large')); } }
+      else parts.push(c);
+    });
+    req.on('end', () => {
+      if (oversized) return;
+      try {
+        const body = parts.length ? JSON.parse(Buffer.concat(parts).toString('utf8')) : {};
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Expected a JSON object');
+        resolve(body);
+      } catch { reject(problem(400, 'Invalid JSON object request body')); }
+    });
   });
 }
 
