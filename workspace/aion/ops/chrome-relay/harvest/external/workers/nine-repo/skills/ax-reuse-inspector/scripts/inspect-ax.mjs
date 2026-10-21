@@ -17,6 +17,17 @@ export function inspectExchange({ repoRoot, exchange = DEFAULT_EXCHANGE, topic =
     throw new Error('Exchange path escapes repo root');
   }
   const lines = fs.readFileSync(absExchange, 'utf8').split(/\r?\n/);
+  // AX records may use a donor-relative shorthand; resolve only named pinned donors.
+  const catalog = path.join(root, 'workspace/aion/ops/chrome-relay/harvest/external/sources.json');
+  const donors = new Map();
+  if (fs.existsSync(catalog)) {
+    const data = JSON.parse(fs.readFileSync(catalog, 'utf8'));
+    for (const item of (Array.isArray(data.donors) ? data.donors : [])) {
+      if (typeof item.id === 'string' && typeof item.aion_source_root === 'string') {
+        donors.set(item.id, item.aion_source_root);
+      }
+    }
+  }
   const records = [];
   const errors = [];
   const warnings = [];
@@ -59,13 +70,15 @@ export function inspectExchange({ repoRoot, exchange = DEFAULT_EXCHANGE, topic =
         if (/^[a-z]+:\/\//i.test(ref) || path.isAbsolute(ref) || /^[a-z]:[\\/]/i.test(ref)) {
           errors.push(`line ${i + 1}: unsafe reference ${ref}`); continue;
         }
-        const full = path.resolve(root, ref);
+        const [alias, ...rest] = ref.split('/');
+        const mapped = donors.has(alias) ? path.posix.join(donors.get(alias), ...rest) : ref;
+        const full = path.resolve(root, mapped);
         if (!full.startsWith(root + path.sep) || !ref.includes('/')) {
           errors.push(`line ${i + 1}: non-repository or escaping reference ${ref}`); continue;
         }
         if (checked.has(full)) continue;
         checked.add(full);
-        if (!fs.existsSync(full)) warnings.push(`missing local source: ${ref}`);
+        if (!fs.existsSync(full)) warnings.push(`missing local source: ${ref}${mapped === ref ? '' : ' (resolved: ' + mapped + ')'}`);
       }
     }
   }
