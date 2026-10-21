@@ -20,7 +20,7 @@ import { ruleMatchesEvent, extractRecords } from '../shapes/extract.mjs';
 import { StreamReducer } from '../replay/reducer.mjs';
 import { VERSION } from '../config.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
-import { buildSiteContinuity, siteFromSession, continuityTime } from '../intel/continuity.mjs';
+import { buildSiteContinuity, siteFromSession, originFromSession, continuityTime } from '../intel/continuity.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
@@ -139,10 +139,11 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (c === 'continuity') {
         if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
         const site = siteFromSession(s.meta);
-        if (!site) return send(res, 409, { error: 'Session target has no verified site scope.' });
+        const origin = originFromSession(s.meta);
+        if (!site || !origin) return send(res, 409, { error: 'Session target has no verified origin/site scope.' });
         if (q.at !== undefined && continuityTime(q.at) === null) return send(res, 400, { error: 'Invalid as-of timestamp.' });
         return send(res, 200, await buildSiteContinuity(paths.sessions, {
-          site, eid: q.eid ?? null, asOf: q.at ?? null, limit: q.limit ?? 50,
+          site, origin, eid: q.eid ?? null, asOf: q.at ?? null, limit: q.limit ?? 50,
           includeHistory: !!q.eid,
         }));
       }
