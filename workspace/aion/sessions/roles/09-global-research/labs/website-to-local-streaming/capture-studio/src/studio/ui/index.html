@@ -385,14 +385,24 @@ function updateInvestigationTrail() {
   };
 }
 function selectSessionContext(id) {
-  if (!id || S.sessionId === id) return;
-  S.sessionId = id; S.sid = null;
+  const selected = id || null;
+  if (S.sessionId === selected) return;
+  S.sessionId = selected; S.sid = null;
   ++S.sessionRequestSeq; ++S.continuityRequestSeq; ++S.knowledgeRequestSeq; ++S.knowledgeDetailSeq; ++S.searchRequestSeq;
   S.knowledge = null;
   updateSrcNote();
   const picker = $('#knowledgeSession');
-  if (picker && picker.value !== id) picker.value = id;
+  if (picker && picker.value !== (selected || '')) picker.value = selected || '';
+  const detail = $('#sessionDetail');
+  if (detail) detail.innerHTML = knowledgeFallback(selected ? 'Recording selection changed. Open it from Sessions to inspect this recording.' : 'No saved recording selected.');
   if ($('#sessions tbody') && S.sessions.length) renderSessions();
+  const scope = $('#searchScope');
+  if (scope?.value === 'selected') {
+    ++S.searchRequestSeq;
+    const hits = $('#hits tbody'), status = $('#searchStatus');
+    if (hits) hits.innerHTML = '<tr><td colspan="3" class="empty">Recording changed. Search again for this source.</td></tr>';
+    if (status) status.textContent = 'Search scope changed; run search again for the selected recording.';
+  }
 }
 function updateHistoricalContext(value) {
   S.historicalAsOfLocal = value || '';
@@ -783,7 +793,7 @@ function knowledgeTime(value) {
   const n = typeof value === 'number' ? value : Date.parse(value);
   return Number.isFinite(n) ? new Date(n).toLocaleString() : 'Time not recorded';
 }
-function knowledgeSessionId() { return $('#knowledgeSession').value || S.sessionId || ''; }
+function knowledgeSessionId() { return $('#knowledgeSession').value || ''; }
 function knowledgeMarkupError(message) { return '<div class="feedback-error" role="alert">' + esc(message) + '</div>'; }
 function knowledgeFallback(message) { return '<div class="empty">' + esc(message) + '</div>'; }
 function knowledgeSafeList(value) { return Array.isArray(value) ? value : []; }
