@@ -28,7 +28,7 @@ export function correlateActions(actions, streams, { windowMs = 3000 } = {}) {
     const best = cands[0];
     const second = cands[1];
     const causal = best.score >= 0.7 && best.intervening === 0;
-    hyps.push({ kind: 'action_causes_request', from: { actionSeq: best.action.seq, kind: best.action.kind, label: best.action.target?.label }, to: { sid: s.sid }, score: +best.score.toFixed(3), relation: causal ? 'causal' : 'temporal', features: { latencyMs: best.dt, interveningActions: best.intervening, initiator: s.initiator ?? null }, status: second && best.score - second.score < 0.1 ? 'ambiguous' : best.score >= 0.6 ? 'likely' : 'weak' });
+    hyps.push({ kind: 'action_causes_request', t: s.startedT, from: { actionSeq: best.action.seq, kind: best.action.kind, label: best.action.target?.label }, to: { sid: s.sid }, score: +best.score.toFixed(3), relation: causal ? 'causal' : 'temporal', features: { latencyMs: best.dt, interveningActions: best.intervening, initiator: s.initiator ?? null }, status: second && best.score - second.score < 0.1 ? 'ambiguous' : best.score >= 0.6 ? 'likely' : 'weak' });
   }
   return hyps;
 }
@@ -72,7 +72,7 @@ export function correlateRendered(subjects, elements, { minScore = 0.35 } = {}) 
     // Prefer the most specific element among near-equal scores (a child block over its container).
     const best = scored[0];
     const second = scored.find((x) => x.element.id !== best.element.id && !(x.element.text ?? '').includes(best.element.text ?? '\u0000') && !(best.element.text ?? '').includes(x.element.text ?? '\u0000'));
-    hyps.push({ kind: 'rendered_as', from: { [s.kind]: s.id }, to: { element: best.element.id }, score: +best.score.toFixed(3), features: best.features, status: second && best.score - second.score < 0.08 ? 'ambiguous' : best.score >= 0.6 ? 'likely' : 'weak', alternatives: scored.slice(1, 3).map((x) => ({ element: x.element.id, score: +x.score.toFixed(3) })) });
+    hyps.push({ kind: 'rendered_as', t: Number.isFinite(s.t0) && Number.isFinite(best.element.firstT) ? Math.max(s.t0, best.element.firstT) : null, from: { [s.kind]: s.id }, to: { element: best.element.id }, score: +best.score.toFixed(3), features: best.features, status: second && best.score - second.score < 0.08 ? 'ambiguous' : best.score >= 0.6 ? 'likely' : 'weak', alternatives: scored.slice(1, 3).map((x) => ({ element: x.element.id, score: +x.score.toFixed(3) })) });
   }
   // Conflicts: one element claimed (likely) by several different subjects.
   const claims = new Map();

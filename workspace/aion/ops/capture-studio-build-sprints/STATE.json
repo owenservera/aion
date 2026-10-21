@@ -5,7 +5,7 @@
   "status": "SPRINT_02_IMPLEMENTED_PARTIAL_PENDING_INDEPENDENT_QA",
   "created": "2026-10-21",
   "updated": "2026-10-21",
-  "last_observed_product_sha": "bbb5d301abbfedc277592adaa884299b1463bb0e",
+  "last_observed_product_sha": "a1b1aab63c698d662b407b66bcf947bb4df9277a",
   "source_of_truth": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/",
   "phase": {
     "completed": "MECHANICAL",
@@ -128,7 +128,7 @@
     "C3": "8c1f5ee",
     "C4": "8218e6c"
   },
-  "qa_status": "PENDING INDEPENDENT QA (no tests executed in build session)",
+  "qa_status": "PENDING INDEPENDENT QA; external regression test file detected but not executed in build session",
   "source_coverage_gaps": [
     "test/ and eval/ not read beyond imports",
     "src/studio/ui/index.html read only at edited lines",
@@ -149,8 +149,8 @@
     "active_sprint": "SPRINT-02.md",
     "implementation_basis_sha": "09dd984510e5a6fd9d7f55c0312f221f5a4d7f6e",
     "work_started": "2026-10-21",
-    "completed": "Cross-session keyed entity continuity view and temporal as-of reconstruction; CLI + local authenticated API",
-    "pending": "Independent QA; optional schema/type-drift candidates, indexing/performance, user-facing correction flow",
+    "completed": "Cross-session keyed entity continuity view and temporal as-of reconstruction; CLI + local authenticated API; source-level temporal graph fixes for undated edges, dated correlations and status history",
+    "pending": "Independent QA of Sprint 01 temporal regressions and Sprint 02 continuity; schema/type drift, indexing/performance, full UI workflow",
     "source_read_scope": "Source tree enumerated; relevant continuity, identity, graph, derive, session, store, schema, CLI, server source reviewed; full tests/fixtures and unrelated source were not fully reread",
     "tests_executed": false,
     "quality_status": "PENDING INDEPENDENT QA",
