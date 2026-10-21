@@ -317,7 +317,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtB = (n) => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
-const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledge: null };
+const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, knowledge: null };
 
 async function api(path, opts = {}) {
   const r = await fetch('/api/' + path, { method: opts.body ? 'POST' : 'GET', headers: opts.body ? { 'content-type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
@@ -566,6 +566,7 @@ async function openSession(id) {
   const requestSeq = ++S.sessionRequestSeq;
   ++S.continuityRequestSeq;
   ++S.knowledgeRequestSeq;
+  ++S.knowledgeDetailSeq;
   S.knowledge = null;
   S.sessionId = id; S.sid = null; updateSrcNote();
   renderSessions();
@@ -789,7 +790,7 @@ function wireKnowledgeSources(history) {
   }));
 }
 async function openKnowledgeEntity(entity) {
-  const k = S.knowledge, epoch = S.knowledgeRequestSeq;
+  const k = S.knowledge, epoch = S.knowledgeRequestSeq, detailSeq = ++S.knowledgeDetailSeq;
   if (!k || !entity) return;
   const host = $('#knowledgeDetail');
   host.innerHTML = '<div role="status" class="empty">Loading entity revisions…</div>';
@@ -797,7 +798,7 @@ async function openKnowledgeEntity(entity) {
     const query = new URLSearchParams({ eid: entity.id, limit: '1' });
     if (k.at) query.set('at', k.at);
     const full = await api('sessions/' + encodeURIComponent(k.sessionId) + '/continuity?' + query.toString());
-    if (epoch !== S.knowledgeRequestSeq || S.view !== 'knowledge') return;
+    if (detailSeq !== S.knowledgeDetailSeq || epoch !== S.knowledgeRequestSeq || S.view !== 'knowledge') return;
     const e = knowledgeSafeList(full.entities)[0];
     if (!e) { host.innerHTML = knowledgeFallback('Entity history unavailable at the selected time.'); return; }
     const history = knowledgeSafeList(e.history);
@@ -812,10 +813,11 @@ async function openKnowledgeEntity(entity) {
       '<h3>Source recordings</h3>' + knowledgeSourceLinks(history);
     wireKnowledgeSources(history);
   } catch (err) {
-    if (epoch === S.knowledgeRequestSeq && S.view === 'knowledge') host.innerHTML = knowledgeMarkupError('Could not load entity history: ' + err.message);
+    if (detailSeq === S.knowledgeDetailSeq && epoch === S.knowledgeRequestSeq && S.view === 'knowledge') host.innerHTML = knowledgeMarkupError('Could not load entity history: ' + err.message);
   }
 }
 function openKnowledgeNode(node, edges) {
+  ++S.knowledgeDetailSeq;
   if (!node) return;
   const related = knowledgeSafeList(edges).filter((e) => e.from === node.eid || e.to === node.eid);
   const history = knowledgeSafeList(node.history);
@@ -847,6 +849,7 @@ async function refreshKnowledge() {
   const at = selectedTime ? new Date(selectedTime) : null;
   if (at && !Number.isFinite(at.getTime())) { $('#knowledgeState').innerHTML = knowledgeMarkupError('Enter a valid as-of time.'); return; }
   const epoch = ++S.knowledgeRequestSeq;
+  ++S.knowledgeDetailSeq;
   S.knowledge = null;
   $('#knowledgeState').textContent = 'Reading derived model, graph and exact-origin continuity from saved recordings…';
   for (const target of ['#knowledgeEntities', '#knowledgeGraph', '#knowledgeModel', '#knowledgeDrift', '#knowledgeDetail'])
@@ -879,6 +882,7 @@ $('#knowledgeFilter').oninput = renderKnowledgeEntities;
 $('#graphFilter').oninput = renderKnowledgeGraph;
 $('#knowledgeSession').onchange = () => {
   ++S.knowledgeRequestSeq;
+  ++S.knowledgeDetailSeq;
   S.knowledge = null;
   $('#knowledgeMetrics').textContent = '';
   $('#knowledgeState').textContent = 'Selection changed. Choose Explore knowledge to load this recording.';
