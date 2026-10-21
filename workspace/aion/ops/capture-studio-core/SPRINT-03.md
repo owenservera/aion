@@ -31,6 +31,8 @@ The user explicitly requested full priority-driven development. This is a **sour
 | 4. Historical correction semantics | Explicit per-revision `removed: [field]` supported by `foldRevision`, `TemporalGraph.stateAt` and longitudinal `asOf`. Missing field without a recorded removal keeps prior value. No removal is inferred from a missing observation; no mutation workflow exposed. | Additive primitive delivered; actual correction-authoring workflow remains open. |
 | 5. Measured resource behavior | Entity-details avoid folding and copying *unrelated* histories while preserving global counts and review-only drift hints. | V8 mock-storage benchmark only; real Node/filesystem and Windows workload benchmark remains. |
 
+**Additional origin-isolation fix:** `64a46a6f` adds an optional exact-origin filter to the internal continuity reader; `dd8f28e8` passes the selected origin from the authenticated API; `fa5e0152` scopes CLI output identically; `fa3566ce` adds the ninth Node regression case for distinct hosted subdomains. This prevents a selected `alice.github.io` recording from listing saved `bob.github.io` evidence in ordinary UI/CLI use. Internal callers omitting `origin` retain the previous site-wide audit semantics. A V8 source-loaded mocked session check passed this origin filter; it is not live account separation proof. `b953ba65` hardened explicit removal-field normalization. `26667b95` updates the Core API contract documentation.
+
 **Source receipts (all GitHub remote):**
 - `1990a524` — distinct provisional identities
 - `dce582ee` — explicit deriving/complete/failed marker including successful-empty
@@ -39,7 +41,7 @@ The user explicitly requested full priority-driven development. This is a **sour
 - `fd3ac226`, `ef9f4dc2` — graph and continuity explicit removal
 - `a29baa1a` — old UI completeness warning compatibility
 - `ee6ad38a`, `286dd37c` — authenticated read-only derivation status API and GET restriction
-- `a1fb455d`, `0f6ff3c4` — eight executable Node unit cases committed (not executed in this GitHub-only environment)
+- `a1fb455d`, `0f6ff3c4` — nine executable Node unit cases committed (not executed in this GitHub-only environment)
 - `6db122e5` — entity detail history materialization optimization
 
 **Executed verification available from this interaction:** Source-loaded V8 behavior checks with a deterministic hash stand-in and mocked session storage: provisional-ID and graph isolation; explicit temporal removal; same-origin joins and cross-origin nonjoins; historical as-of; successful-empty vs deriving/count-mismatch; legacy duplicate IDs; review-only type drift and UI-compatible missing-data warnings. Module and test-file syntax parsed in V8 after stripping imports. V8 stub behavior is **not** Node SHA-1, Node filesystem or browser acceptance.
