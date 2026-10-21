@@ -2,7 +2,7 @@
   "schema": "aion.capture-studio.knowledge-learning.worker.v1",
   "created": "2026-10-21",
   "baseline_sha": "1990a5243c07e125f40c76669c0b12a1f58cc437",
-  "status": "SITREP_COMPLETE_BUILD_NOT_STARTED",
+  "status": "L5_SPRINT_01_BUILDER_TESTED_PENDING_INDEPENDENT_QA",
   "mission": "Drive L4 Knowledge & Relationships and L5 Learning & Adaptation toward criterion-based independently accepted 100%",
   "acceptance": {
     "knowledge": {
@@ -11,11 +11,14 @@
     },
     "learning": {
       "verified": 0,
-      "total": 7
+      "total": 7,
+      "builder_implemented_partial": 7,
+      "builder_locally_tested_partial": 5,
+      "independent_qa_pending": true
     },
     "note": "zero means no independently accepted criterion in this worker record yet, not zero existing capability"
   },
-  "next": "First non-overlapping NOW task: L5 durable scoped corrections and concurrent-writer protection, with specialist tests; coordinate Core-owned API/derive changes. Recheck main and Core queue before source edits.",
+  "next": "L5-02: expand adversarial review-order and scoped contamination cases; profile journal recovery/retention; repeat full Node22 suite from a real checkout. Core paused: do not change server/CLI/derive/UI.",
   "owner": "Knowledge & Learning worker",
   "steering": "QA",
   "avoid_concurrent_core_writes": true,
@@ -44,5 +47,81 @@
       "learning_physical_loc": 348
     },
     "build_started": false
+  },
+  "build_started": true,
+  "last_product_source_sha": "5f49d3a00296b449c8f6ad1e6b0d1dc1ebbc81fc",
+  "last_evidence_commit": "fe7011f6b6b017763fe1e64e5703a8a6e168d6b7",
+  "evidence": "workspace/aion/ops/capture-studio-knowledge-learning/EVIDENCE-SPRINT-01.md",
+  "sprint_01": {
+    "date": "2026-10-21",
+    "outcome": "Committed L5 learner journal and reviewed correction lifecycle with specialist tests; no Core-owned source modified",
+    "commits": [
+      "faa927dc3e690501a78b765e39c67708fbdd954e",
+      "5f49d3a00296b449c8f6ad1e6b0d1dc1ebbc81fc",
+      "90f1fee72beb6533b79f90f410accd618b92c830",
+      "77f6d86562e4fa56c18fb117c895cace903cf725",
+      "bbe51cf6eadcfe6914949467653fdaba7d0a1863",
+      "64b193117941220a30f6b17d5fd481a6274dcd70"
+    ],
+    "metrics": {
+      "classification": "L5 source and specialist tests only; fetched source content line counts",
+      "source_files": 3,
+      "source_physical_loc": 512,
+      "source_nonempty_loc": 490,
+      "baseline_source_files": 2,
+      "baseline_physical_loc": 348,
+      "added_source_files": 1,
+      "net_source_loc_change": 164,
+      "specialist_test_files": 3,
+      "specialist_test_physical_loc": 260
+    },
+    "verification": {
+      "journal_node22": {
+        "passed": 7,
+        "failed": 0,
+        "environment": "isolated Linux Node v22.16.0, same committed 4,485-byte journal module"
+      },
+      "learner_v8_exact_source": {
+        "passed": 14,
+        "failed": 0,
+        "environment": "V8 isolate, actual committed learner blob with in-memory journal and deterministic tokenization"
+      },
+      "heldout": {
+        "positive_cases": 5,
+        "negative_cases": 5,
+        "before": {
+          "TP": 0,
+          "FP": 0,
+          "TN": 5,
+          "FN": 5,
+          "positive_p": 0.0016664174915656989,
+          "negative_p": 0.0016664174915656989
+        },
+        "after": {
+          "TP": 5,
+          "FP": 0,
+          "TN": 5,
+          "FN": 0,
+          "positive_p": 0.9606898825665846,
+          "negative_p": 0.0016664174915656989
+        },
+        "synthetic": true
+      },
+      "node_full_repo_suite": "NOT_RUN",
+      "windows_browser": "NOT_RUN",
+      "independent_qa": "NOT_RUN"
+    },
+    "deferred_core_dependencies": [
+      "Authenticated review/revert/rollback API + CLI",
+      "Pin revision used in derive and preserve raw evidence",
+      "Surface conflict errors and refresh without discarding pending decisions",
+      "Authorize evidence and actor identity, account/tenant scopes"
+    ],
+    "limitations": [
+      "Stale writers rejected rather than auto-merged",
+      "Orphaned lock after process crash requires recovery inspection",
+      "No measured high-load snapshot retention policy",
+      "End-to-end rederive and multi-site real-world acceptance still pending"
+    ]
   }
 }
