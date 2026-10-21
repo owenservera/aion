@@ -1,0 +1,9 @@
+{
+  "source_url": "https://example.org/paper/123",
+  "claim": "This published study reports a candidate technique; replication and account applicability are unknown.",
+  "basis": "SOURCE_CLAIM",
+  "confidence": "LOW",
+  "status": "PUBLISHED",
+  "publication_receipt": "https://github.com/owenservera/aion/issues/30#issuecomment-6314557916",
+  "next_action": "Check the experiment against one reproducible independent comparison."
+}
