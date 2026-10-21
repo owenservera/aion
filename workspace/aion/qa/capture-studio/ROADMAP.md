@@ -1,6 +1,14 @@
 # Capture Studio — QA-owned steering roadmap
 
-**Updated:** 2026-10-21. **Authority:** owner-directed QA stewardship of steering, alignment and light roadmap. **Recon baseline:** AION main `49095348141646ba8d90bfc27c30e8fa0d1c6eda` (source/document inspection, not executed acceptance). **State:** proposed sequence; lane owners remain autonomous. No GitHub write wakes another agent.
+**Updated:** 2026-10-21 (team lane launch preparation). **Authority:** owner-directed QA stewardship of steering, alignment and light roadmap. **Recon baseline:** AION main `49095348141646ba8d90bfc27c30e8fa0d1c6eda` (source/document inspection, not executed acceptance). **State:** proposed sequence; lane owners remain autonomous. No GitHub write wakes another agent.
+
+## Team activation checkpoint
+
+- Core delivered source change `cc536481aaab466fd7e6cbe00b63f007027dd588` to isolate missing/ambiguous inferred keys; acceptance remains pending; do not assume remaining Core tasks complete.
+- UI execution queue and launch: [UI TASK-QUEUE](../../ops/capture-studio-ui/TASK-QUEUE.md) / [UI LAUNCH](../../ops/capture-studio-ui/LAUNCH.md).
+- Systems investigation queue and launch: [Systems TASK-QUEUE](../../ops/capture-studio-systems/TASK-QUEUE.md) / [Systems LAUNCH](../../ops/capture-studio-systems/LAUNCH.md).
+- These are **prepared tasking artifacts, not proof that agents have started**. GitHub commit alone cannot initiate their sessions. Owner may launch each using its command.
+- QA/Steering coordinates cross-lane integration and evidence without restricting Core development.
 
 ## NOW — close the existing capture → knowledge → history vertical slice
 
