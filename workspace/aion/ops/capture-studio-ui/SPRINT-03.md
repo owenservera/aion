@@ -1,6 +1,6 @@
 # UI Sprint 03 — Evidence Navigation and Review Workspace
 
-**Owner:** UI / Client Integration. **Status:** next autonomous sprint, not started. **Created:** 2026-10-21.
+**Owner:** UI / Client Integration. **Status:** integrated substream delivered in source during [Sprint 03 Integration](SPRINT-03-INTEGRATION.md); physical and independent acceptance pending. **Created:** 2026-10-21.
 **Last delivered:** [Sprint 02 source closeout](SPRINT-02.md#delivery-closeout--2026-10-21) — UI Knowledge workspace, 24 V8 contract checks passed; no actual Windows/browser acceptance.
 **Current Core boundary:** `../capture-studio-core/SPRINT-03.md` — provisional EID collision, derivation success/empty truth, origin/tenant scope, temporal correction contracts. UI must not preempt Core semantics.
 
