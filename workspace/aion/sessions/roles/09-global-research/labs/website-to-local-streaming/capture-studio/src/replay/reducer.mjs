@@ -1,8 +1,30 @@
 // StreamReducer: turns raw L1 records into stream state + decoded L2 events.
 // Used identically by the live recorder and by offline replay/derive, so the live view and
 // a later reconstruction from disk cannot disagree.
-import { pickAutoDecoder, decodeWsPayload, classifyMime, WsFrameDecoder, sniffEnvelope, unwrapNestedJson } from '../decode/decoders.mjs';
+import { pickAutoDecoder, decodeWsPayload, classifyMime, WsFrameDecoder, sniffEnvelope, unwrapNestedJson, AutoDecoder } from '../decode/decoders.mjs';
 import { DeltaAssembler } from '../decode/delta.mjs';
+
+// Content-free diagnostics of the decoder a stream actually used: declared vs sniffed framing,
+// late re-sniff switches and the inner decoder's counters. Safe for receipts and timelines.
+export function decoderInfo(dec, ws = null) {
+  if (!dec && !ws) return null;
+  const out = {};
+  if (dec) {
+    out.kind = dec.kind ?? null;
+    out.inner = dec.inner?.constructor?.name ?? dec.constructor?.name ?? null;
+    if (dec instanceof AutoDecoder) {
+      Object.assign(out, { auto: true, declared: classifyMime(dec.mime), forced: dec.forced ?? null,
+        switched: dec.switched ?? null, chunks: dec.chunkCount, emitted: dec.emitted, sniffedBytes: dec.headBytes });
+    }
+    const st = dec.stats;
+    if (st && typeof st === 'object') { try { out.stats = JSON.parse(JSON.stringify(st)); } catch { /* counters only */ } }
+  }
+  if (ws) {
+    out.ws = { protocol: ws.dominantProtocol?.() ?? null };
+    if (ws.stats && typeof ws.stats === 'object') { try { out.ws.stats = JSON.parse(JSON.stringify(ws.stats)); } catch { /* ignore */ } }
+  }
+  return out;
+}
 
 // Transport vocabulary kept stable for receipts and downstream consumers.
 export const STREAMING_TRANSPORTS = Object.freeze(['HTTP_SSE', 'HTTP_NDJSON', 'HTTP_STREAMED', 'EVENT_SOURCE', 'WEBSOCKET']);
@@ -362,6 +384,7 @@ export class StreamReducer {
 
   eventsOf(sid) { return this.streams.get(sid)?._events ?? []; }
   deltaOf(sid) { return this.streams.get(sid)?._delta ?? null; }
+  decoderOf(sid) { const s = this.streams.get(sid); return s ? decoderInfo(s._dec, s._ws) : null; }
   textOf(sid) { return this.streams.get(sid)?._delta?.primaryText?.(1); }
   assembled(sid) {
     const s = this.streams.get(sid);

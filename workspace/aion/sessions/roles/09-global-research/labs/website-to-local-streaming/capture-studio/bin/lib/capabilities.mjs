@@ -5,7 +5,7 @@ export async function capability(relativePath, names, label) {
   let mod;
   try { mod = await import(new URL(relativePath, import.meta.url)); }
   catch (error) {
-    if (error.code !== 'ERR_MODULE_NOT_FOUND' && error.code !== 'MODULE_NOT_FOUND') throw error;
+    if (!['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND', 'ENOENT'].includes(error.code)) throw error;
     throw unavailable(label, error.message);
   }
   for (const name of names) if (typeof mod[name] !== 'function') throw unavailable(label, `Missing export ${name}.`);

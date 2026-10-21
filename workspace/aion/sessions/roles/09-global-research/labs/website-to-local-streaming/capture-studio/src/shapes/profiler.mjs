@@ -33,6 +33,26 @@ export class OnlineSchemaProfiler {
   }
   report() { return { groups: [...this.groups.keys()].map((key) => this.describe(key)), evictedGroups: this.evictedGroups,
     maxGroups: this.maxGroups, windowSize: this.windowSize, minWindow: this.minWindow }; }
+  groupKeys() { return [...this.groups.keys()]; }
+  // Resumable state (plain JSON). Group order is LRU order and is preserved.
+  toState() {
+    return { format: 'capture-studio.schema-profiler/1', windowSize: this.windowSize, minWindow: this.minWindow,
+      maxGroups: this.maxGroups, evictedGroups: this.evictedGroups,
+      groups: [...this.groups.values()].map((e) => ({ group: e.group, total: e.total.toState(), current: e.current.toState(),
+        previous: e.previous ?? null, windows: e.windows, lastSource: e.lastSource ?? null })) };
+  }
+  static fromState(state, overrides = {}) {
+    if (!state || !Array.isArray(state.groups)) throw new TypeError('Invalid schema profiler state');
+    const p = new OnlineSchemaProfiler({ windowSize: state.windowSize ?? 100, minWindow: state.minWindow ?? 10,
+      maxGroups: Math.max(state.maxGroups ?? 256, overrides.maxGroups ?? 0) });
+    p.evictedGroups = state.evictedGroups ?? 0;
+    for (const g of state.groups) {
+      const group = String(g.group);
+      p.groups.set(group, { group, total: SchemaNode.fromState(g.total), current: SchemaNode.fromState(g.current),
+        previous: g.previous ?? null, windows: g.windows ?? 0, lastSource: g.lastSource ?? null });
+    }
+    return p;
+  }
 }
 
 // Export a portable draft-2020-12 schema from observed descriptions. Required means observed

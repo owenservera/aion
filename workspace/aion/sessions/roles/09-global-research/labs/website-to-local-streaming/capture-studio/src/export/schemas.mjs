@@ -16,10 +16,20 @@ function typeDescription(type) {
     }])) } };
 }
 
+// loadArtifacts is optional. A missing derive-all engine must not block schemas already stored on the session.
+async function savedArtifacts(session) {
+  try {
+    const loadArtifacts = await exportCapability('../replay/derive-all.mjs', 'loadArtifacts', 'Derived schema artifacts');
+    return await loadArtifacts(session);
+  } catch (error) {
+    if (error.code !== 'CAPABILITY_UNAVAILABLE' && !session.kv.get('MODEL', null) && !session.kv.get('SCHEMAS', null)) throw error;
+    return null;
+  }
+}
+
 export async function sessionSchemas(session) {
-  const loadArtifacts = await exportCapability('../replay/derive-all.mjs', 'loadArtifacts', 'Derived schema artifacts');
-  const loaded = await loadArtifacts(session);
-  const artifacts = loaded?.artifacts ?? loaded ?? {};
+  const loaded = await savedArtifacts(session);
+  const artifacts = loaded?.artifacts ?? (loaded && typeof loaded === 'object' ? loaded : {});
   const model = artifacts.model ?? session.kv.get('MODEL', null);
   if (model?.error) throw new ExportError(`Knowledge derivation failed: ${model.error}`, 'KNOWLEDGE_FAILED');
   const entries = (model?.types ?? []).map((type) => ({ id: String(type.id ?? type.name), name: type.name ?? type.id, ...typeDescription(type) }));
@@ -34,7 +44,15 @@ export async function sessionSchemas(session) {
   return entries;
 }
 
+function alreadyJsonSchema(description) {
+  return !!description && typeof description === 'object' && (description.$schema || description.properties || description.$ref);
+}
+
 async function portableSchema(entry) {
+  if (alreadyJsonSchema(entry.description)) {
+    return { $schema: entry.description.$schema ?? DRAFT, ...entry.description, title: entry.description.title ?? entry.name,
+      'x-capture-type': entry.id, 'x-summary-only': entry.summaryOnly };
+  }
   const toJsonSchema = await exportCapability('../shapes/profiler.mjs', 'toJsonSchema', 'JSON Schema conversion');
   return { ...toJsonSchema(entry.description), title: entry.name,
     'x-capture-type': entry.id, 'x-summary-only': entry.summaryOnly,

@@ -66,6 +66,20 @@ export class CorpusSearchIndex {
   }
   stats() { return { documents: this.documents.size, terms: this.postings.size, tokens: this.totalLength,
     truncatedDocuments: [...this.documents.values()].filter((d) => d.truncated).length }; }
+  has(id) { return this.documents.has(String(id)); }
+  get size() { return this.documents.size; }
+  // Row form used for persistence: { id, text, source, boost } adds/replaces; { id, remove: true }
+  // deletes. Replaying rows in order rebuilds the same index (later rows win).
+  applyRow(row) {
+    if (!row || row.id === undefined || row.id === null) return false;
+    if (row.remove) return this.remove(row.id);
+    this.add(row.id, row.document ?? row.source ?? {}, { text: row.text ?? '', source: row.source ?? null, boost: row.boost ?? 1 });
+    return true;
+  }
+  toRows({ includeDocument = false } = {}) {
+    return [...this.documents.values()].map((d) => ({ id: d.id, text: d.text, source: d.source, boost: d.boost, ...(includeDocument ? { document: d.document } : {}) }));
+  }
+  static fromRows(rows, options) { const index = new CorpusSearchIndex(options); for (const row of rows ?? []) index.applyRow(row); return index; }
 }
 
 export function indexCorpus(samples, options) {

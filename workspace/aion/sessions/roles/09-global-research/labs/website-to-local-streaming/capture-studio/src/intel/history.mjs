@@ -59,4 +59,6 @@ export class RevisionAccumulator {
       .reduce((state, revision) => foldRevision(state, revision), {});
   }
   summary() { return summarizeRevisions(this.revisions); }
+  get size() { return this.revisions.length; }
+  static from(revisions = []) { const acc = new RevisionAccumulator(); for (const r of revisions ?? []) acc.append(r); return acc; }
 }

@@ -1,6 +1,14 @@
-// Recorder: one capture run against one user-selected tab.
+// Recorder: one capture run, anchored on one user-selected tab (the "primary").
 // Wires CDP -> NetworkRecorder (L1) + DomObserver (L3) -> RawLog, and mirrors every persisted
 // record through the StreamReducer (L2) so the live studio shows exactly what replay would.
+//
+// Multi-target (one session, one raw log, sids prefixed by target tag):
+//   p    primary tab (DOM observation stays bound to it)
+//   tN   other tabs ({ tabs: 'all' }) and popups / new tabs opened by a recorded page (follow)
+//   wN   service / shared workers of the recorded sites (follow)
+//   cN   auto-attached children of any recorded target: OOPIFs, dedicated workers (recursive)
+// Every attach/detach is a 'lifecycle' record and a 'target' event. recorder.tap(opts) returns a
+// live decoded-event tap (see live-tap.mjs).
 import { EventEmitter } from 'node:events';
 import os from 'node:os';
 import { CdpConnection, sleep } from '../cdp/client.mjs';
@@ -12,14 +20,28 @@ import { StreamReducer } from '../replay/reducer.mjs';
 import { ShapeInferencer } from '../shapes/infer.mjs';
 import { redactUrl } from './redact.mjs';
 import { collectorSourceSha, VERSION } from '../config.mjs';
+import { createLiveTap } from './live-tap.mjs';
+import { followDecision, hostOf } from './targets.mjs';
 
 export class Recorder extends EventEmitter {
   constructor({
     sessionsDir, profileStore, familyStore = null, port = 9222, rawOptions = {}, allBodies = false,
     liveEventsPerStream = 2000, maxSessionBytes = 0, learner = null, maxStreamBytes = 0,
     reconnect = true, maxReconnectAttempts = 6, reconnectBaseDelayMs = 400, heartbeatMs = 15_000,
+    tabs = 'one', follow = true, maxTargets = 32, pauseNewTargets = null, ignoreTargetUrls = [],
   }) {
     super();
+    // tabs: 'one' = the selected tab only; 'all' = every web tab in the browser.
+    // follow: popups/new tabs opened by recorded pages + service/shared workers of recorded sites,
+    // and recursive auto-attach of children (OOPIFs, dedicated workers).
+    this.tabs = tabs === 'all' ? 'all' : 'one';
+    this.follow = follow !== false;
+    this.maxTargets = maxTargets;
+    // Pause new child targets until Network is enabled on them, so their first requests are seen.
+    this.pauseNewTargets = pauseNewTargets ?? this.follow;
+    // Never follow these (string = URL prefix, RegExp = test). The studio should pass its own
+    // origin so { tabs: 'all' } cannot record the studio's live feed into itself.
+    this.ignoreTargetUrls = ignoreTargetUrls;
     this.setMaxListeners(50);
     this.sessionsDir = sessionsDir;
     this.profileStore = profileStore;
@@ -41,10 +63,14 @@ export class Recorder extends EventEmitter {
     this.reconnects = 0;
     this.paused = false;
     this.state = 'idle';
+    this._resetTargets();
   }
 
-  async start({ target: selector, profile: profileName, label } = {}) {
+  async start({ target: selector, profile: profileName, label, tabs, follow } = {}) {
     if (this.state === 'recording') throw new Error('Already recording.');
+    if (tabs !== undefined) this.tabs = tabs === 'all' ? 'all' : 'one';
+    if (follow !== undefined) { this.follow = follow !== false; this.pauseNewTargets = this.follow; }
+    this._resetTargets();
     const version = await browserVersion({ port: this.port });
     const targets = await listTargets({ port: this.port });
     const target = pickTarget(targets, selector);
@@ -62,10 +88,10 @@ export class Recorder extends EventEmitter {
         os: `${os.type()} ${os.release()} ${os.arch()}`, node: process.version,
         collector: { name: 'aion-capture-studio', version: VERSION, sourceSha: collectorSourceSha() },
         profile: { name: profile.name, version: profile.version },
-        options: { allBodies: this.allBodies },
+        options: { allBodies: this.allBodies, tabs: this.tabs, follow: this.follow },
       },
     });
-    this.session.kv.set('INPUT', { target: selector ?? null, profile: profile.name, profileVersion: profile.version, port: this.port, allBodies: this.allBodies });
+    this.session.kv.set('INPUT', { target: selector ?? null, profile: profile.name, profileVersion: profile.version, port: this.port, allBodies: this.allBodies, tabs: this.tabs, follow: this.follow });
     this.session.kv.set('PROFILE_SNAPSHOT', profile);
 
     this.reducer = new StreamReducer({ deltaDialect: profile.decode?.delta ?? 'auto', maxEventsPerStream: this.liveEventsPerStream });
@@ -73,7 +99,7 @@ export class Recorder extends EventEmitter {
     this.eventsDs = this.session.dataset('events');
 
     const append = (rec) => this._append(rec);
-    this.net = new NetworkRecorder({ append, profile, getPageUrl: () => this.pageUrl, options: { allBodies: this.allBodies, maxStreamBytes: this.maxStreamBytes } });
+    this.net = new NetworkRecorder({ append, profile, getPageUrl: (tag) => this._pageUrlFor(tag), options: { allBodies: this.allBodies, maxStreamBytes: this.maxStreamBytes } });
     this.net.on('error', (e) => this.emit('warn', e));
     this.dom = new DomObserver({ append, profile });
 
@@ -83,15 +109,20 @@ export class Recorder extends EventEmitter {
     this._wireConnection();
     this.page = await this.conn.attach(target.id);
     this._wirePage();
+    this.targets.set(target.id, { targetId: target.id, tag: 'p', type: 'page', role: 'primary', url: target.url, session: this.page, attachedAt: Date.now() });
+    this.tagRoot.set('p', 'p');
 
     this.state = 'recording';
     this.startedAt = Date.now();
     append({
       k: 'run.start', target: { id: target.id, url: redactUrl(target.url), title: target.title }, profile: { name: profile.name, version: profile.version },
-      coverage: 'Requests and WebSocket connections opened before this record are not observed at all (a long-lived socket stays invisible until the page reconnects or is reloaded); history earlier than attach is unknown unless the page re-sends it.',
+      targets: { tabs: this.tabs, follow: this.follow, maxTargets: this.maxTargets },
+      coverage: 'Requests opened before this record are not observed at all. A WebSocket opened earlier stays invisible unless the browser reports its later frames, in which case it is joined late (ws.open lateJoin: URL, handshake and earlier frames UNKNOWN). History earlier than attach is unknown unless the page re-sends it.',
     });
+    this._emitTarget(this.targets.get(target.id), 'attached');
 
     await this._setupPage({ reconnected: false });
+    if (this.follow || this.tabs === 'all') await this._setupDiscovery();
 
     // Apify-style persistState: periodic durable run state for crash forensics/resume.
     this.persistTimer = setInterval(() => this._persist(), 5000);
@@ -102,27 +133,253 @@ export class Recorder extends EventEmitter {
 
   // Connection-level listeners. Re-wired on every (re)connection.
   _wireConnection() {
-    this.conn.on('close', () => this._onLost('devtools_connection_closed'));
-    this.conn.on('unhealthy', (e) => this._append({ k: 'lifecycle', event: 'devtools_heartbeat_failed', error: String(e?.message ?? e) }));
+    const conn = this.conn;
+    conn.on('close', () => this._onLost('devtools_connection_closed'));
+    conn.on('unhealthy', (e) => this._append({ k: 'lifecycle', event: 'devtools_heartbeat_failed', error: String(e?.message ?? e) }));
     this.childN ??= 0;
     // Child targets (out-of-process iframes, dedicated workers) carry their own network traffic.
-    this.conn.on('child-attached', async (p, parentSessionId) => {
-      if (parentSessionId !== this.page?.sessionId) return;
-      const child = this.conn.session(p.sessionId);
-      if (!child) return;
-      const tag = `c${++this.childN}`;
-      this._append({ k: 'lifecycle', event: 'child_target_attached', tag, targetType: p.targetInfo.type, url: redactUrl(p.targetInfo.url) });
-      try {
-        await this.net.attach(child, tag, p.targetInfo);
-        await child.send('Runtime.runIfWaitingForDebugger').catch(() => {});
-      } catch (e) { this._append({ k: 'lifecycle', event: 'child_target_failed', tag, error: String(e.message ?? e) }); }
-      child.on('detached', () => this.net.detachSession(p.sessionId));
+    // Accepted from ANY recorded session (primary, other tabs, workers, nested children).
+    conn.on('child-attached', (p, parentSessionId) => { this._onChildAttached(conn, p, parentSessionId).catch((e) => this.emit('warn', e)); });
+  }
+
+  async _onChildAttached(conn, p, parentSessionId) {
+    const child = conn.session(p.sessionId);
+    if (!child) return;
+    // A child may be paused waiting for us (waitForDebuggerOnStart): always release it.
+    const release = () => child.send('Runtime.runIfWaitingForDebugger').catch(() => {});
+    const parentTag = this.sessionTags.get(parentSessionId);
+    if (!parentTag || this.state !== 'recording' || conn !== this.conn) { await release(); return; }
+    const info = p.targetInfo ?? {};
+    const tag = `c${++this.childN}`;
+    const entry = { targetId: info.targetId, tag, type: info.type, role: 'child', parentTag, url: info.url, session: child, attachedAt: Date.now() };
+    this.sessionTags.set(p.sessionId, tag);
+    this.tagRoot.set(tag, this.tagRoot.get(parentTag) ?? parentTag);
+    if (info.targetId) this.targets.set(info.targetId, entry);
+    this._append({ k: 'lifecycle', event: 'child_target_attached', tag, parentTag, targetType: info.type, url: redactUrl(info.url ?? '') });
+    child.on('detached', (d) => {
+      this.sessionTags.delete(p.sessionId);
+      if (info.targetId && this.targets.get(info.targetId) === entry) this.targets.delete(info.targetId);
+      if (this.state !== 'recording') return;
+      this.net.detachSession(p.sessionId);
+      this._emitTarget(entry, 'detached', d?.reason);
     });
+    try {
+      await this.net.attach(child, tag, info);
+      // Recursive auto-attach: workers inside OOPIFs, nested workers.
+      if (this.follow) {
+        await child.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: this.pauseNewTargets, flatten: true }).catch(() => {});
+      }
+    } catch (e) { this._append({ k: 'lifecycle', event: 'child_target_failed', tag, error: String(e.message ?? e) }); }
+    finally { await release(); }
+    this._emitTarget(entry, 'attached');
   }
 
   _wirePage() {
-    this.page.on('detached', (p) => this._onLost(`target_detached:${p?.reason ?? 'unknown'}`));
+    this.page.on('detached', (p) => {
+      // A dropped DevTools transport detaches every session; the connection-level 'close'
+      // handler owns that case (it may reconnect). Only a real detach ends the run here.
+      if (p?.reason === 'connection closed') return;
+      this._onLost(`target_detached:${p?.reason ?? 'unknown'}`);
+    });
     this.page.on('Inspector.targetCrashed', () => this._onLost('target_crashed'));
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // Multi-target bookkeeping
+  // ------------------------------------------------------------------------------------------
+  _resetTargets() {
+    this.targets = new Map();      // targetId -> { targetId, tag, type, role, url, session, openerId, parentTag }
+    this.sessionTags = new Map();  // CDP sessionId -> tag (recorded sessions only)
+    this.tagRoot = new Map();      // tag -> tag of the tab/worker it belongs to (scope page)
+    this._candidates = new Map();  // targetId -> targetInfo awaiting re-evaluation
+    this._rejected = new Set();    // targetIds finally rejected by the follow policy
+    this._attachingIds = new Set();
+    this.childN = 0; this.tabN = 0; this.workerN = 0;
+    this.targetCounts = {};        // role -> targets attached during the run
+    this._maxTargetsNoted = false;
+  }
+
+  _pageUrlFor(tag) {
+    const root = (tag && this.tagRoot?.get(tag)) ?? tag ?? 'p';
+    if (!root || root === 'p') return this.pageUrl;
+    for (const e of this.targets?.values() ?? []) if (e.tag === root) return e.url || this.pageUrl;
+    return this.pageUrl;
+  }
+
+  _emitTarget(entry, state, reason) {
+    if (!entry) return;
+    if (state === 'attached') this.targetCounts[entry.role] = (this.targetCounts[entry.role] ?? 0) + 1;
+    const openerTag = entry.openerId ? this.targets.get(entry.openerId)?.tag : undefined;
+    this.emit('target', {
+      targetId: entry.targetId, type: entry.type, url: redactUrl(entry.url ?? ''), tag: entry.tag, role: entry.role, state,
+      ...(entry.parentTag ? { parentTag: entry.parentTag } : {}), ...(openerTag ? { openerTag } : {}), ...(reason ? { reason } : {}),
+    });
+  }
+
+  _trackedHosts() {
+    const out = new Set();
+    for (const e of this.targets.values()) {
+      if (e.role === 'child' || e.type !== 'page') continue;
+      const h = hostOf(e.role === 'primary' ? (this.pageUrl ?? e.url) : e.url);
+      if (h) out.add(h);
+    }
+    return out;
+  }
+
+  _followedCount() { let n = 0; for (const e of this.targets.values()) if (e.role === 'tab' || e.role === 'popup' || e.role === 'worker') n++; return n; }
+
+  // Browser-level target discovery. setDiscoverTargets replays targetCreated for every existing
+  // target, so already-open popups/workers/tabs go through the same policy as new ones.
+  async _setupDiscovery() {
+    const conn = this.conn;
+    conn.on('Target.targetCreated', ({ targetInfo }) => { if (conn === this.conn) this._considerTarget(targetInfo); });
+    conn.on('Target.targetInfoChanged', ({ targetInfo }) => { if (conn === this.conn) this._onTargetInfoChanged(targetInfo); });
+    conn.on('Target.targetDestroyed', ({ targetId }) => { if (conn === this.conn) this._onTargetGone(targetId, 'target_destroyed'); });
+    try { await conn.send('Target.setDiscoverTargets', { discover: true }); }
+    catch (e) { this._append({ k: 'lifecycle', event: 'target_discovery_unavailable', error: String(e?.message ?? e) }); return; }
+    // After a reconnect: followed targets that vanished meanwhile are closed out explicitly.
+    const res = await conn.send('Target.getTargets').catch(() => null);
+    if (res?.targetInfos) {
+      const present = new Set(res.targetInfos.map((t) => t.targetId));
+      for (const e of [...this.targets.values()]) {
+        if ((e.role === 'tab' || e.role === 'popup' || e.role === 'worker') && !present.has(e.targetId)) this._onTargetGone(e.targetId, 'gone_during_reconnect');
+      }
+    }
+  }
+
+  _considerTarget(info) {
+    if (this.state !== 'recording' || !info?.targetId) return;
+    const id = info.targetId;
+    const tracked = this.targets.get(id);
+    if (tracked) {
+      // Re-attach a followed target whose session was lost with the DevTools transport.
+      if ((tracked.role === 'tab' || tracked.role === 'popup' || tracked.role === 'worker') && (!tracked.session || tracked.session.detached) && !this._attachingIds.has(id)) {
+        this._attachTarget({ ...info }, tracked.role, tracked.tag).catch((e) => this.emit('warn', e));
+      }
+      return;
+    }
+    if (this._rejected.has(id) || this._attachingIds.has(id)) return;
+    const u = String(info.url ?? '');
+    if (u && (this.ignoreTargetUrls ?? []).some((p) => (p instanceof RegExp ? p.test(u) : u.startsWith(String(p))))) { this._candidates.delete(id); return; }
+    const trackedIds = new Set();
+    for (const e of this.targets.values()) if (e.type === 'page' && e.role !== 'child') trackedIds.add(e.targetId);
+    const d = followDecision(info, {
+      tabs: this.tabs, follow: this.follow, trackedIds, trackedHosts: this._trackedHosts(), count: this._followedCount(), maxTargets: this.maxTargets,
+    });
+    if (d.follow) {
+      this._candidates.delete(id);
+      this._attachTarget(info, d.role).catch((e) => this.emit('warn', e));
+      return;
+    }
+    if (d.final) { this._rejected.add(id); this._candidates.delete(id); }
+    else this._candidates.set(id, info);
+    if (d.reason === 'max_targets' && !this._maxTargetsNoted) {
+      this._maxTargetsNoted = true;
+      this._append({ k: 'lifecycle', event: 'max_targets_reached', maxTargets: this.maxTargets, coverage: 'Further tabs/popups/workers are NOT recorded in this run.' });
+    }
+  }
+
+  _onTargetInfoChanged(info) {
+    if (this.state !== 'recording' || !info?.targetId) return;
+    const e = this.targets.get(info.targetId);
+    if (e) {
+      if (e.role !== 'primary' && info.url && info.url !== e.url) {
+        const hostChanged = hostOf(info.url) !== hostOf(e.url);
+        e.url = info.url;
+        if (hostChanged) this._reconsiderCandidates();
+      }
+      return;
+    }
+    if (this._candidates.has(info.targetId)) { this._candidates.set(info.targetId, info); this._considerTarget(info); }
+  }
+
+  _reconsiderCandidates() {
+    for (const info of [...this._candidates.values()]) this._considerTarget(info);
+  }
+
+  async _attachTarget(info, role, existingTag = null) {
+    const id = info.targetId;
+    const reattach = !!existingTag;
+    const tag = existingTag ?? (role === 'worker' ? `w${++this.workerN}` : `t${++this.tabN}`);
+    const conn = this.conn;
+    const entry = this.targets.get(id) ?? { targetId: id, tag, type: info.type, role, openerId: info.openerId, url: info.url, attachedAt: Date.now() };
+    if (info.url) entry.url = info.url;
+    entry.attaching = true;
+    this.targets.set(id, entry);
+    this.tagRoot.set(tag, tag);
+    this._attachingIds.add(id);
+    try {
+      const session = await conn.attach(id);
+      if (conn !== this.conn || this.state !== 'recording') { conn.detach(session.sessionId).catch(() => {}); return null; }
+      entry.session = session;
+      this.sessionTags.set(session.sessionId, tag);
+      session.on('detached', (p) => {
+        if (p?.reason === 'connection closed') return; // kept for re-attach after reconnect
+        this._onTargetGone(id, `target_detached:${p?.reason ?? 'unknown'}`, session);
+      });
+      const targetInfo = { type: info.type, targetId: id };
+      if (reattach) await this.net.reattach(session, tag, targetInfo);
+      else await this.net.attach(session, tag, targetInfo);
+      if (info.type === 'page') await this._setupSecondaryPage(session, entry);
+      else if (this.follow) await session.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: this.pauseNewTargets, flatten: true }).catch(() => {});
+      await session.send('Runtime.runIfWaitingForDebugger').catch(() => {});
+      this._append({
+        k: 'lifecycle', event: reattach ? 'target_reattached' : 'target_attached', tag, role, targetType: info.type, url: redactUrl(entry.url ?? ''),
+        ...(entry.openerId && this.targets.get(entry.openerId) ? { openerTag: this.targets.get(entry.openerId).tag } : {}),
+        coverage: reattach
+          ? 'Traffic of this target while the DevTools transport was down is UNOBSERVED.'
+          : 'Requests this target made before this record are not observed.',
+      });
+      entry.attaching = false;
+      this._emitTarget(entry, reattach ? 'reattached' : 'attached');
+      return session;
+    } catch (e) {
+      this._append({ k: 'lifecycle', event: 'target_attach_failed', tag, role, targetType: info.type, error: String(e?.message ?? e) });
+      if (!reattach && this.targets.get(id) === entry) { this.targets.delete(id); this._rejected.add(id); }
+      return null;
+    } finally {
+      entry.attaching = false;
+      this._attachingIds.delete(id);
+    }
+  }
+
+  // Other tabs / popups: network + navigation + recursive auto-attach. DOM observation stays on
+  // the primary tab; navigations are lifecycle records so primary-tab 'nav' history is unchanged.
+  async _setupSecondaryPage(session, entry) {
+    await session.send('Page.enable').catch(() => {});
+    session.on('Page.frameNavigated', ({ frame }) => {
+      if (frame.parentId || this.state !== 'recording') return;
+      const hostChanged = hostOf(frame.url) !== hostOf(entry.url);
+      entry.url = frame.url;
+      this._append({ k: 'lifecycle', event: 'target_navigated', tag: entry.tag, role: entry.role, url: redactUrl(frame.url) });
+      this._emitTarget(entry, 'navigated');
+      if (hostChanged) this._reconsiderCandidates();
+    });
+    await session.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: this.pauseNewTargets, flatten: true })
+      .catch((e) => this._append({ k: 'lifecycle', event: 'auto_attach_unavailable', tag: entry.tag, error: String(e.message) }));
+  }
+
+  _onTargetGone(targetId, reason, session = null) {
+    const e = this.targets.get(targetId);
+    if (!e || e.role === 'primary' || e.role === 'child') return; // primary: _wirePage; children: own handler
+    if (session && e.session && e.session !== session) return;
+    this.targets.delete(targetId);
+    this._rejected.add(targetId);
+    if (e.session) this.sessionTags.delete(e.session.sessionId);
+    if (this.state !== 'recording') return;
+    if (e.session) this.net.detachSession(e.session.sessionId);
+    this._append({ k: 'lifecycle', event: 'target_detached', tag: e.tag, role: e.role, targetType: e.type, reason });
+    this._emitTarget(e, 'detached', reason);
+  }
+
+  // Live decoded-event tap on this recorder (works before start, during, and across runs).
+  tap(opts = {}) { return createLiveTap(this, opts); }
+
+  targetList() {
+    return [...(this.targets?.values() ?? [])].map((e) => ({
+      targetId: e.targetId, tag: e.tag, type: e.type, role: e.role, url: redactUrl((e.role === 'primary' ? this.pageUrl : e.url) ?? ''),
+      attached: !!e.session && !e.session.detached, ...(e.parentTag ? { parentTag: e.parentTag } : {}),
+    }));
   }
 
   // Everything that must exist on the page session: network observation, page lifecycle, the DOM
@@ -130,14 +387,20 @@ export class Recorder extends EventEmitter {
   async _setupPage({ reconnected = false } = {}) {
     const append = (rec) => this._append(rec);
     const profile = this.profile;
+    this.sessionTags.set(this.page.sessionId, 'p');
+    const primary = this.targets.get(this.targetId);
+    if (primary) primary.session = this.page;
     if (reconnected) await this.net.reattach(this.page, 'p', { type: 'page' });
     else await this.net.attach(this.page, 'p', { type: 'page' });
     await this.page.send('Page.enable');
     this.page.on('Page.frameNavigated', ({ frame }) => {
       if (frame.parentId) return;
+      const hostChanged = hostOf(frame.url) !== hostOf(this.pageUrl);
       this.pageUrl = frame.url;
+      if (primary) primary.url = frame.url;
       append({ k: 'nav', kind: 'document', url: redactUrl(frame.url) });
       this._maybeSwitchProfile(frame.url);
+      if (hostChanged && this._candidates?.size) this._reconsiderCandidates();
     });
     this.page.on('Page.navigatedWithinDocument', ({ frameId, url }) => {
       if (frameId !== this.dom.mainFrameId) return;
@@ -152,7 +415,7 @@ export class Recorder extends EventEmitter {
       try { await this.dom.attach(this.page); }
       catch (e) { append({ k: 'lifecycle', event: 'dom_agent_failed', error: String(e.message ?? e), reconnected }); }
     }
-    await this.page.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true })
+    await this.page.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: !!this.pauseNewTargets, flatten: true })
       .catch((e) => append({ k: 'lifecycle', event: 'auto_attach_unavailable', error: String(e.message) }));
   }
 
@@ -175,10 +438,13 @@ export class Recorder extends EventEmitter {
           const conn = await CdpConnection.connect(wsUrl, { requestTimeoutMs: 30_000 });
           this.conn = conn;
           if (this.heartbeatMs) conn.startHeartbeat({ intervalMs: this.heartbeatMs });
+          this.sessionTags.clear(); // every old session died with the transport
           this._wireConnection();
           this.page = await conn.attach(this.targetId);
           this._wirePage();
           await this._setupPage({ reconnected: true });
+          // Re-discovers followed tabs/popups/workers and re-attaches them under their old tags.
+          if (this.follow || this.tabs === 'all') await this._setupDiscovery();
           this.reconnects++;
           this._append({ k: 'reconnect.ok', reason, attempt, downtimeMs: Date.now() - lostAt, openStreams, reconnects: this.reconnects });
           this.emit('reconnected', { attempt, downtimeMs: Date.now() - lostAt });
@@ -265,6 +531,7 @@ export class Recorder extends EventEmitter {
       queue: this.session.raw.queueDepth,
       stats: { raw: { ...this.session.raw.stats }, network: { ...this.net.stats }, dom: { ...this.dom.stats } },
       openStreams: this.net.openStreams().length,
+      targets: { tabs: this.tabs, follow: this.follow, list: this.targetList() },
       transport: {
         reconnects: this.reconnects,
         reconnecting: !!this._reconnecting,
@@ -305,6 +572,12 @@ export class Recorder extends EventEmitter {
     try { await this.dom.clearHighlight(); } catch { /* ignore */ }
     try { await this.page?.send('Network.disable'); } catch { /* ignore */ }
     try { if (this.page && !this.page.detached) await this.conn.send('Target.detachFromTarget', { sessionId: this.page.sessionId }); } catch { /* ignore */ }
+    // Followed tabs/popups/workers: detach so nothing stays paused or instrumented by us.
+    for (const e of this.targets?.values() ?? []) {
+      if (e.role === 'primary' || e.role === 'child' || !e.session || e.session.detached) continue;
+      try { await this.conn.send('Target.detachFromTarget', { sessionId: e.session.sessionId }, { timeoutMs: 2000 }); } catch { /* ignore */ }
+    }
+    try { if (this.follow || this.tabs === 'all') await this.conn.send('Target.setDiscoverTargets', { discover: false }, { timeoutMs: 2000 }); } catch { /* ignore */ }
     this.conn?.close();
     this._persist();
     await this.session.raw.close();
@@ -314,6 +587,7 @@ export class Recorder extends EventEmitter {
     this.session.meta.endReason = reason;
     this.session.meta.integrity = { ok: verify.ok, records: verify.records, gapRecords: verify.gapRecords, droppedRecords: verify.droppedRecords };
     this.session.meta.transport = { reconnects: this.reconnects, maxStreamBytes: this.maxStreamBytes || null };
+    this.session.meta.targets = { tabs: this.tabs, follow: this.follow, attachedByRole: { ...(this.targetCounts ?? {}) } };
     try { this.session.meta.rawIndex = this.session.rawStats(); } catch { /* index is derived data */ }
     this.session.saveMeta();
     this.state = 'idle';

@@ -292,10 +292,42 @@ export class NetworkRecorder extends EventEmitter {
     this.append({ k: 'ws.handshake', sid: st.sid, status: p.response?.status, headers: redactHeaders(p.response?.headers) });
   }
 
-  _onWsFrame(tag, p, dir) {
-    const st = this.reqs.get(this._sid(tag, p.requestId));
-    if (!st || st.ignored || !st.body) return;
+  // A socket opened before observation began never produces webSocketCreated, but Chrome still
+  // reports its frames. Instead of dropping them silently, the socket is joined late with an
+  // explicit coverage note (URL, handshake and earlier frames are UNKNOWN). Profile control:
+  // capture.lateWebSockets = 'body' (default) | 'metadata' | 'off'. Without a URL the scope is
+  // judged by the page that owns the socket.
+  _lateJoinWs(tag, requestId, targetInfo = {}) {
+    const sid = this._sid(tag, requestId);
+    const c = this.profile.capture ?? {};
+    const mode = c.lateWebSockets ?? 'body';
+    if (!c.websockets || mode === 'off') { this.reqs.set(sid, { sid, ignored: true }); return null; }
+    const pageUrl = this.getPageUrl(tag) ?? '';
+    const pageInScope = !!pageUrl && inScope(this.profile, pageUrl, pageUrl);
+    if (!pageInScope && !this.options.allBodies) { this.reqs.set(sid, { sid, ignored: true }); return null; }
+    const body = mode === 'body';
+    const st = { sid, url: null, ws: true, body, frames: 0, bytes: 0, chunks: 0, lateJoin: true };
+    this.reqs.set(sid, st);
+    this.stats.wsLateJoined++;
+    this.append({
+      k: 'ws.open', sid, lateJoin: true, urlUnknown: true, target: targetInfo.type ?? 'page',
+      policy: body ? 'body:late_join' : 'metadata_only:late_join',
+      coverage: 'Socket was opened before observation began: its URL, handshake and every frame before this record are UNKNOWN.',
+    });
+    return st;
+  }
+
+  _onWsFrame(tag, p, dir, targetInfo = {}) {
+    let st = this.reqs.get(this._sid(tag, p.requestId));
+    if (!st) st = this._lateJoinWs(tag, p.requestId, targetInfo);
+    if (!st || st.ignored) return;
     const f = p.response ?? {};
+    if (!st.body) {
+      // Metadata-only socket: keep the frame cadence and sizes so the transport is still visible.
+      this.stats.wsMetadataFrames++;
+      this.append({ k: 'ws.frame_meta', sid: st.sid, dir, opcode: f.opcode, size: (f.payloadData ?? '').length, ct: p.timestamp, policy: 'metadata_only' });
+      return;
+    }
     if (dir === 'out' && !this.profile.capture?.wsSentFrames) {
       this.append({ k: 'ws.frame_meta', sid: st.sid, dir, opcode: f.opcode, size: (f.payloadData ?? '').length, ct: p.timestamp });
       return;

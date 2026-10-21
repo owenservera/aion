@@ -69,6 +69,13 @@ export class SchemaNode {
 
   merge(other) { if (!(other instanceof SchemaNode)) throw new TypeError('Expected SchemaNode'); if (other === this) throw new Error('Cannot merge a schema into itself'); mergeInto(this, other); return this; }
 
+  // Plain-JSON sufficient statistics so an online profiler can resume incrementally.
+  // Bounded: a distinct-value table whose text exceeds DISTINCT_STATE_CHARS is stored as
+  // overflowed (cardinality then comes from the HLL sketch). That only affects long strings,
+  // which can never qualify as enums anyway.
+  toState() { return nodeToState(this); }
+  static fromState(state) { return nodeFromState(state); }
+
   _str(s) {
     const st = (this.str ??= { n: 0, lenSum: 0, lenMin: Infinity, lenMax: 0, distinct: new Map(), overflow: false, formats: {}, examples: [] });
     st.n++; st.lenSum += s.length; st.lenMin = Math.min(st.lenMin, s.length); st.lenMax = Math.max(st.lenMax, s.length);
@@ -263,6 +270,75 @@ function mergeInto(target, src) {
     for (const [signature, count] of s.fieldSets) t.fieldSets.set(signature, (t.fieldSets.get(signature) ?? 0) + count);
     if (t.fieldSets.size > 500) t.fieldSets = new Map([...t.fieldSets].sort((a, b) => b[1] - a[1]).slice(0, 200));
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// State (de)serialisation for SchemaNode. Compact keys; Infinity bounds round-trip via null.
+// ---------------------------------------------------------------------------------------------
+const DISTINCT_STATE_CHARS = 16384;
+const finiteOr = (x, fallback) => (Number.isFinite(x) ? x : fallback);
+const sketchToState = (s) => (s ? `${s.precision}:${Buffer.from(s.registers).toString('base64')}` : null);
+function sketchFromState(x) {
+  if (typeof x !== 'string' || !x.includes(':')) return undefined;
+  const i = x.indexOf(':'), precision = Number(x.slice(0, i));
+  try { return new CardinalitySketch({ precision, registers: Uint8Array.from(Buffer.from(x.slice(i + 1), 'base64')) }); } catch { return undefined; }
+}
+
+function nodeToState(n) {
+  const out = { c: n.count, k: { ...n.kinds } };
+  if (n.str) {
+    const s = n.str;
+    let overflow = !!s.overflow, distinct = null;
+    if (!overflow) {
+      let chars = 0;
+      for (const v of s.distinct.keys()) chars += v.length;
+      if (chars > DISTINCT_STATE_CHARS) overflow = true; else distinct = [...s.distinct];
+    }
+    out.s = { n: s.n, ls: s.lenSum, lmin: finiteOr(s.lenMin, null), lmax: s.lenMax, d: distinct, o: overflow, f: { ...s.formats }, e: [...s.examples], sk: sketchToState(s.sketch) };
+  }
+  if (n.num) {
+    const s = n.num;
+    out.n = { n: s.n, min: finiteOr(s.min, null), max: finiteOr(s.max, null), sum: s.sum, d: s.overflow ? null : [...s.distinct], o: !!s.overflow,
+      es: s.epochS, ems: s.epochMs, ch: s.changes, last: s.last, e: [...s.examples], mean: s.mean, m2: s.m2, nf: s.nonFinite, sk: sketchToState(s.sketch) };
+  }
+  if (n.bool) out.b = { t: n.bool.t, f: n.bool.f };
+  if (n.arr) out.a = { n: n.arr.n, ls: n.arr.lenSum, lmax: n.arr.lenMax, em: n.arr.empty, it: nodeToState(n.arr.items), sa: n.arr.sampled };
+  if (n.obj) {
+    const o = n.obj;
+    out.o = { n: o.n, f: [...o.fields].map(([k, c]) => [k, nodeToState(c)]), ko: !!o.keyOverflow, kpo: o.keysPerObj,
+      t: [...o.tags].map(([k, g]) => [k, g === null ? null : [...g].map(([v, x]) => [v, x.n, [...x.keys]])]), fs: [...o.fieldSets] };
+  }
+  return out;
+}
+
+function nodeFromState(st) {
+  const n = new SchemaNode();
+  if (!st || typeof st !== 'object') return n;
+  n.count = st.c ?? 0; n.kinds = { ...(st.k ?? {}) };
+  if (st.s) {
+    const s = st.s;
+    n.str = { n: s.n ?? 0, lenSum: s.ls ?? 0, lenMin: s.lmin ?? Infinity, lenMax: s.lmax ?? 0, distinct: new Map(s.o ? [] : s.d ?? []),
+      overflow: !!s.o, formats: { ...(s.f ?? {}) }, examples: [...(s.e ?? [])] };
+    const sk = sketchFromState(s.sk); if (sk) n.str.sketch = sk;
+  }
+  if (st.n) {
+    const s = st.n;
+    n.num = { n: s.n ?? 0, min: s.min ?? Infinity, max: s.max ?? -Infinity, sum: s.sum ?? 0, distinct: new Set(s.o ? [] : s.d ?? []), overflow: !!s.o,
+      epochS: s.es ?? 0, epochMs: s.ems ?? 0, changes: s.ch ?? 0, last: s.last ?? undefined, examples: [...(s.e ?? [])] };
+    if (s.mean !== undefined && s.mean !== null) n.num.mean = s.mean;
+    if (s.m2 !== undefined && s.m2 !== null) n.num.m2 = s.m2;
+    if (s.nf) n.num.nonFinite = s.nf;
+    const sk = sketchFromState(s.sk); if (sk) n.num.sketch = sk;
+  }
+  if (st.b) n.bool = { t: st.b.t ?? 0, f: st.b.f ?? 0 };
+  if (st.a) { n.arr = { n: st.a.n ?? 0, lenSum: st.a.ls ?? 0, lenMax: st.a.lmax ?? 0, empty: st.a.em ?? 0, items: nodeFromState(st.a.it) }; if (st.a.sa) n.arr.sampled = st.a.sa; }
+  if (st.o) {
+    const o = st.o;
+    n.obj = { n: o.n ?? 0, fields: new Map((o.f ?? []).map(([k, c]) => [k, nodeFromState(c)])), keyOverflow: !!o.ko, keysPerObj: o.kpo ?? 0,
+      tags: new Map((o.t ?? []).map(([k, g]) => [k, g === null ? null : new Map(g.map(([v, cnt, keys]) => [v, { n: cnt, keys: new Map(keys ?? []) }]))])),
+      fieldSets: new Map(o.fs ?? []) };
+  }
+  return n;
 }
 
 export function jaccard(a, b) { if (!a.size && !b.size) return 1; let i = 0; for (const x of a) if (b.has(x)) i++; return i / (a.size + b.size - i); }

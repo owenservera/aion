@@ -221,12 +221,14 @@ export async function stateAt(session, t, profile) {
 // Re-decode ONE stream from raw bytes, independently of any other stream. Cheap enough to run
 // interactively (the stream locator skips every segment the stream does not appear in) and the
 // single place that answers "what exactly did this endpoint send, and what did we make of it".
-export async function reconstructStream(session, sid, { profile, dialect, limitEvents = 2000 } = {}) {
+// useLocator=false bypasses the per-stream locator (streams.json is only rewritten when a segment
+// closes, so it can lag behind a live recording) and scans from fromSeq instead.
+export async function reconstructStream(session, sid, { profile, dialect, limitEvents = 2000, useLocator = true, fromSeq = 0, deltaOpsLog = 200 } = {}) {
   const reducer = new StreamReducer({
     deltaDialect: dialect ?? profile?.decode?.delta ?? 'auto',
-    keepEvents: true, maxEventsPerStream: limitEvents, deltaOpsLog: 200,
+    keepEvents: true, maxEventsPerStream: limitEvents, deltaOpsLog,
   });
-  const iter = typeof session.streamRecords === 'function' ? session.streamRecords(sid) : session.records();
+  const iter = useLocator && typeof session.streamRecords === 'function' ? session.streamRecords(sid) : session.records(fromSeq > 0 ? { fromSeq } : {});
   let records = 0;
   for await (const r of iter) {
     if (r.sid !== sid && !['run.start', 'run.end'].includes(r.k)) continue;
@@ -241,6 +243,7 @@ export async function reconstructStream(session, sid, { profile, dialect, limitE
     assembled: reducer.assembled(sid),
     deltaStats: delta?.stats() ?? null,
     opsLog: delta?.opsLog ?? [],
+    decoder: reducer.decoderOf(sid),
   };
 }
 
