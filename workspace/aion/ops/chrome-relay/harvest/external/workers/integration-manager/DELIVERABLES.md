@@ -2,6 +2,8 @@
 
 **Role:** the middle supplier between [External Nine discovery](../nine-repo/DELIVERABLES.md) and [AION Development](../../../../workers/development/DELIVERABLES.md). **ChatGPT effort:** High for source adaptation; Medium for straightforward mapping. Not another governance board.
 
+**Relaunch status (2026-10-21):** Dedicated Integration Manager conversation has been launched by the owner; consult [current SITREP](SITREP.md). [PR #62](https://github.com/owenservera/aion/pull/62) merged the previously branch-staged PACK-04..07 into `main` alongside Development's watch-only receive source. **PACK-01/02 were already source-integrated by Development; PACK-04..07 remain independently staged, not adopted in the product runtime.** No live I1/exact-thread receive acceptance follows from the merge. The dated package status paragraphs below preserve their original staging history; do not interpret their prior branch location as current. No new package is selected by Development yet. PACK-03 is deferred until I2; PACK-08 is unstaged. Priority is the smallest Development-selected leapfrog that saves real engineering effort, not filling package numbers. See the [provisional Development collaboration](../../../../../../shared/agent-communications/integration-manager--development-provisional/README.md) for a non-dispatching source-adoption discussion.
+
 **Dispatch status (2026-10-20): WORKER_DISPATCH_RECEIVED → PACK-01/02 DELIVERED.** The owner sent the explicit PACK-01 then PACK-02 instruction in this dedicated session. Both code packs are committed to `main`. Staged delivery does **not** mean Development integrated or tested the code; a GitHub TODO alone still never dispatches another worker.
 
 ## Active TODO — Integration Manager
