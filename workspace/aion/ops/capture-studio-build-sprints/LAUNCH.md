@@ -24,7 +24,7 @@
 4. **Opus decides and specifies; Sonnet implements.** DECIDE never edits product source. BUILD never changes the decision; if SPEC.md is wrong or blocked, record it in STATE.json `blockers` and stop rather than improvising a new direction.
 5. **BUILD commit rule.** Before each implementation commit, overwrite the product's single `QA-NEXT-TESTS.md` with a quick thought dump (no extra research, no test code) and include it in that commit. Commit and push ordinary safe scoped changes with conflict checks (see root `AGENTS.md`: standing commit/push authorization; fetch before push; no force-push).
 6. **Hold risky operations.** Destructive, irreversible or uncertain-effect changes are paused and explained per root governance. Real safety risks are handled immediately regardless of phase.
-7. **Every phase ends with a STATE.json update and a NEXT STEP handoff** (model, thinking, next prompt, `handoff_next` in STATE.json). Every phase also (set `phase.completed`, `phase.next`, SHA, blockers, one-line handoff) committed in that phase's final commit. Report the actual remote commit hash, not an assumption.
+7. **Every phase ends with a STATE.json update and a NEXT STEP handoff** (model, thinking, next prompt, `handoff_next` in STATE.json). The STATE.json update (`phase.completed`, `phase.next`, SHA, blockers, one-line handoff) is committed in that phase's final commit. Report the actual remote commit hash, not an assumption.
 8. **Git attribution.** Commit messages end with the standard co-author trailer for the model that wrote them.
 
 ## Budget gates (owner applies; agent honors when told the % in the launch line)
