@@ -74,7 +74,9 @@ export class RawLog extends EventEmitter {
     const seq = ++this.seq;
     const line = JSON.stringify({ seq, t: Date.now(), ...rec }) + '\n';
     const bytes = Buffer.byteLength(line);
-    if (this.queueBytes + bytes > this.maxQueueBytes && rec.k !== 'gap') {
+    // Hysteresis: once dropping starts, keep dropping until the queue drains to half and the gap
+    // record is written, so every gap is one contiguous, fully described seq range.
+    if ((this.dropped || this.queueBytes + bytes > this.maxQueueBytes) && rec.k !== 'gap') {
       if (!this.dropped) this.dropped = { records: 0, bytes: 0, sids: new Set(), firstSeq: seq, lastSeq: seq, since: Date.now() };
       this.dropped.records++; this.dropped.bytes += bytes; this.dropped.lastSeq = seq;
       if (rec.sid) this.dropped.sids.add(rec.sid);
