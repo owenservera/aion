@@ -125,3 +125,15 @@ Sources: [latest UI](https://github.com/owenservera/aion/blob/90fc6aa19e0b6b3378
 - Await owner/QA regrouping; do not interrupt ordinary independent development.
 
 **Systems result:** first-pass SYS1–SYS6 assessment completed; source-ranked and advisory. Recommended ChatGPT effort for follow-on focused analysis: **Medium**, for implementation-oriented architecture changes **High**.
+
+## Post-checkpoint Core delta — 2026-10-21, `974632647398`
+
+**Important supersession of F2/F3:** After the pinned `90fc6aa` assessment, Core committed [origin-qualified automatic joins and review-only type-drift hints](https://github.com/owenservera/aion/commit/974632647398c260178434e6e39a5012478296cf). This is genuine forward progress and materially narrows the earlier F2 hosted-subdomain risk:
+
+- `originFromSession` now supplies the exact HTTP(S) URL origin. Automatic keyed joins require this origin, a model key field, site, type, keyed value and EID; the grouping key and public entity ID include origin. Thus two different origins that used to share a naive last-two-label `siteOf` bucket should **no longer be joined automatically** by this read-through view.
+- The remaining F2 concern is **different accounts/tenants sharing exactly one origin**. No account/tenant namespace is proven by origin equality; the new response limitation explicitly acknowledges this. F2's *hosted-subdomain subcase* is mitigated in source; keep the *same-origin tenant subcase* open for independent QA and product policy.
+- Review-only type-drift hints now compare same-origin, same key field/value records with structural overlap, without merging entity identities. The implementation caps group comparison inputs at 32, returned hints at 25, and reports omissions. This partially addresses F3 without committing to potentially incorrect fuzzy merges.
+- `origin + "::" + eid` changes the public entity ID; Core retained the raw `eid` filter for compatibility. UI/CLI consumers should prefer the full returned `id` and expect that one bare EID might refer to multiple origins.
+- **F1 missing-key aliases, F5 successful-empty misclassification, explicit retractions, same-origin tenant ambiguity, and measured scalability remain unresolved based on this patch.** No new execution evidence accompanies this assessment.
+
+**Revised rank-2 framing:** tenant-qualified identity within a shared origin and explicit user-visible identity evidence. Do **not** characterize different-host false joining as still present at current source. The report retains its pinned pre-change analysis for provenance, with this delta taking precedence.
