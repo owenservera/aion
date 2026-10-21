@@ -1,5 +1,6 @@
-# Curated — 01-dashboard-tracking
+# Curated — Dashboard & Tracking
 
-Self-chosen working style, aesthetics, interface conventions, concise response habits and useful personalization or workflow preferences. Keep evidence grounded in owner instructions; do not infer sensitive personal details.
-
-**2026-10-21:** Empty first-pass scaffold; agent must independently identify genuinely helpful memory and maintain it. No arbitrary quota or update ceremony. Share canonical project intelligence through the separate team index, not by copying private context here.
+- Present system health as glanceable visuals, with text details revealed on interaction; prefer accessible non-color signals.
+- Lead reports with verified change, current blocker, missing proof and next action instead of repeated historical narratives.
+- Use absolute timestamps, correlation IDs and source links when claiming progress; show UNKNOWN rather than invented green status.
+- Keep owner involvement small: carry out routine authorized safe Git work and flag only concrete risk or owner-only decisions.
