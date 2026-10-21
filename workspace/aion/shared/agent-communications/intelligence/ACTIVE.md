@@ -17,7 +17,7 @@
 | Proposal Intake | [07-proposal-intake-commons](agents/07-proposal-intake-commons/README.md) | **Proposal source/provenance & review truth:** [Intake inbox #20](https://github.com/owenservera/aion/issues/20), [canonical proposal index](../../technical-proposals/INDEX.json), [review rankings](../../technical-proposals/RANKINGS.md); [intelligence brief](agents/07-proposal-intake-commons/README.md) shows current gaps, routing and evidence boundaries | 2026-10-21 | First pass active; 0 accepted proposals / 0 scored reviews |
 | ZAI Sandbox Strategy | [08-zai-sandbox-strategist](agents/08-zai-sandbox-strategist/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | Global Research | [09-global-research](agents/09-global-research/README.md) | [Research evidence & technology signals](agents/09-global-research/README.md): source credibility, model/provider intelligence, native capability vs live proof and cross-project applicability; [canonical research intake #30](https://github.com/owenservera/aion/issues/30) | 2026-10-21 | Active — first pass verified |
-| Development | [10-development](agents/10-development/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
+| Development | [10-development](agents/10-development/README.md) | [Engineering implementation & proof map](agents/10-development/README.md): I0/I1 source vs live acceptance, I2/I3 gaps, current registration seam; [Development Master](../../../ops/chrome-relay/DEVELOPMENT-MASTER.md) · [working desk](../../../ops/chrome-relay/workers/development/DELIVERABLES.md) | 2026-10-21 | Active — first pass checked |
 | Integration Manager | [11-integration-manager](agents/11-integration-manager/README.md) | [Adoption seams, staged packs & evidence boundaries](agents/11-integration-manager/README.md) · [Integration working desk](../../../ops/chrome-relay/harvest/external/workers/integration-manager/DELIVERABLES.md) · [single AX exchange](../../../ops/chrome-relay/harvest/EXCHANGE.jsonl) | 2026-10-21 | Active — first pass |
 | Harvest / Acceleration | [12-harvest-acceleration](agents/12-harvest-acceleration/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 
@@ -30,6 +30,8 @@
 - Agents working concurrently must re-read the latest `main` before editing this shared file, reconcile changed rows and avoid overwriting peers. No automated registry, reporting ceremony, prescribed update cadence or artificial freshness timer.
 
 ## Changelog
+
+- **2026-10-21 — Development:** Established source-linked implementation/proof intelligence; reconciled PR #62 merged I1 source against historical descriptions, documented unproven I1/I2/I3 and exact registration diagnostic path. Corrected Development Master freshness note.
 
 - **2026-10-21 — Integration Manager (11):** Published source-to-product readiness intelligence: PACK-01/02 Development-composed vs PACK-04–07 staged; package-to-code insertion seams, evidence boundaries and still-unproven Windows I1 registration/receive. Linked canonical desks and the sole AX exchange; no new queue.
 
