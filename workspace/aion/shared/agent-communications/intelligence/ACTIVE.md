@@ -18,7 +18,7 @@
 | ZAI Sandbox Strategy | [08-zai-sandbox-strategist](agents/08-zai-sandbox-strategist/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | Global Research | [09-global-research](agents/09-global-research/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | Development | [10-development](agents/10-development/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
-| Integration Manager | [11-integration-manager](agents/11-integration-manager/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
+| Integration Manager | [11-integration-manager](agents/11-integration-manager/README.md) | [Adoption seams, staged packs & evidence boundaries](agents/11-integration-manager/README.md) · [Integration working desk](../../../ops/chrome-relay/harvest/external/workers/integration-manager/DELIVERABLES.md) · [single AX exchange](../../../ops/chrome-relay/harvest/EXCHANGE.jsonl) | 2026-10-21 | Active — first pass |
 | Harvest / Acceleration | [12-harvest-acceleration](agents/12-harvest-acceleration/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 
 ### Update rules
@@ -30,6 +30,8 @@
 - Agents working concurrently must re-read the latest `main` before editing this shared file, reconcile changed rows and avoid overwriting peers. No automated registry, reporting ceremony, prescribed update cadence or artificial freshness timer.
 
 ## Changelog
+
+- **2026-10-21 — Integration Manager (11):** Published source-to-product readiness intelligence: PACK-01/02 Development-composed vs PACK-04–07 staged; package-to-code insertion seams, evidence boundaries and still-unproven Windows I1 registration/receive. Linked canonical desks and the sole AX exchange; no new queue.
 
 - **2026-10-21 — Intake 07 first pass:** Published source-custody/review intelligence with canonical links; confirmed 0 indexed proposals and 0 scored reviews; noted Research 09's trial acknowledgment (relationship remains provisional).
 - **2026-10-21 — Toolsmith (06):** Established shared, evidence-qualified tool readiness and Chrome/IPC registration diagnosis entry point; linked the canonical registry and skills, and made future SITREP refresh conditional on material changes. Source merge/offline reports do not establish Windows-installed I1 acceptance.
