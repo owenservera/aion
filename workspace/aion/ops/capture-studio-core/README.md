@@ -3,6 +3,7 @@
 **Role:** Primary product engineer. **Status:** ownership scaffold for next bootstrap, 2026-10-21.
 **Source:** `workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/`
 **Sprint checkpoint:** `workspace/aion/ops/capture-studio-build-sprints/STATE.json`
+**Architecture/leverage map (canonical Core JSON):** [LAYERED-CAKE.json](LAYERED-CAKE.json) — seven core layers, four cross-cutting threads, ten leverage points, separate operational foundation, source-grounded status at pinned GitHub SHA. Treat design as diagnostic rather than prescriptive; refresh assessment against latest source before treating it as current.
 
 ## Own
 - Capture/replay, evidence, entities, identity, semantics, temporal graph, continuity, persistence and correctness.
