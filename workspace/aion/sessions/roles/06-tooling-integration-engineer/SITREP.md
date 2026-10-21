@@ -1,4 +1,23 @@
 # AION Role 06 — TOOLSMITH — SITREP
+
+## Current handoff — 2026-10-21 (dedicated role conversation launched)
+
+**Conversation:** This dedicated Toolsmith chat has received the owner's direct launch and is responding. The conversation URL has not been supplied/verified; do not invent one. **Scope:** source-backed GitHub SITREP and role alignment are active here; no Windows access, live test, install or background worker execution was observed in this chat.
+
+**Remote source checkpoint:** `main@a78c4c1bf3a4fc65c8a8d59ffd96224b769ff6bd` at discovery (recheck on next SITREP). Read [root rules](../../../../../AGENTS.md), [repository governance](../../../../../REPOSITORY-GOVERNANCE.md), [Planning TASKS](../02-long-term-planning-alignment/TASKS.md) and [role matrix](../02-long-term-planning-alignment/AGENT-MATRIX.md), the [Living Operating Model](../../../shared/agent-communications/LIVING-OPERATING-MODEL.md) and [nine-role invitation](../../../shared/agent-communications/NINE-ROLE-RELAUNCH.md). Found commons marker `AION-COMMS-FIRST-CONTACT-20261021` **in GitHub**, not by a proactive notification. No prior dedicated Toolsmith peer exchanges existed in that commons at this checkpoint.
+
+**Changed priorities:** Windows-only local prototype; Grok/BFF and Z.ai lanes parked unless newly activated. Development owns executable Chrome/Bus/CLI source and tests; Toolsmith owns *tool readiness, transport/protocol conformance, diagnosis, environment recovery and concise testable advice*, not product implementation, Planning's central tasks or Harvest's source intake. Main now includes merged [PR #62](https://github.com/owenservera/aion/pull/62) (watch-only receive, account registration, local-owner/hardened profile and diagnostic propagation). Old 'uncommitted / no implementation' narratives are historical. Current source on GitHub is **not** proof that the Windows-installed dev extension/native host is refreshed.
+
+**Highest-value active support, source-backed:** Development's [work desk](../../../ops/chrome-relay/workers/development/DELIVERABLES.md) records `node velocity/bin/aion-local.mjs account register chief` → `REGISTRATION_FAILED`, no account email stored, and no live exact-bound I1 receive. Focus on the shortest diagnosis: verify local checkout + actual installed host and dev extension source revision, run explicit registration once, collect only fixed `code` / optional `diagnostic` (never email, cookies or /api/auth/session data), locate failure along CLI → native host → receive router → page registration reader, fix only the observed seam, rerun focused tests, then prove watch-only exact-thread receive. The current source already propagates an allow-listed diagnostic via `velocity/bin/aion-local.mjs`, `velocity/src/native-host/relay.mjs` and `velocity/extension-dev/receive-router.js`; whether installed code carries it is **unknown**. A native IPC ping is not an I1 receipt.
+
+**Operating choice:** Work from existing BOOTSTRAP / AGENTS / this SITREP + relevant current Development desk, not a new status registry. On SITREP diff GitHub changes; read relevant commons notes; pick an observed toolchain blocker; produce a narrow fix, reproducible smoke probe or honest diagnosis with timestamp/revision. Update this file only for meaningful continuity. Do not claim all historical assignments still active. Open a provisional [Development ↔ Toolsmith thread](../../../shared/agent-communications/toolsmith-development/README.md) about the registration/receive seam; invitation is **not** Development's assent, dispatch or proof of its receipt. Planning and Chief of Staff are consult-on-change relationships, not standing 1:1 folders.
+
+**Next proof needed:** Owner-local agent / Development supplies a redacted `account register chief` fixed-code result against a verified installed build; Toolsmith can identify the failing layer and provide an exact minimal remedy. If no live evidence is available, source-only diagnosis remains labeled as such. Existing [issue #19](https://github.com/owenservera/aion/issues/19) is the activation/task record; no new issue or redundant queue.
+
+---
+
+### Historical SITREP below (dated 2026-10-16 to 2026-10-19; superseded where it conflicts)
+
 Created: 2026-10-16.
 Role conversation URL: NOT YET PROVIDED. Agent runtime acknowledgment: NONE.
 Workspace state: REPO SCAFFOLD; no host setup, skills installation, extension installation or code execution claimed.
