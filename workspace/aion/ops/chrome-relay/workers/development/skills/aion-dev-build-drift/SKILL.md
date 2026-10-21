@@ -9,7 +9,7 @@ description: Detect source-versus-unpacked-build drift in AION's Track B Chrome 
 
 Use on failed `aion account register chief`, missing I1 watch-only receive, post-build changes to the Chrome dev router/observer, or suspected stale unpacked extension files. **Do not** use this to verify a live Chrome session, authenticate an account, read conversations, or replace Toolsmith's environment/transport recovery skill.
 
-The existing AION [setup.mjs](../../../../src/browser/setup.mjs) copies the JS files from the Velocity dev-worker and base extension into the unpacked extension. This skill checks **only six concrete copy seams**. Reuse the existing `aion setup browser` / `inspectBrowserSetup` commands for setup/registration integrity; this script neither installs nor overwrites anything.
+The existing AION [setup.mjs](../../../../velocity/src/browser/setup.mjs) copies the JS files from the Velocity dev-worker and base extension into the unpacked extension. This skill checks **only six concrete copy seams**. Reuse the existing `aion setup browser` / `inspectBrowserSetup` commands for setup/registration integrity; this script neither installs nor overwrites anything.
 
 ## Execute (from AION repository root)
 
