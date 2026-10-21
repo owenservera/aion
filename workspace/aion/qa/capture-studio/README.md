@@ -1,5 +1,7 @@
 # Capture Studio — Independent QA Workspace
 
+> **Scope correction (2026-10-21):** This folder is for **ChatGPT independent QA**, not Claude Opus build sprints. For the requested **Opus fast build sessions with NO physical test creation or execution**, use [Opus BUILD-SPRINT LAUNCH](../../ops/capture-studio-build-sprints/LAUNCH.md). Do not launch this QA protocol when intending Opus implementation work.
+
 **Owner:** ChatGPT independent quality assurance. **Implementation owner:** Claude Opus. **Authority:** owner-approved autonomous QA sprints, 2026-10-21.
 
 This folder is deliberately separate from Opus's product code at `workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/`. **QA writes only here** (and project GitHub QA issues when helpful); Opus continues implementation independently. No edits to Opus's product source, instructions, test proposals, or memory. The user is the relay when autonomous cross-agent delivery is unavailable.
