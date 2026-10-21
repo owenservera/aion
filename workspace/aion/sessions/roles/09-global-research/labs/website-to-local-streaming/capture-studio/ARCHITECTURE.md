@@ -119,6 +119,8 @@ No row is TESTED REAL WEBSITE or VERIFIED WINDOWS yet.
 
 ## 7. Roadmap (intelligence-first order)
 
+> **Superseded in detail by [ASSESSMENT-AND-WORKLOG.md](ASSESSMENT-AND-WORKLOG.md)** (2026-10-21 step-back: measured baseline, review findings R1–R10, worklog W1–W18). The list below is kept for context.
+
 1. **Measure v2.** Write `eval/learning.mjs` (learning loop: improvement after corrections, contamination check, promotion). Run `node eval/run.mjs`, commit the measured `eval/results/latest.md`, then fix the algorithms against the dev split only and report held-out numbers unchanged.
 2. **Unit-test v2 modules** with adversarial cases: identity linkage, inclusion dependencies, correlation ambiguity and conflict, graph `stateAt`, scoped learner revert and promotion, calibrator.
 3. **Integrate v2 into `derive`** to persist the graph, model, hypotheses and active-learning questions. Expose them in the server API and wire user corrections into `ScopedLearner` with explicit scope selection.
