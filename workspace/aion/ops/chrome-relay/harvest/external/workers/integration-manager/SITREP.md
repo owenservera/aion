@@ -45,3 +45,7 @@ PACK-02: [chatgpt-profile.js](packs/PACK-02/chatgpt-profile.js), [chatgpt-observ
 - **I1:** only Development and the explicitly authorized local Windows agent may claim actual watch-only CLI receive.
 
 **Exchange:** Existing AX-0007/0008/0016/0017 now link code via `implementation_refs` without upgrading source evidence to tested or adopted. No new queue or implementation acceptance.
+
+## Persistent agent memory (standing)
+
+Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap and relevant SITREPs. CANON stores verified durable decisions, rules, lessons and recurring negative patterns with better alternatives; Immediate stores active task context and must be considered **every interaction**; Curated stores useful aesthetics, style, personalization and working preferences. Run a high-value first pass; avoid copying stale conversations, duplicating canonical sources or guessing user details. On SITREP reconcile all three against current repository, peer communications and intelligence; make material corrections and promote/archive as appropriate, without ceremonial edits. Owner instructions remain authoritative.

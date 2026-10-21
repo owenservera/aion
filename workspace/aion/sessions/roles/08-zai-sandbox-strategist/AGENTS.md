@@ -33,3 +33,7 @@ Each real turn: exact model/mode/date, prompt SHA/ref, sandbox environmental obs
 ## SITREP and agent commons
 
 When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes, optional agent-created collaboration folders and communication rules, see [Agent Communications](../../../../../workspace/aion/shared/agent-communications/README.md). Notes are not work orders or execution authority.
+
+## Persistent agent memory (standing)
+
+Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap and relevant SITREPs. CANON stores verified durable decisions, rules, lessons and recurring negative patterns with better alternatives; Immediate stores active task context and must be considered **every interaction**; Curated stores useful aesthetics, style, personalization and working preferences. Run a high-value first pass; avoid copying stale conversations, duplicating canonical sources or guessing user details. On SITREP reconcile all three against current repository, peer communications and intelligence; make material corrections and promote/archive as appropriate, without ceremonial edits. Owner instructions remain authoritative.
