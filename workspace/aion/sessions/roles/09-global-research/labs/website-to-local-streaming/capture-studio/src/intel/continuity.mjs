@@ -134,39 +134,88 @@ export async function buildSiteContinuity(sessionsDir, {
     missingRevisionValues: 0, joinedEntities: 0, entitiesTotal: 0, returned: 0, truncated: 0,
     typeDriftHintsTotal: 0, typeDriftHintsReturned: 0,
     typeDriftHintsTruncated: 0, typeDriftVariantsOmitted: 0,
+    sessionsSuccessfulEmpty: [], sessionsIncompleteKnowledge: [],
+    sessionsLegacyUnverified: [], legacyEidCollisions: 0,
   };
   const groups = new Map();
   for (const meta of sessions) {
     const session = Session.open(sessionsDir, meta.id);
     const model = session.kv.get('MODEL', null);
-    if (!model) { stats.sessionsWithoutKnowledge.push(meta.id); continue; }
-    if (model.error) { stats.sessionsWithDerivationError.push({ session: meta.id, stage: model.stage ?? null }); continue; }
-    if (!existsSync(session.dataset('entities').file)) { stats.sessionsWithoutKnowledge.push(meta.id); continue; }
+    const outcome = session.kv.get('KNOWLEDGE_STATUS', null);
+    const state = outcome?.status ?? 'legacy';
+    if (state === 'failed' || model?.error) {
+      stats.sessionsWithDerivationError.push({ session: meta.id, stage: outcome?.stage ?? model?.stage ?? null });
+      continue;
+    }
+    if (outcome && state !== 'complete') {
+      stats.sessionsIncompleteKnowledge.push({ session: meta.id, reason: 'derivation-' + String(state) });
+      continue;
+    }
+    if (!model) {
+      (outcome ? stats.sessionsIncompleteKnowledge : stats.sessionsWithoutKnowledge)
+        .push(outcome ? { session: meta.id, reason: 'missing-model' } : meta.id);
+      continue;
+    }
+    const dataset = session.dataset('entities');
+    const present = existsSync(dataset.file);
+    if (!present && !(state === 'complete' && outcome.entityCount === 0)) {
+      (outcome ? stats.sessionsIncompleteKnowledge : stats.sessionsWithoutKnowledge)
+        .push(outcome ? { session: meta.id, reason: 'missing-entities-dataset' } : meta.id);
+      continue;
+    }
+    // Stage a session before adding it to the joined knowledge view. A torn or
+    // truncated dataset must not leak a misleading partial identity/history.
+    const sessionEntities = [];
+    try {
+      for await (const entity of dataset.iterate()) {
+        if (!entity || typeof entity.eid !== 'string' || !entity.eid) throw new Error('invalid-entity-row');
+        sessionEntities.push(entity);
+      }
+    } catch {
+      stats.sessionsIncompleteKnowledge.push({ session: meta.id, reason: 'unreadable-entities-dataset' });
+      continue;
+    }
+    if (state === 'complete' &&
+        (!Number.isSafeInteger(outcome.entityCount) || outcome.entityCount < 0
+          || outcome.entityCount !== sessionEntities.length)) {
+      stats.sessionsIncompleteKnowledge.push({ session: meta.id, reason: 'entity-count-mismatch' });
+      continue;
+    }
+    if (!outcome) stats.sessionsLegacyUnverified.push(meta.id);
+    if (!sessionEntities.length) stats.sessionsSuccessfulEmpty.push(meta.id);
     stats.sessionsWithDerivedKnowledge++;
     const createdAt = continuityTime(meta.createdAt);
     const origin = originFromSession(meta);
     const types = new Map((model.types ?? []).map((t) => [t.id, t]));
-    for await (const e of session.dataset('entities').iterate()) {
-      if (!e || typeof e.eid !== 'string') continue;
+    const eidCounts = new Map();
+    for (const e of sessionEntities) eidCounts.set(e.eid, (eidCounts.get(e.eid) ?? 0) + 1);
+    const eidOccurrences = new Map();
+    for (const e of sessionEntities) {
       stats.sourceEntities++;
+      const occurrence = (eidOccurrences.get(e.eid) ?? 0) + 1;
+      eidOccurrences.set(e.eid, occurrence);
+      const legacyCollision = eidCounts.get(e.eid) > 1;
+      if (legacyCollision) stats.legacyEidCollisions++;
       const typeInfo = types.get(e.type);
       const keyField = typeInfo?.key?.field ?? null;
-      const joinable = safeJoin(e, site, origin, keyField);
+      const joinable = !legacyCollision && safeJoin(e, site, origin, keyField);
       if (!joinable) stats.keylessOrUnsafeIsolated++;
-      // Verify identity components in addition to eid; a matching hash alone is not proof.
+      // Isolate legacy collision rows even inside a single stored session.
       const groupKey = joinable
         ? JSON.stringify(['key', site, origin, e.type, keyField, String(e.key), e.eid])
-        : JSON.stringify(['session', meta.id, e.eid]);
+        : JSON.stringify(['session', meta.id, e.eid, occurrence]);
       let item = groups.get(groupKey);
       if (!item) {
         item = {
           // Stable origin-qualified public ID prevents colliding site-level EIDs across hosts.
           // The raw EID remains available and accepted by the existing eid filter.
-          id: joinable ? origin + '::' + e.eid : meta.id + '::' + e.eid,
+          id: joinable ? origin + '::' + e.eid
+            : meta.id + '::' + e.eid + (legacyCollision ? '::legacy-' + occurrence : ''),
           eid: e.eid, type: e.type ?? null, typeName: e.typeName ?? null,
           scope: e.scope ?? null, origin: joinable ? origin : null,
           key: e.key ?? null, keyField: joinable ? keyField : null,
-          fieldNames: new Set(), identityBasis: joinable ? 'exact-site-type-key' : 'session-local',
+          fieldNames: new Set(), identityBasis: joinable ? 'exact-site-type-key'
+            : legacyCollision ? 'session-local-legacy-collision' : 'session-local',
           confidence: e.confidence ?? null, sessionIds: [], observationCount: 0, history: [],
         };
         groups.set(groupKey, item);
@@ -233,6 +282,8 @@ export async function buildSiteContinuity(sessionsDir, {
       'Historical state uses saved revision values; missing or untimed evidence cannot establish an as-of state.',
       'No copied knowledge index is stored; results recompute from extant derived session data.',
       'Reading all saved sessions has cost proportional to their derived entity and revision count.',
+      'Legacy sessions without outcome markers are included only when an entities dataset is readable; their derivation completeness remains unverified.',
+      'Incomplete, corrupt and count-mismatched entity datasets are excluded rather than silently contributing partial entity history.',
       'Cross-session identity confidence is uncalibrated; a matching hashed key is conservative evidence, not external confirmation.',
     ],
   };
