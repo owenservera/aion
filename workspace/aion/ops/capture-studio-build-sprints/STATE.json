@@ -2,14 +2,14 @@
   "schema": "aion.capture-studio.build-sprint.v2",
   "owner": "Claude (phased: Haiku/Sonnet/Opus per PHASES.md)",
   "mode": "phased_credit_aware_build",
-  "status": "RECON_COMPLETE",
+  "status": "DECIDE_COMPLETE",
   "created": "2026-10-21",
   "updated": "2026-10-21",
   "last_observed_product_sha": "9d2fe0cd347a73e9324d1c824c7c762917e0c3e6",
   "source_of_truth": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/",
   "phase": {
-    "completed": "RECON",
-    "next": "DECIDE",
+    "completed": "DECIDE",
+    "next": "BUILD",
     "sequence": [
       "RECON",
       "DECIDE",
@@ -64,8 +64,8 @@
     }
   },
   "blockers": [],
-  "next_action": "Run DECIDE (Opus, high) per PHASES.md using RECON.md at SHA 9d2fe0cd. Security/secrets deprioritized by owner direction 2026-10-21.",
-  "handoff": "RECON complete at 9d2fe0cd. Intel modules (discover, identity linkage, graph, learn, correlate) are unwired from product paths; calibrator.observe and shapes.retention are never read; derive caps events at 400 per stream, which truncates family event extraction.",
+  "next_action": "Run BUILD (Sonnet, Medium) from chunk_index 0 per SPEC.md. C3 is stuck-risk: switch to High thinking for it.",
+  "handoff": "DECIDE at f1bab393: wire intel into derive on full evidence, anchor keyless ids on earliest observation, scope graph keys, downgrade causal edges, close calibration loop. 4 chunks in SPEC.md.",
   "last_completed_build_sprint": null,
   "testing_owner": "ChatGPT (separate QA workspace)",
   "physical_tests_by_any_phase": false,
@@ -75,14 +75,46 @@
   "sprint_design": "SPRINT-01.md",
   "launch_protocol": "LAUNCH.md",
   "phase_prompts": "PHASES.md",
-  "sprint_mission": "Trustworthy Continuity — investigate cross-layer identity, semantics, time and provenance without prescribing solutions",
+  "sprint_mission": "Trustworthy Continuity \u2014 investigate cross-layer identity, semantics, time and provenance without prescribing solutions",
   "freshness_rule": "Owner direction and current source outrank old worklog sequence, guesses and estimated progress. RECON/DECISION/SPEC are valid only for the SHA they record.",
   "handoff_next": {
-    "phase": "DECIDE",
-    "model": "opus",
-    "thinking": "high",
-    "prompt": "PHASES.md#DECIDE or the CONTINUE prompt",
-    "note": "RECON.md recorded at SHA 9d2fe0cd; if capture-studio source changed since, DECIDE will say to re-run RECON"
+    "phase": "BUILD",
+    "model": "sonnet",
+    "thinking": "medium",
+    "prompt": "PHASES.md#BUILD or the CONTINUE prompt",
+    "note": "C3 is stuck-risk; use High thinking for that chunk"
   },
-  "continue_prompt": "PHASES.md#CONTINUE"
+  "continue_prompt": "PHASES.md#CONTINUE",
+  "decision_sha": "f1bab393b6d03917d42e9f84d539e7a8f302890a",
+  "chunks": [
+    {
+      "id": "C1",
+      "title": "Full-evidence corpus and family event extraction",
+      "stuck_risk": false,
+      "depends": []
+    },
+    {
+      "id": "C2",
+      "title": "Stable scoped identity and honest edge semantics",
+      "stuck_risk": false,
+      "depends": []
+    },
+    {
+      "id": "C3",
+      "title": "Wire intelligence into derive and expose it",
+      "stuck_risk": true,
+      "depends": [
+        "C1",
+        "C2"
+      ]
+    },
+    {
+      "id": "C4",
+      "title": "Close the confidence loop",
+      "stuck_risk": false,
+      "depends": [
+        "C3"
+      ]
+    }
+  ]
 }
