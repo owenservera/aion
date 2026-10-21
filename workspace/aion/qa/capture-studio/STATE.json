@@ -1,17 +1,43 @@
 {
   "schema": "aion.capture-studio.independent-qa.state.v1",
-  "owner": "ChatGPT independent QA",
-  "mode": "fully_autonomous_milestone_sprints",
-  "status": "READY_FOR_FRESH_SESSION",
+  "owner": "ChatGPT QA + team steering/alignment + light roadmap",
+  "mode": "independent_qa_and_nonblocking_team_steering",
+  "status": "RECON_COMPLETE_CURRENT_IMPL_QA_PENDING",
   "initialized": "2026-10-21",
   "initial_pending_qa_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
   "last_completed_sprint": null,
-  "next_sprint": "01-intelligence-W3-fix-verification",
-  "next_mission": "Read all first-party Capture Studio source at pinned commit, execute physical adversarial/regression tests for W3 fixes, graph history, and priors; investigate cross-system consequences.",
+  "next_sprint": "targeted-temporal-graph-and-cross-session-continuity",
+  "next_mission": "Pin current implementation SHA; execute temporal graph regression, keyed cross-session and negative isolation/as-of cases; validate CLI/API/UI differences; publish sanitized independent receipts. Maintain Now/Next/Later steering without slowing Core/UI.",
   "product_path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio",
   "developer_handoff": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/QA-NEXT-TESTS.md",
   "no_product_code_edits": true,
   "developer_continues_without_qa_gate": true,
   "source_coverage_verified": false,
-  "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision."
+  "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision.",
+  "last_recon_date": "2026-10-21",
+  "recon_baseline_sha": "49095348141646ba8d90bfc27c30e8fa0d1c6eda",
+  "last_observed_main_sha": "2f508edfe31194ffb680122e3fba57129f96ad31",
+  "roadmap": "workspace/aion/qa/capture-studio/ROADMAP.md",
+  "historical_executed_qa": {
+    "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
+    "tests": 6,
+    "passed": 3,
+    "failed": 3,
+    "environment": "Node.js 22.16.0 Linux; graph module only",
+    "retest_of_later_fixes": "pending"
+  },
+  "sprint02": {
+    "implementation": "first slice source-delivered",
+    "acceptance": "pending independent execution",
+    "capabilities": [
+      "keyed continuity read-through",
+      "as-of fold",
+      "CLI",
+      "authenticated API",
+      "Sessions UI explorer",
+      "temporal graph code fixes"
+    ]
+  },
+  "current_recon_executed_tests": 0,
+  "steering_authority": "owner-authorized unilateral QA-owned records and roadmap updates; no other-lane code edits or quality gates"
 }
