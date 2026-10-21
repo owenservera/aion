@@ -231,7 +231,20 @@ async function main() {
       for (const e of view.entities) console.log('  ' + e.id + '  ' + e.typeName +
         '  sessions ' + e.sessionCount + '  revisions ' + e.revisions + '  ' + e.identityBasis);
       if (view.stats.truncated) console.log('  ' + view.stats.truncated + ' more entities (use --limit or --eid).');
-      console.log('  Note: keyless identities are not merged; missing observations do not imply deletions.');
+      if (view.stats.typeDriftHintsTotal) {
+        console.log('  Possible type drift: ' + view.stats.typeDriftHintsTotal +
+          ' unconfirmed structural candidate(s), NOT merged.');
+        for (const h of view.typeDriftHints.slice(0, 10)) {
+          console.log('    ' + h.origin + ' key ' + h.keyField + '=' + h.key +
+            '  types ' + h.candidates.map((c) => c.typeName ?? c.type).join(' / ') +
+            '  field overlap ' + h.structuralFieldOverlap);
+        }
+        const unseen = view.stats.typeDriftHintsTotal - Math.min(view.typeDriftHints.length, 10);
+        if (unseen) console.log('    ' + unseen + ' further candidate(s) not printed.');
+      }
+      if (view.stats.typeDriftVariantsOmitted)
+        console.log('  Drift analysis bounded: ' + view.stats.typeDriftVariantsOmitted + ' type variant(s) not compared.');
+      console.log('  Note: only same-origin, exact-key identities join. Type-drift hints do not join; missing observations are not deletions.');
       return;
     }
     case 'export': {
