@@ -14,6 +14,9 @@
 
 **Most useful next work:** obtain independently inspectable Windows source/build/registration diagnosis and exact-thread I1 receive evidence through the existing Development/CoS ownership path; independently assess disputed acceptance when real receipts arrive. No Windows work, real dispatch or live peer ACK is claimed here.
 
+**Memory self-audit (2026-10-21):** The existing role memory was already initialized. This pass corrected operational friction rather than creating new registries: CANON now separates enduring authority from temporary product scope, Immediate is the one-action resumption lens linked to actual Planning/Development sources instead of a duplicate task list, and Curated directs concise evidence-qualified action. [Role AGENTS](AGENTS.md) now makes Immediate-first context and selective GitHub source comparison the ordinary behavior. No new Windows evidence, accepted M1/I1/I2 or peer ACK was found; no shared intelligence/index change warranted by role-internal improvements. The older remote-head SHA above remains its original dated evidence checkpoint, not a claim to be the latest after these commits.
+
+
 ---
 
 ## Historical SITREP (retained below as dated evidence, not an active instruction set)

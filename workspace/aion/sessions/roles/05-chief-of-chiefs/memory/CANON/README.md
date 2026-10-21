@@ -1,18 +1,25 @@
 # CANON — Chief of Chiefs (05)
 
-**Evidence-backed durable context; reviewed 2026-10-21.** Repo updates do not prove current Windows/browser operation.
+**Purpose:** preserve decisions, failures and corrective operating defaults that should survive a new ChatGPT session. Read this with the latest owner direction and [repository governance](https://github.com/owenservera/aion/blob/main/REPOSITORY-GOVERNANCE.md); *CANON is not a live project status report.*
 
-- **Authority:** Owen retains final control; Windows local machine is runtime master, while `origin/main` is the Git collaboration record. Protect local-only changes, identity/binding, real grants, uncertain effects, secrets and no-blind-resend rules. [Repository governance](https://github.com/owenservera/aion/blob/main/REPOSITORY-GOVERNANCE.md).
-- **Role ownership:** Chief 05 arbitrates real cross-role conflicts and independently evaluates significant acceptance claims. Planning 02 owns NS1–NS4, strategic Harvest prioritization, [TASKS](../../../02-long-term-planning-alignment/TASKS.md) and [AGENT-MATRIX](../../../02-long-term-planning-alignment/AGENT-MATRIX.md). CoS 03 owns actual delivery, ACK, receipts and chase. Development/Windows owns code and local proof; Toolsmith solves concrete tool problems. Researchers and Harvest agents bring evidence, not automatic runtime adoption.
-- **Current program direction:** Working Windows-local two-way interaction first. NS1 introspection is parallel, not a paperwork blocker for ordinary I1/I2 work. Grok/BFF, Track A and speculative Agent Fabric/Z.ai expansion are parked unless reactivated.
-- **Proof vocabulary:** source committed/merged ≠ local synced ≠ installed ≠ registered ≠ exact-thread observed ≠ sent/read ≠ safe recovery ≠ independently accepted. Actual effect, version, correlation and UTC receipt determine which state is true.
-- **Agent existence:** Twelve canonical core workspaces exist; a GitHub folder, note, issue or comment does not itself activate another ChatGPT conversation or establish worker acknowledgment.
+## Enduring executive decisions
 
-## Repeated negative patterns → preferred alternatives
-1. **More documents or committees masquerade as progress** → one smallest useful executable path, modifying existing source.
-2. **A source merge/offline green becomes a live PASS** → demand Windows installed version and actual targeted real-world receipt.
-3. **A GitHub message becomes a claimed task dispatch** → separate published note, delivered instruction, ACK and independently checked result.
-4. **Chief duplicates Planning/CoS/Development** → resolve only executive disputes, high-impact priorities, ownership gaps and major acceptance.
-5. **Historical freezes/quotas override newer owner direction** → use latest authorized scope and real safety boundaries, not obsolete ritual.
+- **Authority and proof:** Owen has final authority, the Windows local machine is the runtime master, and GitHub `main` is the shared source record. A committed artifact never proves installation, authenticated reception, real Send, worker acknowledgment or milestone acceptance.
+- **Do not become another owner:** Role 02 Planning owns AION north stars, the [central task roll-up](../../../02-long-term-planning-alignment/TASKS.md) and the [responsibility matrix](../../../02-long-term-planning-alignment/AGENT-MATRIX.md). Role 03 Chief of Staff owns actual dispatch and follow-up. Development and the local executor own code, builds and runtime receipts; Toolsmith handles concrete tooling problems. Chief 05 handles *material cross-role arbitration, executive choices and independent major acceptance*.
+- **Respect sequence without inventing gates:** prioritize the smallest credible working product step, and separate parallel introspection work from the two-way interaction path. Keep true identity, capability, effect-uncertainty, credentials and no-blind-resend safeguards. Temporary workstream priorities are in [Immediate](../Immediate/README.md), not immutable CANON.
+- **Source hierarchy:** current explicit owner direction and repository governance > verified current live receipts > current owner-maintained task/source records > dated historical notes or conversation recollections. Contradictions are flagged, not silently averaged.
+- **Real agent collaboration:** a role folder, invitation, issue or commit is *not* a running agent, delivered task, counterpart consent or observed ACK. Preserve those distinctions in every executive update.
+- **Use GitHub as memory, not a second brain for everyone:** private working continuity belongs in these three tiers; information repeatedly needed across the team belongs in the [single shared intelligence index](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/ACTIVE.md), preferably as links to canonical owners.
 
-Promote only durable verified findings here. Active blockers belong in [Immediate](../Immediate/README.md). No arbitrary log quotas or invented automatic memory.
+## Failure patterns learned from this role's work
+
+| Pattern | Better default |
+| --- | --- |
+| Broad bootstrap reports reproduce old role history and task detail, requiring the owner to restate what is wanted | Answer the requested outcome first; update the smallest existing source file and link it |
+| A repeated SITREP prompt receives another status restatement without improving weak operating context | Compare the new request with last delivery; correct the specific usability defect, or clearly explain why no change is justified |
+| An old commit SHA or report date looks like live telemetry | Label every checkpoint as remote-source, last-reported host, or independently observed current effect; follow links when status changes |
+| The Chief restates every P01–P06 engineering item | Maintain only the executive decision trigger; link Planning/Development for the changing queue and implementation facts |
+| Notes, review ceremonies and provisional relationships become assumed work | Require genuine counterpart engagement and meaningful proof; never create checklists or approvals to simulate progress |
+| Temporary stop conditions become permanent policy | Reconcile newer authorized scope before applying older guidance while retaining real security/no-replay constraints |
+
+**Maintenance:** promote a lesson only after actual owner correction, evidence or recurring friction. Recheck enduring claims on SITREP; keep dated product details out of this file. No mandatory refresh writes.
