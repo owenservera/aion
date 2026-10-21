@@ -1,6 +1,6 @@
 {
   "schema": "aion.entry-state.v1",
-  "updated_utc": "2026-10-19T17:12:35.543Z",
+  "updated_utc": "2026-10-20T01:22:06.559Z",
   "update_basis": "Canonical implementation frozen at source fd347f22, research integrated at 389a928. Offline evidence: extension736, bridge126 plus1opt-in skip, bus8 plus2opt-in skips, MCP10, adapter35, demos3/3. One real native-UIA ChatGPT send at17:04:16.8683372Z and direct machine reply readback at17:05:00.7053692Z on2026-10-19. Extension fill succeeded but send activation failed. See LIVE-INTEGRATION-2026-10-19.md for minimized evidence and issues. Owner subsequently confirmed ongoing FULL live execution; live_execution_authorized=true. m1_verified=false because independent acceptance evidence is incomplete, NOT because live permission is absent.",
   "canonical_entry": "https://github.com/owenservera/aion",
   "machine_authority": "OWNER_WINDOWS_MASTER",
@@ -275,5 +275,46 @@
     "offline_evidence": "extension 736 passed (16:24:21Z); bridge 126 passed / 1 documented opt-in skip (16:24:41Z) with targeted re-run passing 16:24:19Z; bus runner 8 passed / 2 opt-in skips; MCP 10 passed; adapter 35 passed (16:24:04-16:24:07Z); bus offline demo 3/3 at 16:24:18Z (OFFLINE_PASS D1/D2/D3)",
     "state_ref": "workspace/aion/agents/windows-master/TODO.md"
   },
-  "live_execution_mode": "FULL"
+  "live_execution_mode": "FULL",
+  "track_b_windows_integration": {
+    "observed_utc": "2026-10-20T01:22:06.559Z",
+    "implementation_pr": "https://github.com/owenservera/aion/pull/34",
+    "windows_execution_receipt": "https://github.com/owenservera/aion/pull/34#issuecomment-6287965195",
+    "native_acceptance_revision": "5f505d88247030aaa6a0dd5354a8e233e099e329",
+    "offline_receipt_at_that_revision": {
+      "total": 1091,
+      "passed": 1082,
+      "failed": 0,
+      "skipped": 9,
+      "offline_demos_passed": 3,
+      "node": "v24.11.1",
+      "powershell": "7.6.3",
+      "completed_utc": "2026-10-20T01:16:21.259Z",
+      "receipt_sha256": "2eb4a7ec49b94375ad7ffcded658a973f89ec04855dea4aa6311fc1ff06bd872"
+    },
+    "opencode_v2": {
+      "version": "2.0.32",
+      "live_replies_verified": 3,
+      "operations": ["5c2p1h0x3z6o24050s5h", "2f094r3r18530s0g6y70", "6h4p320i5s1m3c4z2i0u"],
+      "negative_operation": "516d126w6m0n332z1y6f",
+      "negative_outcome": "REJECTED_NOT_SENT_INVALID_VARIANT",
+      "verified_features": ["correlated_reply", "attachment_admission", "explicit_agent_model_variant", "parent_link", "exact_session_reuse"],
+      "independent_read_only_review": "PASS: ledger and native inbox/correlation/segment boundaries corroborate exactly three admitted inputs and zero negative-case input",
+      "duplicate_inputs_observed": 0
+    },
+    "chrome": {
+      "native_host": "com.aion.relay.dev",
+      "extension_id": "ieiookjmbhcmjbjimmjpbnpfofljmlel",
+      "dev_host_registered": true,
+      "extension_loaded": false,
+      "live_send_verified": false,
+      "status": "BLOCKED_NATIVE_UIA_EXTENSION_PAGE_CONTROLS_UNAVAILABLE",
+      "signed_in_dev_conversation": "NOT_VERIFIED",
+      "next_action": "In the isolated Track B profile enable Developer mode, load the generated unpacked dev extension, sign in, then connect the actual conversation and run preflight. Never copy Track A cookies or guess a conversation."
+    },
+    "track_a_manifest_hashes_unchanged": true,
+    "projects_pm_collection_unchanged": true,
+    "m1_effect": "none; Chrome round trip and original independent M1 acceptance remain unverified",
+    "later_refinements": "Native roster and compact project-context refinements are recorded separately in the final current-head PR receipt; this record does not attribute earlier tests or live sends to later revisions."
+  }
 }

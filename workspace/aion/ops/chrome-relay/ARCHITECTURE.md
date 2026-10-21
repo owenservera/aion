@@ -1,5 +1,62 @@
 # AION Chrome Relay Station — Architecture v0.1
 
+## Track B command environment — current target specification (2026-10-20)
+
+**Authority and status:** owner-requested specification/planning pass, not an implementation or live-verification receipt. This section governs the bounded Track B ChatGPT Send/observe repair where older proposals below conflict. Root operating rules, explicit owner authorization, Track A isolation and the unchanged M1 acceptance contract remain higher authority. Historical proposals below are retained as history; they are not proof of current installation, permission or support. This section does not adopt the broader commander-loop proposals or authorize any browser action.
+
+### Goal and scope
+
+One authorized `aion send chief "..."` to an exactly bound dev conversation must produce one activation attempt, positive observation of the matching user turn, observed response completion, a checked actual reply, and a durable CLI result. An occupied composer, connected host, successful event dispatch or green fixture is not success.
+
+Scope: the existing CLI -> Bus -> authenticated dev host -> worker -> page engine -> checked result path. Reuse the existing Bus, immutable bindings, grants, browser journal, correlator and local transport. No replacement orchestrator, database, event bus, generic browser framework, account automation or UI redesign. Attachments/model controls/new-conversation creation remain outside this repair unless separately specified.
+
+### Three independent state axes
+
+**CENV-01 — conversation snapshot.** Report current observations for the exact bound conversation/page: `UNKNOWN`, `IDLE_EMPTY`, `DRAFT_PRESENT`, `RESPONDING`, or `BLOCKED`. A snapshot describes now, not whether a historical operation succeeded. `BLOCKED` must carry a concrete reason such as missing/ambiguous composer, unavailable target or unreadable state. Unknown is not idle. Include observation UTC, freshness and identity.
+
+**CENV-02 — operation lifecycle.** Maintain the existing immutable operation identity and separate facts for `RESERVED -> PREPARING -> PREPARED -> ACTIVATION_ATTEMPTED -> SUBMISSION_OBSERVED -> RESPONDING -> SETTLING -> REPLY_CHECKED`. These are semantic projections, not replacement Bus/storage enums. Alternatives are `REFUSED_NO_SUBMIT`, `REPLY_REJECTED` and `NEEDS_RECONCILIATION`. Preserve earlier facts when a later stage fails. A completed operation does not imply the page is still idle; a currently idle page does not prove that operation completed.
+
+**CENV-03 — action availability.** Resolve Send and Stop separately. For each report `present`, `visible`, `enabled`, `unique`, and contextual readiness as `true | false | null`, plus identity, UTC, freshness and reason. `null` means not established. Observed availability is separate from authorization. Do not infer Stop from not-Send, Send from not-Stop, or completion from either control's absence. Contradictory controls and ambiguous targets block actuation rather than select a priority winner.
+
+### Required behavior and invariants
+
+- **CENV-04 — observe before acting:** check exact binding/page, current state, empty/readable composer, unique permitted control, durable guard and valid Bus authority before fill. Never erase an existing draft or use a new tab to evade a draft/lock.
+- **CENV-05 — prepare and recheck:** verify the prepared outbound text, target and readable conversation continuity before activation. Replace reliance on a single fixed setup delay with bounded condition checks. Waits may observe readiness only while the original explicitly admitted operation remains active; a terminal refusal/reconciliation never resumes on its own. No new external trigger or reconnect can release a deferred send.
+- **CENV-06 — one activation:** use the existing single activation path. Record its method and attempt separately from effect confirmation. Do not add Enter after an uncertain click or click after an uncertain Enter. The default repair does not introduce CDP, UIA, Playwright, Puppeteer or Orca.
+- **CENV-07 — positive submission evidence:** require a new matching user turn after the operation baseline, in the intended conversation and with the expected complete outbound identity. A click return, composer clearing, URL change, transport ACK or legacy `submitted:true` is insufficient.
+- **CENV-08 — response evidence:** preserve task-bound start/end transitions and paired assistant candidate evidence. Settling requires observed generation end and stable candidate for the existing 750 ms settle interval. Absence of Stop on an idle page cannot reconstruct missing start/end history. Provider DOM evidence must not be represented as hidden platform final-channel metadata.
+- **CENV-09 — bounded observation:** distinguish submission-confirmation time from response-observation time. The current split submit path passes its 20,000 ms work budget as the page's entire task budget; a longer CLI wait does not extend it. The repair must explicitly carry a response observation budget, initially 180,000 ms with the existing 300,000 ms ceiling, without changing submit RPC's bounded first-receipt purpose. Polls cannot renew deadlines. The 400 ms setup constant is current implementation, not proof of readiness or a required minimum wait.
+- **CENV-10 — truthful diagnostics:** retain original failure stage/reason alongside reply-validation reason. A pre-activation refusal must not be reduced to `generation_incomplete`. Preserve `click_attempted`, `submission_observed`, continuity and prior known facts end-to-end. Legacy `submitted` stays documented as possible submission where compatibility requires it; new consumers must use precise facts.
+- **CENV-11 — recovery:** uncertainty never causes a resend, alternate activation, new operation identity, rebind, automatic draft clear, lock disposal or implicit extension reload. Reconnect observes the same operation read-only. Lost page identity or transition history remains unknown. Owner disposal is an explicit separate action, not proof of no effect.
+- **CENV-12 — freshness:** current readiness observations have a target freshness window of 2,000 ms; older data is STALE and cannot authorize actuation. This is a contract target, not a measured performance claim. Recheck immediately before activation. UTC is for receipts; elapsed bounds use a monotonic clock. Historical operation evidence remains historical, not invalidated merely by age.
+- **CENV-13 — minimal evidence:** record bounded metadata, identities, timestamps, lengths/hashes, stage/reason and observation method. No credentials, cookies, private transcripts or bulk DOM snapshots in Git, ordinary logs or research artifacts.
+- **CENV-14 — Stop semantics:** observing Stop availability is read-only. Activating Stop requires its own explicit authorized action, can fail or be uncertain, and never undoes a sent user turn or authorizes resending it. This repair must not silently add a new Stop RPC or widen Bus cancellation capability.
+
+### Current ownership and source-grounded gap map
+
+Source baseline: `231926a17f3bed81312e76a81b0f7e6aa11af415`; line anchors are at that revision. No new runtime test is claimed by this planning pass.
+
+- `extension/src/chatgpt/content.js` (complete read, 1,111 lines): `sendState()` at 381-395 is a limited snapshot; Stop is unscoped selector presence. `activate()` at 891-921 rechecks baseline/editor/text/URL/control and only then sets `clickAttempted` at 914. `submit()` at 923-965 fills then schedules activation after 400 ms. Missing: complete action-state contract, bounded readiness observation, precise failure projection and separate response budget.
+- `extension/src/background/chatgpt-port.js` (complete read, 2,561 lines): worker dispatch, first receipt, observe/reconcile and sanitization. `submitTurn`/`observeTurn` can expose `submitted:true` for uncertain outcomes; `pageRefusalReason()` at 2410-2416 prioritizes verdict over underlying observation reason; `armFacts()` omits that reason. Missing: lossless diagnostics/current-state propagation and explicit split timing contract.
+- `extension/src/chatgpt/correlate.js` (complete read, 820 lines): strict reply acceptance. Its incomplete-generation rejection is valid as an acceptance check but is not an actuation root-cause diagnosis. Do not loosen correlation/completion checks to repair Send.
+- `extension/src/lib/chatgpt-tasks.js` (complete read, 706 lines): durable operation guards and observer metadata. Preserve its existing keys, tombstones and lock semantics; additive evidence/schema changes require compatibility tests, not a journal reset.
+- `extension/src/background/service-worker.js` (complete read, 1,530 lines): endpoint allowlists, sender checks and worker routing. Propagate only explicitly allowed observation fields; do not expose privileged page control as a generic command.
+- `extension/src/bus/adapters/chatgpt.js` (complete read, 193 lines): target resolution, framing and result mapping. Its result currently reduces generation-incomplete refusal to reply-partial. The semantic gap is diagnostic loss, not permission to infer no send.
+- `extension/src/lib/command-deadlines.js` (complete read, 162 lines) and `velocity/src/browser/remote-call.mjs` (complete read, 41 lines): command budgets and transport uncertainty. A CLI wait, RPC timeout and page observation deadline are different clocks.
+- `extension/tests/content-turn-engine.test.js` (complete read, 359 lines) and `tests/fixtures/chatgpt-page.js` (complete read, 144 lines): deterministic modeled behavior. The fixture uses stable editor identity, immediate insert success and fake click events; it does not prove live React/editor behavior.
+
+### Proven incident boundary and unresolved questions
+
+Operation `2f6k2b046i6o02234j1h` dispatched at `2026-10-20T09:51:51.395Z` and became unresolved at `09:51:52.133Z`. Owner observed a filled unsent composer. Recorded observer facts: no click attempt, no matching submission, no generation start/end, continuity false. This locates the failure before recorded activation; it does **not** establish a failing click implementation, stale selector, Enter requirement, or which pre-activation guard failed. The reason may still exist in the durable observer record; investigate through an already permitted read-only evidence path before changing behavior. Do not touch the unresolved prompt during this planning pass.
+
+Planning decisions: keep the three axes separate; retain exactly-one target and no-resend; repair the existing vertical slice rather than transplant VIVIM engines. [Harvest findings](./harvest/FINDINGS.md) are external concept candidates, not authority. Unverified source claims and stale selectors cannot become requirements by repetition. Still open: current live control evidence, original pre-activation reason, response-start/end signal reliability, and measured observer survival. Unknowns must remain explicit until evidence resolves them.
+
+Contracts: [ENVELOPE-CONTRACT.md](./ENVELOPE-CONTRACT.md). Acceptance: [FALLBACK-AND-ACCEPTANCE.md](./FALLBACK-AND-ACCEPTANCE.md). Ordered implementation plan: [OPENCODE-BUILD-ORDER.md](./OPENCODE-BUILD-ORDER.md). These documents define the target, not completion. Implementation starts only after owner review of this planning pass.
+
+---
+
+## Historical architecture and proposals (retained)
+
 > **2026-10-19 DIRECTION NOTE (PROPOSED):** Owner direction for **Bus V1 (commander loop)** and **Bus V2 (local executors, OpenCode first)** is recorded in [DECISION-2026-10-19-BUS-V1-V2-DIRECTION](../../canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md) and summarized in [section 11](#11-bus-v1v2-direction--commander-channel-and-agent-fleet-proposed) below. It narrows, but does not yet adopt a change to, the "no page-to-shell authority" and "no autonomous driving of chatgpt.com" rules. Nothing there authorizes a live send.
 
 > **2026-10-19 reading guide:** The original design and implementation-status assertions below are preserved as history, not a current installation report. See [Proposed incremental messaging upgrade — 2026-10-19](#proposed-incremental-messaging-upgrade--2026-10-19) for the source-grounded baseline and proposed next slices. Neither this document nor that proposal claims accepted M1 or authorizes another live send.

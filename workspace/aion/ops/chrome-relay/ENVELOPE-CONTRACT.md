@@ -1,4 +1,62 @@
 # AION Relay Envelope v0.1
+
+## Track B observation contract — target v1 (2026-10-20)
+
+Normative implementation target for [CENV-01 through CENV-14](./ARCHITECTURE.md#track-b-command-environment--current-target-specification-2026-10-20), not an implemented schema or permission grant. The historical envelope below remains unchanged. Additive observation/result fields must be validated and carried through existing page, worker, adapter and CLI boundaries; do not repurpose relay task/delivery enums.
+
+### Snapshot and operation are separate objects
+
+Target semantic shapes (field names pinned for the repair; runtime schemas must be versioned when implemented):
+
+```text
+ConversationObservation:
+  schema: "aion.chatgpt.observation/1"
+  conversation_key, page_instance_id, observed_at: string
+  freshness: "FRESH" | "STALE" | "UNKNOWN"
+  state: "UNKNOWN" | "IDLE_EMPTY" | "DRAFT_PRESENT" | "RESPONDING" | "BLOCKED"
+  reason: bounded reason code | null
+  composer: { count: nonnegative integer | null, readable: boolean | null,
+              empty: boolean | null, matches_outbound: boolean | null }
+  actions:
+    send: ActionObservation
+    stop: ActionObservation
+
+ActionObservation:
+  present, visible, enabled, unique, context_ready: boolean | null
+  reason: bounded reason code | null
+
+OperationEvidence (additive metadata, not a new ledger):
+  operation_key, task_id, correlation_id, page_instance_id, observer_id: string
+  phase: semantic lifecycle projection from CENV-02
+  click_attempted, submission_observed, generation_started,
+    generation_complete, continuity: boolean | null
+  failure_stage: "preflight" | "prepare" | "activate" | "confirm_submission" |
+                 "observe_response" | "check_reply" | "persist" | "transport" | null
+  failure_reason, validation_reason: bounded reason code | null
+  activation_method: "synthetic_send_sequence" | null
+  prepared_at, activation_attempted_at, submission_observed_at,
+    response_started_at, response_ended_at, checked_at: UTC string | null
+```
+
+- **DATA-01:** `false` requires negative evidence from the applicable observation; absent/unreadable fields become `null`, not false. No raw composer/reply text in these metadata objects. `matches_outbound` is null outside the relevant operation.
+- **DATA-02:** freshness is derived from observation time/identity; clock anomalies or unavailable age become UNKNOWN. The target freshness window is 2,000 ms. A fresh snapshot does not establish authority, prior submission or historical completion.
+- **DATA-03:** current Send/Stop observations are scoped to the same exact conversation/composer surface. Hidden duplicates, disabled controls, missing controls and ambiguous controls are distinguishable. Unknown controls cannot be projected as ready.
+- **DATA-04:** existing page `observation.reason` and durable observer `reason` must survive result mapping as `failure_reason` with the correct stage. Reply acceptance separately supplies `validation_reason`. A valid refusal is not an adapter-contract failure; an incomplete-generation verdict is not a pre-activation diagnosis.
+- **DATA-05:** legacy `submitted:true` means possible submission where existing compatibility requires it. Only `submission_observed:true` permits a new consumer to label the operation submitted. Preserve unknown effect rather than changing legacy semantics silently.
+- **DATA-06:** preserve existing storage keys/schema and immutable operation guard records. Any observer schema extension must read existing records safely; absent new fields remain unknown. Never discard/reset guards to make a new schema load.
+
+### Timing contract
+
+Preparation gets a fixed target ceiling of 5,000 ms from fill completion, consuming rather than extending the existing submit exchange budget. This replaces the single 400 ms delay as the readiness criterion; it introduces no new user-facing timeout flag. `submission_timeout_ms` governs how long first submission evidence is awaited after activation; default target 5,000 ms, bounded by the remaining submit exchange plan. `response_timeout_ms` governs original task-bound response observation after activation; default target 180,000 ms and ceiling 300,000 ms. These are target internal fields to be explicitly allowlisted at the current submit boundaries, not arbitrary caller authority to extend a task. The response deadline is set once at activation and may not exceed the initial task's preparation ceiling plus its allowed response budget. The existing 20,000 ms submit work budget remains a finite RPC-stage ceiling, not the response lifetime. Polls carry no renewed response budget. Pin exact propagation/clamps in cross-layer tests before exposing the fields.
+
+### Interface boundaries
+
+Reuse `ping` for a read-only current snapshot, `submit-turn` for one guarded attempt plus first receipt, and `observe-turn` for the original observer's evidence. Existing worker `aion/chatgpt-ping`, `-submit` and `-observe` remain the routes. The local remote-call allowlist currently lacks ping; a narrowly typed read-only route is required if CLI readiness will expose the snapshot. Do not create a generic action forwarding endpoint. Stop availability may be reported without exposing Stop actuation.
+
+---
+
+## Historical envelope proposal (retained)
+
 Status: proposed bus-level schema; not an ACP wire message.
 
 Each event must carry: schema_version, message_id, correlation_id, causation_id, idempotency_key, producer_node, target_node, target_role, event_type, created_at, expires_at, sequence, priority, approved_scope_ref, payload_ref, payload_hash, delivery_state, and task_state.
