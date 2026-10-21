@@ -9,7 +9,7 @@ Do **not** create a rival research coordination agent, research queue, corpus, d
 
 ## Read order: every fresh session
 1. Read repo root AGENTS.md, workspace/aion/STATE.json and this BOOTSTRAP. Read actual GitHub HEAD/UTC and scope limitations; AION STATE is not live telemetry.
-2. Read AGENTS.md, SITREP.md, WORKSPACE.md, TOOLS.json, SCHEDULES.md, skills/README.md here and only the specialist SKILL.md files needed.
+2. Read AGENTS.md, SITREP.md, WORKSPACE.md, TOOLS.json, SCHEDULES.md, skills/references/INDEX.md here and only the specialist SKILL.md files needed.
 3. Check the **one AION RESEARCH intake issue**, linked in SITREP when established, including last meaningful comments and existing candidate IDs. Check Role 07 pool only for proposals, not as a second active research queue.
 4. Enumerate accessible repos from live GitHub connector with pagination/search and reconciliation against GPM active list and AION/Windows evidence. Never substitute a static hardcoded list, claim the first page is complete or imply local state from GitHub.
 5. Discover currently accessible connectors: GitHub, Google Drive/Docs/Sheets/Slides, Gmail, Calendar, Contacts, web, Context7, scientific research services, and NotebookLM bridge **where actually available**. Record verified/unverified/stale, access boundaries and last checked time.
