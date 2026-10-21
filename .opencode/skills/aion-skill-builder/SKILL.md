@@ -26,6 +26,7 @@ On role bootstrap, after repeated user corrections or failed patterns, whenever 
 - Create a skill: node .opencode/skills/aion-skill-builder/scripts/skill-kit.mjs new 10-development safe-release "Verify current changes before release"
 - Validate a skill: node .opencode/skills/aion-skill-builder/scripts/skill-kit.mjs validate path/to/SKILL.md
 - Show explicit OpenCode V2 skill directories: node .opencode/skills/aion-skill-builder/scripts/skill-kit.mjs sources
+- Test the builder helper with isolated filesystem fixtures: node --test .opencode/skills/aion-skill-builder/scripts/skill-kit.test.mjs
 
 The helper does not install harnesses, change permissions, execute generated skills, or silently rewrite existing ones.
 
