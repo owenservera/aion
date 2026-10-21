@@ -5,6 +5,7 @@
 import { Session, listSessions } from '../store/session.mjs';
 import { existsSync } from 'node:fs';
 import { siteOf } from '../profiles/profiles.mjs';
+import { foldRevision } from './history.mjs';
 
 export function siteFromSession(meta = {}) {
   try {
@@ -55,6 +56,7 @@ function recordRevisions(entity, sessionId, sessionCreatedAt) {
     t: continuityTime(r.t),
     changed: r.changed ?? Object.keys(r.values ?? {}),
     values: r.values ?? {},
+    ...(Array.isArray(r.removed) && r.removed.length ? { removed: r.removed } : {}),
     provenanceBasis: r.provenanceBasis ?? (r.values === undefined ? 'revision-values-unavailable' : 'recorded-revision'),
   }));
 }
@@ -236,7 +238,7 @@ export async function buildSiteContinuity(sessionsDir, {
     for (const rv of revisions) {
       if (rv.t === null) { stats.untimedRevisions++; continue; } // Unknown time cannot establish a historical state.
       if (rv.provenanceBasis === 'revision-values-unavailable') stats.missingRevisionValues++;
-      Object.assign(attrs, rv.values);
+      foldRevision(attrs, rv);
     }
     const visibleSessionIds = [...new Set(revisions.map((rv) => rv.session))].sort();
     const times = revisions.map((rv) => rv.t).filter((t) => t !== null);
@@ -279,7 +281,8 @@ export async function buildSiteContinuity(sessionsDir, {
       'Automatic joins require an exact target origin, site, model key field, type, keyed value and eid; this does not prove tenant equality inside one origin.',
       'Possible type-drift hints are unconfirmed structural comparisons, not identity matches or calibrated probabilities; they never change joined entities.',
       'Keyless and missing/ambiguous keyed observations remain separate across sessions; missing observations are not deletions.',
-      'Historical state uses saved revision values; missing or untimed evidence cannot establish an as-of state.',
+      'Historical state uses saved revision values and explicit removed-field operations; an absent field without a removal event is not a deletion.',
+      'Missing or untimed evidence cannot establish an as-of state; capture currently does not infer retractions.',
       'No copied knowledge index is stored; results recompute from extant derived session data.',
       'Reading all saved sessions has cost proportional to their derived entity and revision count.',
       'Legacy sessions without outcome markers are included only when an entities dataset is readable; their derivation completeness remains unverified.',
