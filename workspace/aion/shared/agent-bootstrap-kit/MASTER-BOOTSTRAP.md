@@ -1,5 +1,6 @@
 # AION — Master Autonomous Bootstrap Command
 
+**Symbolic equivalent:** `#AION @<AGENT-ROLE> +/sitrep` (AION add-missing-bootstrap profile; `!` is not bootstrap).  
 **Command:** `#AION @<AGENT-ROLE> BOOTSTRAP`  
 **Short form in an established role conversation:** `#AION BOOTSTRAP`
 

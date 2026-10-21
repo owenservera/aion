@@ -6,6 +6,10 @@
 
 The [single active bootstrap tracker](BOOTSTRAP-TRACKER.md) has **agents as columns** and **stages as rows**, including self-reported dates, evidence, last bootstrap, next pending stage and a protocol changelog. BOOTSTRAP checks it first; SITREP checks for missed or updated stages.
 
+## Symbolic command aliases
+
+The [versioned VOMEGA-aligned command profile](../command-language/protocol.json) maps `#AION @agent +/sitrep` to **add missing bootstrap stages**, equivalent to `/bootstrap`. `!/sitrep` is an immediate ordinary SITREP, not bootstrap. Existing `BOOTSTRAP` forms remain valid.
+
 ## One-command autonomous launch
 
 Use `#AION @<AGENT-ROLE> BOOTSTRAP` (or `#AION BOOTSTRAP` in a conversation where the role is already established). The [Master Bootstrap Command](MASTER-BOOTSTRAP.md) tells the agent to run all four stages **in order, autonomously, with one closeout**. No separate prompts needed.

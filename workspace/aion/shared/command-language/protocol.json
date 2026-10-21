@@ -1,0 +1,195 @@
+{
+  "schema": "aion.command-protocol/1",
+  "version": "0.1.0",
+  "status": "proposed-mapping-repository-instructions-active",
+  "updated": "2026-10-21",
+  "origin": {
+    "repository": "owenservera/VOMEGA",
+    "source": "omega-baseline/plugins/vivim-nlcl-pure/src/symbols.ts",
+    "familyCount": 17,
+    "note": "Source-declared symbol meanings; AION adapter below is a proposed composition profile, not the VOMEGA parser."
+  },
+  "symbols": [
+    {
+      "glyph": "/",
+      "family": "command",
+      "semantics": "invoke operation"
+    },
+    {
+      "glyph": "@",
+      "family": "reference",
+      "semantics": "grounded entity or agent"
+    },
+    {
+      "glyph": "#",
+      "family": "tag",
+      "semantics": "tag, registered project selector in leading position"
+    },
+    {
+      "glyph": "!",
+      "family": "force",
+      "semantics": "immediate invocation, no authority bypass"
+    },
+    {
+      "glyph": "?",
+      "family": "query",
+      "semantics": "inspect without mutation"
+    },
+    {
+      "glyph": "+",
+      "family": "add",
+      "semantics": "create/add missing resources"
+    },
+    {
+      "glyph": "-",
+      "family": "remove",
+      "semantics": "remove/exclude; destructive safeguards apply"
+    },
+    {
+      "glyph": "&",
+      "family": "combine",
+      "semantics": "chain operations"
+    },
+    {
+      "glyph": "$",
+      "family": "value",
+      "semantics": "bind named value"
+    },
+    {
+      "glyph": "*",
+      "family": "wildcard",
+      "semantics": "all within bounded scope"
+    },
+    {
+      "glyph": "%",
+      "family": "config",
+      "semantics": "configure operation"
+    },
+    {
+      "glyph": "∆",
+      "family": "delta",
+      "semantics": "modify/reconcile existing state"
+    },
+    {
+      "glyph": "✓",
+      "family": "confirm",
+      "semantics": "confirm pending proposal only with valid authorization"
+    },
+    {
+      "glyph": "=",
+      "family": "assert",
+      "semantics": "define/teach mapping"
+    },
+    {
+      "glyph": "^",
+      "family": "priority",
+      "semantics": "prioritize"
+    },
+    {
+      "glyph": "~",
+      "family": "approximate",
+      "semantics": "fuzzy discovery, not invented identity"
+    },
+    {
+      "glyph": "→",
+      "family": "direction",
+      "semantics": "route source to target"
+    }
+  ],
+  "aliases": {
+    "Δ": "∆",
+    "✔": "✓"
+  },
+  "namespace": {
+    "prefix": "#",
+    "registered": {
+      "AION": "owenservera/aion"
+    },
+    "caseInsensitive": true,
+    "position": "leading",
+    "note": "Project scope is an AION-specific specialization of tag, not a VOMEGA semantic rewrite."
+  },
+  "entities": {
+    "prefix": "@",
+    "resolution": "Resolve alias against current repository role workspaces; do not assume existence or execution authority",
+    "examples": {
+      "dashboard": "01-dashboard-tracking",
+      "chief": "05-chief-of-chiefs"
+    }
+  },
+  "operations": {
+    "sitrep": {
+      "canonical": "/sitrep",
+      "plainAliases": [
+        "SITREP"
+      ],
+      "profile": "scoped-context-refresh",
+      "reference": "workspace/aion/shared/agent-communications/LIVING-OPERATING-MODEL.md"
+    },
+    "bootstrap": {
+      "canonical": "/bootstrap",
+      "profile": "autonomous-bootstrap",
+      "reference": "workspace/aion/shared/agent-bootstrap-kit/MASTER-BOOTSTRAP.md"
+    }
+  },
+  "compositions": [
+    {
+      "pattern": "#AION @agent /sitrep",
+      "operation": "sitrep",
+      "profile": "scoped-context-refresh"
+    },
+    {
+      "pattern": "#AION @agent +/sitrep",
+      "operation": "bootstrap",
+      "profile": "add-missing-bootstrap-stages",
+      "reason": "AION mapping of VOMEGA + add to the existing master bootstrap procedure; not a universal meaning of +."
+    },
+    {
+      "pattern": "#AION @agent /bootstrap",
+      "operation": "bootstrap",
+      "profile": "autonomous-bootstrap"
+    },
+    {
+      "pattern": "#AION @agent ∆/sitrep",
+      "operation": "sitrep",
+      "profile": "existing-context-realignment"
+    },
+    {
+      "pattern": "#AION @agent ?/sitrep",
+      "operation": "sitrep",
+      "profile": "read-only-status"
+    },
+    {
+      "pattern": "#AION @agent !/sitrep",
+      "operation": "sitrep",
+      "profile": "immediate-execution-within-permissions",
+      "note": "Does not mean bootstrap"
+    },
+    {
+      "pattern": "#AION @agent */sitrep",
+      "operation": "sitrep",
+      "profile": "comprehensive-bounded-refresh"
+    }
+  ],
+  "resolution": {
+    "tokenWhitespace": "Whitespace between modifier and /command is optional for supported AION patterns",
+    "caseInsensitiveCommands": true,
+    "scopePropagation": "Explicit project and agent identifiers override conversation-established context; absent identifiers inherit only when unambiguous",
+    "ambiguity": "Ask only when identity or effect cannot be safely determined; never silently guess a target",
+    "unrecognized": "Do not pretend execution; explain missing mapping and fall back to plain-language request"
+  },
+  "execution": {
+    "permissions": "Symbols never override host permissions or explicit owner-only approvals",
+    "readOnlyQuery": true,
+    "bootstrapTracker": "workspace/aion/shared/agent-bootstrap-kit/BOOTSTRAP-TRACKER.md",
+    "sitrepChecksTracker": true,
+    "proof": "Report observed tool execution separately from plans, source files and local runtime claims",
+    "autonomousExecution": "When requested and permitted, perform rather than merely narrate intent"
+  },
+  "compatibility": {
+    "runtime": "instruction-level AION interpretation convention",
+    "parserInstalled": false,
+    "vomegaParserUntouched": true,
+    "chatGPTNativeCommands": false
+  }
+}

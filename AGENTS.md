@@ -78,3 +78,7 @@ For onboarding or relaunching an AION agent, `#AION @<AGENT-ROLE> BOOTSTRAP` inv
 ## Bootstrap stage status
 
 On BOOTSTRAP and SITREP, consult the [single team bootstrap tracker](workspace/aion/shared/agent-bootstrap-kit/BOOTSTRAP-TRACKER.md). Its **columns are agents** and its **rows are scaffold and bootstrap stages**, with versioned self-reports, dates and evidence. BOOTSTRAP runs missing or newly revised stages in order and updates only its own column after reconciling concurrent Git changes. SITREP identifies pending stages but does not rerun full onboarding without an explicit request. Do not infer prior completion from existing files alone.
+
+## AION symbolic commands (VOMEGA-compatible interpretation profile)
+
+Use the [versioned command protocol](workspace/aion/shared/command-language/protocol.json) and [reading guide](workspace/aion/shared/command-language/README.md). `/sitrep` is the scoped refresh, `+/sitrep` is the AION bootstrap composition (add missing work), `/bootstrap` is its explicit equivalent, and `!/sitrep` is immediate SITREP **not** bootstrap. Read the current role instructions and tool state; symbols never confer execution permission or prove local installation.
