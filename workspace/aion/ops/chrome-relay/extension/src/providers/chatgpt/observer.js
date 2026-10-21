@@ -65,6 +65,10 @@ export function createChatGptPassiveObserver({
     const events = [];
     const now = Number.isFinite(nowMs) && nowMs >= 0 ? nowMs : 0;
     const currentKeys = new Set();
+    // The keys this observer had ALREADY seen before this sample. Captured
+    // before the loop below, because that loop writes the current keys into
+    // `remembered` and would otherwise make every key look known.
+    const previousKeys = new Set(remembered.keys());
     const snapshot = read.messages.map((msg) => {
       currentKeys.add(msg.messageKey);
       const signature = JSON.stringify([msg.role, msg.text, msg.textTruncated,
@@ -109,13 +113,32 @@ export function createChatGptPassiveObserver({
     for (const key of remembered.keys()) {
       if (!currentKeys.has(key) && remembered.size > maximum) remembered.delete(key);
     }
+    // REMOUNT DETECTION. Every message this observer had ever seen is GONE and
+    // a completely different set is present: the conversation tree was
+    // replaced (React remount, virtualization swap). What changed while it was
+    // replaced is UNKNOWN, so the events this sample would have produced are
+    // DROPPED and the next sample is a silent baseline again. A remount must
+    // never be reported as a new turn.
+    let remount = null;
+    if (baselineCaptured && previousKeys.size > 0 && currentKeys.size > 0) {
+      let overlap = false;
+      for (const key of currentKeys) {
+        if (previousKeys.has(key)) { overlap = true; break; }
+      }
+      if (!overlap) remount = { detected: true, reason: 'known_messages_replaced' };
+    }
     baselineCaptured = true;
+    if (remount) {
+      events.length = 0;
+      baselineCaptured = false;
+    }
     lastStatus = 'observing';
     return {
       status: lastStatus,
       reason: '',
       bindingKey, accountKey, conversationId, pageEpoch,
       events,
+      remount,
       snapshot: {
         messages: snapshot,
         coverage: { ...read.coverage, complete_history: false },

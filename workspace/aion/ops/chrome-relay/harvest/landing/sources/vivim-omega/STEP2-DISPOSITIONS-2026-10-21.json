@@ -1,0 +1,903 @@
+{
+  "schema_note": "Harvest worksheet only; not an AION schema/registry. One row per command_id.",
+  "generated_utc": "2026-10-21T09:28:15.6747267Z",
+  "source_pin": "Vivim-omega/Core/wave0-omega-forge_2 HEAD 79ee558d6c7ea77c20f220db2341adaa57b11d44 (tracked-clean)",
+  "row_count": 40,
+  "unique_command_ids": 40,
+  "disposition_counts": {
+    "PARTIAL": 17,
+    "UNKNOWN": 23,
+    "MATCH": 0
+  },
+  "rows": [
+    {
+      "command_id": "send",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; P fixture email replay, B CDP path defective; no same-web-conversation effect proof",
+      "donor_evidence": [
+        "P:plugins/provider-browser/src/index.ts:217-294",
+        "P:plugins/provider-browser/src/index.ts:255",
+        "B:plugins/provider-browser/src/live.ts:645-709"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:2",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:33"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "message\\.send@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "29"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/bus.js:14 (no-resend invariant); workspace/aion/ops/chrome-relay/extension/src/bus/grants.js:47-59 (grant selection)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "observe",
+      "rubric": "CORE P0",
+      "effect_class": "read",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; fixture trace replay, not current conversation observation",
+      "donor_evidence": [
+        "P:plugins/discovery-observation/src/index.ts:114-173",
+        "P:plugins/discovery-observation/src/trace.ts:133-194"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:3",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:26"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "discovery\\.observe@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "5"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/lib/conversation-contract.js:6-7 (event/1, snapshot/1); workspace/aion/ops/chrome-relay/extension/src/bus/bus.js:7 (observe never re-sends)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "reply.read",
+      "rubric": "CORE P0",
+      "effect_class": "read",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; B parser over full captured body; P chat.history is local vault",
+      "donor_evidence": [
+        "B:plugins/provider-browser/src/parsers.ts:196-254",
+        "P:plugins/vivim-chat/src/index.ts:216-252"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:4",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:30"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "parseChatGptStream|reply\\.read",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0 (P)"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/lib/conversation-contract.js:41-46 (coverage)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "stream",
+      "rubric": "CORE P0",
+      "effect_class": "read",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; ordered advisory chunks + exactly-one-final envelope",
+      "donor_evidence": [
+        "P:contracts/src/parser.ts:84-103",
+        "P:plugins/provider-browser/src/index.ts:271-273",
+        "P:contracts/src/port.ts:50-78"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:5",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:37"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "buildChunkEnvelope",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "5"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/lib/conversation-contract.js:26-27 (cursor epoch/sequence)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "history.read",
+      "rubric": "CORE P0",
+      "effect_class": "read",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; local vault chat index, not provider history",
+      "donor_evidence": [
+        "P:plugins/vivim-chat/src/index.ts:216-252"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:6",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:20"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.history@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "6"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/lib/conversation-contract.js:60-68 (snapshot coverage)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "session.bind",
+      "rubric": "CORE P0",
+      "effect_class": "local_state_mutation",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; captureRef/ATTACHED validator; no account/chat/tab/epoch binding",
+      "donor_evidence": [
+        "P:plugins/provider-browser/src/session.ts:105-147",
+        "P:plugins/provider-browser/src/index.ts:143-195",
+        "B:plugins/provider-browser/src/live.ts:180-183"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:7",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:34"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "browser\\.attach@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "4"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/lib/conversation-contract.js:50-56 (binding + page_epoch fields)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "recover",
+      "rubric": "CORE P0",
+      "effect_class": "read",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; configuration recovery, not operation reconcile",
+      "donor_evidence": [
+        "P:host/src/recovery.ts:22-74"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:8",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:29"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "bootWithRecovery",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "10"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/bus.js:462-475 (reconcile); workspace/aion/ops/chrome-relay/extension/src/bus/bus.js:227-232 (unknown -> UNRESOLVED)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "sessions.list",
+      "rubric": "CORE P0",
+      "effect_class": "read",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:9",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:35"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "sessions\\.list|conversation\\.list|chat\\.list",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "model.list",
+      "rubric": "CORE P0",
+      "effect_class": "read",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:10",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:24"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "model\\.list|listModels",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "model.select",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:11",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:25"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "model\\.select|selectModel",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "file.attach",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:12",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:16"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "file\\.attach|attachFile|setFileInputFiles",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "chat.create",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; P chat.open@1 creates a LOCAL vault conversation row",
+      "donor_evidence": [
+        "P:plugins/vivim-chat/src/index.ts:146-167"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:13",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:7"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.open@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "5"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "chat.open",
+      "rubric": "CORE P0",
+      "effect_class": "local_or_external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); P chat.open@1 is local creation (NOT_APPLICABLE to opening an existing provider chat)",
+      "donor_evidence": [
+        "P:plugins/vivim-chat/src/index.ts:146-167"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:14",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:10"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.open@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "5"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "chat.rename",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:15",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:11"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.rename|renameConversation",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "generation.stop",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); intent.cancel / MCP cancel are not generation Stop",
+      "donor_evidence": [
+        "P:plugins/vivim-intent/src/index.ts:263-272"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:16",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:17"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "generation\\.stop|stopGenerat",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "thinking.level.set",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); only hit is a gate-log string, not a control",
+      "donor_evidence": [
+        "P:tooling/gates/session.ts:312"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:17",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:38"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "thinking|reasoning_effort|reasoningEffort",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "1"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "steer",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:18",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:36"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "\\bsteer",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "message.edit",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:19",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:22"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "message\\.edit|editMessage",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "response.regenerate",
+      "rubric": "CORE P0",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); 12 hits are fixture/matrix 'regenerate' build notes, not provider regeneration",
+      "donor_evidence": [
+        "P:tooling/generate/generate.ts:309"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:20",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:31"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "regenerat",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "12"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/bus.js:14 (no blind resend credit)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "chat.search",
+      "rubric": "CORE P1",
+      "effect_class": "read",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); vault.search@1 is local FTS, not provider chat search",
+      "donor_evidence": [
+        "P:plugins/vivim-vault/src/index.ts:100"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:21",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:12"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.search|vault\\.search@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "17"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "chat.archive",
+      "rubric": "CORE P1",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); only email.archive@1 variation vocabulary",
+      "donor_evidence": [
+        "P:contracts/src/variation.ts:6"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:22",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:6"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.archive|archive@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "1"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "chat.delete",
+      "rubric": "CORE P1",
+      "effect_class": "destructive_external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:23",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:8"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.delete",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "chat.share",
+      "rubric": "CORE P1",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:24",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:13"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.share|shareConversation",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "branch.create",
+      "rubric": "CORE P1",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:25",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:4"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "branch\\.create|conversation\\.fork",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "message.copy",
+      "rubric": "CORE P1",
+      "effect_class": "read",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:26",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:21"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "message\\.copy|clipboard",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "tool.toggle",
+      "rubric": "CORE P1",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:27",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:40"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "tool\\.toggle",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "project.select",
+      "rubric": "CORE P1",
+      "effect_class": "local_or_external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:28",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:27"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "project\\.select",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "chat.export",
+      "rubric": "CORE P1",
+      "effect_class": "read",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:29",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:9"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "chat\\.export",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "mode.select",
+      "rubric": "CORE P1",
+      "effect_class": "external_mutation",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/command-space/CORE-OPERATIONS.csv:30",
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:23"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "mode\\.select",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "agent.delegate",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; scope attenuation + staged child journal; no worker launch",
+      "donor_evidence": [
+        "P:plugins/vivim-agent/src/index.ts:231-275",
+        "P:plugins/vivim-agent/src/agent.ts:93-134"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:2"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "agent\\.delegate@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "3"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/grants.js:12-33 (scoped owner grants)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "agent.status",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; identity/contract/capped ledger snapshot; not a receive cursor",
+      "donor_evidence": [
+        "P:plugins/vivim-agent/src/index.ts:195-220"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:3"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "agent\\.snapshot@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "4"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/ledger.js:1-6",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "cancel",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; returns cancelling + compensation-request record; no remote cancel",
+      "donor_evidence": [
+        "P:plugins/vivim-intent/src/index.ts:263-272"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:5"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "intent\\.cancel@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "2"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/bus.js:425-440 (dispose, never re-sends)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "context.inject",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:14"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "context\\.inject",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "discover",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; fixture perceive->infer->map->verify; PROMOTED is historical, not readiness",
+      "donor_evidence": [
+        "P:plugins/discovery-verification/src/index.ts:229-300",
+        "P:plugins/discovery-verification/src/evaluate.ts:88-154",
+        "P:plugins/discovery-mapping/src/solve.ts:61-62"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:15"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "discovery\\.verify@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "20"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/registry.js:136 (unknown agent refuses)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "grant.manage",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); reference/counterexample only; law-stub allow-all exists in 5 compositions",
+      "donor_evidence": [
+        "P:plugins/vivim-law/src/index.ts:373",
+        "P:plugins/law-stub/src/index.ts:11-13"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:18"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "law\\.consent\\.grant@1",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "29"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/grants.js:12-67 (create/revoke/select/consume)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "health",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; router routedOps status, not provider/observer health",
+      "donor_evidence": [
+        "P:contracts/src/surface.ts:39-43"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:19"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "router\\.status|status\\(\\)\\.routedOps",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "9"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "receipt.read",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); technique-only; agent attempt ledger written after the call (no pre-send reservation)",
+      "donor_evidence": [
+        "P:plugins/vivim-agent/src/index.ts:28"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:28"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "quarantinedMidFlight",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "3"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/ledger.js:6 (no-resend task store)",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "result.export",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); internal JSON-RPC result projection, not provider artifact export",
+      "donor_evidence": [
+        "P:surfaces/mcp/src/mcp.ts:49",
+        "P:surfaces/mcp/src/mcp.ts:155-156"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:32"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "rpcResult|toolResultText",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "1"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "tool.call",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "PARTIAL",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); internal tool->root-op mapping; root principal; description defaults risk READ",
+      "donor_evidence": [
+        "P:surfaces/mcp/src/mcp.ts:142-156",
+        "P:surfaces/mcp/src/mcp.ts:64-66"
+      ],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:39"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "tools/call",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "1"
+      },
+      "aion_existing_owner": "workspace/aion/ops/chrome-relay/extension/src/bus/grants.js:47-59",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    },
+    {
+      "command_id": "ui.panel",
+      "rubric": "REGISTRY",
+      "effect_class": "TO_CLASSIFY",
+      "disposition": "UNKNOWN",
+      "scope_qualifier": "same bound provider web conversation (AION rubric); not established by bounded search at P",
+      "donor_evidence": [],
+      "rubric_evidence": [
+        "workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv:41"
+      ],
+      "bounded_search": {
+        "root": "Vivim-omega/Core/wave0-omega-forge_2@79ee558d6c7ea77c20f220db2341adaa57b11d44",
+        "pattern": "ui\\.panel|sidePanel|side_panel",
+        "excludes": "*.md, **/fixtures/**, *.test.ts",
+        "files_hit": "0"
+      },
+      "aion_existing_owner": "n/a",
+      "step2_vs_round1": "AGREES with LOCAL-SOURCE-REVIEW.md:133-174 disposition",
+      "match_credit": false
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "aion-pack-07-transfer-integrity",
+  "private": true,
+  "type": "module",
+  "description": "Offline fixtures for staged PACK-07 transfer integrity. Not a published package.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

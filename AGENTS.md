@@ -11,21 +11,29 @@
 ## Rules
 - **Proof before status.** No claim of a test, install, send, reply or milestone without a receipt (output, commit, hash, observed result) and UTC time.
 - **Risk-based verification:** routine changes require appropriate tests and a readable commit; a genuinely independent reviewer is required only for real M1 acceptance, security-critical boundary changes, and disputed evidence. Builder and runner may be the same local agent.
-- **Direct Windows development is approved as the operating model:** local agents can inspect source, edit code, run builds/unit tests, use ordinary local tools and perform non-destructive diagnostics without separate policy documents, identity handoffs or a daemon. The previously recorded host/browser stop order still applies to controlling signed-in ChatGPT and privileged/account actions until owner explicitly restarts that scope; a plain, traceable owner instruction is sufficient—no special grant-file template required. Do not confuse stale STATE.json with revocation of a newer owner instruction.
+- **Direct Windows development and local testing are approved:** execute the current owner-directed work using the installed tools, including local browser/host integration. Historical paused/frozen snapshots are not standing execution restrictions. No separate approval document, identity handoff or grant-file template is required for ordinary local development/testing.
 - **Git workflow:** target `main`; agents may use one checkout or local worktrees as convenient. Commit and push through ordinary verified Git operations with conflict checks. Avoid concurrent blind pushes/force-pushes; a permanent git integrator is optional, not a prerequisite.
 - **No secrets, cookies, tokens or private transcripts** in the repo, issues or logs. Receipts are minimized.
 - **Do not add new design documents** if an existing one can be edited. Archive, do not delete, superseded material.
 - **Prefer ACPX reuse:** inspect existing ACPX before duplicating effort when available; do not block a smaller live-path experiment merely because a separate review role has not ACKed.
-- Playwright/Puppeteer: currently disallowed for new AION work (rationale is being written down; see the architecture proposal, section 5).
+- Select testing tools for the current task; historical tool exclusions are not a substitute for the owner's current instruction.
 - GitHub issues and commits do **not** wake ChatGPT or any agent. If you need another actor, say so in an `AION_HANDOFF_V1`. (Sole proposed exception, not adopted: the owner-armed commander channel in [DECISION-2026-10-19-BUS-V1-V2-DIRECTION](workspace/aion/canon/DECISION-2026-10-19-BUS-V1-V2-DIRECTION.md); until the owner adopts it, this rule stands unchanged.)
 - The Grok Bot rule "never write code" applies to Grok only.
+
+## Local testing — standing owner direction (2026-10-20)
+
+- Execute the complete relevant AION test suites and authorized local end-to-end checks without repeatedly requesting human approval. Use the installed runtime; a version named in an old brief does not authorize downloading another runtime.
+- For the watch-only milestone, local authority includes ownership-checked Track B dev-build refresh, extension reload, explicit local account registration, exact-bound conversation reads, and reconnect/reload testing. Preserve existing state and back up generated setup artifacts before replacement; keep Track A untouched.
+- Treat this as a single-owner local PC: use the configured `local-owner` or `hardened` security profile. Do not invent multi-user approval gates, independent-account challenges or management documents as prerequisites to local testing.
+- Distinguish real blockers from untested assumptions: attempt the safe authorized path, diagnose concrete failures, and continue independent offline work. Report exact results and actual missing capabilities rather than asking the owner to perform steps the agent can execute.
+- The current owner instruction defines test scope; do not carry forward blanket no-Send, tool or donor-test exclusions from earlier assignments as permanent project policy. Keep credentials and private conversation content out of published source and shared test receipts; reconcile uncertain effects before repeating an action.
 
 ## Running things (PowerShell, on the Windows machine)
 ```powershell
 cd <repo>\workspace\aion\sessions\01-escape-hatch\adapter
 node --test send-m05.test.js        # 35 unit tests, no browser needed
 ```
-The adapter's live modes (`--live`, `--read-last`, `--inspect-dom`) touch a real browser and need an authorization.
+The adapter's live modes (`--live`, `--read-last`, `--inspect-dom`) touch the real browser; execute them when they are within the current owner-directed test scope, without a separate approval ritual.
 
 ## Handoff
 Use a short handoff **only when a task crosses agents/sessions or work is left unfinished**. Ordinary completed tasks need a commit/receipt and concise result, not a mandatory form.

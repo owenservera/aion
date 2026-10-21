@@ -1,0 +1,46 @@
+aion_semantic_id,core_priority,donor_command,donor_scope,donor_mode,donor_operation,donor_retry,donor_reconcile_target,donor_reload_recovery,allow_during_lease,evidence,proposed_aion_retry,proposed_aion_reconcile,proposed_aion_reload,rule
+send,P0,prompt.send,REQUEST,EFFECT,WRITE,never,submitted_turn,BROWSER_EFFECT,false,BRIDGE_DIRECT,never,submitted_turn,BROWSER_EFFECT,at-most-one attempt per grant; submission evidence only
+observe,P0,request.resume,REQUEST,RESULT,READ,always,request_projection,SAFE_REPEAT,false,BRIDGE_ADJACENT_REQUEST_PROJECTION_NOT_CONVERSATION_INBOX,always,request_projection,SAFE_REPEAT,read-only projection
+reply.read,P0,response.recover.latest,STANDALONE,RESULT,READ,always,current_turns,SAFE_REPEAT,true,BRIDGE_ADJACENT_CURRENT_TURN_READ_NOT_FULL_REPLY,always,read_scope,SAFE_REPEAT,read-only; partial must be labelled
+stream,P0,response.snapshot.request,REQUEST,RESULT,READ,always,request_projection,SAFE_REPEAT,false,BRIDGE_PARTIAL_SNAPSHOT_REQUEST_NO_DELTA_STREAM,always,request_projection,SAFE_REPEAT,read-only; gap must be explicit
+history.read,P0,response.recover.list,STANDALONE,RESULT,READ,always,current_turns,SAFE_REPEAT,true,BRIDGE_PARTIAL_BOUNDED_VISIBLE_TURNS_ONLY,always,read_scope,SAFE_REPEAT,read-only; visible subset is not history
+session.bind,P0,,,,,,,,,NOT_LOCATED,if_unconfirmed,binding_identity,READ_PROBE,local binding; re-read identity before retry
+recover,P0,request.resume,REQUEST,RESULT,READ,always,request_projection,SAFE_REPEAT,false,BRIDGE_ADJACENT_RESUME_PROJECTION_EFFECT_EVIDENCE_VIA_REQUEST_EFFECT_RECONCILE,always,request_projection,SAFE_REPEAT,never resend; observation only
+sessions.list,P0,sessions.list,STANDALONE,RESULT,READ,always,current_sessions,SAFE_REPEAT,true,BRIDGE_DIRECT,always,none,SAFE_REPEAT,read-only
+model.list,P0,models.list,STANDALONE,RESULT,READ,always,current_selection,SAFE_REPEAT,true,BRIDGE_DIRECT,always,none,SAFE_REPEAT,read-only
+model.select,P0,intelligence.apply,STANDALONE,RESULT,WRITE,never,current_selection,READ_PROBE,false,BRIDGE_DIRECT_COMMAND_BUT_DONOR_APPLY_IS_FAIL_OPEN,never,current_selection,READ_PROBE,fail closed if selection is unconfirmed
+file.attach,P0,,,,,,,,,NOT_LOCATED,never,composer_attachments,READ_PROBE,probe chips/busy/error; timeout is unconfirmed
+chat.create,P0,sessions.new,STANDALONE,RESULT,WRITE,never,conversation_identity,TYPED_UNCERTAINTY,false,BRIDGE_DIRECT_BUT_MAY_RETURN_A_BLANK_SESSION_BEFORE_PERSISTENCE,never,conversation_identity,TYPED_UNCERTAINTY,requires durable id before success
+chat.open,P0,sessions.select,STANDALONE,RESULT,WRITE,if_unconfirmed,conversation_identity,OBSERVATION,false,BRIDGE_DIRECT_WITH_EXACT_ROUTE_READINESS_GATE,if_unconfirmed,conversation_identity,OBSERVATION,exact route + stable readiness
+chat.rename,P0,,,,,,,,,NOT_LOCATED,never,conversation_title,READ_PROBE,verify title after write
+generation.stop,P0,prompt.cancel,REQUEST,EFFECT,WRITE,if_unconfirmed,generation_state,BROWSER_EFFECT,false,BRIDGE_DIRECT_WITH_ACTIVE_REQUEST_IDENTITY_CHECK,if_unconfirmed,generation_state,BROWSER_EFFECT,identity must match the generation
+thinking.level.set,P0,intelligence.apply,STANDALONE,RESULT,WRITE,never,current_selection,READ_PROBE,false,BRIDGE_SAME_COMMAND_EFFORT_AXIS_FAIL_OPEN,never,current_selection,READ_PROBE,fail closed if effort is unconfirmed
+steer,P0,prompt.steer,REQUEST,EFFECT,WRITE,never,submitted_turn,BROWSER_EFFECT,false,BRIDGE_DIRECT_ACTIVE_REQUEST_SCOPED,never,submitted_turn,BROWSER_EFFECT,mid-turn only; queued follow-up is a different op
+message.edit,P0,,,,,,,,,NOT_LOCATED,never,edited_turn_identity,READ_PROBE,exact message; regeneration semantics explicit
+response.regenerate,P0,,,,,,,,,NOT_LOCATED,never,assistant_turn_identity,BROWSER_EFFECT,"exact assistant turn, not blind resend"
+chat.search,P1,,,,,,,,,NOT_LOCATED,always,none,SAFE_REPEAT,read-only; scope must be stated
+chat.archive,P1,,,,,,,,,NOT_LOCATED,if_unconfirmed,archive_state,READ_PROBE,reversible; observe state
+chat.delete,P1,sessions.delete,STANDALONE,RESULT,WRITE,never,session_absence,TYPED_UNCERTAINTY,false,BRIDGE_DIRECT_WITH_TARGET_ASSERTIONS_AND_OBSERVED_ABSENCE,never,session_absence,TYPED_UNCERTAINTY,strong confirm; no silent destructive retry
+chat.share,P1,,,,,,,,,NOT_LOCATED,never,share_state,READ_PROBE,visibility must be observed
+branch.create,P1,,,,,,,,,NOT_LOCATED,never,conversation_identity,TYPED_UNCERTAINTY,fork is not an empty chat
+message.copy,P1,,,,,,,,,NOT_LOCATED,always,none,SAFE_REPEAT,read-only; fidelity is the risk
+tool.toggle,P1,,,,,,,,,NOT_LOCATED,if_unconfirmed,effective_tool_list,READ_PROBE,availability is not enabled
+project.select,P1,,,,,,,,,NOT_LOCATED,if_unconfirmed,project_binding,READ_PROBE,select is not move
+chat.export,P1,,,,,,,,,NOT_LOCATED,always,read_scope,SAFE_REPEAT,read-only; completeness must be stated
+mode.select,P1,,,,,,,,,NOT_LOCATED,if_unconfirmed,current_mode,READ_PROBE,mode is not model or effort
+,,request.release,REQUEST,RELEASE,CONTROL,always,lease_cleanup,LEASE_BARRIER,false,DONOR_ONLY,,,,"lease cleanup; AION Bus owns release, no public command"
+,,request.effect.reconcile,REQUEST,RESULT,READ,always,effect_evidence,SAFE_REPEAT,false,DONOR_ONLY,,,,effect evidence read; overlaps recover
+,,command.cancel,STANDALONE,RESULT,CONTROL,if_unconfirmed,target_command,TARGET_COMMAND,true,DONOR_ONLY,,,,"cancels a Bridge command, not a provider generation"
+,,passive.prompt.submit,STANDALONE,RESULT,WRITE,never,submitted_turn,OBSERVATION,false,DONOR_ONLY,,,,passive observation of a user submit; overlaps observe
+,,browser.tab.open,STANDALONE,RESULT,WRITE,if_unconfirmed,tab_identity,TYPED_UNCERTAINTY,false,DONOR_ONLY,,,,"browser surface control, not a conversation operation"
+,,browser.tab.close,STANDALONE,RESULT,WRITE,if_unconfirmed,tab_absent,TYPED_UNCERTAINTY,false,DONOR_ONLY,,,,browser surface control
+,,browser.tab.close-owned,STANDALONE,RESULT,WRITE,if_unconfirmed,tab_absent,TYPED_UNCERTAINTY,false,DONOR_ONLY,,,,browser surface control
+,,browser.tab.reload,EITHER,RESULT,WRITE,if_unconfirmed,content_epoch,CONTENT_EPOCH,false,DONOR_ONLY,,,,browser surface control
+,,browser.tab.identify,STANDALONE,RESULT,CONTROL,always,visual_indicator,SAFE_REPEAT,true,DONOR_ONLY,,,,"visual tab indicator, not session.bind"
+,,debug.layout.capture,STANDALONE,RESULT,READ,always,none,SAFE_REPEAT,true,DONOR_ONLY,,,,diagnostic capture
+,,extension.reload,STANDALONE,RESULT,MAINTENANCE,never,background_epoch,MAINTENANCE_EPOCH,false,DONOR_ONLY,,,,extension maintenance
+,,artifact.image.read,STANDALONE,RESULT,READ,always,image_bytes,SAFE_REPEAT,true,DONOR_ONLY,,,,artifact read; download side of file tools
+,,artifact.fetch,STANDALONE,RESULT,WRITE,if_unconfirmed,download_capture,DOWNLOAD_CAPTURE,false,DONOR_ONLY,,,,artifact download/write; no AION core op in this set
+,,response.recover.turnKey,STANDALONE,RESULT,READ,always,current_turns,SAFE_REPEAT,true,DONOR_ONLY,,,,
+,,efforts.list,STANDALONE,RESULT,READ,always,current_selection,SAFE_REPEAT,true,DONOR_ONLY,,,,read side of thinking.level.set
+,,composer.attachments.clear,STANDALONE,RESULT,WRITE,never,composer_attachments,READ_PROBE,false,DONOR_ONLY,,,,"inverse of file.attach, not attach itself"

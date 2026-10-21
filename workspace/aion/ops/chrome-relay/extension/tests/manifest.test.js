@@ -69,12 +69,29 @@ function patternToRegExp(pattern) {
   return new RegExp('^' + pattern.split('*').map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*') + '$');
 }
 
-test('every file content.js imports (transitively) is web-accessible', () => {
+/**
+ * Every content-script entry the loader dynamic-imports.
+ *
+ * Both entries load in the same isolated world, so both closures have to be
+ * web-accessible. The list is kept EXACT: an extra resource is exposure, and a
+ * missing one means the module never loads in the browser.
+ */
+const CONTENT_ENTRIES = ['src/chatgpt/content.js', 'src/chatgpt/receive.js'];
+
+function entryClosure() {
+  const files = new Set();
+  for (const entry of CONTENT_ENTRIES) {
+    for (const file of closure(resolve(root, entry))) files.add(file);
+  }
+  return [...files].map((f) => relative(root, f).split('\\').join('/'));
+}
+
+test('every file the content-script entries import (transitively) is web-accessible', () => {
   const patterns = manifest.web_accessible_resources.flatMap((entry) => entry.resources).map(patternToRegExp);
-  const files = [...closure(resolve(root, 'src/chatgpt/content.js'))].map((f) => relative(root, f).split('\\').join('/'));
-  assert.ok(files.length > 2, 'expected content.js to pull in lib and correlate modules');
+  const files = entryClosure();
+  assert.ok(files.length > 2, 'expected the content entries to pull in lib and provider modules');
   for (const file of files) {
-    assert.ok(patterns.some((re) => re.test(file)), `${file} is imported by content.js but not web-accessible`);
+    assert.ok(patterns.some((re) => re.test(file)), `${file} is imported by a content entry but not web-accessible`);
   }
 });
 
@@ -110,11 +127,9 @@ test('loader.js resolves content.js through the fixed chrome.runtime.getURL path
 // Least exposure: use_dynamic_url is false (required above), so any chatgpt.com page can fetch these files
 // and fingerprint the extension. Expose exactly what content.js needs, nothing else. In particular the
 // native-messaging transport and the store must never become page-reachable through a `src/lib/*.js` glob.
-test('web-accessible resources are exactly the content.js import closure (no globs)', () => {
+test('web-accessible resources are exactly the content-entry import closure (no globs)', () => {
   const declared = manifest.web_accessible_resources.flatMap((entry) => entry.resources).sort();
   assert.ok(declared.every((r) => !r.includes('*')), 'no wildcard patterns in web_accessible_resources');
-  const needed = [...closure(resolve(root, 'src/chatgpt/content.js'))]
-    .map((f) => relative(root, f).split('\\').join('/'))
-    .sort();
+  const needed = entryClosure().sort();
   assert.deepEqual(declared, needed);
 });

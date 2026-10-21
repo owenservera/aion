@@ -2,6 +2,8 @@
 
 **Repository-wide governing policy:** [REPOSITORY-GOVERNANCE.md](../../../../../REPOSITORY-GOVERNANCE.md). This page is a source/evidence guide, not a separate branch policy.
 
+**Single entry point (2026-10-21):** [START-HERE.md](START-HERE.md)
+
 
 ## Development ⇄ Harvest / Research delivery
 

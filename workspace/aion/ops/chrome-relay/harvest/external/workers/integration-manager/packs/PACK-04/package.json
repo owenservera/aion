@@ -1,0 +1,9 @@
+{
+  "name": "aion-pack-04-response-serializer",
+  "private": true,
+  "type": "module",
+  "description": "Offline fixtures for the staged PACK-04 response serializer. Not a published package.",
+  "scripts": {
+    "test": "node --test"
+  }
+}
