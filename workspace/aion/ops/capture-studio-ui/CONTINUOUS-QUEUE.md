@@ -1,3 +1,5 @@
+> **Next large build:** [SPRINT-02.md](SPRINT-02.md) — Trusted Knowledge Workspace. UI first-sprint source work and six V8 contract checks are delivered; promote graph/model exploration and review-only type-drift presentation to the next NOW slice. Not yet Windows/browser accepted.
+
 # UI / Integration — Standing High-Level Queue
 
 **Owner:** UI / Integration. **Steward:** QA / Steering. **Updated:** 2026-10-21. **Nature:** rolling outcome priorities, not a second detailed sprint tracker.
