@@ -101,7 +101,7 @@ export async function compactRaw(srcDir, outDir, {
     if (rec.sid && onlySet && !onlySet.has(rec.sid)) { stats.droppedBySid++; continue; }
     if (rec.sid && dropSidSet && dropSidSet.has(rec.sid)) { stats.droppedBySid++; continue; }
 
-    const mergeable = mergeChunks && MERGEABLE.has(rec.k) && rec.sid && !rec.redactions?.length && !rec.pre;
+    const mergeable = mergeChunks && MERGEABLE.has(rec.k) && rec.sid && !rec.redactions?.length && !rec.pre && !rec.bodyDropped;
     if (mergeable) {
       const buf = Buffer.from(rec.b64 ?? '', 'base64');
       if (pending && pending.rec.sid === rec.sid && pending.bytes + buf.length <= maxMergedBytes) {
@@ -148,7 +148,19 @@ export async function compactRaw(srcDir, outDir, {
 export async function compactSession(session, { out = 'raw-compact', replace = false, ...opts } = {}) {
   const srcDir = path.join(session.dir, 'raw');
   if (!existsSync(srcDir)) throw new Error('session has no raw/ directory');
-  const outDir = path.join(session.dir, out);
+  const outDir = path.resolve(session.dir, out);
+  // Guard: recursive rmSync must never be able to delete the session or its raw source.
+  {
+    const sessionDir = path.resolve(session.dir);
+    const srcResolved = path.resolve(srcDir);
+    const contains = (parent, child) => {
+      const rel = path.relative(parent, child);
+      return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
+    };
+    if (outDir === sessionDir) throw new Error('refusing to compact: output directory equals the session directory');
+    if (outDir === srcResolved) throw new Error('refusing to compact: output directory equals the raw source directory');
+    if (contains(outDir, srcResolved)) throw new Error('refusing to compact: raw source directory is inside the output directory');
+  }
   if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
   const receipt = await compactRaw(srcDir, outDir, opts);
   if (replace) {

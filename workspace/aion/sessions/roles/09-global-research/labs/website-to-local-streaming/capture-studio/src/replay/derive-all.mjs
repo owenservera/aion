@@ -249,7 +249,12 @@ export async function deriveAll(session, { profile, incremental = true, stages, 
   const cursor = await rawCount(session);
   const prev = readKv(session, MANIFEST_KEY);
   const done = new Set((prev?.stages ?? []).filter((stage) => stage && !stage.error).map((stage) => stage.name));
-  const fresh = !!incremental && prev?.version === 1 && prev.cursor === cursor && prev.ok !== false;
+  const meta = (() => { try { return session.meta ?? {}; } catch { return {}; } })();
+  const ENDED_STATUSES = new Set(['stopped', 'closed', 'done', 'complete', 'complete_with_integrity_warnings', 'failed']);
+  const endedAt = meta.endedAt ?? meta.ended_at ?? meta.endT ?? meta.endedT ?? null;
+  // A session that is still recording keeps growing: its record count is not a stable cursor.
+  const stillRecording = !ENDED_STATUSES.has(String(meta.status ?? '')) || endedAt == null;
+  const fresh = !!incremental && prev?.version === 1 && prev.cursor === cursor && prev.ok !== false && !stillRecording;
   const plan = STAGES.filter((name) => selected.has(name) && !(fresh && done.has(name)));
   const stageResults = new Map((prev?.stages ?? []).filter((stage) => stage?.name).map((stage) => [stage.name, stage]));
 
@@ -284,15 +289,17 @@ export async function deriveAll(session, { profile, incremental = true, stages, 
 
   const plannedOk = plan.every((name) => !stageResults.get(name)?.error);
   const nextCursor = plannedOk && (plan.includes('base') || prev?.cursor === cursor) ? cursor : (prev?.cursor ?? null);
+  const finalStages = STAGES.map((name) => stageResults.get(name)).filter(Boolean);
+  const ok = !finalStages.some((stage) => stage && stage.error);
   const manifest = {
     version: 1,
     derivedAt: new Date().toISOString(),
     cursor: nextCursor,
-    ok: errors.length === 0,
-    status: errors.length ? 'failed' : 'complete',
-    stages: STAGES.map((name) => stageResults.get(name)).filter(Boolean),
+    ok,
+    status: ok ? 'complete' : 'partial',
+    stages: finalStages,
     datasets: session.datasets().map((d) => d.name),
-    ...(errors.length ? { error: errors[0] } : {}),
+    ...(ok ? {} : { error: (finalStages.find((stage) => stage?.error)?.error ?? errors[0] ?? null) }),
   };
   session.kv.set(MANIFEST_KEY, manifest);
   const loaded = await loadArtifacts(session);
