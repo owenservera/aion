@@ -1,5 +1,7 @@
 # Capture Studio — Phased Build Sprints (credit-aware)
 
+> **Current owner override — 2026-10-21:** ChatGPT is executing Sprint 02 in **one continuous implementation session**, without the Claude model-switching phases below. Current mission is [SPRINT-02.md](SPRINT-02.md), and its build reasoning is in [SPRINT-02-BUILD.md](SPRINT-02-BUILD.md). The phase table and paste-ready prompts below remain as historical/optional Claude workflow, **not instructions for the current ChatGPT run**. Keep the existing separation: no physical tests by the build agent; independent QA owns test execution.
+
 **Purpose:** advance Capture Studio autonomously while spending expensive reasoning only where it changes the outcome. Each fresh session has ONE phase role, reads current source, does that phase, commits, and stops.
 
 **Launch:** `#AION @CAPTURE-STUDIO /BUILD-SPRINT <PHASE>` where `<PHASE>` is `RECON`, `DECIDE`, `BUILD`, `MECHANICAL`, `REVIEW` or `CONTINUE`. `CONTINUE` reads [STATE.json](STATE.json) `phase.next`, checks the model is right for it (otherwise says which to switch to), and runs it.

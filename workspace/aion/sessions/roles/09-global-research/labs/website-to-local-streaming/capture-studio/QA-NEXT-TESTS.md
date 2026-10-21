@@ -1,19 +1,15 @@
-# QA-NEXT-TESTS (developer thought dump, not verified; PENDING INDEPENDENT QA)
+# QA-NEXT-TESTS — immediate build handoff (NOT VERIFIED)
 
-Sprint 01 complete in code (C1-C4). Last change: C4, suggestion confidence calibration loop.
+Sprint 02 read-through continuity added; implementation is **PENDING INDEPENDENT QA**. No tests were executed by the build agent.
 
-C4 ideas to check:
-- Fresh data dir, no feedback: every suggestion has calibratedConfidence === confidence; UI shows the same % as before; hover title shows raw %.
-- Accept/reject >= 3 suggestions of one kind in the same confidence bin (studio apply route or `studio profile apply`): <data>/learner/learner.json gets calibrator.bins["suggestion:<kind>"]; next derive/live report shifts calibratedConfidence toward the observed acceptance rate (shrunk while n < 20).
-- Ranking unchanged: suggestions still sorted by raw confidence; ids unchanged.
-- Rejecting records accepted=false; the bin input is RAW confidence, never the calibrated one (check body.suggestion.confidence used).
-- Live recording: Recorder gets the studio's learner; liveReport carries calibratedConfidence.
-- Studio + CLI writing learner.json concurrently: last write wins (accepted risk on single-owner machine); file stays valid JSON (atomic rename).
-- ECE: Calibrator.ece('suggestion:<kind>') after a batch of decisions should be computable.
+Please physically verify:
+- Two saved sessions on the same site and same stable keyed `eid` yield one cross-session entity, correct session list, ordered revision history, and latest folded attributes.
+- `--at` / API `at` before and between session dates omit future session membership and future values; missing/invalid timestamps do not create historical claims.
+- Same key on unrelated sites does not join. Keyless matches remain session-local. Missing or renamed types are not silently merged.
+- Partial revisions carry earlier attributes forward; absent field is not interpreted as deletion. Untimed revisions are disclosed and excluded from time-asserted attrs.
+- Failed, non-derived and deleted sessions: visible completeness counts and immediate recomputation from remaining sessions.
+- CLI `studio continuity <id|latest>`, `--eid`, `--at` and API `/api/sessions/:id/continuity`: output and error handling.
+- Large history scans: latency and memory behavior; no hidden scan cap or missing derived knowledge.
+- Regression of Sprint 01 C1-C4 and cross-session eids across schema changes. Revisit per-site tenant collisions and unstable representative `type.id`.
 
-Whole sprint regression ideas (C1-C3):
-- derive(session, profile) without options still works (e2e tests call it so).
-- Family event-mapping coverage beyond 400 events per stream; CORPUS_STATS present.
-- Keyless eid stable when appending later observations; keyed eids unchanged.
-- MODEL/GRAPH/HYPOTHESES/entities persisted; failure isolation keeps all prior outputs.
-- No 'caused' edges anywhere; evidence.scoredRelation kept.
+Design caveats for QA: join is conservative and exact; types renamed across captures may remain unjoined. No per-site database or temporal deletion/retraction semantics added. The source-only commits preceding this combined checkpoint could not include the rolling QA note atomically; this note covers their combined implementation scope and does not retroactively claim compliance or validation.

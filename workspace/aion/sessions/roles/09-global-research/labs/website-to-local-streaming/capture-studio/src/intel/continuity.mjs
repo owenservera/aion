@@ -110,23 +110,26 @@ export async function buildSiteContinuity(sessionsDir, {
     if (!revisions.length) continue;
     const attrs = {};
     for (const rv of revisions) {
-      if (rv.t === null) stats.untimedRevisions++;
+      if (rv.t === null) { stats.untimedRevisions++; continue; } // Unknown time cannot establish a historical state.
       if (rv.provenanceBasis === 'revision-values-unavailable') stats.missingRevisionValues++;
       Object.assign(attrs, rv.values);
     }
-    item.sessionIds = [...new Set(item.sessionIds)].sort();
+    const visibleSessionIds = [...new Set(revisions.map((rv) => rv.session))].sort();
     const times = revisions.map((rv) => rv.t).filter((t) => t !== null);
     const result = {
       id: item.id, eid: item.eid, type: item.type, typeName: item.typeName,
       scope: item.scope, key: item.key, identityBasis: item.identityBasis,
-      confidence: item.confidence, sessions: item.sessionIds, sessionCount: item.sessionIds.length,
-      observations: item.observationCount, revisions: revisions.length,
+      confidence: visibleSessionIds.length > 1 ? null : item.confidence,
+      confidenceBasis: visibleSessionIds.length > 1 ? 'cross-session confidence not calibrated' : 'single-session resolver estimate',
+      sessions: visibleSessionIds, sessionCount: visibleSessionIds.length,
+      observations: requestedAt === null ? item.observationCount : null, revisions: revisions.length,
+      timedRevisions: times.length, untimedRevisions: revisions.length - times.length,
       firstT: times.length ? times[0] : null, lastT: times.length ? times[times.length - 1] : null,
       attrs,
       ...(includeHistory ? { history: revisions.map(({ sessionCreatedAt, ...r }) => r) } : {}),
     };
     entries.push(result);
-    if (item.identityBasis === 'exact-site-type-key' && item.sessionIds.length > 1) stats.joinedEntities++;
+    if (item.identityBasis === 'exact-site-type-key' && visibleSessionIds.length > 1) stats.joinedEntities++;
   }
   entries.sort((a, b) => b.sessionCount - a.sessionCount || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   stats.entitiesTotal = entries.length;
@@ -141,6 +144,8 @@ export async function buildSiteContinuity(sessionsDir, {
       'Keyless observations remain separate across sessions; missing observations are not deletions.',
       'Historical state uses saved revision values; missing or untimed evidence cannot establish an as-of state.',
       'No copied knowledge index is stored; results recompute from extant derived session data.',
+      'Reading all saved sessions has cost proportional to their derived entity and revision count.',
+      'Cross-session identity confidence is uncalibrated; a matching hashed key is conservative evidence, not external confirmation.',
     ],
   };
 }
