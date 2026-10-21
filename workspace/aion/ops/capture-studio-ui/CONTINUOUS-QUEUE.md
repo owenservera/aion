@@ -1,20 +1,18 @@
-> **Next priority after the current UI sprint:** [Sprint 03 — Integrated Capture Studio](SPRINT-03-INTEGRATION.md). UI Sprint 02 is recorded source-delivered (24 deterministic V8 checks), not Windows/browser accepted. From the next execution session, prioritize **cross-component integration** over creating standalone screens. Existing items below remain a historical/long-tail backlog; prefer the new Sprint 03 queue for NOW selection.
-
-> **Next large build:** [SPRINT-02.md](SPRINT-02.md) — Trusted Knowledge Workspace. UI first-sprint source work and six V8 contract checks are delivered; promote graph/model exploration and review-only type-drift presentation to the next NOW slice. Not yet Windows/browser accepted.
+> **Current execution anchor:** [SPRINT-03.md](SPRINT-03.md) — Evidence Navigation and Review Workspace. Sprint 02 knowledge, graph, drift and source-linked search UI source is shipped (24/24 V8 contract checks). Browser/Windows acceptance and independent QA remain outstanding.
 
 # UI / Integration — Standing High-Level Queue
 
-**Owner:** UI / Integration. **Steward:** QA / Steering. **Updated:** 2026-10-21. **Nature:** rolling outcome priorities, not a second detailed sprint tracker.
+**Owner:** UI / Integration. **Steward:** QA / Steering. **Updated:** 2026-10-21 (UI Sprint 02 delivery). **Nature:** rolling outcome priorities, not a second detailed sprint tracker.
 
-## NOW — finish the current active slice, then pull the next
-- [ ] **A usable knowledge journey:** capture/session → entities → linked history, with truthful provenance and confidence labels.
-- [ ] **Reliable client integration:** use Core's documented continuity API; expose missing/incomplete knowledge and error/loading/empty states.
-- [ ] **Mobile and keyboard experience:** accessible controls, clear navigation and legible dense evidence without losing current functionality.
+## NOW — pull the highest-impact unblocked source-safe task
+- [ ] **Direct evidence navigation:** entity revision / graph relationship → source recording and exact stream/event/DOM where the stored evidence permits it.
+- [ ] **Read-only drift comparison:** compare both candidate types and their recorded attributes/history without merging or changing Core state.
+- [ ] **Stateful user journey:** preserve context across Knowledge → Search → Session → Stream navigation and make missing source explicit.
 
 ## NEXT
-- [ ] **Graph and entity exploration:** intuitive inspect/filter/drill-down grounded in existing API responses.
-- [ ] **Review/correction experience:** prepare reversible feedback interactions without claiming unsupported backend semantics.
-- [ ] **Search and discoverability:** help users find sessions, objects, histories and supporting evidence.
+- [ ] **Real-world interface proof:** native Node 22 UI suites; authenticated browser, mobile, keyboard and populated-session workflows (when local runtime accessible).
+- [ ] **Scale and accessibility:** bounded/paginated high-volume entity and graph exploration with measured cost and keyboard-first navigation.
+- [ ] **Adapt to Core correctness contracts:** distinguish confirmed-empty, absent, failed and incomplete derivation, and explicit historical retraction only as supported.
 
 ## LATER
 - [ ] **Unified investigation workspace:** fluid browsing of evidence, derivations and reconstruction.
@@ -23,4 +21,4 @@
 ## Continuous pull rule
 Keep the existing [detailed implementation queue](TASK-QUEUE.md) as current work breakdown. After shipping a slice, attach commit + observed test/UX evidence, update checkboxes, pick the highest-impact unblocked NOW item and promote NEXT as needed. Do not wait for QA approval for routine UI-only improvements; propose backend changes instead of editing Core code. QA steers queue priorities without gating development. No Playwright/Puppeteer.
 
-**Current team context:** UI is working (owner-reported); Core's initial delivery cycle is complete (owner-reported); independent Sprint 02 acceptance still pending.
+**Source shipped 2026-10-21:** Sprint 01 Sessions + historical continuity, Sprint 02 read-only Knowledge workspace (entity → history, graph/list/map, model types, review-only type drift, source-linked search), 24 UI mock-contract checks passed in V8; no Node 22/browser/Windows acceptance. Core Sprint 03 correctness work is parallel and not a reason to stall independent UI work. See [Sprint 02 receipt](SPRINT-02.md#delivery-closeout--2026-10-21).
