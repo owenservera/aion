@@ -17,6 +17,12 @@
 2. Continue personal-visualization investigation with a **falsifiable user task**, actual friction/privacy/license checks, and the same [GraphML sample](../../pilots/aion-prototype-dependencies.graphml). Record user-tested outcomes only if such evidence is actually obtained; don't ask for unnecessary installation or call it a tested success.
 3. React to a specific native Development/Toolsmith evidence gap only if a primary provider document, existing module, method or test could materially shorten I1/I2. Otherwise keep the critical path clear.
 
+## Research skills first pass — 2026-10-21
+
+- **GitHub source ready:** ten Research skills now use OpenCode V2 descriptions, with the previously flat root README moved to [skills index](../../skills/references/INDEX.md). The repo-root `opencode.jsonc` registers this role path. Other role skill libraries remain peer-owned.
+- **Offline tested:** new [research-evidence-check](../../skills/research-evidence-check/SKILL.md) includes a read-only Node validator and eight isolated tests, all passed in a non-Windows Node 22 environment on byte-identical GitHub files. It helps catch false PUBLISHED/ACKNOWLEDGED/LIVE_VERIFIED packet metadata, **not independently verify cited links**.
+- **Not yet field proven:** actual OpenCode V2 skill discovery, actual current Windows/node behavior and ZCode import/enable/invocation remain unobserved. **Next highest-value local integration:** have the authorized Windows harness check its effective `opencode.jsonc`, list/load `research-evidence-check`, run the fixture + Node tests, and capture one real skill-tool invocation receipt. For ZCode, use Settings → Skills external-skill import or a tested native path, then confirm `$research-evidence-check` loads. Do not infer success from GitHub commit alone.
+
 ## Gaps / things not to assume
 
 Current Windows checkout/build/installed extension/registration diagnosis; exact-thread I1 live acceptance; an independently complete GitHub portfolio inventory; NotebookLM/API account access; current external model quota or provider support; actual recipient ACK from an issue/comment; empirical Gephi Lite usefulness. These are **unknown**, not automatically blocked and not reasons to add new bureaucracy.
