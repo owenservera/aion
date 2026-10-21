@@ -15,7 +15,7 @@ import { exportDataset, exportTranscript } from '../src/export/export.mjs';
 import { applySuggestion } from '../src/profiles/apply.mjs';
 import { startStudio } from '../src/studio/server.mjs';
 import { ScopedLearner } from '../src/intel/learn.mjs';
-import { buildSiteContinuity, siteFromSession } from '../src/intel/continuity.mjs';
+import { buildSiteContinuity, siteFromSession, originFromSession } from '../src/intel/continuity.mjs';
 
 const HELP = `Capture Studio ${VERSION} — local, read-only website capture
 
@@ -216,12 +216,12 @@ async function main() {
     }
     case 'continuity': {
       const s = sessionArg();
-      const site = siteFromSession(s.meta);
-      if (!site) { console.error('This session has no verified target site; cross-session continuity is unavailable.'); process.exitCode = 2; return; }
+      const site = siteFromSession(s.meta), origin = originFromSession(s.meta);
+      if (!site || !origin) { console.error('This session has no verified target origin; cross-session continuity is unavailable.'); process.exitCode = 2; return; }
       const view = await buildSiteContinuity(paths.sessions, {
-        site, eid: args.eid ?? null, asOf: args.at ?? null, limit: args.limit ?? 20, includeHistory: !!args.eid,
+        site, origin, eid: args.eid ?? null, asOf: args.at ?? null, limit: args.limit ?? 20, includeHistory: !!args.eid,
       });
-      console.log('Continuity for ' + site + ': ' + view.stats.sessionsWithDerivedKnowledge +
+      console.log('Continuity for ' + origin + ' (' + site + '): ' + view.stats.sessionsWithDerivedKnowledge +
         '/' + view.stats.sessionsDiscovered + ' derived sessions, ' + view.stats.joinedEntities +
         ' keyed entities spanning multiple sessions, ' + view.stats.entitiesTotal + ' visible entities.');
       if (view.stats.sessionsWithoutKnowledge.length || view.stats.sessionsWithDerivationError.length)
