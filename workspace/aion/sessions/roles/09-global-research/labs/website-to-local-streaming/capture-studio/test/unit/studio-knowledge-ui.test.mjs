@@ -36,6 +36,8 @@ function createHarness() {
   const ctx = { $:element, S, api:(url)=>impl(url), guard:(fn)=>fn,
     show:(v)=>{ S.view=v; }, openSession:async (id)=>{opened=id;},
     toast:()=>{}, openStream:async (sid)=>{streamOpened=sid;},
+    selectSessionContext:(id)=>{if(id && S.sessionId!==id) {S.sessionId=id;S.knowledge=null;S.knowledgeRequestSeq++;}},
+    updateHistoricalContext:(value)=>{S.historicalAsOfLocal=value;},
     updateInvestigationTrail:()=>{}, URLSearchParams };
   const out = runInNewContext(code + '\n({' + names.join(',') + '})', ctx, { timeout: 1500 });
   return { ...out, S, el:element, setApi:(fn)=>{impl=fn;}, opened:()=>opened,streamOpened:()=>streamOpened };
