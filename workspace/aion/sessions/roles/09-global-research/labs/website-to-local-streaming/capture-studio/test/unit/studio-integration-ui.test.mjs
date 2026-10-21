@@ -18,7 +18,7 @@ function fixture() {
   $('#knowledgeSession').value='s1'; $('#searchScope').value='selected';
   const code = escape + '\n' + script.slice(start,end) + '\n({selectSessionContext,updateHistoricalContext})';
   const out = runInNewContext(code, {$,S,src:()=>S.sessionId ? {kind:'session',id:S.sessionId} : null,
-    knowledgeFallback:(v)=>'<div>'+v+'</div>',renderSessions:()=>{}},{timeout:1500});
+    knowledgeFallback:(v)=>'<div>'+v+'</div>',renderSessions:()=>{},guard:(fn)=>fn},{timeout:1500});
   return {...out,S,$};
 }
 
