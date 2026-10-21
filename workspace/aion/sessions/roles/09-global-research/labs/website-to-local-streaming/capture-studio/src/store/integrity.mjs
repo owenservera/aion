@@ -11,10 +11,9 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  resolve,
   writeFileSync,
 } from 'node:fs';
-import { dirname, isAbsolute, join, relative } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 export const FORMAT = 'aion-integrity/1';
 const MANIFEST_NAME = 'MANIFEST.json';
