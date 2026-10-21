@@ -77,3 +77,7 @@ Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap an
 ## Skills check on SITREP
 
 Examine **skills/** together with memory/Immediate, CANON, recent GitHub changes and peer skills. Detect missing recurring capabilities, stale or ineffective skills, duplicate procedures and verified new harness tools. Use the [shared builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) only when there is practical benefit; improve and test useful skills, and record real evidence level. No-change SITREPs require no file edits.
+
+## Memory on SITREP
+
+Read all approved global tiers plus the full local `memory/` and `Curated/BEST-PRACTICES.md`; compare current facts, prune stale Immediate, distill repeated corrections into one-line personal practices. Reduce tokens without deleting important signal. Submit globally useful candidates for owner interview; never self-promote or make no-change edits.
