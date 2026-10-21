@@ -18,7 +18,7 @@ Canonical links: https://github.com/owenservera/aion/issues/16 and https://githu
 
 ## Deterministic receipt audit (new second-pass capability)
 
-The existing [relay envelope](../../../../../ops/chrome-relay/ENVELOPE-CONTRACT.md) remains authoritative for machine transport. The separate script below takes a **read-only review adapter** with `sent` and `visible` observation arrays, not a competing protocol. Each entry carries `correlation_id`, `utc` (strict UTC ISO-8601), and `evidence_ref`; a visible observation also carries `device` (`android` or `desktop`). `checks` must contain `authorization`, `reconnect_replay`, `duplicate_handling`, and `failure_case`, each with `passed: true` and `evidence_ref`.
+The existing [relay envelope](../../../../ops/chrome-relay/ENVELOPE-CONTRACT.md) remains authoritative for machine transport. The separate script below takes a **read-only review adapter** with `sent` and `visible` observation arrays, not a competing protocol. Each entry carries `correlation_id`, `utc` (strict UTC ISO-8601), and `evidence_ref`; a visible observation also carries `device` (`android` or `desktop`). `checks` must contain `authorization`, `reconnect_replay`, `duplicate_handling`, and `failure_case`, each with `passed: true` and `evidence_ref`.
 
 From AION repo root:
 
