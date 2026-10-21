@@ -68,4 +68,4 @@ All **twelve core agents** maintain `skills/` in their existing workspaces. At f
 
 ## New agent bootstrap kit
 
-For onboarding or relaunching an AION agent, use the [Agent Bootstrap Kit](workspace/aion/shared/agent-bootstrap-kit/README.md): minimal folder-scaffolding instructions and four sequential copy/paste prompts (SITREP/self-bootstrap → shared intelligence → three-tier memory → skills). Reuse an existing role root, respect the current repo guidance, and do not rerun onboarding on ordinary SITREPs.
+For onboarding or relaunching an AION agent, `#AION @<AGENT-ROLE> BOOTSTRAP` invokes the [Master Autonomous Bootstrap Command](workspace/aion/shared/agent-bootstrap-kit/MASTER-BOOTSTRAP.md), which reads the [Agent Bootstrap Kit](workspace/aion/shared/agent-bootstrap-kit/README.md): minimal folder-scaffolding instructions and four sequential prompts executed autonomously (SITREP/self-bootstrap → shared intelligence → three-tier memory → skills). Reuse an existing role root, respect the current repo guidance, and do not rerun onboarding on ordinary SITREPs.
