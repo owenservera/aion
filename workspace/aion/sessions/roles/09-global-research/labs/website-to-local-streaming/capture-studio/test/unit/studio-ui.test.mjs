@@ -18,7 +18,7 @@ function harness({ view, detailResponse } = {}) {
   };
   let buttons = [];
   const S = { continuityRequestSeq: 1, sessionRequestSeq: 1 };
-  const api = async () => detailResponse;
+  const api = async (path) => typeof detailResponse === 'function' ? detailResponse(path) : detailResponse;
   const context = {
     $: (selector) => elements[selector], S, api, guard: (fn) => fn,
   };
@@ -83,4 +83,22 @@ test('Continuity does not assert inferred deletion or calibration', () => {
   assert.match(output, /Missing observations do not mean deletion/);
   assert.match(output, /cross-session confidence is not calibrated/);
   assert.match(output, /No saved entities at this point in time/);
+});
+
+test('Late evidence response never replaces a newer selection', async () => {
+  let resolveFirst, resolveSecond;
+  const responseFor = (path) => new Promise((resolve) => {
+    if (path.includes('eid=e1')) resolveFirst = resolve;
+    else resolveSecond = resolve;
+  });
+  const entities = ['e1', 'e2'].map((id) => ({ id, typeName: id, key: id, sessionCount: 1, revisions: 1 }));
+  const h = harness({ detailResponse: responseFor });
+  const { buttons, detail } = h.render({ entities, stats: {}, asOf: null });
+  const first = buttons[0].onclick(), second = buttons[1].onclick();
+  resolveSecond({ entities: [{ ...entities[1], attrs: { label: 'newer choice' }, history: [] }] });
+  await second;
+  resolveFirst({ entities: [{ ...entities[0], attrs: { label: 'stale choice' }, history: [] }] });
+  await first;
+  assert.match(detail.innerHTML, /newer choice/);
+  assert.doesNotMatch(detail.innerHTML, /stale choice/);
 });
