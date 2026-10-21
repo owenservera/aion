@@ -1,5 +1,10 @@
 # AION External Nine — verified current worker SITREP
 
+## 2026-10-21 — Three-tier memory first pass (remote source review)
+
+Created role-owned living context under [CANON](memory/CANON/README.md), [Immediate](memory/Immediate/README.md) and [Curated](memory/Curated/README.md). **Read Immediate during every interaction** and all three with the agent's own [AGENTS.md](AGENTS.md) at SITREP. CANON retains enduring role/boundary/error-correction lessons, Immediate keeps current focus and unresolved proof/scope unknowns, and Curated owns evidence-grounded response/execution defaults. Technical inventory, adoption/readiness truth and central priorities **stay in** the [existing shared Harvest intelligence](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/12-harvest-acceleration/README.md), AX exchange, Integration/Development and Planning working documents—no duplicate tracker. Refresh these three files *only for material change*. Source observation 2026-10-21: staged PACKs are not live acceptance; owner mission-scope interview is still unresolved. This memory pass did not test or control Windows, and GitHub commits do not trigger peers.
+
+
 ## 2026-10-21 — Core Agent 12 relaunch checkpoint (remote GitHub, provisional)
 
 **Observed:** AION `main` immediately before this relaunch write: `df562ae63bbd7f1ff77733bd8802a6a96e410c68`. Repository governance and [shared communications](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/LIVING-OPERATING-MODEL.md) read; first-contact marker `AION-COMMS-FIRST-CONTACT-20261021` discovered through GitHub, not pushed to this conversation. This is a repository/source SITREP, **not** a Windows checkout/host/browser verification.
