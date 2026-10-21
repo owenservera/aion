@@ -48,6 +48,13 @@ test('CLI rejects malformed arguments and missing repo without printing user inp
   const r=spawnSync(process.execPath,[script,'--rogue','secret@example.com'],{encoding:'utf8'});
   assert.equal(r.status,2);assert.doesNotMatch(r.stderr,/secret@example.com/);
 });
+test('missing repository returns a controlled error without probing other directories',t=>{
+  const root=mkdtempSync(join(tmpdir(),'aion-not-repo-'));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const r=spawnSync(process.execPath,[script,'--repo',root],{encoding:'utf8'});
+  assert.equal(r.status,2);
+  assert.match(r.stderr,/AION repo root not found/);
+});
 test('tab and generic codes produce bounded next steps without inventing root cause',t=>{
   const root=sandbox(t);
   const tab=inspect({'--repo':root,'--code':'REGISTRATION_TAB_NOT_FOUND'});
