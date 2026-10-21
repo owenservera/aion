@@ -1,0 +1,150 @@
+{
+  "schema": "aion.agent-fabric.workplan/1",
+  "status": "READY_FOR_LOCAL_IMPLEMENTATION_NOT_LIVE",
+  "authority": "OWNER_WINDOWS_MASTER",
+  "implementation_repo": "owenservera/aion",
+  "implementation_base_branch": "track-b/implementation-rounds-20261019",
+  "design_branch": "design/agent-fabric-20261020",
+  "task_url": "https://github.com/owenservera/aion/issues/36",
+  "no_hosted_execution": true,
+  "owner_local_test_required": true,
+  "milestones": [
+    {
+      "id": "M1",
+      "name": "Identity and inventory",
+      "depends_on": [],
+      "repo": "owenservera/aion",
+      "packet": "workspace/aion/handoffs/AGENT-FABRIC-OPENCODE-M1-M2.md",
+      "state": "UNRUN",
+      "targets": [
+        "velocity/src/broker",
+        "velocity/bin/aion-local.mjs"
+      ],
+      "acceptance": [
+        "Role 09 designed-but-unregistered, not live",
+        "Exact role/binding revision and connected-vs-authorized states",
+        "Read-only inspection with duplicate alias refusal"
+      ]
+    },
+    {
+      "id": "M2",
+      "name": "Portable native reviewer",
+      "depends_on": [
+        "M1"
+      ],
+      "repo": "owenservera/zcode-setup",
+      "packet": "workspace/aion/handoffs/AGENT-FABRIC-OPENCODE-M1-M2.md",
+      "state": "UNRUN",
+      "targets": [
+        "playbook/toolkit",
+        "playbook/agents",
+        "OpenCode V2 fixture only"
+      ],
+      "acceptance": [
+        "One canonical definition with deterministic native ZCode and OpenCode V2 outputs",
+        "V2 negative permission tests and no global install",
+        "Real V2 child session if verified installed; otherwise BLOCKED"
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "ContextPack task sourcing",
+      "depends_on": [
+        "M1"
+      ],
+      "repo": "owenservera/aion",
+      "packet": "workspace/aion/handoffs/AGENT-FABRIC-M3-M5-IMPLEMENTATION.md",
+      "state": "UNRUN",
+      "targets": [
+        "velocity/src/context",
+        "velocity/bin/aion-local.mjs"
+      ],
+      "acceptance": [
+        "Task-scoped immutable context with source provenance, freshness and omissions",
+        "No private audience or secret crossover",
+        "No over-limit Chrome send and no silent truncation"
+      ]
+    },
+    {
+      "id": "M4",
+      "name": "Correlated subagent task",
+      "depends_on": [
+        "M2",
+        "M3"
+      ],
+      "repo": "owenservera/aion",
+      "packet": "workspace/aion/handoffs/AGENT-FABRIC-M3-M5-IMPLEMENTATION.md",
+      "state": "UNRUN",
+      "targets": [
+        "existing AION Bus",
+        "native OpenCode V2 sessions",
+        "project-native work refs"
+      ],
+      "acceptance": [
+        "Parent/child/task/attempt/session/operation/artifact IDs correlate",
+        "Child cannot escalate native permissions",
+        "UNKNOWN external attempt never auto retried"
+      ]
+    },
+    {
+      "id": "M5",
+      "name": "Full local command-to-evidence",
+      "depends_on": [
+        "M4"
+      ],
+      "repo": "owenservera/aion",
+      "packet": "workspace/aion/handoffs/AGENT-FABRIC-M3-M5-IMPLEMENTATION.md",
+      "state": "UNRUN",
+      "targets": [
+        "velocity/bin/aion-local.mjs",
+        "PM read-only adapter",
+        "Software HQ docs",
+        "ZBot native adapter when available",
+        "isolated Chrome B dev host"
+      ],
+      "acceptance": [
+        "One owner-authorized end-to-end result with real native evidence",
+        "PM remains read-only and all source status freshness retained",
+        "Track A stable, Chrome B/no-resend and rollback tested independently"
+      ]
+    }
+  ],
+  "cross_repositories": [
+    {
+      "repo": "owenservera/zcode-setup",
+      "pr": "https://github.com/owenservera/zcode-setup/pull/2"
+    },
+    {
+      "repo": "owenservera/001.PROJECTS.PM",
+      "pr": "https://github.com/owenservera/001.PROJECTS.PM/pull/21"
+    },
+    {
+      "repo": "owenservera/SOFTWARE_HQ",
+      "pr": "https://github.com/owenservera/SOFTWARE_HQ/pull/6"
+    },
+    {
+      "repo": "owenservera/zcode-bots",
+      "pr": "https://github.com/owenservera/zcode-bots/pull/2"
+    }
+  ],
+  "runtime_acceptance": "LOCAL_MACHINE_RECEIPTS_REQUIRED",
+  "environment_checks": [
+    "git status/branch/head",
+    "Node22/Bun/PowerShell versions",
+    "OpenCode V1 vs V2 API probe",
+    "ZCode bot/native host presence",
+    "existing Windows host security and Chrome B profile"
+  ],
+  "must_not": [
+    "GitHub Actions",
+    "Playwright",
+    "Puppeteer",
+    "Orca",
+    "Slack",
+    "replace AION Bus",
+    "make PM execute",
+    "write global installs without authorization",
+    "autoresend unknown external side effects",
+    "claim installed from source"
+  ]
+}

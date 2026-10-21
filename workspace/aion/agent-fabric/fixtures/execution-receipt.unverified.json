@@ -1,0 +1,16 @@
+{
+  "schema": "aion.execution-receipt/1",
+  "work_ref": "repo://owenservera/aion/issues/32",
+  "attempt_id": "attempt_demo0001",
+  "operation_ref": null,
+  "deployment_id": "aion.opencode-dev.unknown",
+  "session_ref": null,
+  "outcome": "UNKNOWN",
+  "verification": "UNVERIFIED",
+  "observed_utc": "2026-10-20T00:00:00Z",
+  "evidence_refs": [],
+  "side_effect": "UNKNOWN",
+  "error_code": "NOT_EXECUTED",
+  "verifier_ref": null,
+  "source_commit": null
+}

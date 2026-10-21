@@ -1,0 +1,41 @@
+{
+  "schema": "aion.runtime-capabilities/1",
+  "deployment_id": "aion.opencode-dev.unknown",
+  "runtime": "opencode-v2",
+  "runtime_version": null,
+  "agent_definition_ref": "aion-reviewer@0.1.0",
+  "role_refs": [
+    "aion.role.06"
+  ],
+  "binding": {
+    "status": "UNBOUND",
+    "revision": null,
+    "adapter": null,
+    "ref": null
+  },
+  "probes": {
+    "installed": {
+      "state": "UNKNOWN",
+      "evidence_ref": null
+    },
+    "reachable": {
+      "state": "UNKNOWN",
+      "evidence_ref": null
+    },
+    "authenticated": {
+      "state": "UNKNOWN",
+      "evidence_ref": null
+    },
+    "ready": {
+      "state": "UNKNOWN",
+      "evidence_ref": null
+    },
+    "authorized": {
+      "state": "NO",
+      "evidence_ref": "no_owner_grant"
+    }
+  },
+  "capabilities": [],
+  "checked_utc": "2026-10-20T00:00:00Z",
+  "evidence_refs": []
+}

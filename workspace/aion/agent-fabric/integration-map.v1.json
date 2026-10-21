@@ -1,0 +1,164 @@
+{
+  "schema": "aion.agent-fabric.integrations/1",
+  "generated_utc": "2026-10-20T00:00:00Z",
+  "integration_state": "PROPOSED_NOT_INSTALLED",
+  "implementation_base": "owenservera/aion@track-b/implementation-rounds-20261019",
+  "design_ref": "https://github.com/owenservera/aion/pull/35",
+  "runtime_rules": {
+    "host_authority": "OWNER_WINDOWS_MASTER",
+    "execution": "LOCAL_NATIVE_ONLY",
+    "github_role": "SOURCE_TASK_EVIDENCE_ONLY",
+    "no_hosted_execution": true
+  },
+  "roles": {
+    "launcher_ref": "workspace/aion/ops/chrome-relay/role-launcher/ROLES.json",
+    "launcher_observed_count": 8,
+    "sessions_ref": "workspace/aion/sessions/README.md",
+    "sessions_observed_count": 9,
+    "discrepancy": "aion.role.09.DESIGNED_UNREGISTERED",
+    "may_auto_bind": false
+  },
+  "contracts": [
+    "agent-definition.v1.schema.json",
+    "runtime-capabilities.v1.schema.json",
+    "context-pack.v1.schema.json",
+    "task-handoff.v1.schema.json",
+    "execution-receipt.v1.schema.json"
+  ],
+  "repositories": [
+    {
+      "repository": "owenservera/aion",
+      "owner_domain": "AION/ACP",
+      "authority": "Bus identity/grants/operations; local UI and command resolution",
+      "integration_pr": "https://github.com/owenservera/aion/pull/35",
+      "implementation_pr": "https://github.com/owenservera/aion/pull/34",
+      "source_refs": [
+        "workspace/aion/STATE.json",
+        "workspace/aion/ops/chrome-relay/extension/src/bus/registry.js"
+      ],
+      "operation_scope": "OWNER_GRANTED",
+      "is_execution_authority": true,
+      "code_state": "DEVELOPMENT_TRACK_B"
+    },
+    {
+      "repository": "owenservera/zcode-setup",
+      "owner_domain": "ZCode Playbook",
+      "authority": "versioned authored agent/skill definitions and compiler",
+      "integration_pr": "https://github.com/owenservera/zcode-setup/pull/2",
+      "source_refs": [
+        "playbook/SPEC.md",
+        "docs/integrations/AION-AGENT-FABRIC.md"
+      ],
+      "operation_scope": "AUTHORED_PACKAGE_ONLY",
+      "is_execution_authority": false,
+      "code_state": "DESIGN_ONLY"
+    },
+    {
+      "repository": "owenservera/001.PROJECTS.PM",
+      "owner_domain": "Global PM",
+      "authority": "read-only portfolio projects/sources, evidence freshness and status",
+      "integration_pr": "https://github.com/owenservera/001.PROJECTS.PM/pull/21",
+      "source_refs": [
+        "config/projects.json",
+        "config/sources.json",
+        "docs/CHARTER.md"
+      ],
+      "operation_scope": "READ_ONLY",
+      "is_execution_authority": false,
+      "code_state": "DESIGN_ONLY"
+    },
+    {
+      "repository": "owenservera/SOFTWARE_HQ",
+      "owner_domain": "SOFTWARE_HQ",
+      "authority": "application/version/protocol documentation, Context7 raw docs and provenance",
+      "integration_pr": "https://github.com/owenservera/SOFTWARE_HQ/pull/6",
+      "source_refs": [
+        "apps/zcode/harvest/2026-10-15/ZCODE-CCR-OPENCODE-CONTRACTS.md",
+        "docs/CHARTER.md"
+      ],
+      "operation_scope": "READ_ONLY_DOCS",
+      "is_execution_authority": false,
+      "code_state": "DESIGN_ONLY"
+    },
+    {
+      "repository": "owenservera/zcode-bots",
+      "owner_domain": "ZBot Host",
+      "authority": "native Bot identity/task/attempt/permissions and memory where verified",
+      "integration_pr": "https://github.com/owenservera/zcode-bots/pull/2",
+      "source_refs": [
+        "docs/zbot-upgrade/03-TASKS-AUTOMATIONS.md",
+        "docs/zbot-upgrade/05-BOTS-TEAM-AND-EXTENSIBILITY.md"
+      ],
+      "operation_scope": "NATIVE_HOST_AUTHORITY_ONLY",
+      "is_execution_authority": false,
+      "code_state": "TARGET_SPEC_NOT_LIVE_PROOF"
+    },
+    {
+      "repository": "owenservera/hq",
+      "owner_domain": "PC HQ",
+      "authority": "host OS/hardware/network/peripheral health",
+      "integration_pr": null,
+      "source_refs": [
+        "contracts/PC-HQ-SCOPE-BOUNDARY.md"
+      ],
+      "operation_scope": "READ_ONLY_HOST_SIGNALS",
+      "is_execution_authority": false,
+      "code_state": "SOURCE_ONLY"
+    },
+    {
+      "repository": "owenservera/Product_Hub",
+      "owner_domain": "Product Hub",
+      "authority": "passive productization and skill/capability candidates",
+      "integration_pr": null,
+      "source_refs": [
+        "README.md"
+      ],
+      "operation_scope": "READ_ONLY_DISCOVERY",
+      "is_execution_authority": false,
+      "code_state": "SOURCE_ONLY"
+    },
+    {
+      "repository": "owenservera/VOMEGA",
+      "owner_domain": "VOMEGA",
+      "authority": "semantic command product and its signed capability contracts",
+      "integration_pr": null,
+      "source_refs": [
+        "README.md"
+      ],
+      "operation_scope": "INDEPENDENT_PRODUCT",
+      "is_execution_authority": false,
+      "code_state": "REFERENCE_ONLY"
+    },
+    {
+      "repository": "owenservera/vivim-omega",
+      "owner_domain": "VIVIM-OMEGA",
+      "authority": "narrow plugin recipe and tamper-evident patterns",
+      "integration_pr": null,
+      "source_refs": [
+        "docs/decisions/D-399-steward.md"
+      ],
+      "operation_scope": "INDEPENDENT_PRODUCT",
+      "is_execution_authority": false,
+      "code_state": "REFERENCE_ONLY"
+    },
+    {
+      "repository": "owenservera/zcode-pocket",
+      "owner_domain": "ZCode Pocket",
+      "authority": "Android presentation/client of existing ACP hub",
+      "integration_pr": null,
+      "source_refs": [
+        "README.md"
+      ],
+      "operation_scope": "CLIENT_ONLY",
+      "is_execution_authority": false,
+      "code_state": "REFERENCE_ONLY"
+    }
+  ],
+  "release_gates": [
+    "M1_IDENTITY_TRUTH",
+    "M2_PORTABLE_NATIVE_AGENT",
+    "M3_TASK_CONTEXT",
+    "M4_DELEGATION_RECEIPT",
+    "M5_END_TO_END_LIVE"
+  ]
+}
