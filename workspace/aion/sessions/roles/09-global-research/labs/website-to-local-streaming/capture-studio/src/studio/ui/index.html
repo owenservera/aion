@@ -638,12 +638,13 @@ async function loadSessions() {
 $('#sessionFilter').oninput = renderSessions;
 $('#refreshSessions').onclick = guard(loadSessions);
 async function openSession(id) {
+  selectSessionContext(id);
   const requestSeq = ++S.sessionRequestSeq;
   ++S.continuityRequestSeq;
   ++S.knowledgeRequestSeq;
   ++S.knowledgeDetailSeq;
   S.knowledge = null;
-  selectSessionContext(id); S.sid = null; S.workflowStep = ''; updateSrcNote();
+  S.sid = null; S.workflowStep = ''; updateSrcNote();
   renderSessions();
   $('#sessionDetail').innerHTML = '<div class="empty" role="status">Loading session details…</div>';
   let d;
