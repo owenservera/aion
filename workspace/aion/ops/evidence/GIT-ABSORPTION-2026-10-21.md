@@ -94,11 +94,27 @@ Result: every excluded file already carried the more recent version in `main`; n
 1. The excluded files above keep `main`'s version. Branch versions remain recoverable only from `refs/aion-absorbed/` (see below) and the remote reflog — the remote branches themselves were deleted.
 2. `harvest/external-custody*` and `harvest/external-browser-donors` carried ~20-23 files that did not exist in `main` under the same paths before absorption; confirm after the fact that these landed through the merged branch content rather than being superseded renames.
 
-## Recovery
+## History purge — donor media (2026-10-21)
 
-All processed branches have local refs:
+The `cleanup/donor-snapshots-media-20261020` branch had deleted 51 donor media files in the tree, but their blobs remained in every earlier commit and held 241.5 MB of the object database.
+
+Command:
 
 ```powershell
-git for-each-ref --format='%(refname:short) %(objectname:short)' refs/aion-absorbed
-git update-ref refs/heads/<name> refs/aion-absorbed/remote-<sanitized-name>
+git filter-repo --invert-paths --paths-from-file purge-paths.txt --force
 ```
+
+| Measure | Before | After |
+|---|---|---|
+| Pack size | 259.4 MB | **20.1 MB** |
+| Commits parsed | 1,353 | 1,353 (rewritten) |
+| `main` SHA | `55325c6` | `c0732fe` |
+| Tag `canonical-2026-10-19` | `55cc03a` | `aaef828` |
+
+Verification: `git fsck --full` clean, 3,562 tracked files, local `main` == `origin/main` after force-push. Everything except the 51 media paths is byte-identical.
+
+## Recovery
+
+- Pre-rewrite archive (full history, all original SHAs): `C:/0-BlackBoxProject-0/_git-archive/aion-pre-cleanup-2026-10-21.bundle` (258.94 MB, `git bundle verify` = okay).
+- Clone from it with `git clone aion-pre-cleanup-2026-10-21.bundle <dir>` to recover any object from before the rewrite.
+- Post-rewrite refs are the live ones; no `refs/aion-absorbed` refs remain.
