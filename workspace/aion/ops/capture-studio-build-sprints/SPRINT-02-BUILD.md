@@ -33,6 +33,8 @@ Build a **read-through, exact-identity longitudinal view** over existing per-ses
 - `src/intel/continuity.mjs`: longitudinal keyed identity joins, as-of folded state, per-revision provenance, truthful completeness counts and limitations.
 - `bin/studio.mjs`: `studio continuity <id|latest> [--eid ID] [--at ISO] [--limit N]`.
 - `src/studio/server.mjs`: `GET /api/sessions/:id/continuity?eid=...&at=...&limit=...` under existing local authentication.
+- `src/studio/ui/index.html`: opt-in same-site continuity table and per-entity revision history within Sessions, with as-of lookup. No expensive scan on every page load.
+- `src/intel/graph.mjs` and `src/intel/correlate.mjs`: date only edges supported by timestamps, prevent undated edges from appearing in historical snapshots, preserve edge-status history.
 
 ## Next independent questions
 

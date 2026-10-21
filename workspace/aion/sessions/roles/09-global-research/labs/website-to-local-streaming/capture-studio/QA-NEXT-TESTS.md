@@ -15,3 +15,5 @@ Please physically verify:
 Design caveats for QA: join is conservative and exact; types renamed across captures may remain unjoined. No per-site database or temporal deletion/retraction semantics added. The source-only commits preceding this combined checkpoint could not include the rolling QA note atomically; this note covers their combined implementation scope and does not retroactively claim compliance or validation.
 
 Independent QA temporal-graph follow-up: verify undated edges and nodes never appear at an arbitrary past stateAt(t); dated action/rendered hypotheses appear no earlier than evidence time; rejecting an edge now preserves its earlier accepted/hypothesis state. Concurrency with the external QA-owned temporal regression file was preserved. No test suite executed by the build agent.
+
+Studio continuity UX QA: in Sessions inspect Load same-site knowledge, optional as-of datetime, Details/history of a keyed entity, empty/no-model sessions, incomplete-derivation warning and HTML escaping of captured values. No UI or browser checks by implementation agent.

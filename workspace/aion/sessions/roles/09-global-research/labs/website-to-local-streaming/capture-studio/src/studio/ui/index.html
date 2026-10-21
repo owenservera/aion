@@ -468,11 +468,42 @@ async function openSession(id) {
     <div class="row"><button id="bDerive">Rebuild datasets</button><button id="bVerify">Check integrity</button><a href="/api/sessions/${encodeURIComponent(id)}/transcript"><button>Download transcript</button></a></div>
     <h3>Export</h3><div class="row">${datasets.map((ds) => `<span>${esc(ds)}: ${['jsonl', 'json', 'csv', 'md'].map((f) => `<a href="/api/sessions/${encodeURIComponent(id)}/export?dataset=${encodeURIComponent(ds)}&format=${f}">${f}</a>`).join(' ')}</span>`).join('') || '<span style="color:var(--muted)">Rebuild datasets first.</span>'}</div>
     <h3>Time travel</h3><div class="row"><input type="range" id="tt" min="0" max="1000" value="1000" style="flex:1"><span id="ttLabel" class="mono"></span></div><div id="ttOut" style="margin-top:8px"></div>
+    <h3>Continuity across sessions</h3>
+    <div class="row"><button id="bContinuity">Load same-site knowledge</button><input id="continuityAsOf" type="datetime-local" aria-label="Optional time for historical state"></div>
+    <div id="continuityOut" style="margin:8px 0;color:var(--muted)">Joins only exact keyed identities. Keyless records remain session-local; absence is not deletion.</div>
     <h3>Lab receipt <button id="bCopy" style="margin-left:8px">Copy</button></h3>
     <div style="color:var(--muted);margin-bottom:6px">Metadata only, safe to paste into the research issue.</div>
     <pre class="panel receipt mono" id="receipt">${esc(d.receipt ? JSON.stringify(d.receipt, null, 2) : 'Rebuild datasets to produce the receipt.')}</pre></div>`;
   $('#bDerive').onclick = guard(async () => { await api(`sessions/${id}/derive`, { body: {} }); toast('Datasets rebuilt from raw'); openSession(id); });
   $('#bVerify').onclick = guard(async () => { const v = await api(`sessions/${id}/verify`); toast(v.ok ? `Verified: ${v.records} records, ${v.gapRecords} declared gaps` : `Integrity problem: ${JSON.stringify(v.unexplained || v.segments.filter((s) => s.torn || s.shaMatches === false))}`); });
+   $('#bContinuity').onclick = guard(async () => {
+     const selectedTime = $('#continuityAsOf').value;
+     const timeQuery = selectedTime ? '&at=' + encodeURIComponent(new Date(selectedTime).toISOString()) : '';
+     const endpoint = 'sessions/' + encodeURIComponent(id) + '/continuity';
+     const view = await api(endpoint + '?limit=50' + timeQuery);
+     const st = view.stats;
+     const intro = '<div>' + st.joinedEntities + ' keyed entities span multiple sessions · ' +
+       st.sessionsWithDerivedKnowledge + '/' + st.sessionsDiscovered + ' sessions with knowledge · ' +
+       st.entitiesTotal + ' entities visible</div>';
+     const missing = st.sessionsWithoutKnowledge.length + st.sessionsWithDerivationError.length;
+     const note = missing ? '<div class="c-gap">' + missing + ' sessions have missing/failed derivation</div>' : '';
+     const rows = view.entities.map((e, i) => '<tr><td><button class="continuity-detail" data-index="' + i +
+       '">Details</button></td><td>' + esc(e.typeName || e.type || 'unknown') + '</td><td class="mono">' +
+       esc(String(e.key ?? '(keyless)')) + '</td><td>' + e.sessionCount + '</td><td>' + e.revisions + '</td></tr>').join('');
+     $('#continuityOut').innerHTML = intro + note + '<div class="panel scroll" style="max-height:32vh;margin:8px 0"><table><thead><tr><th></th><th>Type</th><th>Key</th><th>Sessions</th><th>Revisions</th></tr></thead><tbody>' +
+       (rows || '<tr><td colspan="5">No saved entities at this point in time.</td></tr>') + '</tbody></table></div>' +
+       (st.truncated ? '<div>' + st.truncated + ' more entities; use CLI/API for full access.</div>' : '') +
+       '<pre class="panel receipt mono" id="continuityDetail" style="display:none"></pre>';
+     document.querySelectorAll('#continuityOut .continuity-detail').forEach((button) => {
+       button.onclick = guard(async () => {
+         const entity = view.entities[Number(button.dataset.index)];
+         const full = await api(endpoint + '?eid=' + encodeURIComponent(entity.id) + timeQuery);
+         const detail = $('#continuityDetail');
+         detail.style.display = 'block';
+         detail.textContent = JSON.stringify(full.entities[0] ?? { message: 'No matching entity at this time.' }, null, 2);
+       });
+     });
+   });
   $('#bCopy').onclick = () => navigator.clipboard.writeText($('#receipt').textContent).then(() => toast('Receipt copied'));
   const t0 = Date.parse(m.createdAt), t1 = Date.parse(m.endedAt || new Date().toISOString());
   const tt = $('#tt'), lab = $('#ttLabel');
