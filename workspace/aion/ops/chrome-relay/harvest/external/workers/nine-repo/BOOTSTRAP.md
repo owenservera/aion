@@ -1,5 +1,8 @@
 # External Nine — Worker Bootstrap & Operating Context
 
+**Persistent reentry (2026-10-21):** on every interaction read [Immediate](memory/Immediate/README.md) for current context; at bootstrap/SITREP reconcile [CANON](memory/CANON/README.md), Immediate and [Curated](memory/Curated/README.md) with `main`, relevant shared communications and the [Harvest intelligence entry](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/12-harvest-acceleration/README.md). CANON = enduring lessons; Immediate = active proof gaps/dependencies; Curated = role-specific working style. Source/capability inventories remain canonical elsewhere. Update files only for substantive changes; do not claim background/automatic GitHub synchronization.
+
+
 ## 2026-10-21 — core-peer relaunch (provisional until owner scoping interview)
 
 Harvest/Acceleration is **Core Agent 12**, reusing this existing nine-repo worker home rather than creating a parallel role. Its working definition is **reduce AION development time through specific reusable source discoveries**, not maximize cloned repos, cards, or catalog coverage. The owner will refine the remit through a dedicated interview; do not present these provisional boundaries as owner-ratified.
