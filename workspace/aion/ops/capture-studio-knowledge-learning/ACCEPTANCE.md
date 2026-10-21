@@ -22,3 +22,7 @@
 
 ## Acceptance matrix
 For each criterion record **source SHA**, **test/fixture**, **environment**, **expected/observed**, **result**, **regression coverage**, **independent QA receipt**, **Windows/browser gap (if any)**. Builder progress and QA acceptance are separate. Track `proposed | implemented | locally_tested | independently_verified` states, never count unverified implementation as fully accepted. User-defined 100% should be shown only after K1–K7 and A1–A7 pass with relevant full-system evidence.
+
+## Sprint 01 evidence (builder only; no QA promotion)
+
+[Source-grounded L5 implementation, Node/V8 execution receipts, synthetic held-out measurements, file/LOC counts, and Core dependency list](EVIDENCE-SPRINT-01.md). The specialist has shipped part of A1–A7; **all fourteen L4/L5 checkboxes remain unchecked** until independent, criterion-specific QA receipts are recorded. In particular, an unconnected correction model is not evidence of improved production rederivation.
