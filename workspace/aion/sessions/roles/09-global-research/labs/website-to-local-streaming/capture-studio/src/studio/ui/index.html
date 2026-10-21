@@ -166,7 +166,10 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
   <span class="state" id="state"><span class="dot"></span><span id="stateText">Idle</span></span>
   <span class="target" id="targetText"></span>
   <span class="counters" id="counters"></span>
+  <span id="connectionNote" class="small-note" role="status" aria-live="polite"></span>
 </header>
+
+<div id="appTrail" class="row" role="navigation" aria-label="Investigation path" style="padding:7px 18px;border-bottom:1px solid var(--line);background:var(--panel)"><span class="small-note">Capture Studio · Choose a recording to investigate</span></div>
 
 <div id="strip" aria-label="Live layer activity">
   <canvas id="stripCanvas" height="112"></canvas>
@@ -328,12 +331,22 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtB = (n) => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
-const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, searchRequestSeq: 0, knowledge: null };
+const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, searchRequestSeq: 0, workflowStep: '', trail: [], authExpired: false, knowledge: null };
 
 async function api(path, opts = {}) {
   const r = await fetch('/api/' + path, { method: opts.body ? 'POST' : 'GET', headers: opts.body ? { 'content-type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || r.statusText);
+  if (!r.ok) {
+    if (r.status === 401 || r.status === 403) {
+      S.authExpired = true;
+      $('#connectionNote').textContent = 'Studio authorization expired — reopen the original tokenized Studio URL from the local terminal.';
+    }
+    const err = new Error(j.error || r.statusText || 'Request failed');
+    err.status = r.status; throw err;
+  }
+  if (S.authExpired) {
+    S.authExpired = false; $('#connectionNote').textContent = '';
+  }
   return j;
 }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 3200); }
@@ -351,10 +364,30 @@ function show(v) {
   document.querySelectorAll('section.view').forEach((s) => s.classList.toggle('on', s.id === 'v-' + v));
   const load = ({ streams: loadStreams, shapes: loadShapes, sessions: loadSessions, profiles: loadProfiles, capture: loadTargets, knowledge: loadKnowledge })[v];
   if (load) guard(load)();
+  updateInvestigationTrail();
+}
+function updateInvestigationTrail() {
+  const trail = $('#appTrail'); if (!trail) return;
+  const selected = S.sessionId ? String(S.sessionId).slice(0, 14) : '';
+  const current = S.view || 'capture';
+  trail.innerHTML = '<button id="trailCapture">Capture</button>' +
+    (selected ? '<button id="trailSession">Recording ' + esc(selected) + '</button>' : '') +
+    ((current === 'knowledge' || current === 'search' || S.workflowStep)
+      ? '<button id="trailKnowledge">Knowledge</button>' : '') +
+    (current === 'search' ? '<span class="small-note">→ Recorded evidence search</span>' :
+      S.workflowStep ? '<span class="small-note">→ ' + esc(S.workflowStep) + '</span>' : '');
+  $('#trailCapture').onclick = () => { S.workflowStep = ''; show('capture'); };
+  const session = $('#trailSession'); if (session) session.onclick = guard(async () => {
+    S.workflowStep = ''; show('sessions'); await openSession(S.sessionId);
+  });
+  const knowledge = $('#trailKnowledge'); if (knowledge) knowledge.onclick = () => {
+    S.workflowStep = ''; show('knowledge');
+  };
 }
 function updateSrcNote() {
   const s = src();
   $('#srcNote').textContent = !s ? 'Nothing selected yet' : s.kind === 'live' ? 'Showing the live recording' : 'Showing saved session ' + s.id.slice(0, 15);
+  updateInvestigationTrail();
 }
 
 /* ---------------- layer strip ---------------- */
@@ -579,7 +612,7 @@ async function openSession(id) {
   ++S.knowledgeRequestSeq;
   ++S.knowledgeDetailSeq;
   S.knowledge = null;
-  S.sessionId = id; S.sid = null; updateSrcNote();
+  S.sessionId = id; S.sid = null; S.workflowStep = ''; updateSrcNote();
   renderSessions();
   $('#sessionDetail').innerHTML = '<div class="empty" role="status">Loading session details…</div>';
   let d;
@@ -600,13 +633,15 @@ async function openSession(id) {
     <div class="row"><button id="bGoKnowledge">Explore knowledge</button><button id="bDerive">Rebuild datasets</button><button id="bVerify">Check integrity</button><a href="/api/sessions/${encodeURIComponent(id)}/transcript"><button>Download transcript</button></a></div>
     <h3>Export</h3><div class="row">${datasets.map((ds) => `<span>${esc(ds)}: ${['jsonl', 'json', 'csv', 'md'].map((f) => `<a href="/api/sessions/${encodeURIComponent(id)}/export?dataset=${encodeURIComponent(ds)}&format=${f}">${f}</a>`).join(' ')}</span>`).join('') || '<span style="color:var(--muted)">Rebuild datasets first.</span>'}</div>
     <h3>Time travel</h3><div class="row"><input type="range" id="tt" min="0" max="1000" value="1000" style="flex:1"><span id="ttLabel" class="mono"></span></div><div id="ttOut" style="margin-top:8px"></div>
+    <div id="sessionKnowledgeStatus" role="status" class="small-note"></div>
     <h3>Continuity across sessions</h3>
     <div class="row"><button id="bContinuity">Load same-site knowledge</button><input id="continuityAsOf" type="datetime-local" aria-label="Optional time for historical state"></div>
     <div id="continuityOut" role="status" aria-live="polite" style="margin:8px 0;color:var(--muted)">Joins only exact keyed identities. Keyless records remain session-local; absence is not deletion.</div>
     <h3>Lab receipt <button id="bCopy" style="margin-left:8px">Copy</button></h3>
     <div style="color:var(--muted);margin-bottom:6px">Metadata only, safe to paste into the research issue.</div>
     <pre class="panel receipt mono" id="receipt">${esc(d.receipt ? JSON.stringify(d.receipt, null, 2) : 'Rebuild datasets to produce the receipt.')}</pre></div>`;
-  $('#bGoKnowledge').onclick = () => show('knowledge');
+  $('#sessionKnowledgeStatus').innerHTML = knowledgeOutcomeMarkup(d.knowledgeOutcome);
+  $('#bGoKnowledge').onclick = () => { S.workflowStep = ''; show('knowledge'); };
   $('#bDerive').onclick = guard(async () => { await api(`sessions/${id}/derive`, { body: {} }); toast('Datasets rebuilt from raw'); openSession(id); });
   $('#bVerify').onclick = guard(async () => { const v = await api(`sessions/${id}/verify`); toast(v.ok ? `Verified: ${v.records} records, ${v.gapRecords} declared gaps` : `Integrity problem: ${JSON.stringify(v.unexplained || v.segments.filter((s) => s.torn || s.shaMatches === false))}`); });
   $('#bContinuity').onclick = guard(async () => {
@@ -729,6 +764,26 @@ function knowledgeSummary(view) {
     (issues ? '<span class="c-gap"><b>' + esc(issues) + '</b> incomplete</span>' : '') +
     (limits.length ? '<span class="c-act">' + limits.join(' · ') + '</span>' : '') + missing;
 }
+function knowledgeOutcomeMarkup(outcome) {
+  if (!outcome || outcome.status === 'legacy-unverified' || outcome.status === 'legacy')
+    return '<span class="c-act">Derivation not verifiable for this older recording. Missing outcome metadata is not proof of failure or success.</span>';
+  const status = outcome.status;
+  if (status === 'complete') {
+    if (outcome.entityCount === 0)
+      return '<span class="c-l3">Derived successfully: zero entities found.</span> The capture may still contain useful raw observations.';
+    return '<span class="c-l3">Derived successfully</span> · ' + esc(outcome.entityCount ?? 'Unknown') +
+      ' entities · ' + esc(outcome.typeCount ?? 'Unknown') + ' inferred types.';
+  }
+  if (status === 'failed') return '<span class="c-gap">Derivation failed' +
+    (outcome.stage ? ' during ' + esc(outcome.stage) : '') + '</span>' +
+    (outcome.error ? ' · ' + esc(outcome.error) : '') + '. Saved raw source is separate.';
+  if (status === 'deriving') return '<span class="c-act">Derivation in progress, interrupted, or not yet finalized.</span> Do not trust older model/graph results during rebuild.';
+  return '<span class="c-act">Unknown derivation outcome: ' + esc(status ?? 'Unavailable') + '.</span> Inspect source evidence.';
+}
+function knowledgeStatusPromise(id) {
+  return api('sessions/' + encodeURIComponent(id) + '/knowledge-status').then((r) => ({ data:r }))
+    .catch((e) => ({ error:e.message, status:e.status ?? null }));
+}
 function renderKnowledgeEntities() {
   const k = S.knowledge; if (!k) return;
   const q = $('#knowledgeFilter').value.trim().toLocaleLowerCase();
@@ -837,6 +892,7 @@ async function openKnowledgeEntity(entity) {
   const k = S.knowledge, epoch = S.knowledgeRequestSeq, detailSeq = ++S.knowledgeDetailSeq;
   if (!k || !entity) return;
   const host = $('#knowledgeDetail');
+  S.workflowStep = 'Entity history'; updateInvestigationTrail();
   host.innerHTML = '<div role="status" class="empty">Loading entity revisions…</div>';
   try {
     const query = new URLSearchParams({ eid: entity.id, limit: '1' });
@@ -876,6 +932,7 @@ function openKnowledgeNode(node, edges) {
   const related = knowledgeSafeList(edges).filter((e) => e.from === node.eid || e.to === node.eid);
   const history = knowledgeSafeList(node.history);
   const host = $('#knowledgeDetail');
+  S.workflowStep = 'Graph relationships'; updateInvestigationTrail();
   host.innerHTML = '<h3>' + esc(node.typeName || 'Graph node') + '</h3><p class="small-note">Inferred, session-specific graph identity ' + esc(node.eid) + '</p>' +
     '<div class="knowledge-detail-field"><b>Observed attributes</b><pre class="mono">' + esc(JSON.stringify(node.attrs ?? {}, null, 2)) + '</pre></div>' +
     '<h3>Relationships (' + esc(related.length) + ')</h3>' +
@@ -913,16 +970,23 @@ async function refreshKnowledge() {
   const endpoints = ['sessions/' + encodeURIComponent(id) + '/continuity?limit=100' + suffix,
     'sessions/' + encodeURIComponent(id) + '/graph',
     'sessions/' + encodeURIComponent(id) + '/model'];
-  const results = await Promise.allSettled(endpoints.map((p) => api(p)));
+  const results = await Promise.allSettled([...endpoints.map((p) => api(p)), knowledgeStatusPromise(id)]);
   if (epoch !== S.knowledgeRequestSeq || S.view !== 'knowledge') return;
-  const [continuity, graph, model] = results.map((r) => r.status === 'fulfilled'
+  const [continuity, graph, model] = results.slice(0,3).map((r) => r.status === 'fulfilled'
     ? { data: r.value } : { error: r.reason?.message || 'Unknown API error' });
-  S.knowledge = { sessionId: id, at: at ? at.toISOString() : '', continuity: continuity.data, graph, model };
-  const partial = results.filter((r) => r.status === 'rejected').length;
+  const derivation = results[3].status === 'fulfilled' ? results[3].value : {error: results[3].reason?.message || 'Status endpoint unavailable'};
+  const rawStatus = derivation?.data;
+  const legacy = !!derivation?.error && (derivation.status === 404 || derivation.status === 405);
+  const outcome = legacy ? {status:'legacy-unverified'} : rawStatus || {status:'legacy-unverified'};
+
+  S.knowledge = { sessionId: id, at: at ? at.toISOString() : '', continuity: continuity.data, graph, model, outcome };
+  S.workflowStep = 'Derived knowledge'; updateInvestigationTrail();
+  const partial = results.slice(0,3).filter((r) => r.status === 'rejected').length;
   $('#knowledgeState').innerHTML = partial
     ? knowledgeMarkupError(partial + ' of 3 read-only knowledge requests failed; successful sections are still available.')
     : '<span class="c-l3">Read-only knowledge loaded.</span> Choose an entity or graph node to inspect. No identities or corrections were changed.';
-  $('#knowledgeMetrics').innerHTML = continuity.data ? knowledgeSummary(continuity.data) : knowledgeMarkupError('Continuity unavailable: ' + continuity.error);
+  $('#knowledgeMetrics').innerHTML = '<div class="knowledge-warning" style="width:100%">' + knowledgeOutcomeMarkup(outcome) + '</div>' +
+    (continuity.data ? knowledgeSummary(continuity.data) : knowledgeMarkupError('Continuity unavailable: ' + continuity.error));
   if (continuity.error) $('#knowledgeEntities').innerHTML = knowledgeMarkupError('Continuity unavailable: ' + continuity.error);
   else renderKnowledgeEntities();
   renderKnowledgeGraph();
