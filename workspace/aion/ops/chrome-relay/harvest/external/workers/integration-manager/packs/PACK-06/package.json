@@ -1,0 +1,9 @@
+{
+  "name": "aion-pack-06-readiness-and-document-binding",
+  "private": true,
+  "type": "module",
+  "description": "Offline fixtures for staged PACK-06 readiness and document binding. Not a published package.",
+  "scripts": {
+    "test": "node --test"
+  }
+}
