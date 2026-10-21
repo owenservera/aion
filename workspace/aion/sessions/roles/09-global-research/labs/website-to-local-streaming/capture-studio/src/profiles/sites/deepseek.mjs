@@ -6,6 +6,10 @@ export default {
   url: 'https://chat.deepseek.com/',
   composer: {
     selectors: [
+      // Measured on the live site (2026-10-22): the message box is a textarea named "search"
+      // whose placeholder is "Message DeepSeek". It is NOT a search box.
+      'textarea[placeholder*="Message DeepSeek" i]',
+      'textarea[name="search"]',
       'textarea#chat-input',
       'div[contenteditable="true"][role="textbox"]',
       'textarea[placeholder*="发送消息" i]',
@@ -26,9 +30,9 @@ export default {
   },
   assistant: {
     containerSelectors: [
-      '[data-message-author-role="assistant"]',
       'div.ds-markdown',
       'div[class*="markdown"]',
+      '[data-message-author-role="assistant"]',
       'article',
       '[data-testid*="assistant" i]',
     ],

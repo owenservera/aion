@@ -499,6 +499,62 @@ export async function detectAuthWall(page, adapter = null) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Cookie consent
+// ---------------------------------------------------------------------------------------------
+// A person meets a cookie banner before they can chat. The driver dismisses it with the
+// LEAST permissive option (necessary / reject / decline) so no tracking consent is given on the
+// owner's behalf. If the only offered choice is "accept all", the driver does NOT consent for
+// the owner: it reports the banner and lets the drive continue, because a banner does not
+// usually block the composer.
+export async function dismissCookieBanner(page, adapter = null) {
+  const found = await tryEval(page, String.raw`(() => { ${IN_PAGE}
+    const cookieish = /cookie|consent|privacy preference|gdpr/i;
+    const cands = [];
+    for (const el of document.querySelectorAll('div,section,aside,form,[role="dialog"]')) {
+      if (!vis(el)) continue;
+      const t = String(el.innerText || '').slice(0, 600);
+      if (!cookieish.test(t)) continue;
+      if (t.length > 600) continue;
+      cands.push(el);
+    }
+    if (!cands.length) return { found: false };
+    // The banner is the smallest element that still mentions cookies.
+    cands.sort((a, b) => (a.innerText || '').length - (b.innerText || '').length);
+    const banner = cands[0];
+    const options = [];
+    for (const b of banner.querySelectorAll('button,[role="button"],a.button,input[type="button"]')) {
+      if (!vis(b)) continue;
+      const label = String((b.innerText || b.value || b.getAttribute('aria-label') || '')).replace(/\s+/g, ' ').trim();
+      if (!label) continue;
+      const conservative = /necessary|essential only|reject all|declin|deny|only necessary|continue without|reject/i.test(label);
+      const permissive = /accept all|allow all|agree/i.test(label);
+      if (!conservative && !permissive) continue;
+      options.push({ label: label.slice(0, 60), conservative: conservative, tag: b.tagName.toLowerCase() });
+    }
+    const pick = options.find((o) => o.conservative) || null;
+    const permissiveOnly = options.filter((o) => o.permissive).map((o) => o.label);
+    if (!pick) return { found: true, dismissible: false, options: permissiveOnly, reason: 'cookie banner offers only permissive choices' };
+    globalThis.__aionCookieBtn = null;
+    for (const b of banner.querySelectorAll('button,[role="button"],a.button,input[type="button"]')) {
+      const label = String((b.innerText || b.value || b.getAttribute('aria-label') || '')).replace(/\s+/g, ' ').trim();
+      if (/necessary|essential only|reject all|declin|deny|only necessary|continue without|reject/i.test(label)) {
+        globalThis.__aionCookieBtn = b;
+        return { found: true, dismissible: true, label: label.slice(0, 60), options: options.map((o) => o.label) };
+      }
+    }
+    return { found: true, dismissible: false, options: permissiveOnly, reason: 'no conservative cookie option found' };
+  })()`);
+  if (!found.ok) return { found: false, reason: `cookie probe failed: ${found.error}` };
+  const info = found.value;
+  if (!info?.found || !info?.dismissible) return { found: !!info?.found, dismissed: false, reason: info?.reason ?? 'no cookie banner' };
+
+  const clicked = await clickStored(page, '__aionCookieBtn');
+  if (!clicked) return { found: true, dismissed: false, reason: 'cookie option could not be clicked' };
+  await sleep(900);
+  return { found: true, dismissed: true, label: info.label, options: info.options ?? [], reason: 'dismissed with the least permissive cookie option' };
+}
+
+// ---------------------------------------------------------------------------------------------
 // Orchestration
 // ---------------------------------------------------------------------------------------------
 function hostMatches(adapter, url) {
@@ -624,6 +680,16 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     const env = await prepareHumanEnvironment(page, { focus: true });
     result.env = env;
     emit({ type: 'env', webdriver: env.webdriver, hasFocus: env.hasFocus, notes: env.notes });
+
+    // A person meets a cookie banner before they can chat. Dismissed with the least permissive
+    // option, so no tracking consent is given on the owner's behalf.
+    try {
+      const consent = await dismissCookieBanner(page, adapter);
+      result.consent = consent;
+      emit({ type: 'consent', ...consent });
+    } catch (e) {
+      errors.push(`cookie banner handling failed: ${String(e?.message ?? e)}`);
+    }
 
     // Re-derive on the recording connection when the probe did not resolve one; the page-level
     // selection survives, so this is normally a single fast lookup.
