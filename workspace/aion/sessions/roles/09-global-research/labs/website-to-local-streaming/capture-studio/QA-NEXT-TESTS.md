@@ -17,3 +17,5 @@ Design caveats for QA: join is conservative and exact; types renamed across capt
 Independent QA temporal-graph follow-up: verify undated edges and nodes never appear at an arbitrary past stateAt(t); dated action/rendered hypotheses appear no earlier than evidence time; rejecting an edge now preserves its earlier accepted/hypothesis state. Concurrency with the external QA-owned temporal regression file was preserved. No test suite executed by the build agent.
 
 Studio continuity UX QA: in Sessions inspect Load same-site knowledge, optional as-of datetime, Details/history of a keyed entity, empty/no-model sessions, incomplete-derivation warning and HTML escaping of captured values. No UI or browser checks by implementation agent.
+
+Completeness follow-up: a session with MODEL but no entities dataset must be counted as missing derived knowledge, not silently treated as an empty successful model. Verify unavailable-session counts and no fabricated joined groups.

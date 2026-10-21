@@ -3,6 +3,7 @@
 // Only explicitly keyed identities within the same proven site/type scope are joined.
 // Keyless and scope-unknown entities remain session-local to avoid false merges.
 import { Session, listSessions } from '../store/session.mjs';
+import { existsSync } from 'node:fs';
 import { siteOf } from '../profiles/profiles.mjs';
 
 export function siteFromSession(meta = {}) {
@@ -76,6 +77,7 @@ export async function buildSiteContinuity(sessionsDir, {
     const model = session.kv.get('MODEL', null);
     if (!model) { stats.sessionsWithoutKnowledge.push(meta.id); continue; }
     if (model.error) { stats.sessionsWithDerivationError.push({ session: meta.id, stage: model.stage ?? null }); continue; }
+    if (!existsSync(session.dataset('entities').file)) { stats.sessionsWithoutKnowledge.push(meta.id); continue; }
     stats.sessionsWithDerivedKnowledge++;
     const createdAt = continuityTime(meta.createdAt);
     for await (const e of session.dataset('entities').iterate()) {

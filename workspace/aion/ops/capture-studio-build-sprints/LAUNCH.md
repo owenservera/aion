@@ -5,7 +5,7 @@
 **Purpose:** advance Capture Studio autonomously while spending expensive reasoning only where it changes the outcome. Each fresh session has ONE phase role, reads current source, does that phase, commits, and stops.
 
 **Launch:** `#AION @CAPTURE-STUDIO /BUILD-SPRINT <PHASE>` where `<PHASE>` is `RECON`, `DECIDE`, `BUILD`, `MECHANICAL`, `REVIEW` or `CONTINUE`. `CONTINUE` reads [STATE.json](STATE.json) `phase.next`, checks the model is right for it (otherwise says which to switch to), and runs it.
-**Prompts per phase, model and thinking level, and the CONTINUE prompt:** [PHASES.md](PHASES.md). Every phase ends with a NEXT STEP section naming the model/thinking to switch to and the next prompt, so no outside guide is needed. **Mission:** [SPRINT-01.md](SPRINT-01.md). **Checkpoint:** [STATE.json](STATE.json).
+**Prompts per phase, model and thinking level, and the CONTINUE prompt:** [PHASES.md](PHASES.md). Every phase ends with a NEXT STEP section naming the model/thinking to switch to and the next prompt, so no outside guide is needed. **Mission:** use `STATE.json.current_execution.active_sprint` during a single-session takeover (currently [SPRINT-02.md](SPRINT-02.md)); the [SPRINT-01.md](SPRINT-01.md) link and RECON/DECIDE/BUILD phase prompts below are historical Claude workflow. **Checkpoint:** [STATE.json](STATE.json).
 **QA is separate:** [ChatGPT QA](../../qa/capture-studio/README.md).
 
 ## Phase map (the human flips model/thinking manually)

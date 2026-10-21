@@ -5,7 +5,7 @@
   "status": "SPRINT_02_IMPLEMENTED_PARTIAL_PENDING_INDEPENDENT_QA",
   "created": "2026-10-21",
   "updated": "2026-10-21",
-  "last_observed_product_sha": "a1b1aab63c698d662b407b66bcf947bb4df9277a",
+  "last_observed_product_sha": "bbe7fdf03bb4ba13cb0485fca0e06f24e9386a4f",
   "source_of_truth": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/",
   "phase": {
     "completed": "MECHANICAL",
@@ -149,11 +149,14 @@
     "active_sprint": "SPRINT-02.md",
     "implementation_basis_sha": "09dd984510e5a6fd9d7f55c0312f221f5a4d7f6e",
     "work_started": "2026-10-21",
-    "completed": "Cross-session keyed entity continuity view and temporal as-of reconstruction; CLI + local authenticated API; source-level temporal graph fixes for undated edges, dated correlations and status history; opt-in Sessions UI continuity explorer",
+    "completed": "Cross-session keyed entity continuity view and temporal as-of reconstruction; CLI + local authenticated API; source-level temporal graph fixes for undated edges, dated correlations and status history; opt-in Sessions UI continuity explorer; missing entity-dataset accounting",
     "pending": "Independent QA of Sprint 01 temporal regressions and Sprint 02 joins/UI; type-drift alignment, performance indexing and retractions",
     "source_read_scope": "Source tree enumerated; relevant continuity, identity, graph, derive, session, store, schema, CLI, server source reviewed; full tests/fixtures and unrelated source were not fully reread",
     "tests_executed": false,
     "quality_status": "PENDING INDEPENDENT QA",
-    "next_action": "Perform independent QA on Sprint 01 and current Sprint 02 functionality, then decide whether to expand cross-session type alignment or strengthen temporal validity/retractions."
-  }
+    "next_action": "Perform independent QA on Sprint 01 and current Sprint 02 functionality, then decide whether to expand cross-session type alignment or strengthen temporal validity/retractions.",
+    "last_commit_sha": "bbe7fdf03bb4ba13cb0485fca0e06f24e9386a4f",
+    "resume_protocol": "One ChatGPT session reads latest main, the current sprint, build decision and relevant code; chooses and implements next high-leverage safe work without physical tests. No model switching."
+  },
+  "phased_claude_workflow_suspended_for_current_run": true
 }

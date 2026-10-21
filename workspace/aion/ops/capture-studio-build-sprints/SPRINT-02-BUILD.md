@@ -21,6 +21,7 @@ Build a **read-through, exact-identity longitudinal view** over existing per-ses
 ## Safety and semantics
 
 - No keyless cross-session joins; no fuzzy merges; no joins if the target site cannot be established from a target URL.
+- Sessions without a successful MODEL or an entities dataset are explicitly reported as not yet derived; they cannot prove a complete cross-session history.
 - No timestamp means no historically asserted state; absent fields and sessions never imply deletion.
 - An as-of result reports only revisions and sessions visible at that timestamp.
 - Cross-session identity confidence is **not** presented as an accepted/calibrated probability.
