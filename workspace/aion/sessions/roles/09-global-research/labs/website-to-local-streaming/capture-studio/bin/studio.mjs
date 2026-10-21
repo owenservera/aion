@@ -25,6 +25,9 @@ import './commands/platform.mjs';
 import './commands/selftest.mjs';
 import './commands/learn.mjs';
 import './commands/profiles.mjs';
+import './commands/drive.mjs';
+import './commands/library.mjs';
+import './commands/campaign.mjs';
 
 // A closed pipe (studio … | head) is a normal way to finish, not an error.
 process.stdout.on('error', (e) => { if (e.code === 'EPIPE') process.exit(0); });
