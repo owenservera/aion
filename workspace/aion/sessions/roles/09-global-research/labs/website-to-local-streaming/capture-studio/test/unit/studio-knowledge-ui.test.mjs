@@ -57,12 +57,16 @@ test('knowledge coverage distinguishes absent derivation, truncated entities, an
   const h=createHarness();
   const out=h.knowledgeSummary({ stats:{ entitiesTotal:80, joinedEntities:5, sessionsDiscovered:8,
     sessionsWithDerivedKnowledge:6, sessionsWithoutKnowledge:['s7'], sessionsWithDerivationError:[{session:'s8'}],
-    truncated:30,typeDriftHintsTruncated:2,typeDriftVariantsOmitted:3 }});
+    truncated:30,typeDriftHintsTruncated:2,typeDriftVariantsOmitted:3,
+    sessionsSuccessfulEmpty:['s5'],sessionsLegacyUnverified:['s6'],legacyEidCollisions:2 }});
   assert.match(out, /2<\/b> incomplete/);
   assert.match(out, /incomplete evidence/);
   assert.match(out, /entities beyond this preview/);
   assert.match(out, /additional type-drift hints/);
   assert.match(out, /comparison variants not assessed/);
+  assert.match(out,/1<\/b> successfully empty/);
+  assert.match(out,/1<\/b> legacy-unverified/);
+  assert.match(out,/2<\/b> legacy identity collisions isolated/);
 });
 
 test('entity list shows origin-matching caveat and escapes captured labels', () => {
@@ -261,4 +265,17 @@ test('exact source navigation preserves session and sid when available', async (
   assert.equal(h.streamOpened(),'stream-42');
   assert.equal(h.S.workflowStep,'Original recorded evidence');
   assert.equal(h.S.view,'streams');
+});
+
+test('Core explicit field removal is identified as an operation, not inferred from absence', async () => {
+  const h=createHarness();
+  h.S.knowledge={sessionId:'s1',at:'',continuity:{entities:[]}};
+  h.setApi(async()=>({entities:[{id:'e1',typeName:'Record',attrs:{kept:'yes'},
+    history:[{session:'s1',sid:'stream1',seq:4,t:1234,changed:[],removed:['legacyField'],values:{},provenanceBasis:'recorded-revision'}]}]}));
+  await h.openKnowledgeEntity({id:'e1'});
+  const output=h.el('#knowledgeDetail').innerHTML;
+  assert.match(output,/Explicitly removed: legacyField/);
+  assert.match(output,/Original evidence/);
+  assert.match(output,/Open stream/);
+  assert.doesNotMatch(output,/deleted because absent/i);
 });
