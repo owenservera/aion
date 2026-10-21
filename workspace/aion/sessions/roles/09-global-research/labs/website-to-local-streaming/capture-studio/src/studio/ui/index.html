@@ -116,6 +116,33 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
   main { grid-template-columns: 1fr; } nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
   nav .src { display: none; } .detail, .split { grid-template-columns: 1fr; } #strip .lanes { width: 90px; }
 }
+
+/* UI sprint: keyboard targets and compact-screen reading */
+.session-tools { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--line); }
+.session-tools label { flex:1; min-width:170px; }
+.session-tools input { margin-left:6px; width:min(270px, 100%); max-width:100%; }
+.session-tools output { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.row-action { text-align:left; border:0; background:transparent; padding:2px 0; color:var(--l1); font-weight:600; overflow-wrap:anywhere; }
+.row-action:hover { text-decoration:underline; }
+.small-note { color:var(--muted); font-size:12.5px; margin-top:6px; }
+.continuity-summary { display:flex; flex-wrap:wrap; gap:8px 16px; padding:8px 0; font-variant-numeric:tabular-nums; }
+.continuity-summary b { font-weight:650; color:var(--ink); }
+.continuity-history { width:100%; overflow-x:auto; margin-top:8px; }
+.continuity-history th, .continuity-history td { overflow-wrap:anywhere; }
+#continuityDetail { padding:10px 12px; margin-top:12px; }
+#continuityDetail pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:250px; overflow:auto; }
+.feedback-error { color:var(--gap); padding:10px 0; overflow-wrap:anywhere; }
+@media (max-width:650px) {
+  section.view { padding:12px; }
+  header { padding:8px 12px; gap:8px; }
+  #strip canvas { height:82px; }
+  main { min-width:0; }
+  nav { gap:4px; padding:6px; }
+  nav button { white-space:nowrap; padding:8px 9px; }
+  .split, .detail, .panel { min-width:0; }
+  .scroll { max-width:100%; }
+  #sessionDetail, #continuityOut { min-width:0; overflow-wrap:anywhere; }
+}
 </style>
 </head>
 <body>
@@ -210,7 +237,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
       <h2>Sessions</h2>
       <p class="lede">Saved recordings on this computer. Choosing one makes Streams, Shapes and Search look at it instead of the live recording.</p>
       <div class="split">
-        <div class="panel scroll"><table id="sessions"><tbody></tbody></table></div>
+        <div class="panel scroll"><div class="session-tools"><label for="sessionFilter">Filter <input id="sessionFilter" type="search" placeholder="Title, website or session ID" autocomplete="off"></label><output id="sessionCount" aria-live="polite"></output><button id="refreshSessions">Refresh</button></div><table id="sessions"><tbody><tr><td class="empty">Open Sessions to load recordings.</td></tr></tbody></table></div>
         <div id="sessionDetail"><div class="empty">Choose a session.</div></div>
       </div>
     </section>
@@ -232,13 +259,13 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
     </section>
   </div>
 </main>
-<div class="toast" id="toast" role="status"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtB = (n) => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
-const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false };
+const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0 };
 
 async function api(path, opts = {}) {
   const r = await fetch('/api/' + path, { method: opts.body ? 'POST' : 'GET', headers: opts.body ? { 'content-type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
@@ -254,9 +281,13 @@ const src = () => (S.sessionId && S.sessionId !== S.liveId) ? { kind: 'session',
 document.querySelectorAll('nav button[data-view]').forEach((b) => b.onclick = () => show(b.dataset.view));
 function show(v) {
   S.view = v;
-  document.querySelectorAll('nav button[data-view]').forEach((b) => b.toggleAttribute('aria-current', b.dataset.view === v) || (b.dataset.view === v && b.setAttribute('aria-current', 'page')));
+  document.querySelectorAll('nav button[data-view]').forEach((b) => {
+    if (b.dataset.view === v) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
   document.querySelectorAll('section.view').forEach((s) => s.classList.toggle('on', s.id === 'v-' + v));
-  ({ streams: loadStreams, shapes: loadShapes, sessions: loadSessions, profiles: loadProfiles, capture: loadTargets })[v]?.();
+  const load = ({ streams: loadStreams, shapes: loadShapes, sessions: loadSessions, profiles: loadProfiles, capture: loadTargets })[v];
+  if (load) guard(load)();
 }
 function updateSrcNote() {
   const s = src();
@@ -450,17 +481,45 @@ $('#btnInspect').onclick = guard(async () => {
 });
 
 /* ---------------- sessions ---------------- */
-async function loadSessions() {
-  const list = await api('sessions');
-  $('#sessions tbody').innerHTML = list.length ? list.map((s) => `<tr class="click ${s.id === S.sessionId ? 'sel' : ''}" data-id="${esc(s.id)}"><td><b>${esc(s.target?.title || s.site)}</b><div style="color:var(--muted);font-size:12.5px">${esc(new Date(s.createdAt).toLocaleString())}</div></td><td class="num">${fmtB(s.rawBytes)}</td><td>${s.status === 'recording' && s.id !== S.liveId ? '<span class="c-act">interrupted</span>' : esc(s.status)}</td></tr>`).join('') : '<tr><td class="empty">No sessions yet.</td></tr>';
-  document.querySelectorAll('#sessions tr.click').forEach((tr) => tr.onclick = guard(() => openSession(tr.dataset.id)));
+function renderSessions() {
+  const q = $('#sessionFilter').value.trim().toLocaleLowerCase();
+  const list = S.sessions.filter((s) => [s.target?.title, s.target?.url, s.site, s.id].some((v) => String(v ?? '').toLocaleLowerCase().includes(q)));
+  $('#sessionCount').textContent = list.length + ' / ' + S.sessions.length;
+  $('#sessions tbody').innerHTML = list.length ? list.map((s) =>
+    '<tr class="' + (s.id === S.sessionId ? 'sel' : '') + '"><td><button class="row-action" data-id="' + esc(s.id) + '" aria-label="Open session ' + esc(s.target?.title || s.site || s.id) + '">' +
+    esc(s.target?.title || s.site || s.id) + '</button><div class="small-note">' + esc(s.createdAt ? new Date(s.createdAt).toLocaleString() : 'Time unavailable') +
+    '</div></td><td class="num">' + fmtB(s.rawBytes) + '</td><td>' + (s.status === 'recording' && s.id !== S.liveId ? '<span class="c-act">interrupted</span>' : esc(s.status)) + '</td></tr>'
+  ).join('') : '<tr><td colspan="3" class="empty">' + (q ? 'No recordings match this filter.' : 'No sessions yet.') + '</td></tr>';
+  document.querySelectorAll('#sessions button[data-id]').forEach((b) => b.onclick = guard(() => openSession(b.dataset.id)));
 }
+async function loadSessions() {
+  const seq = ++S.sessionLoadSeq;
+  $('#sessions tbody').innerHTML = '<tr><td colspan="3" class="empty">Loading saved sessions…</td></tr>';
+  try {
+    const list = await api('sessions');
+    if (seq !== S.sessionLoadSeq) return;
+    if (!Array.isArray(list)) throw new Error('Unexpected sessions response.');
+    S.sessions = list;
+    renderSessions();
+  } catch (e) {
+    if (seq === S.sessionLoadSeq) {
+      $('#sessions tbody').innerHTML = '<tr><td colspan="3" class="feedback-error">Could not load recordings: ' + esc(e.message) + '</td></tr>';
+      $('#sessionCount').textContent = 'Unavailable';
+    }
+  }
+}
+$('#sessionFilter').oninput = renderSessions;
+$('#refreshSessions').onclick = guard(loadSessions);
 async function openSession(id) {
+  const requestSeq = ++S.sessionRequestSeq;
+  ++S.continuityRequestSeq;
   S.sessionId = id; S.sid = null; updateSrcNote();
-  document.querySelectorAll('#sessions tr').forEach((tr) => tr.classList.toggle('sel', tr.dataset.id === id));
-  const d = await api(`sessions/${id}`);
+  renderSessions();
+  $('#sessionDetail').innerHTML = '<div class="empty" role="status">Loading session details…</div>';
+  const d = await api('sessions/' + encodeURIComponent(id));
+  if (requestSeq !== S.sessionRequestSeq) return;
   const m = d.meta;
-  const datasets = d.datasets.filter((x) => x !== 'events' || true);
+  const datasets = Array.isArray(d.datasets) ? d.datasets : [];
   $('#sessionDetail').innerHTML = `<div class="panel pad">
     <h3 style="margin-top:0">${esc(m.target?.title || m.site)}</h3>
     <div style="color:var(--muted);overflow-wrap:anywhere">${esc(m.target?.url || '')}</div>
@@ -470,7 +529,7 @@ async function openSession(id) {
     <h3>Time travel</h3><div class="row"><input type="range" id="tt" min="0" max="1000" value="1000" style="flex:1"><span id="ttLabel" class="mono"></span></div><div id="ttOut" style="margin-top:8px"></div>
     <h3>Continuity across sessions</h3>
     <div class="row"><button id="bContinuity">Load same-site knowledge</button><input id="continuityAsOf" type="datetime-local" aria-label="Optional time for historical state"></div>
-    <div id="continuityOut" style="margin:8px 0;color:var(--muted)">Joins only exact keyed identities. Keyless records remain session-local; absence is not deletion.</div>
+    <div id="continuityOut" role="status" aria-live="polite" style="margin:8px 0;color:var(--muted)">Joins only exact keyed identities. Keyless records remain session-local; absence is not deletion.</div>
     <h3>Lab receipt <button id="bCopy" style="margin-left:8px">Copy</button></h3>
     <div style="color:var(--muted);margin-bottom:6px">Metadata only, safe to paste into the research issue.</div>
     <pre class="panel receipt mono" id="receipt">${esc(d.receipt ? JSON.stringify(d.receipt, null, 2) : 'Rebuild datasets to produce the receipt.')}</pre></div>`;
