@@ -15,6 +15,10 @@ import { buildGraph } from '../intel/graph.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
 
 export async function derive(session, profile, { onProgress, families, learner } = {}) {
+  // Fail closed during rebuild: old MODEL/entities must not appear to be current.
+  const knowledgeRun = { schema: 'capture-studio.knowledge-status/1',
+    status: 'deriving', startedAt: new Date().toISOString(), dataset: 'entities' };
+  session.kv.set('KNOWLEDGE_STATUS', knowledgeRun);
   // Events kept in memory are bounded per stream (evidence + drift); the dataset keeps all of them.
   const reducer = new StreamReducer({ deltaDialect: profile?.decode?.delta ?? 'auto', keepEvents: true, maxEventsPerStream: 400 });
   const shapes = new ShapeInferencer();
@@ -107,6 +111,11 @@ export async function derive(session, profile, { onProgress, families, learner }
     session.dataset('entities').push(entities);
     session.kv.set('GRAPH', graph.toJSON());
     session.kv.set('HYPOTHESES', { rendered: renderedHyps, actions: actionHyps, caps });
+    // Last write of the completed knowledge transaction. Zero entities is a
+    // successful empty result, even though Dataset.push([]) creates no file.
+    session.kv.set('KNOWLEDGE_STATUS', { ...knowledgeRun, status: 'complete',
+      completedAt: new Date().toISOString(), entityCount: entities.length,
+      typeCount: model.types.length, entitiesDatasetPresent: entities.length > 0 });
     knowledge = { types: model.types.length, entities: entities.length, edges: graph.edges.size, corpusSamples: corpusResult.stats.samples, corpusDropped: Object.values(corpusResult.stats.dropped).reduce((a, b) => a + b, 0), unmodelledGroups: model.unmodelled.length };
   } catch (e) {
     knowledge = { error: String(e?.message ?? e), stage };
@@ -114,6 +123,8 @@ export async function derive(session, profile, { onProgress, families, learner }
     session.kv.set('MODEL', knowledge);
     session.kv.set('GRAPH', null);
     session.kv.set('HYPOTHESES', null);
+    session.kv.set('KNOWLEDGE_STATUS', { ...knowledgeRun, status: 'failed',
+      completedAt: new Date().toISOString(), stage, error: knowledge.error });
   }
   receipt.knowledge = knowledge;
   session.kv.set('RECEIPT', receipt);
