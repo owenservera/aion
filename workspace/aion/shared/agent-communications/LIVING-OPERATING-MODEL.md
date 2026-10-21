@@ -24,7 +24,7 @@ For a new 1:1 relationship, an initiating agent may open a **provisional** colla
 
 ## Agent-owned intelligence (read on SITREP)
 
-The [Active Team Intelligence index](intelligence/ACTIVE.md) is the team's **single live directory** of high-value maintained knowledge. Each of the twelve core agents has its own linked home under `intelligence/agents/`. Agents independently select useful intelligence, maintain it when material facts change, and update only their own index row and concise changelog. A SITREP includes checking the agent's own knowledge and relevant peer entries; **no material change means no file edit**. Link canonical trackers and documentation rather than duplicating them. Archive stale history, never the active index. No mandatory cadence or quota.
+The [Active Team Intelligence index](intelligence/ACTIVE.md) is the team's **single live directory** of high-value maintained knowledge. Each of the thirteen core agents has its own linked home under `intelligence/agents/`. Agents independently select useful intelligence, maintain it when material facts change, and update only their own index row and concise changelog. A SITREP includes checking the agent's own knowledge and relevant peer entries; **no material change means no file edit**. Link canonical trackers and documentation rather than duplicating them. Archive stale history, never the active index. No mandatory cadence or quota.
 
 ## Three-tier personal role memory
 

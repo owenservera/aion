@@ -40,7 +40,7 @@ Use a short handoff **only when a task crosses agents/sessions or work is left u
 
 ## AION core team
 
-The core comprises **twelve** established agents: nine role workspaces under `workspace/aion/sessions/roles/` and three existing workers — Development (`ops/chrome-relay/workers/development/`), Integration Manager (`ops/chrome-relay/harvest/external/workers/integration-manager/`), and Harvest/Acceleration (`ops/chrome-relay/harvest/external/workers/nine-repo/`), all under `workspace/aion/`. These are peers with the same SITREP, self-bootstrap and communications rights. Use their existing folders; do not make duplicates. See [Core-team Relaunch Invitation](workspace/aion/shared/agent-communications/NINE-ROLE-RELAUNCH.md).
+The core comprises **thirteen** established agents: ten role workspaces under `workspace/aion/sessions/roles/` and three existing workers — Development (`ops/chrome-relay/workers/development/`), Integration Manager (`ops/chrome-relay/harvest/external/workers/integration-manager/`), and Harvest/Acceleration (`ops/chrome-relay/harvest/external/workers/nine-repo/`), all under `workspace/aion/`. These are peers with the same SITREP, self-bootstrap and communications rights. Use their existing folders; do not make duplicates. See [Core-team Relaunch Invitation](workspace/aion/shared/agent-communications/NINE-ROLE-RELAUNCH.md).
 
 ## SITREP and agent commons
 
@@ -56,7 +56,7 @@ Every core agent has `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/`
 
 ## Skills ownership and harness readiness
 
-All **twelve core agents** maintain `skills/` in their existing workspaces. At first bootstrap and each relevant SITREP, identify valuable recurring procedures and missing skills, review useful existing peer skills, and improve only what reduces repeated guidance, mistakes or manual work. The [native AION Master Skills Builder](.opencode/skills/aion-skill-builder/SKILL.md) provides OpenCode V2-friendly SKILL.md packages, an audit/new/validate CLI and harness references. The repo-root [opencode.jsonc](opencode.jsonc) declares all twelve source folders **for OpenCode V2 when running from the repo root**. ZCode requires its own verified enable/import workflow; never claim a skill has been installed, invoked or given local permissions merely because GitHub contains files. Toolsmith stewards the builder; all roles own their skills. No mandatory count, bureaucracy or recurring refresh writes.
+All **thirteen core agents** maintain `skills/` in their existing workspaces. At first bootstrap and each relevant SITREP, identify valuable recurring procedures and missing skills, review useful existing peer skills, and improve only what reduces repeated guidance, mistakes or manual work. The [native AION Master Skills Builder](.opencode/skills/aion-skill-builder/SKILL.md) provides OpenCode V2-friendly SKILL.md packages, an audit/new/validate CLI and harness references. The repo-root [opencode.jsonc](opencode.jsonc) declares all thirteen source folders **for OpenCode V2 when running from the repo root**. ZCode requires its own verified enable/import workflow; never claim a skill has been installed, invoked or given local permissions merely because GitHub contains files. Toolsmith stewards the builder; all roles own their skills. No mandatory count, bureaucracy or recurring refresh writes.
 
 ## Agent memory: thin global + role-owned (always consult)
 

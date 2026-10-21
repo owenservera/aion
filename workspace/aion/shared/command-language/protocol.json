@@ -114,7 +114,9 @@
     "resolution": "Resolve alias against current repository role workspaces; do not assume existence or execution authority",
     "examples": {
       "dashboard": "01-dashboard-tracking",
-      "chief": "05-chief-of-chiefs"
+      "chief": "05-chief-of-chiefs",
+      "semantic": "13-semantic-engine",
+      "semantics": "13-semantic-engine"
     }
   },
   "operations": {

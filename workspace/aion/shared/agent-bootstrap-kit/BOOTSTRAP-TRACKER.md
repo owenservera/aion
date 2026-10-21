@@ -2,15 +2,15 @@
 
 **Agents are columns; stages are rows.** Self-reported status only; `—` means unknown. Read on BOOTSTRAP and SITREP.
 
-| Stage / revision | Dashboard | Planning | Chief of Staff | OpenCode Efficiency | Chief of Chiefs | Toolsmith | Proposal Intake | ZAI Strategy | Research | Development | Integration | Harvest / Accel. |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 00 Scaffold review v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | — |
-| 01 SITREP + self-bootstrap v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | — |
-| 02 Shared intelligence v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | — |
-| 03 Three-tier memory v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | — |
-| 04 Skills first pass v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | — |
-| Last bootstrap UTC / receipt | 2026-10-21T13:31Z (https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/01-dashboard-tracking/SITREP.md) | — | — | — | — | — | — | — | — | — | — | — |
-| Next outstanding stage | None in v1; live Vercel config and #16/#17 proof gates remain open | — | — | — | — | — | — | — | — | — | — | — |
+| Stage / revision | Dashboard | Planning | Chief of Staff | OpenCode Efficiency | Chief of Chiefs | Toolsmith | Proposal Intake | ZAI Strategy | Research | Development | Integration | Harvest / Accel.  Semantics |
+|---|---|---|---|---|---|---|---|---|---|---|---|------|
+| 00 Scaffold review v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | —  DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/13-semantic-engine) |
+| 01 SITREP + self-bootstrap v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | —  DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/13-semantic-engine) |
+| 02 Shared intelligence v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | —  DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/13-semantic-engine) |
+| 03 Three-tier memory v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | —  DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/13-semantic-engine) |
+| 04 Skills first pass v1 | DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/01-dashboard-tracking) | — | — | — | — | — | — | — | — | — | — | —  DONE v1 2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/13-semantic-engine); source check only, runtime pending |
+| Last bootstrap UTC / receipt | 2026-10-21T13:31Z (https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/01-dashboard-tracking/SITREP.md) | — | — | — | — | — | — | — | — | — | — | —  2026-10-21 (https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/13-semantic-engine) |
+| Next outstanding stage | None in v1; live Vercel config and #16/#17 proof gates remain open | — | — | — | — | — | — | — | — | — | — | —  Offline semantic corpus and verified Windows OpenCode/ZCode harness invocation |
 
 ## Status rules
 
@@ -18,4 +18,7 @@ Use `DONE v1 YYYY-MM-DD (receipt link)`, `WIP YYYY-MM-DD`, or `BLOCKED YYYY-MM-D
 
 ## Protocol changelog
 
-- 2026-10-21: Initialized v1 matrix with twelve agents and scaffold plus four bootstrap stages; no completions assumed.
+- 2026-10-21: Added Semantics as role 13 after explicit owner `@SEMANTICS +/SITREP` bootstrap; stages evaluated at GitHub source level only; local harness and corpus tests outstanding.
+
+
+- 2026-10-21: Initialized v1 matrix with twelve agents (expanded to thirteen 2026-10-21) and scaffold plus four bootstrap stages; no completions assumed.

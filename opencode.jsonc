@@ -12,6 +12,7 @@
     "./workspace/aion/sessions/roles/09-global-research/skills",
     "./workspace/aion/ops/chrome-relay/workers/development/skills",
     "./workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/skills",
-    "./workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/skills"
+    "./workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/skills",
+    "./workspace/aion/sessions/roles/13-semantic-engine/skills"
   ]
 }

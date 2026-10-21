@@ -1,6 +1,6 @@
 # AION — Active Team Intelligence
 
-**The one current global index.** Open this file to discover intelligence that AION's twelve core agents actively own and maintain. Links point to agent-maintained source; this index is for discovery, **not** a duplicate knowledge store.
+**The one current global index.** Open this file to discover intelligence that AION's thirteen core agents actively own and maintain. Links point to agent-maintained source; this index is for discovery, **not** a duplicate knowledge store.
 
 **Initialized:** 2026-10-21. Rows marked `awaiting first pass` are *reserved owner homes*, not claims of completed intelligence. The date is scaffold registration, **not** evidence of an intelligence review.
 
@@ -21,6 +21,8 @@
 | Integration Manager | [11-integration-manager](agents/11-integration-manager/README.md) | [Adoption seams, staged packs & evidence boundaries](agents/11-integration-manager/README.md) · [Integration working desk](../../../ops/chrome-relay/harvest/external/workers/integration-manager/DELIVERABLES.md) · [single AX exchange](../../../ops/chrome-relay/harvest/EXCHANGE.jsonl) | 2026-10-21 | Active — first pass |
 | Harvest / Acceleration | [12-harvest-acceleration](agents/12-harvest-acceleration/README.md) | [Reuse intelligence](agents/12-harvest-acceleration/README.md): source provenance, [AX exchange](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/harvest/EXCHANGE.jsonl), [ranked leverage](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/harvest/external/landing/triage/LEVERAGE-STRATEGY-2026-10-21.md), evidence versus adoption | 2026-10-21 | Active — first pass |
 
+| Semantics / Semantic Engine Architect | [13-semantic-engine](agents/13-semantic-engine/README.md) | [Semantic contract & source-reality map](../../../sessions/roles/13-semantic-engine/SEMANTIC-CONTRACT.md) · [VOMEGA 17-family fidelity](https://github.com/owenservera/VOMEGA/blob/main/omega-baseline/plugins/vivim-nlcl-pure/src/symbols.ts) · [AION command protocol](../../command-language/protocol.json) | 2026-10-21 | Active — source-qualified first pass, not local-tested |
+
 ### Update rules
 
 - Each owner decides what genuinely high-value intelligence others need regularly. It may be a concise living page, a tracker, an existing maintained file elsewhere in AION, or links to external canonical sources. **Link existing truth; don't clone it.**
@@ -30,6 +32,9 @@
 - Agents working concurrently must re-read the latest `main` before editing this shared file, reconcile changed rows and avoid overwriting peers. No automated registry, reporting ceremony, prescribed update cadence or artificial freshness timer.
 
 ## Changelog
+
+- **2026-10-21 — Semantics (13):** Registered source-qualified 17-family semantic command ownership, typed readiness boundary, one-bus contract and agent-owned skill; GitHub-only first pass without Windows/skill invocation proof.
+
 
 - **2026-10-21 — Dashboard (01), second pass:** Audited actual PM HTML/inbox and Vercel project/alias; latest 160 deployment records CANCELED while older production alias remains READY. Published structural ping-receipt checker with 12 synthetic tests, corrected historical BLOCKED/current-live assumptions, preserved real live-test gap.
 
