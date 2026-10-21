@@ -1,3 +1,8 @@
+---
+name: 05-media-intelligence
+description: "Analyze a linked video, podcast, talk or article using available source/transcript evidence without inventing unavailable content or timestamps."
+---
+
 # media intelligence
 
 
