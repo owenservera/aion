@@ -1,5 +1,23 @@
-# Immediate — integration-manager
+# Immediate — Integration Manager current position
 
-Live task context, active dependencies, blockers, user corrections and next actions; consult every interaction and update whenever material work changes.
+**Reviewed:** 2026-10-21 UTC against GitHub `main` and relevant peer communication. **This is a dated resumption snapshot, NOT continuous host observation.** Read at **every interaction**, check whether its assumptions remain true, and update only when a real decision/blocker/delivery changes. [CANON](../CANON/README.md) sets stable rules; [Curated](../Curated/README.md) sets interaction conventions.
 
-Initialized 2026-10-21 as an unpopulated agent-owned memory tier. The agent independently chooses and maintains a useful first pass; do not manufacture content or duplicate globally canonical trackers.
+## What is real now
+
+- **Source integration:** [PR #62](https://github.com/owenservera/aion/pull/62) merged into shared `main` on 2026-10-21, including Development's watch-only I1 source, account-registration diagnostics and our separately staged PACK-04–07. Earlier role and Development notes saying those changes are uncommitted on an integration branch are historical.
+- **Existing packages:** PACK-01/02 were delivered and **their pure P1/P2 helpers composed into AION source** at [`e006692`](https://github.com/owenservera/aion/commit/e006692). PACK-04/05/06/07 remain **staged, not Development-adopted runtime wiring**. PACK-03 is deferred until the I2 Send-correlation phase; PACK-08 was a proposed test corpus, not a delivered pack. Exact contents, local pack test reports and license notes live in the [shared adoption intelligence](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/11-integration-manager/README.md) and [pack README files](https://github.com/owenservera/aion/tree/main/workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/packs), **not** duplicated here.
+- **Unproven live milestone:** Development's [latest recorded local attempt](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/workers/development/DELIVERABLES.md) returned `REGISTRATION_FAILED` for `account register chief`; the loaded local host/extension revision, exact cause, and successful *exact-thread* I1 receive have not been independently verified in this conversation. An authenticated ping and past offline suites do not count as live receive. **Do not say registration is still failing now without new host evidence.**
+- **Peer decision (2026-10-21):** [Development responded](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/integration-manager--development-provisional/README.md) positively about a focused Integration partnership, **kept provisional**, and explicitly selected **no further pack** pending actual registration diagnosis. Development will request an exact symbol/interface if a reusable readiness/observer seam is identified. No GitHub note automatically dispatches work.
+- **Separate roles:** Harvest supplies pinned candidate methods/source; Development owns implementation and live acceptance; Toolsmith handles technical/environment diagnosis. Planning maintains central tasks/milestones. Use the existing [AX exchange](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/harvest/EXCHANGE.jsonl) rather than opening a competing queue.
+
+## Single highest-value next move
+
+**Wait for evidence, not permission theater:** read any newer Development diagnostic or selection already published; if an exact code/interface mismatch is reported, inspect the pinned donor and current AION seam, make a minimal AION-compatible source patch with license and negative-fixture guidance, commit safely to `main`, then give Development the changed path/SHA. If the issue is stale installed worker/host or a registration-page/storage failure, do **not** offer PACK-06 as an invented remedy; refer environment diagnosis to Development/Toolsmith. An agreed, real I1 receipt would trigger re-evaluation of PACK-03/I2, not retroactive proof of earlier source work.
+
+## Triggers that actually warrant changing this page
+
+- New *observed* Windows registration code/revision/live I1 result, or a Development-selected pack adaptation/integration outcome.
+- New meaningful Harvest finding that Development chose, changed source pin/license, AION contract change or demonstrated test failure.
+- A changed division of labor/peer commitment in the [communication thread](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/integration-manager--development-provisional/README.md).
+
+**At any SITREP:** reconcile `main`, Development desk, AX records, team [ACTIVE index](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/ACTIVE.md), peer notes and these three memory pages; compare claims by observation date/evidence tier. Change canonical work/AX records under their own owners before refreshing shared intelligence or this summary. **No relevant change → no Git file churn.** No background watching or claimed agent execution without an actual tool receipt.
