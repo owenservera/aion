@@ -18,7 +18,7 @@
 | `git fsck --full` | — | **0 issues** |
 | Tag `canonical-2026-10-19` | `55cc03a` | `aaef828` |
 
-History spans 2026-10-16 01:52 → 2026-10-21 21:09 (+02:00). Fifteen of the 23 merge commits in `main` were created by this session.
+History spans 2026-10-16 01:52 → 2026-10-21 21:09 (+02:00). Fifteen of the 23 merge commits in `main` were created by this session. `main` stood at `15ba97d` when consolidation finished; this document was committed immediately afterwards.
 
 ## 1. The directive trail
 
