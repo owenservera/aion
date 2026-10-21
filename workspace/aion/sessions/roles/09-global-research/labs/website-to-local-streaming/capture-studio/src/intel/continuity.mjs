@@ -213,8 +213,12 @@ export async function buildSiteContinuity(sessionsDir, {
       const joinable = !legacyCollision && safeJoin(e, site, origin, keyField);
       if (!joinable) stats.keylessOrUnsafeIsolated++;
       // Isolate legacy collision rows even inside a single stored session.
+      // Join on the key value itself when present: old and new EID hash formats differ,
+      // so the EID must not partition otherwise-identical keyed entities.
       const groupKey = joinable
-        ? JSON.stringify(['key', site, origin, e.type, keyField, String(e.key), e.eid])
+        ? JSON.stringify(e.key != null
+          ? ['key', site, origin, e.type, keyField, String(e.key)]
+          : ['key', site, origin, e.type, keyField, String(e.key), e.eid])
         : JSON.stringify(['session', meta.id, e.eid, occurrence]);
       let item = groups.get(groupKey);
       if (!item) {

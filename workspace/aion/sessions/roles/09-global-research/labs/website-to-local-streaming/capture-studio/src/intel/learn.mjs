@@ -79,7 +79,12 @@ export class RoleModel {
     if (!Number.isFinite(factor) || factor <= 0 || factor > 1) throw new RangeError('Decay factor must be in (0, 1]');
     for (const role of ROLES) {
       this.classCounts[role] *= factor; this.featTotals[role] *= factor;
-      for (const feature of Object.keys(this.featCounts[role])) this.featCounts[role][feature] *= factor;
+      const counts = this.featCounts[role];
+      if (!counts || typeof counts !== 'object') continue;
+      for (const feature of Object.keys(counts)) {
+        const scaled = counts[feature] * factor;
+        if (scaled < 1e-6) delete counts[feature]; else counts[feature] = scaled;
+      }
     }
     this.examples *= factor; return this;
   }
@@ -187,7 +192,7 @@ export class ScopedLearner {
     this.revision = snapshot?.revision ?? 0;
     if (!snapshot) return;
     for (const [k, v] of Object.entries(snapshot.models ?? {})) this.models[k] = new RoleModel(v);
-    for (const c of snapshot.globalLearned ?? []) this.global.train(c.features, c.role, c.weight);
+    for (const c of snapshot.globalLearned ?? []) this.global.train(c.features, c.role, c.weight ?? 1);
     this.overrides = snapshot.overrides ?? {};
     this.corrections = snapshot.corrections ?? [];
     this.proposals = snapshot.proposals ?? [];
