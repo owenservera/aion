@@ -23,3 +23,7 @@ Translate RAW; change spelling; select only convenient paragraphs; make up sourc
 
 ## Acceptance
 Original in Git with confirmed path, commit, SHA-256 and fidelity state; otherwise source capture explicitly BLOCKED/PARTIAL.
+
+## Machine-assisted readback
+
+Once the candidate `RAW.md`, `META.json` and derived `DECOMPOSITION.md` exist together, reuse the [read-only proposal preflight](../reconcile-recover/SKILL.md#deterministic-integrity-preflight-node-read-only) to verify the **stored** RAW bytes, UTF-8 byte length, hash and metadata ID before advertising completeness. Its hash check does **not** establish upstream original-file fidelity or publication permission; compare to separately obtained original bytes and actual GitHub commit when available. Never create a fake derivative just to make the helper pass.
