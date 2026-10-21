@@ -145,24 +145,30 @@ export async function buildSiteContinuity(sessionsDir, {
     const model = session.kv.get('MODEL', null);
     const outcome = session.kv.get('KNOWLEDGE_STATUS', null);
     const state = outcome?.status ?? 'legacy';
+    const incomplete = (reason) => {
+      stats.sessionsIncompleteKnowledge.push({ session: meta.id, reason });
+      // Preserve the pre-existing UI's incomplete-session warning without
+      // forcing a frontend edit across the separate UI ownership boundary.
+      stats.sessionsWithoutKnowledge.push(meta.id);
+    };
     if (state === 'failed' || model?.error) {
       stats.sessionsWithDerivationError.push({ session: meta.id, stage: outcome?.stage ?? model?.stage ?? null });
       continue;
     }
     if (outcome && state !== 'complete') {
-      stats.sessionsIncompleteKnowledge.push({ session: meta.id, reason: 'derivation-' + String(state) });
+      incomplete('derivation-' + String(state));
       continue;
     }
     if (!model) {
-      (outcome ? stats.sessionsIncompleteKnowledge : stats.sessionsWithoutKnowledge)
-        .push(outcome ? { session: meta.id, reason: 'missing-model' } : meta.id);
+      if (outcome) incomplete('missing-model');
+      else stats.sessionsWithoutKnowledge.push(meta.id);
       continue;
     }
     const dataset = session.dataset('entities');
     const present = existsSync(dataset.file);
     if (!present && !(state === 'complete' && outcome.entityCount === 0)) {
-      (outcome ? stats.sessionsIncompleteKnowledge : stats.sessionsWithoutKnowledge)
-        .push(outcome ? { session: meta.id, reason: 'missing-entities-dataset' } : meta.id);
+      if (outcome) incomplete('missing-entities-dataset');
+      else stats.sessionsWithoutKnowledge.push(meta.id);
       continue;
     }
     // Stage a session before adding it to the joined knowledge view. A torn or
@@ -174,13 +180,13 @@ export async function buildSiteContinuity(sessionsDir, {
         sessionEntities.push(entity);
       }
     } catch {
-      stats.sessionsIncompleteKnowledge.push({ session: meta.id, reason: 'unreadable-entities-dataset' });
+      incomplete('unreadable-entities-dataset');
       continue;
     }
     if (state === 'complete' &&
         (!Number.isSafeInteger(outcome.entityCount) || outcome.entityCount < 0
           || outcome.entityCount !== sessionEntities.length)) {
-      stats.sessionsIncompleteKnowledge.push({ session: meta.id, reason: 'entity-count-mismatch' });
+      incomplete('entity-count-mismatch');
       continue;
     }
     if (!outcome) stats.sessionsLegacyUnverified.push(meta.id);
@@ -217,7 +223,8 @@ export async function buildSiteContinuity(sessionsDir, {
           scope: e.scope ?? null, origin: joinable ? origin : null,
           key: e.key ?? null, keyField: joinable ? keyField : null,
           fieldNames: new Set(), identityBasis: joinable ? 'exact-site-type-key'
-            : legacyCollision ? 'session-local-legacy-collision' : 'session-local',
+            : legacyCollision ? 'session-local-legacy-collision'
+              : e.method === 'provisional' ? 'provisional-missing-key' : 'session-local',
           confidence: e.confidence ?? null, sessionIds: [], observationCount: 0, history: [],
         };
         groups.set(groupKey, item);
@@ -247,7 +254,8 @@ export async function buildSiteContinuity(sessionsDir, {
       scope: item.scope, origin: item.origin, key: item.key, keyField: item.keyField,
       identityBasis: item.identityBasis,
       confidence: visibleSessionIds.length > 1 ? null : item.confidence,
-      confidenceBasis: visibleSessionIds.length > 1 ? 'cross-session confidence not calibrated' : 'single-session resolver estimate',
+      confidenceBasis: visibleSessionIds.length > 1 ? 'cross-session confidence not calibrated'
+        : item.identityBasis === 'provisional-missing-key' ? 'missing inferred identity key; unscored' : 'single-session resolver estimate',
       sessions: visibleSessionIds, sessionCount: visibleSessionIds.length,
       observations: requestedAt === null ? item.observationCount : null, revisions: revisions.length,
       timedRevisions: times.length, untimedRevisions: revisions.length - times.length,
