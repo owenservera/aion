@@ -11,7 +11,13 @@ export const hasChrome = !!CHROME && existsSync(CHROME);
 export async function launchHeadless(url, port) {
   const prof = mkdtempSync(path.join(os.tmpdir(), 'cs-chrome-'));
   const child = spawn(CHROME, ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1', `--user-data-dir=${prof}`, '--no-first-run', url], { stdio: 'ignore' });
-  for (let i = 0; i < 80 && !(await isReachable({ port })); i++) await new Promise((r) => setTimeout(r, 100));
+  let exited = null;
+  child.on('exit', (code) => { exited = code; });
+  for (let i = 0; i < 150 && !(await isReachable({ port })); i++) {
+    if (exited !== null) throw new Error(`Chromium exited early (code ${exited}) on port ${port}`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!(await isReachable({ port }))) throw new Error(`Chromium did not expose DevTools on 127.0.0.1:${port} within 15 s`);
   return { child, kill: () => { try { child.kill('SIGKILL'); } catch { /* */ } } };
 }
 

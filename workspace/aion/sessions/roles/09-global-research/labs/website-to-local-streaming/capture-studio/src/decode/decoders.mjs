@@ -49,8 +49,9 @@ export class SseDecoder {
     if (c.retry !== undefined) ev.retry = c.retry;
     if (c.comments.length) ev.comments = c.comments;
     if (Object.keys(c.unknown).length) ev.unknownFields = c.unknown;
-    const j = tryJson(data);
-    if (j !== undefined) ev.json = j;
+    const env = sniffEnvelope(data);
+    if (env?.json !== undefined) ev.json = env.json;
+    if (env?.envelope && !env.headerOnly) ev.envelope = env.envelope;
     if (data.trim() === '[DONE]') ev.terminal = true;
     if (!c.data.length && !c.event && c.comments.length) ev.type = 'sse.comment';
     return ev;
@@ -91,8 +92,9 @@ export class NdjsonDecoder {
     const text = line.toString('utf8');
     if (!text.trim()) return null;
     const ev = { type: 'ndjson', text, span: [start, end], index: this.count++ };
-    const j = tryJson(text);
-    if (j !== undefined) ev.json = j; else ev.unparsed = true;
+    const env = sniffEnvelope(text);
+    if (env?.json !== undefined) ev.json = env.json; else ev.unparsed = true;
+    if (env?.envelope) ev.envelope = env.envelope;
     if (incomplete) ev.incomplete = true;
     return ev;
   }
@@ -151,16 +153,38 @@ export function sniff(mime, firstBytes) {
   return declared === 'unknown' ? 'text' : declared;
 }
 
-// WebSocket frame payload decoding. Recognises Socket.IO/Engine.IO-style numeric prefixes.
+// Envelope sniffing for unknown text formats: header tokens followed by a JSON payload
+// (e.g. "EVT|order.updated|{...}", "42[\"msg\",{...}]", "MSG 12 {...}", "topic\t{...}"),
+// or header-only frames (heartbeats). Returns null when nothing structured is found.
+export function sniffEnvelope(text) {
+  if (typeof text !== 'string' || !text) return null;
+  const j0 = tryJson(text);
+  if (j0 !== undefined) return { json: j0 };
+  const i = text.search(/[[{]/);
+  if (i > 0 && i < 200) {
+    const json = tryJson(text.slice(i));
+    if (json !== undefined) {
+      const head = text.slice(0, i);
+      const delim = (/[|\t;]/.exec(head) ?? /[: ]/.exec(head) ?? [''])[0];
+      const headers = head.split(/[|\t;: ]+/).filter(Boolean);
+      return { json, envelope: { headers, delimiter: delim, raw: head } };
+    }
+  }
+  if (text.length < 200 && (/^[A-Za-z0-9_.\-]+([|\t;][A-Za-z0-9_.\-]+)+$/.test(text) || /^[A-Z][A-Z0-9_]{1,15}[: ][A-Za-z0-9_.\-]+$/.test(text))) {
+    const delim = /[|\t;: ]/.exec(text)[0];
+    return { envelope: { headers: text.split(/[|\t;: ]/), delimiter: delim, raw: text }, headerOnly: true };
+  }
+  return null;
+}
+
+// WebSocket frame payload decoding (JSON, Socket.IO-style prefixes, generic envelopes).
 export function decodeWsPayload({ opcode, payload }) {
   if (opcode === 2) return { type: 'ws.binary', size: Buffer.from(payload ?? '', 'base64').length };
   const text = payload ?? '';
   const ev = { type: 'ws.text', text };
-  let j = tryJson(text);
-  if (j === undefined) {
-    const m = /^(\d+)([[{].*)$/s.exec(text);
-    if (m) { j = tryJson(m[2]); if (j !== undefined) ev.prefix = m[1]; }
-  }
-  if (j !== undefined) ev.json = j;
+  const env = sniffEnvelope(text);
+  if (env?.json !== undefined) ev.json = env.json;
+  if (env?.envelope) { ev.envelope = env.envelope; if (/^\d+$/.test(env.envelope.headers[0] ?? '') && env.envelope.headers.length === 1) ev.prefix = env.envelope.headers[0]; }
+  if (env?.headerOnly) ev.headerOnly = true;
   return ev;
 }
