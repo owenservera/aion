@@ -14,4 +14,6 @@ OpenCode V2 permissions are ordered 'permissions' rules with action 'skill' and 
 
 The existing older runbooks in roles 06–09 must be **audited and upgraded in place selectively**. Some have no YAML description and may not be advertised; this is not a reason to rewrite their useful content or claim installation.
 
+ZCode's official [Skill documentation](https://zcode.z.ai/en/docs/skill) defines `~/.zcode/skills/<name>/SKILL.md` and workspace `.zcode/skills/<name>/SKILL.md`, with a Settings → Skills panel to enable/import external skills (copy or symlink) and a `$skill-name` chat invocation. The [ZCode FAQ](https://zcode.z.ai/en/docs/qa) covers refreshing and visibility. The AION role-specific directories are not automatically in that native path: verify installed ZCode behavior and use its import flow or a tested adapter before claiming availability. Do not silently create duplicate copies in the repo.
+
 For ZCode, OpenCode V1, Claude Code or other harnesses, inspect actual installed version, agent-skill discovery locations, permission model, and bridge. Reuse SKILL.md when compatible, add a thin adapter/config only when needed, and run a small host-specific load/read/test receipt. **No automatic deployment to Windows or other harnesses has occurred merely because a Git commit exists.**

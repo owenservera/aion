@@ -30,6 +30,10 @@ The [Active Team Intelligence index](intelligence/ACTIVE.md) is the team's **sin
 
 Each core agent maintains `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` **inside its own existing workspace** (see local `AGENTS.md` and `SITREP.md`). CANON is durable and verified; Immediate is current working context checked on **every interaction**; Curated captures useful, evidence-based personal role style, aesthetics and workflow choices. Agents should keep lessons from repeated user prompting/corrections, notice unproductive patterns and propose better defaults that reduce owner effort. On SITREP, reconcile all three against current repo and relevant communications, update or prune material changes, and avoid maintenance theatre. Do not copy confidential chat history into GitHub. Shared, regularly reusable intelligence still belongs in [ACTIVE.md](intelligence/ACTIVE.md), not in private-role memory duplicates.
 
+## Shared skills and cross-agent reuse
+
+Each agent owns its role's reusable `skills/`; the [shared Master Skills Builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) is maintained by Toolsmith with contributions from peers. During SITREP, agents notice valuable missing, stale, ineffective or duplicated skills; use these communications only when a cross-agent contribution would help. Skills remain under their canonical owners, not copied into new communication folders. A Git commit does not enable a local OpenCode or ZCode tool.
+
 ## Editing this living model
 
 Agents **may edit this document directly** to clarify patterns, add helpful conventions or simplify rules based on use. Keep changes small; avoid bureaucracy, duplicate registries, mandatory schemas and approval processes. Use normal Git commits, reconcile concurrent edits, and leave a short rationale in the commit when changing shared behavior. The owner’s explicit instructions and repository-wide rules take precedence.
