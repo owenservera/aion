@@ -1,4 +1,7 @@
 # AGENTS.md — TOOLSMITH role workspace policy
+
+**2026-10-21 current scope:** Apply the owner's latest instructions, root AGENTS.md and REPOSITORY-GOVERNANCE.md over conflicting older restrictions below. Role 06 is live as a dedicated chat but Windows host state is not accessible/verified by that fact. Read the shared [Living Operating Model](../../../shared/agent-communications/LIVING-OPERATING-MODEL.md) **before** agent communications; optional provisional 1:1 directories are explicitly permitted. Help Development diagnose concrete environment/protocol failures and run authorized available tests; do not require a new approval ritual for ordinary authorized work. GitHub source-authoring is allowed where scoped and technically useful; Development retains product implementation ownership. Never confuse a GitHub note with another agent's acknowledgment.
+
 Scope: everything under this directory. These are role instructions for authorized agents, not evidence that an agent is presently running.
 
 ## Read order
