@@ -1,5 +1,26 @@
 # Chief of Chiefs — Executive SITREP
 
+## CURRENT EXECUTIVE SITREP — 2026-10-21 (remote GitHub readback)
+
+**Baseline checked:** `main` at `a78c4c1bf3a4fc65c8a8d59ffd96224b769ff6bd` (GitHub). This is not a Windows checkout, extension reload or live test receipt.
+
+**Material delta:** Owner's build is now Windows-local, one main-only Development workstream. Grok/BFF and the speculative Agent Fabric/Z.ai paths are parked. Planning owns NS1–NS4, central AION TASKS and AGENT-MATRIX; CoS owns real dispatch. Nine roles now include 09 global Research. The existing 30-item role-05 queue below is an October 16 artifact, *not* an active requirement or a reason to fabricate work.
+
+**Product truth:** [PR #62](https://github.com/owenservera/aion/pull/62) merged watch-only receive, registration/IPC/security and staged Harvest code. It expressly reports **no** live registered exact-thread I1, I2 Send, I3 recovery, or updated Windows `main` acceptance. [Planning TASKS](../02-long-term-planning-alignment/TASKS.md) records `REGISTRATION_FAILED` as the observed P0 defect; only a current Windows receipt can reclassify it. October 19 native UIA send+readback is a partial real-world result, but extension Send failed and `m1_verified=false`. `STATE.json` was last updated October 19 and contains historical eight-role/frozen-source wording; do not mistake that as 2026-10-21 source status or silently overwrite runtime assertions without proof.
+
+**Chief's narrow operating scope:** (1) executive alignment and nonduplication across role changes, (2) resolve only actual strategic conflicts/blocked ownership, (3) independently evaluate disputed milestone acceptance when evidence arrives, (4) translate verified risk into one clear owner-facing recommendation. Do **not** own the Planning roll-up, CoS routing or Development code/Harvest queue.
+
+**Pending high-value action:** Ask CoS, through voluntary asynchronous collaboration and/or real owner-directed dispatch, to obtain an actual current Windows registration/local-sync/I1 evidence readback; avoid marking the note as received or work started. Planning continues owning the task ranking. No test or local-machine action was performed here.
+
+**Agent-model clarification for historical October 18 request:** an agent has a canonical numbered role workspace, scope, current instructions, and separately evidenced work/acknowledgment; `GitHub write != activation`. The owner controls authorization; assigned executors perform effects under current permissions; actual results require observed receipts; uncertain effects are reconciled, never blindly replayed. No speculative universal model contract, 30-item quota, or serial ceremony blocks ordinary approved product development.
+
+**Comms readback:** [Living Operating Model](../../../shared/agent-communications/LIVING-OPERATING-MODEL.md) and [nine-role relaunch](../../../shared/agent-communications/NINE-ROLE-RELAUNCH.md) read on this launch. First-contact marker `AION-COMMS-FIRST-CONTACT-20261021` discovered by repository read, not pushed into chat. Provisional Chief↔CoS proposal is explicitly pending peer consent.
+
+---
+
+## Historical SITREP (retained below as dated evidence, not an active instruction set)
+
+
 **Designation:** 2026-10-16, directly by Owen.
 **Reported session status:** Owen states all four standing roles were launched and a fifth extra parallel Chief of Staff was supplied. We have not yet retrieved actual chat URLs or independent runtime acknowledgment for each.
 **My role:** Chief of Chiefs. Direction, prioritization, delegation, cross-role integration, escalation and acceptance.
