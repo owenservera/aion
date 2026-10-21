@@ -1,12 +1,16 @@
 # Research Lab — Website → Local PC Streaming
 
-**Owner:** AION Global Research 09 · **First pass:** 2026-10-21 · **Priority website:** `https://chatgpt.com/` · **State:** RESEARCH_LAB_ESTABLISHED / SOURCE_INSPECTED / LIVE_WINDOWS_UNVERIFIED.
+**Owner:** AION Global Research 09 · **First pass:** 2026-10-21 · **Priority website:** `https://chatgpt.com/` · **State:** RAW_STREAM_METHODS_RESEARCHED / LIVE_WINDOWS_UNVERIFIED.
+
+## Updated priority: raw browser-received stream
+
+**2026-10-21 owner direction:** start with **full, non-truncated, real-time capture of browser-received application response data**, including protocol frames and unknown event envelopes; treat DOM-rendered text as a comparison/backup layer. **[Read the ranked full-raw capture options](RAW-STREAMING-OPTIONS.md)** before selecting or implementing any local collector. CDP Network stream capture is the leading research experiment, not a verified ChatGPT implementation; current site's per-response transport must be observed. “Unbounded” means no arbitrary information truncation, **not** infinite memory/disk or guaranteed server-only contents.
 
 ## Question this lab exists to answer
 
 **How can a person observe an existing signed-in website session on their own Windows PC as a timely, correctly scoped, recoverable local stream?** First prove this for **the same chatgpt.com web conversation** that the person sees in Chrome; only then study reuse across other websites. A live UI update is not by itself proof of reliable delivery, full chat history or permission to Send.
 
-This is **Role 09 research and test methodology**, not a second AION product, service, implementation branch, task tracker, proposal commons or Chrome extension. **Development/Windows** owns real integration and acceptance, **Toolsmith** owns relevant host/registration diagnostics, and **Planning** owns milestone prioritization. Findings enter [one Research issue #30](https://github.com/owenservera/aion/issues/30), and concrete Development needs use the existing [Harvest/Research exchange](../../../../ops/chrome-relay/harvest/EXCHANGE.md) or native issue; no fresh dispatch authority is created here.
+This is **Role 09 research and test methodology**, not a second AION product, service, implementation branch, task tracker, proposal commons or Chrome extension. **Development/Windows** owns real integration and acceptance, **Toolsmith** owns relevant host/registration diagnostics, and **Planning** owns milestone prioritization. Findings enter [one Research issue #30](https://github.com/owenservera/aion/issues/30), and concrete Development needs use the existing [Harvest/Research exchange](../../../../../ops/chrome-relay/harvest/EXCHANGE.md) or native issue; no fresh dispatch authority is created here.
 
 ## Current AION baseline (verified source, NOT current installed behavior)
 
@@ -28,13 +32,13 @@ signed-in chatgpt.com, exact bound tab and conversation
 
 ## Lab artifacts
 
-- [Methods and evidence](METHODS.md): ranked capture/transport alternatives, official browser/platform sources, current source-file crosswalk, falsifiable limitations.
+- [Raw streaming options](RAW-STREAMING-OPTIONS.md): prioritized browser-received full-response capture methods and experimental feasibility.\n- [Methods and evidence](METHODS.md): ranked capture/transport alternatives, official browser/platform sources, current source-file crosswalk, falsifiable limitations.
 - [Field experiments](EXPERIMENTS.md): smallest Windows proof path, negative tests, useful metrics and receipts. **Planning/Development acceptance remains canonical elsewhere**; this is a research protocol to shorten it.
-- [Role memory/Immediate](../../memory/Immediate/README.md), [shared Research intelligence](../../../../shared/agent-communications/intelligence/agents/09-global-research/README.md) and [Research issue #30](https://github.com/owenservera/aion/issues/30): resumption and discovery, not duplicated status archives.
+- [Role memory/Immediate](../../memory/Immediate/README.md), [shared Research intelligence](../../../../../shared/agent-communications/intelligence/agents/09-global-research/README.md) and [Research issue #30](https://github.com/owenservera/aion/issues/30): resumption and discovery, not duplicated status archives.
 
 ## First lab question and stopping rule
 
-Can the existing **watch-only path** deliver one independently generated new assistant message from the **exact, authorized chatgpt.com conversation** to the Windows CLI, followed by an edit/revision, without wrong-thread leakage or unbounded replay?
+First, can a read-only CDP collector capture the response's **raw browser-received chunks/frames** incrementally without altering the page? In parallel, can the existing **watch-only path** deliver one independently generated new assistant message from the **exact, authorized chatgpt.com conversation** to the Windows CLI, followed by an edit/revision, without wrong-thread leakage or unbounded replay?
 
 If **yes** with a dated native receipt: document observed end-to-end delay and next source deficiency; do not automatically build another tool. If **no**: distinguish account registration, loaded version mismatch, DOM observation, port/router, native host and local IPC before suggesting CDP/UIA alternatives. Never assume a local trial ran merely because the research is committed.
 
