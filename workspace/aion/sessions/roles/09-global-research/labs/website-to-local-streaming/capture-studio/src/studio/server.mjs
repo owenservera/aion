@@ -148,6 +148,23 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         for await (const ev of s.dataset('events').iterate()) { if (ev.sid === d) out.push(previewEvent(ev)); if (out.length >= Number(q.limit ?? 2000)) break; }
         return send(res, 200, out);
       }
+      if (c === 'revision' && d) {
+        // Assembled document of one stream at revision n (intermediate vs final states).
+        const { DeltaAssembler } = await import('../decode/delta.mjs');
+        const prof = profileStore.load(s.meta.profile.name);
+        const asm = new DeltaAssembler(prof.decode?.delta ?? 'auto');
+        const n = Number(q.n ?? Infinity);
+        let total = 0, lastSeq = null, lastT = null;
+        for await (const ev of s.dataset('events').iterate()) {
+          if (ev.sid !== d || ev.json === undefined) continue;
+          if (asm.revisions >= n) { if (asm.apply(structuredClone(ev.json))) total = asm.revisions; continue; }
+          asm.apply(ev.json); total = asm.revisions; lastSeq = ev.seq; lastT = ev.t;
+        }
+        const at = new DeltaAssembler(prof.decode?.delta ?? 'auto');
+        let cnt = 0, seqAt = null, tAt = null;
+        for await (const ev of s.dataset('events').iterate()) { if (ev.sid !== d || ev.json === undefined) continue; if (cnt >= n) break; if (at.apply(ev.json)) { cnt = at.revisions; seqAt = ev.seq; tAt = ev.t; } }
+        return send(res, 200, { revision: cnt, total, seq: seqAt, t: tAt, doc: at.doc, texts: at.texts(1).slice(0, 5) });
+      }
       if (c === 'at') return send(res, 200, await stateAt(s, Number(q.t), profileStore.load(s.meta.profile.name)));
       if (c === 'export') {
         const dir = mkdtempSync(path.join(os.tmpdir(), 'studio-export-'));
@@ -213,6 +230,11 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (c === 'save') return send(res, 200, profileStore.save(b, body.profile, body.note ?? 'edited in studio'));
       if (c === 'clone') { const src = profileStore.load(body.from ?? 'generic'); return send(res, 200, profileStore.save(b, { ...src, name: b, match: { hosts: body.hosts ?? src.match.hosts }, description: body.description ?? `Site profile created from ${src.name}` }, `created from ${src.name}@v${src.version}`)); }
       if (c === 'diff') return send(res, 200, profileDiff(profileStore.load(b, Number(q.a)), profileStore.load(b, Number(q.b))));
+      if (c === 'model-draft') {
+        // Apply one operation to an unsaved draft; nothing is written until "save".
+        const { profile, note } = applyModelOp(normalizeProfile(body.draft ?? profileStore.load(b)), body.op);
+        return send(res, 200, { profile, note });
+      }
       if (c === 'model') {
         const { profile, note } = applyModelOp(profileStore.load(b), body);
         const saved = profileStore.save(b, profile, note);

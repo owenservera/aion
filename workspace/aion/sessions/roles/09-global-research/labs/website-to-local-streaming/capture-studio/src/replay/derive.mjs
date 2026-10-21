@@ -58,6 +58,7 @@ export async function derive(session, profile, { onProgress, families } = {}) {
   session.kv.set('ASSEMBLED', assembled);
   session.kv.set('DOM_BLOCKS', [...reducer.dom.blocks.values()]);
   const receipt = buildReceipt(session, reducer, summary);
+  receipt.fidelity_breakdown = fidelityBreakdown(reducer, summary, n);
   receipt.quality = Object.fromEntries(Object.entries(report.quality).filter(([k]) => k !== 'assumptions').map(([k, v]) => [k, v.score]));
   receipt.family = report.families[0] ? { best: report.families[0].family, score: report.families[0].score, linked: profile?.family ?? null } : null;
   session.kv.set('RECEIPT', receipt);
@@ -163,4 +164,20 @@ export async function search(sessions, query, { limit = 100 } = {}) {
     }
   }
   return hits;
+}
+
+// The five categories the owner must be able to tell apart. Counts only; no content.
+export function fidelityBreakdown(reducer, summary, rawRecords) {
+  const streams = summary.streams;
+  const redactedStreams = streams.filter((s) => s.redactions > 0);
+  const protectedBy = {};
+  for (const s of streams) if (s.bodyExcluded) protectedBy[s.bodyExcluded] = (protectedBy[s.bodyExcluded] ?? 0) + 1;
+  const pausedNot = (reducer.paused ?? []).reduce((a, p) => a + Object.values(p.notCaptured ?? {}).reduce((x, y) => x + y, 0), 0);
+  return {
+    original: { streams_with_body: streams.filter((s) => s.bytes > 0).length, bytes: streams.reduce((a, s) => a + s.bytes, 0), raw_records: rawRecords, note: 'byte-faithful as delivered by the browser, except masked spans below' },
+    transformed: { streams: redactedStreams.length, masked_spans: redactedStreams.reduce((a, s) => a + s.redactions, 0), note: 'credential-like values overwritten in place with *; offsets preserved; each mask recorded on its chunk' },
+    protected: { metadata_only_streams: Object.values(protectedBy).reduce((a, b) => a + b, 0), by_reason: protectedBy, note: 'deliberately not captured: credential policy, profile exclusions, resource types; request/response metadata kept' },
+    derived: { decoded_events: streams.reduce((a, s) => a + s.events, 0), assembled_streams: streams.filter((s) => s.deltaRevisions > 0).length, note: 'recomputable from raw at any time' },
+    lost_or_unobserved: { gap_records: reducer.gaps.length, dropped_records: reducer.gaps.reduce((a, g) => a + (g.droppedRecords ?? 0), 0), streams_incomplete_at_stop: streams.filter((s) => s.status === 'incomplete_at_stop').length, streams_interrupted: streams.filter((s) => s.interrupted).length, paused_records_not_captured: pausedNot, retrospective_only_streams: streams.filter((s) => s.retrospective).length, note: 'plus anything opened before attach, which cannot be counted' },
+  };
 }
