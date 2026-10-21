@@ -1,3 +1,8 @@
+---
+name: 07-notebooklm
+description: "Plan or verify authorized NotebookLM source synthesis and account capability without assuming consumer or enterprise API access."
+---
+
 # notebooklm
 
 
