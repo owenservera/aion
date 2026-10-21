@@ -2,6 +2,8 @@
 
 Copy the block for the phase you are running into a fresh session. Set the model and thinking level shown **before** sending. Append `USAGE=NN%` to the first line when you want the budget gates in [LAUNCH.md](LAUNCH.md) applied.
 
+Self-sufficient RECON prompt with repo-access guard: [RECON-LAUNCH.md](RECON-LAUNCH.md) (use this one).
+
 Order for Sprint 1: RECON → DECIDE → BUILD (repeat per session) → MECHANICAL → REVIEW (optional).
 
 ---
