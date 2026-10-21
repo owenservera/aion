@@ -13,9 +13,18 @@ Skills are reusable runbooks for the **same research agent**, not separately lau
 | [07 NotebookLM](../07-notebooklm/SKILL.md) | multi-source synthesis needs grounded notebook | validated capability tier, source plan, output citations |
 | [08 closure loop](../08-delivery-loop/SKILL.md) | finding ready for recipient | GitHub task/back-link, ACK/acceptance check |
 | [09 SITREP](../09-session-sitrep/SKILL.md) | every new session/scheduled task | fresh evidence-based state and next work |
+| [Research evidence checker](../research-evidence-check/SKILL.md) | when publishing research maturity or recipient/implementation claims | offline Node CLI, tested receipt/schema validator with sanitized fixture |
 
 Resolve available tools from current session. None of these skills grants new permissions or creates a new autonomous scheduler.
 
 ## Shared native skills builder
 
 Reuse and modernize these existing skills. The [AION builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) supports V2 discovery, repeatable creation and validation; review older runbooks for missing descriptions without blindly rewriting them. Maintain skills only when useful to this role or the team.
+
+
+## Local harness readiness (evidence levels)
+
+- All 10 Research skills have V2-style YAML frontmatter with a discoverable description, and [root OpenCode V2 config](https://github.com/owenservera/aion/blob/main/opencode.jsonc) includes this role's skills source from the **repo root working directory**.
+- The former root `skills/README.md` was preserved as this reference so V2 no longer mistakes a documentation README for a flat `readme` skill.
+- [Evidence checker CLI](../research-evidence-check/scripts/check-packet.mjs), [tests](../research-evidence-check/scripts/check-packet.test.mjs) and [fixture](../research-evidence-check/fixtures/example-published.json) have isolated Node 22 tests (8/8 PASS); their byte-identical GitHub blobs were checked against the tested copies. This is **offline Node execution**, not OpenCode or ZCode runtime activation.
+- OpenCode V2 must actually launch with the repo root as working directory and effective config/permissions; verify its skill catalog and explicitly load `research-evidence-check` before claiming discovery. ZCode requires an actual Skills import or workspace-native link and user enablement, followed by a real `$research-evidence-check` load/test. Do not silently modify the local machine.
