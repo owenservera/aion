@@ -1,3 +1,5 @@
+> **SITREP reconciliation — 2026-10-21:** Core has since shipped missing-key alias protection (`1990a5243`), explicit knowledge status (`dce582ee`, `f65efd8d`), and revision/graph/continuity removal handling (`9c2f6425`, `fd3ac226`, `ef9f4dc2`). These are **delivered source changes, not accepted K/A criteria**. Avoid duplicate editing in `identity.mjs`, `graph.mjs`, `continuity.mjs` while Core remains active. First collision-free specialist implementation slice: **L5 durable scoped correction lifecycle and concurrent-writer safety in `learn.mjs`**, with specialist-owned regression fixtures; propose server/CLI/derive wiring changes to Core. Do not mark a checkbox complete without a pinned execution and independent acceptance receipt.
+
 # Always-On L4 + L5 Work Queue
 
 **Goal:** 100% of [ACCEPTANCE.md](ACCEPTANCE.md) criteria in both layers with independent QA receipts. **Queue owner:** Knowledge & Learning worker; QA steers priorities. **Checkpoint:** `1990a5243`; source may have advanced.
