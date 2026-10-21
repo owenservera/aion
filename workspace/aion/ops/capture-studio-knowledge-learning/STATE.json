@@ -2,7 +2,7 @@
   "schema": "aion.capture-studio.knowledge-learning.worker.v1",
   "created": "2026-10-21",
   "baseline_sha": "1990a5243c07e125f40c76669c0b12a1f58cc437",
-  "status": "READY_FOR_SITREP_AND_BUILD",
+  "status": "SITREP_COMPLETE_BUILD_NOT_STARTED",
   "mission": "Drive L4 Knowledge & Relationships and L5 Learning & Adaptation toward criterion-based independently accepted 100%",
   "acceptance": {
     "knowledge": {
@@ -15,9 +15,34 @@
     },
     "note": "zero means no independently accepted criterion in this worker record yet, not zero existing capability"
   },
-  "next": "Refresh main and run SITREP, then first unblocked L4/L5 queue item",
+  "next": "First non-overlapping NOW task: L5 durable scoped corrections and concurrent-writer protection, with specialist tests; coordinate Core-owned API/derive changes. Recheck main and Core queue before source edits.",
   "owner": "Knowledge & Learning worker",
   "steering": "QA",
   "avoid_concurrent_core_writes": true,
-  "independent_qa_pending": true
+  "independent_qa_pending": true,
+  "sitrep": {
+    "date": "2026-10-21",
+    "source_sha": "15fd79ef1f",
+    "evidence_class": "GitHub static source, documentation, issue and commit inspection; no new product tests or Windows/browser checks",
+    "shipped_since_baseline": [
+      "Core provisional missing-key EID/graph collision mitigation",
+      "Core knowledge derivation status and explicit removed-field history",
+      "UI read-only knowledge/drift/graph/evidence workspace and search"
+    ],
+    "gaps": [
+      "Same-origin account/tenant separation not proven",
+      "No confirmed user correction -> durable scoped learning -> future rederivation improvement journey",
+      "learner.json last-write-wins across processes",
+      "No new independent criterion acceptance receipts"
+    ],
+    "module_subset_metrics": {
+      "ref": "15fd79ef1f",
+      "kind": "GitHub retrieved code subset, not canonical checkout audit",
+      "knowledge_files": 4,
+      "knowledge_physical_loc": 773,
+      "learning_files": 2,
+      "learning_physical_loc": 348
+    },
+    "build_started": false
+  }
 }
