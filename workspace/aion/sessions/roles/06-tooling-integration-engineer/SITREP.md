@@ -1,5 +1,17 @@
 # AION Role 06 — TOOLSMITH — SITREP
 
+## 2026-10-21 skills first pass — verified source, not Windows deployment
+
+**Audited:** the existing 9 Role 06 skills, shared [Master Skills Builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md), its Node validation/audit helper and V2/ZCode references, current [root OpenCode V2 sources](https://github.com/owenservera/aion/blob/main/opencode.jsonc) (twelve agent skill roots), and peer skill IDs. Reused existing **chrome-acp-relay**, **tool-discovery**, **incident-recovery** and the shared builder instead of creating a second browser, skill registry, or registration skill.
+
+**Executed here:** built a read-only [registration-triage script](skills/chrome-acp-relay/scripts/registration-triage.mjs) plus [6 Node fixture tests](skills/chrome-acp-relay/scripts/registration-triage.test.mjs); six tests passed on isolated Linux Node 22.16.0 (not the owner Windows host). The script compares candidate host/worker file **snapshots** to source hashes and classifies only fixed codes without account/network/browser side effects; it **cannot** establish which worker Chrome currently loaded or prove a live I1. Updated [Chrome skill](skills/chrome-acp-relay/SKILL.md) and [role skills index](skills/README.md) to use it on actual I1 diagnostics, replacing obsolete fixture-only six-card workflow language.
+
+**Harness status:** GitHub source READY and repo `opencode.jsonc` contains the 12 source roots; **not yet demonstrated** that actual installed Windows OpenCode V2 discovers/invokes this skill from its active working directory, or that ZCode has imported/enabled it. Existing root `skills/README.md` is a V2 flat-Markdown discovery/audit concern, not proof of successful registration. Do not copy directories or install anything on Windows merely because this file was committed. Next local proof: actual Node and source checkout, builder `audit` + `validate` and fixture test, OpenCode `skill` load, then an operator-verified native-host and worker comparison, and only then Development's independent I1 receipt.
+
+**Ongoing SITREP behavior:** compare repeated tool failures and user corrections against existing Role 06 skills, builder, memory/CANON + Immediate, peer capabilities and relevant actual host evidence; improve one existing skill when enough evidence justifies it. No mandatory skill production or no-change edits.
+
+---
+
 ## 2026-10-21 three-tier memory first pass — current continuity
 
 **Complete on GitHub:** The role's persistent context is populated at [CANON](memory/CANON/README.md), [Immediate](memory/Immediate/README.md) and [Curated](memory/Curated/README.md). Read Immediate on **every interaction**; on SITREP reconcile all tiers with current `main`, agent communications, Development's actual evidence and [Toolsmith shared intelligence](../../../shared/agent-communications/intelligence/agents/06-tooling-integration-engineer/README.md). Update only for meaningful new truth, promote enduring corrections and prune resolved immediates; no new logging cadence.
