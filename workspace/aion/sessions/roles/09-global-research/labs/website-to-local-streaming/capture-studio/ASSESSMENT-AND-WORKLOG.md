@@ -6,6 +6,8 @@
 
 **Freshness / supersession:** This file preserves valuable *historical assessments, baseline metrics, work items W1–W18 and proposed sequencing* recorded against earlier source revisions. Its phrases “next run starts with W1 → W2 → W3”, priority ordering, required Opus-run tests, scorecard-before-commit and preselected algorithms **are no longer directives for Opus**. They are reference hypotheses/acceptance needs for independent QA. Opus reads current source first, investigates broad cross-layer leverage, chooses its own implementation sequence and does not create/execute physical tests. Keep underlying dated evidence; never promote earlier measured results to claims about current `main` without independent retesting.
 
+**Sprint 01 changelog (2026-10-21, PENDING INDEPENDENT QA):** `7614d9a` C1 full-evidence corpus and event-sourced family records (`CorpusCollector`, `familyRecordsFromEvent`, kv `CORPUS_STATS`); `c4a4c54` C2 earliest-observation keyless ids, site-scoped graph keys, session-scoped `contains`, action edges always `preceded`; `8c1f5ee` C3 W7 in part: model/entities/hypotheses/graph persisted by `derive`, `studio model`, API routes; `8218e6c` C4 suggestion calibration loop. Decision and spec: `ops/capture-studio-build-sprints/DECISION.md`, `SPEC.md`.
+
 **Context cleanup scope:** Annotations supersede stale operational guidance without deleting historical rationale, scores, or source references. QA remains separately owned by ChatGPT.
 
 **Date:** 2026-10-21 · **Trigger:** Algorithmic Excellence Directive · **Baseline commit:** `fe1ebf3` · **Companion:** [ARCHITECTURE.md](ARCHITECTURE.md) (architecture and capability matrix)

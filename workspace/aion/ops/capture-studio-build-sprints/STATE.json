@@ -2,14 +2,14 @@
   "schema": "aion.capture-studio.build-sprint.v2",
   "owner": "Claude (phased: Haiku/Sonnet/Opus per PHASES.md)",
   "mode": "phased_credit_aware_build",
-  "status": "BUILD_COMPLETE",
+  "status": "MECHANICAL_COMPLETE",
   "created": "2026-10-21",
   "updated": "2026-10-21",
-  "last_observed_product_sha": "9d2fe0cd347a73e9324d1c824c7c762917e0c3e6",
+  "last_observed_product_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
   "source_of_truth": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/",
   "phase": {
-    "completed": "BUILD",
-    "next": "MECHANICAL",
+    "completed": "MECHANICAL",
+    "next": "REVIEW",
     "sequence": [
       "RECON",
       "DECIDE",
@@ -64,8 +64,8 @@
     }
   },
   "blockers": [],
-  "next_action": "Run MECHANICAL (Haiku/Sonnet Low).",
-  "handoff": "BUILD C1-C4 done. PENDING INDEPENDENT QA. Next: MECHANICAL checkpoint.",
+  "next_action": "REVIEW if USAGE < 85%, else next sprint RECON/DECIDE.",
+  "handoff": "Sprint 01 BUILD+MECHANICAL done at 8218e6c, PENDING INDEPENDENT QA. Next: optional REVIEW (Opus Medium) if usage < 85%.",
   "last_completed_build_sprint": null,
   "testing_owner": "ChatGPT (separate QA workspace)",
   "physical_tests_by_any_phase": false,
@@ -78,10 +78,11 @@
   "sprint_mission": "Trustworthy Continuity \u2014 investigate cross-layer identity, semantics, time and provenance without prescribing solutions",
   "freshness_rule": "Owner direction and current source outrank old worklog sequence, guesses and estimated progress. RECON/DECISION/SPEC are valid only for the SHA they record.",
   "handoff_next": {
-    "phase": "MECHANICAL",
-    "model": "haiku_or_sonnet",
-    "thinking": "low",
-    "prompt": "PHASES.md#MECHANICAL"
+    "phase": "REVIEW",
+    "model": "opus",
+    "thinking": "medium",
+    "prompt": "PHASES.md#REVIEW",
+    "condition": "owner usage < 85%"
   },
   "continue_prompt": "PHASES.md#CONTINUE",
   "decision_sha": "f1bab393b6d03917d42e9f84d539e7a8f302890a",
@@ -119,5 +120,27 @@
       ],
       "done": true
     }
-  ]
+  ],
+  "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
+  "sprint_commits": {
+    "C1": "7614d9a",
+    "C2": "c4a4c54",
+    "C3": "8c1f5ee",
+    "C4": "8218e6c"
+  },
+  "qa_status": "PENDING INDEPENDENT QA (no phase executed tests; only node --check parse checks)",
+  "source_coverage_gaps": [
+    "test/ and eval/ not read beyond imports",
+    "src/studio/ui/index.html read only at edited lines",
+    "eval fixtures asserting exact keyless eid strings may need updating by QA"
+  ],
+  "discoveries": [
+    "Intel engine previously reachable only from eval/test: now invoked in src/replay/derive.mjs:derive knowledge block",
+    "Reducer event cap (400) still bounds gatherEvidence, driftSuggestions and infer correlation heuristics (src/families/families.mjs:gatherEvidence, src/shapes/infer.mjs:suggest)",
+    "shapes.retention still has no consumer (src/profiles/apply.mjs retain_revisions)",
+    "learner.json is last-write-wins between CLI and studio (src/intel/learn.mjs:ScopedLearner.save)"
+  ],
+  "unfinished_problem": "Entities are per session; cross-session continuity and temporal graph v2 (validity intervals, retractions) are not started.",
+  "immediate_next_move": "Optional REVIEW of diff 9dd8e03..8218e6c; then next sprint DECIDE (candidates: cross-session entity store, graph v2, UI for model/graph).",
+  "why_good_boundary": "All SPEC chunks implemented, each commit self-contained and additive; outputs from earlier pipeline unchanged in shape."
 }
