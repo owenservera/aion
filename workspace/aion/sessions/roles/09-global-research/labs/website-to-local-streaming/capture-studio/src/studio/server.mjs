@@ -125,7 +125,11 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
     if (a === 'sessions') {
       const s = sessionOf(b);
       if (!c) return send(res, 200, { meta: s.meta, state: s.kv.get('STATE'), receipt: s.kv.get('RECEIPT'), datasets: listDatasets(s), knowledgeOutcome: s.kv.get('KNOWLEDGE_STATUS', null) });
-      if (c === 'knowledge-status') return send(res, 200, s.kv.get('KNOWLEDGE_STATUS', null) ?? { status: 'legacy-unverified', note: 'No versioned derivation outcome marker' });
+      if (c === 'knowledge-status') {
+        if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
+        return send(res, 200, s.kv.get('KNOWLEDGE_STATUS', null) ??
+          { status: 'legacy-unverified', note: 'No versioned derivation outcome marker' });
+      }
       if (c === 'derive') { replayCache.delete(s.id); const r = await derive(s, profileStore.load(body.profile ?? s.meta.profile.name), famOpt); return send(res, 200, { records: r.records, receipt: r.receipt, recordCounts: r.recordCounts, familyCounts: r.familyCounts, transportCounts: r.summary.transportCounts }); }
       if (c === 'verify') return send(res, 200, await s.verify());
       if (c === 'streams') return send(res, 200, await s.dataset('streams').toArray());
