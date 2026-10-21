@@ -14,9 +14,9 @@
 
 **Relationships:** Accept collaboration *in principle* with Toolsmith for Chrome/host/IPC diagnostics, and Integration Manager for selected package adoption; both spaces remain provisional until the peers establish their dynamic. Harvest/Research supply specific evidence; Planning supplies milestones; Chief/Operations coordinate cross-agent dispatch. Source packages are only adopted after Development integrates/tests them.
 
-## Dispatch order — show this in EVERY work update
+## Cross-agent dispatch — only when an actual handoff or dependency exists
 
-**The owner must manually send a task to each worker's dedicated chat. A GitHub TODO, commit, or link NEVER dispatches/wakes a worker.** Never describe a task as executing without an actual worker reply or artifact. Every Development SITREP/proposal must show **order, owner, assigned deliverable, dependency, actual status, and user's next dispatch action**. Always separate `SAVED_NOT_DISPATCHED` → `SENT_BY_OWNER` → `WORKER_ACKNOWLEDGED` → `WORK_IN_PROGRESS` → `DELIVERED` → `DEV_INTEGRATED_TESTED`; don't advance on assumption. Prefer short concrete tables, not new tracking systems.
+**GitHub TODOs, commits and notes do not dispatch or awaken workers.** A task sent to another agent's dedicated chat requires actual owner dispatch or a proven supported execution channel. Never claim execution, acknowledgment or completion without a worker reply/artifact. **When a real cross-agent handoff or outstanding dependency matters**, identify the owner, deliverable, prerequisite, evidence-backed status and exact next dispatch action; use `SAVED_NOT_DISPATCHED` → `SENT_BY_OWNER` → `WORKER_ACKNOWLEDGED` → `WORK_IN_PROGRESS` → `DELIVERED` → `DEV_INTEGRATED_TESTED` only when useful to prevent status confusion. **Ordinary code updates and no-change SITREPs do not require a dispatch grid.** The 2026-10-20 table below is a dated historical receipt, not the current work queue; see the 2026-10-21 source correction above.
 
 **Current execution and manual dispatch (2026-10-20; factual receipts only):**
 
