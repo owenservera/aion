@@ -1,105 +1,85 @@
-# External multi-provider implementation coverage vs AION command space
+# External implementations vs AION command space
 
-**As-of:** 2026-10-20. **Evidence category:** static source inspection and upstream repository documentation, **NOT authenticated live testing**. **Scope:** all **40** semantic operations in `aion_command_matrix.csv`, including **19 P0**. Machine-readable source: [EXTERNAL-IMPLEMENTATIONS-COVERAGE.csv](EXTERNAL-IMPLEMENTATIONS-COVERAGE.csv). The 25 route mappings per operation represent AION catalog planning, not 25 implemented project capabilities.
+**Harvest refresh: 2026-10-21. Static source inspection only — NOT tested, live-verified, integrated, or AION-available.** This is the existing comparison, expanded to nine pinned donors, not a second capability registry. [CSV](EXTERNAL-IMPLEMENTATIONS-COVERAGE.csv) retains the 40 semantic IDs from [the full matrix](aion_command_matrix.csv) and the exact 29 IDs in [the core contract](CORE-OPERATIONS.csv). Route multiplicity is planning data, not implemented capability.
 
-## Executive decision
+## Method and status legend
 
-**First donor to audit: Multi-AI Chat** for reusable browser Send/Receive engine; **second donor: Parallel AI** for broad provider coverage, attachments, temporary-chat modes and provider-specific control mapping; **Council** is a smaller but credible live-update reference. **ChatHub** and **ChatALL** demonstrate broad front-end multi-chat workflows and local chat history, but must not be credited as provider-native conversation editing/rename/history simply because they manage their OWN app-local conversations.
+- **I**: relevant implementation inspected in the pinned source. It does **not** certify every AION identity, authority, completion, retry, provider or acceptance requirement. Read the scope caveat.
+- **P**: inspected partial, adjacent, local-client, API/private-backend, generic-substrate or otherwise mismatched implementation. Never count P as a full AION operation.
+- **R**: documentation reports an operation but the relevant implementation was not inspected. Earlier R claims have been replaced where direct source supplies stronger or contradicting evidence.
+- **U**: NOT_LOCATED within the cited checked source boundary; unknown, not proof of absence. U does not mean an exhaustive repository-wide negative search. The earlier Markdown display `·` meant this same U code; the CSV codes remain compatible.
 
-The strongest **evidence-grounded full coverage** across ALL 40 catalog intents among the five external libraries is **Multi-AI Chat (10/40; 6 source-inspected + 4 documentation-reported)**. On the 19 strict P0 command intents, Multi-AI Chat and Council tie at **5** reported/inspected full operations, but Multi-AI Chat has **6 directly inspected source paths**, versus Council's README-only evidence. These are **floor-of-evidence counts, not verified current runtime capability, quality, or absolute coverage**. Unestablished operations may exist and should be source-audited by workers before marking unsupported.
+For donor evidence cells, paths are **relative to that donor's `aion_source_root` in `../chrome-relay/harvest/external/sources.json`**, at the exact SHA below. Semicolon separates files; an optional `#symbol` is a locator, not part of the filesystem path. Normalize to repo-root paths by joining that source root and the path before `#`. This compact notation is not a new evidence schema or registry. U citations record the inspected boundary, not a nonexistent implementation. Symbols and source logic, not README feature lists or test names, support positive claims.
 
-## Coverage summaries
+**Historical AION caveat:** all three original `AION_*` CSV fields are preserved as the earlier 2026-10-20 comparison snapshot. They are not refreshed product statuses. Their U entries must not be interpreted as current absence: AION already has Bus/effect-ledger, contract and PACK01/PACK02 work. Consult [AION integration](AION-INTEGRATION.md), [Development Master](../chrome-relay/DEVELOPMENT-MASTER.md), and the existing [harvest delivery](../chrome-relay/harvest/external/DELIVERY.md) / [first-pass handoff](../chrome-relay/harvest/external/landing/triage/FIRST-PASS-DEV-HANDOFF.md). This harvest does not adjudicate current product acceptance.
 
-| Project | Inspected I | Reported R | Partial P | Not established · | Strict P0 full (I+R) | P0 partial |
-|---|---:|---:|---:|---:|---:|---:|
-| AION current | 6 | 0 | 9 | 25 | 3/19 | 6/19 |
-| Multi-AI Chat | 6 | 4 | 8 | 22 | 5/19 | 6/19 |
-| Parallel AI | 0 | 6 | 7 | 27 | 3/19 | 6/19 |
-| ChatHub | 0 | 3 | 12 | 25 | 2/19 | 8/19 |
-| ChatALL | 0 | 4 | 9 | 27 | 2/19 | 9/19 |
-| Council | 0 | 6 | 3 | 31 | 5/19 | 2/19 |
+## Pinned source roster
 
-**I** = implementation inspected in source (no live test); **R** = explicitly reported in repository documentation, without code audit; **P** = partial/local-only/semantic mismatch; **·** = not established in checked sources (not proof of unsupported).
+The custody authority remains [sources.json](../chrome-relay/harvest/external/sources.json); roots below are beneath `workspace/aion/ops/chrome-relay/harvest/external/landing/donors/`. Pins describe imported snapshots, not current upstream tips.
 
-**Do not conflate:** (1) local side-panel New Chat with a verified new conversation on `claude.ai`; (2) local history storage/export with reading `chatgpt.com/c/<id>` history; (3) a browser tab being detected with durable exact account+conversation binding; (4) a click/response observation with a Bus-verified no-resend result; (5) API model options with web UI account entitlements; (6) cancellation of local workflow with actual provider generation Stop.
+- **MAC — Multi-AI Chat**, `multi-ai-chat`, TED-H-com/multi-ai-chat, **`cdcf6a7fb05609b219fd85395a116f26476a7f92`**, MIT. Entry seams: `src/content/base.ts`, `src/background/service-worker.ts`, `src/shared/conversationPersistence.ts`.
+- **PA — Parallel AI**, `parallel-ai`, ParkerCai/parallel-ai-extension, **`944276d8146d11d5719a83cc550de31e4354a1c4`**, MIT. Entry seams: `content-scripts/text-injection-all-providers.js`, `content-scripts/file-injection.js`, `src/content/claude-model-fallback.ts`.
+- **CH — ChatHub**, `chathub`, chathub-dev/chathub, **`852efba00ca7f2888093510b3add33f3ee01dc9b`**, GPL-3.0. Entry seams: `src/app/bots/abstract-bot.ts`, `src/app/bots/chatgpt-webapp/client.ts`, `src/app/utils/export.ts`. GPL requires use-specific license review; not a blanket claim of incompatibility.
+- **CA — ChatALL**, `chatall`, ai-shifu/ChatALL, **`6d089c2ab72dde2ba1010cc1e910ceb766458546`**, Apache-2.0. Entry seams: `src/bots/Bot.js`, `src/store/index.js`, `src/components/ChatSetting.vue`.
+- **CO — Council**, `council`, RaheesAhmed/Council, **`92845be5e8c1c30e2012c59fc51008aaaf11572e`**, MIT. Entry seams: `src/stores/use-run-store.ts`, `src/content/providers/dom-provider-adapter.ts`, `src/background/message-router.ts`.
+- **BR — ChatGPT Bridge**, `chatgpt-bridge`, DrA1ex/chatgpt-bridge, **`0ffdae90239988f253058c05253226152acd55d2`**, MIT. Entry seams: `tools/chrome-bridge-extension/shared/commandManifest.js`, `tools/chrome-bridge-extension/content/serverCommandRouter.js` and the adjacent command handlers. ChatGPT-specific, not nine-provider coverage.
+- **W2 — ChatGPT-Web2API**, `chatgpt-web2api`, Octo-Lex/ChatGPT-Web2API, **`497527dceabfa3f95961e23c291e618c5570f1ac`**, MIT. Entry seams: `src/chatgpt_web2api/cdp_driver.py`, `src/chatgpt_web2api/chatgpt_dom.py`, `src/chatgpt_web2api/backend_client.py`.
+- **CD — CDPilot**, `cdpilot`, mehmetnadir/cdpilot, **`234d8bf3d1c0144792654bf670f07f93ffd8a1d3`**, MIT. Entry seam: `src/cdpilot.py`. Generic CDP substrate; monolithic Python implementation requiring `websockets`, not a complete provider adapter.
+- **CE — Cereon Browser Operator**, `cereon-browser-operator`, cereon-labs/cereon-browser-operator, **`06da45090607dd9c9dc883ef5d523e9c99bcdb24`**, MIT. Entry seams: `src/background/tools/`, `src/background/content-bridge/content-bridge.ts`, `src/background/tabs/`. Generic MV3/CDP substrate only.
 
-## Every AION operation against the five upstream projects
+## Corrected findings — first source round
 
-| Semantic operation | Tier | AION | Multi-AI | Parallel | ChatHub | ChatALL | Council |
-|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| `agent.delegate` | P2 | · | R | · | · | · | · |
-| `agent.status` | P2 | · | R | · | · | · | · |
-| `branch.create` | P1 | · | · | · | · | · | · |
-| `cancel` | P2 | P | R | · | · | · | P |
-| `chat.archive` | P1 | · | · | · | · | · | · |
-| `chat.create` | P0 | · | P | P | P | P | · |
-| `chat.delete` | P1 | · | · | · | · | · | · |
-| `chat.export` | P1 | · | · | · | P | · | · |
-| `chat.open` | P0 | · | P | P | P | P | · |
-| `chat.rename` | P0 | · | · | · | · | · | · |
-| `chat.search` | P1 | · | · | · | · | · | · |
-| `chat.share` | P1 | · | · | · | · | · | · |
-| `context.inject` | P2 | · | R | R | R | R | · |
-| `discover` | P2 | P | · | · | · | · | · |
-| `file.attach` | P0 | · | · | R | · | · | · |
-| `generation.stop` | P0 | · | I | R | · | · | · |
-| `grant.manage` | P2 | I | · | · | · | · | · |
-| `health` | P2 | I | I | R | · | · | R |
-| `history.read` | P0 | P | P | · | P | P | · |
-| `message.copy` | P1 | · | · | · | · | · | · |
-| `message.edit` | P0 | · | · | · | · | · | · |
-| `mode.select` | P1 | · | P | P | P | · | · |
-| `model.list` | P0 | P | · | · | P | P | · |
-| `model.select` | P0 | · | · | · | P | P | · |
-| `observe` | P0 | I | I | P | P | P | R |
-| `project.select` | P1 | · | · | · | · | · | · |
-| `receipt.read` | P2 | I | · | · | · | · | · |
-| `recover` | P0 | P | P | P | · | P | P |
-| `reply.read` | P0 | P | I | · | R | R | R |
-| `response.regenerate` | P0 | · | · | · | · | · | · |
-| `result.export` | P2 | P | · | · | P | · | · |
-| `send` | P0 | I | I | R | R | R | R |
-| `session.bind` | P0 | I | P | P | · | · | R |
-| `sessions.list` | P0 | P | P | · | P | P | P |
-| `steer` | P0 | · | · | · | · | · | · |
-| `stream` | P0 | P | I | P | P | P | R |
-| `thinking.level.set` | P0 | · | · | · | · | · | · |
-| `tool.call` | P1 | · | · | · | · | · | · |
-| `tool.toggle` | P1 | · | P | R | P | R | · |
-| `ui.panel` | P2 | · | · | · | · | · | · |
+### Bridge: handler breadth is real; contract parity is not automatic
 
-No external project in the reviewed sources establishes full support for the following P0 commands: **`chat.rename`, `message.edit`, `response.regenerate`, `steer`, `thinking.level.set`**. This is an **evidence gap**, not proof they cannot perform the operations. In particular `steer` means true in-flight steering, not queued follow-up or Cancel+Send.
+`shared/commandManifest.js:150–180` distinguishes `prompt.send`, `prompt.steer`, `prompt.cancel`, session commands, response recovery, model/effort listing and `intelligence.apply`. Follow these into `content/requestPromptCommands.js`, `composerCommands.js`, `sessionCommands.js`, `intelligenceCommands.js`, `attachmentCommands.js` and `requestResumeCommands.js`. This supplies the important P0 DOM handler references, including steer, model, effort, open/create, Stop and files, without making a live-success or full-contract count claim.
 
-## Provider breadth — independent from capability breadth
+- `sessions.list` is sidebar collection, not complete off-page account enumeration. Response recovery/list snapshots are bounded visible/current turns, not complete provider history.
+- A messages **POST is Send**, not a history reader. Regenerate/retry button detection in `composerCommands.js` is not an exposed `response.regenerate` handler. Rename and message-edit handlers were NOT_LOCATED in the checked manifest/router/command files: U, not unsupported.
+- `sessionCommands.js:590–634` checks the expected ID/URL, selects a destructive action, seeks a confirmation, and checks conversation disappearance. Some races return `confirmed:false` after disappearance; absence is observed via the current UI/URL, not a backend erasure guarantee. Do not reduce this to a generic Delete click.
+- `openNewSession` can return a blank/home session before a durable new conversation exists. The `chat.create` cell is partial for this reason; new-chat handler existence is not persisted identity.
 
-| Project | Webapp/provider footprint (reported) | Qualification |
-|---|---|---|
-| Multi-AI Chat | ChatGPT, Claude, Gemini, Grok; experimental standby Meta AI | 4 default web providers; Meta experimental and off by default; vendor states authenticated coverage incomplete |
-| Parallel AI | ChatGPT, Claude, Gemini, Grok, DeepSeek, Kimi, Qwen, Z.ai, Xiaomi MiMo, Meta AI, Google AI/Search | 11 site entries in published README; iframe embedding fragility and provider-dependent temporary mode |
-| ChatHub | ChatGPT, Claude, Gemini, Grok, DeepSeek, Qianwen, Llama and others | Web/API surfaces mixed; exact currently working site adapters unverified |
-| ChatALL | Broad catalog of consumer web bots and API providers | Supported-bots table is not a live-success scoreboard; Electron desktop rather than MV3 |
-| Council | ChatGPT, Claude, Gemini, Grok, Kimi | Five browser adapters reported; early-stage, README notes history/export incomplete |
-| AION current | ChatGPT browser adapter pilot + distinct OpenCode/ACP integrations | Browser full live path not verified at current Track B candidate; generic provider semantics are proposed |
+### Multi-AI Chat: receive and workflow methods, not remote history
 
-**Conclusion:** If optimizing **feature engine/code leverage**, first inspect Multi-AI. If optimizing **provider breadth and UI integration examples**, inspect Parallel AI and ChatHub. The best AION custom implementation may selectively reuse patterns from both while retaining exact identity, grants and effect ledger.
+`src/content/base.ts` implements prompt dispatch, scoped Stop, response extraction, observation and cumulative `RESPONSE_CHUNK`/`RESPONSE_DONE` snapshots. `src/shared/requestScope.ts` checks request/workflow scope; `src/shared/providerReadiness.ts` and the worker distinguish readiness. Cumulative updates are not a durable receive cursor. `recoverableWorkflowTurn.ts`, `roundtableRecovery.ts` and checkpoints are workflow recovery, not AION cursor recovery; cancel includes local workflow cancellation, distinct from provider Stop.
 
-## Source provenance and verification level
+`src/sidepanel/App.tsx` and persistence/continuity modules own local session history, listing, exports/sharing and context reconstruction. They do not read arbitrary existing provider threads. Model/effort selection, attachments and in-flight steering were NOT_LOCATED in this checked message/control surface. Preserve the distinction between provider-specific single activation and heuristic best-effort dispatch: no universal never-replay guarantee follows from this source.
 
-- **Multi-AI Chat** README [master](https://github.com/TED-H-com/multi-ai-chat) and directly inspected `src/content/base.ts` **blob `44270f5dfee2eb44b69b3e273b1cb434239b844f`**, `src/content/claude.ts` `23cfca6ee1d3cea38c346fb398c52749d3cd5cff`, `src/content/gemini.ts` `b8473aa8b9ba7c0ad532d233290735466b65777a`. Code implements request handling, response extraction/observation and Stop controls; no authenticated execution performed in this audit. Link: https://github.com/TED-H-com/multi-ai-chat/blob/master/src/content/base.ts.
-- **Parallel AI** [README](https://github.com/ParkerCai/parallel-ai-extension), reviewed blob `419cc4201d6a6583655524912960fe552f069238`. Provider-site list, Send fan-out, attachments, temporary mode, Stop, usage meters documented. Provider-specific content code NOT inspected in this pass. Some functions rely on undocumented usage endpoints; do not transfer private backend access.
-- **ChatHub** [README](https://github.com/chathub-dev/chathub), blob `d6898a09a81d54a67e38281c5bac38302da5d7bd`. Mixed consumer web/API adapter claims, local history/export.
-- **ChatALL** [README](https://github.com/ai-shifu/ChatALL), blob `9fd3f14758ae6f9e7282853fe473294dd4ba5ab4`. Large web+API bot catalog; browser reverse engineering fragility explicitly noted upstream; client-local history.
-- **Council** [README](https://github.com/RaheesAhmed/Council), blob `07c4c7021c0ca0c561453fd5584b20c73167bc7b`. README describes five provider adapters, `MutationObserver` response stream, tab discovery and diagnostics, but notes history and export remain incomplete.
-- **AION** current Track B `extension/src/chatgpt/content.js`, `extension/src/bus/adapters/chatgpt.js`, `velocity/src/commands.mjs`, `velocity/src/broker/core.mjs`, `velocity/src/broker/events.mjs`. Existing operation-scoped reply is not a full conversation read API. Work in PR #46 and command-space PR #51 not counted as implemented. No current candidate Windows/live Chrome claim.
+### Parallel AI: uploads are queued; private patches are not DOM entitlement proof
 
-## Immediate next source-level audits to improve confidence (do not inflate current score)
+`content-scripts/text-injection-all-providers.js` contains DOM Send, New Chat/fallback navigation, Stop and temporary-mode controls. The UI can prefill context; it does not expose a structured full-reply/history reader. Frame routing and readiness are not immutable conversation/account binding.
 
-1. **Multi-AI Chat:** pin full repo SHA and read `src/content/base.ts`, provider adapters, request/response state, Send/Stop decisions, last-response detection, timeouts, license. Map exact IDs: `send`, `reply.read`, `observe`, `stream`, `generation.stop`, `session.bind`, `recover`.
-2. **Parallel AI:** audit each actual provider `content-scripts` implementation for new chat, exact conversation binding, attachment, Stop, temporary chat, model and thinking controls; distinguish local host orchestration versus provider-native mutation. Inspect iframe assumptions and security.
-3. **Council:** source-audit `MutationObserver`, provider adapter modules and stop/cancel semantics. Independent negative proof for 0/2 targets and stale messages.
-4. **ChatHub/ChatALL:** assess source timestamps and product-level currency before using vendor code. Audit app-local vs provider-native semantics; don't automatically count UI setting/model choice as remote conversation model change.
-5. **Workers:** add external implementation evidence and code references to each native/CDP provider's research report, but do not copy libraries' retry mechanisms into AION's no-resend effect path without reconciling semantics and license.
+`content-scripts/file-injection.js:346–446` assigns a DataTransfer/files input or dispatches drop events. A queued file / accepted injection is **not verified provider attachment completion**. `src/content/claude-model-fallback.ts` rewrites model and effort in private completion fetch bodies; its model choices/metadata are not a live web-entitlement contract. Gemini effort controls use a different DOM path. `claude-workspace.ts` rewrites organization paths and the sync module can write `lastActiveOrg`: organization/account selection is **not project selection**. Do not transplant cookies, private endpoints or credentials.
 
-### No-code/unsupported caution
+### Council: independent fan-out, not a completed council pipeline
 
-In this matrix **· = unknown based on what was reviewed**, not verified lack of feature. A missing checkbox should create an investigation ticket. **P** should not count toward 'fully covers AION operation.' Baseline status should be promoted only when source inspection verifies an equivalent operation on the **same provider surface and session**, not a similar feature in a side-panel client.
+`src/stores/use-run-store.ts:12–44` sends only `buildIndependentPrompt` fan-out. Review/revision/synthesis stages are initialized but do not advance; response completion does not mark the overall run complete. Synthesis prompt definitions are not proof they execute. `stopRun` changes persisted status only.
+
+`dom-provider-adapter.ts:18,43` defines New Chat and Stop methods, but the inspected run/router path does not call them. Those cells are P (defined/unwired), not I. The adapter's last-element response read and observer have old-answer risk and no exact conversation binding. IndexedDB run storage is not an exposed provider-history reader/list API.
+
+### ChatHub and ChatALL: useful local/API patterns, not existing-web-thread proof
+
+ChatHub provider requests are API/private backend paths, even where an adapter is named `WebBot`; a tab may proxy fetch rather than automate the visible conversation. Local message copy and `src/app/components/History/Content.tsx` Fuse search are useful local features. `src/app/utils/export.ts:5–13` serializes sync/local storage and localStorage: exports can contain **keys and private transcripts**. Never copy values or raw exports into harvest evidence.
+
+ChatALL `src/store/index.js:482–600`, `src/store/queue.js`, chats/messages/threads storage and bot abstractions implement local dispatch, updates and thread management. Its API/private-web adapters do not prove reading a preexisting browser conversation. `ChatSetting.vue:297–337` exports the database plus settings; `getSettingWithoutBotSetting:699–714` removes bot-brand settings. The caller does not await that async helper before adding it to the ZIP — preserve this source caveat rather than claiming a verified safe export. Database transcripts remain private; settings filtering is not an exhaustive secret-safety proof. No aggregate/uniqueness claim is made about their catalogs.
+
+## Second-round corrections and negative cases
+
+- **Bridge policy is layered:** command-manifest `intelligence.apply` is **NEVER** retry, while internal execution-plan `model.apply` can be **IF_UNCONFIRMED**. They are not the same command or policy. Model/effort mismatch can warn and proceed rather than abort. An I model/effort cell records inspected controls, not a fail-closed selection guarantee. Attachment-chip wait can likewise emit a warning. Preserve these as negative-test candidates.
+- **MAC best effort is not never replay:** source includes heuristic retry/activation branches; single-activation protections must not be generalized to every provider or workflow. Receive recovery does not authorize another Send.
+- **Council cancellation is status-only:** do not upgrade it to provider Stop or multi-stage orchestration based on method names, stage arrays or unused synthesis prompts.
+- **ChatHub retry and SSE:** `src/app/bots/chatgpt-webapp/requesters.ts` retries after explicit 403 through the proxy path, potentially replaying an effectful request. `src/utils/sse.ts` checks the parser discriminator `event.type === 'event'`; this is **not** a filter requiring a named SSE event and does not inherently drop unnamed data events.
+- **ChatALL termination:** the `CLOSED` handling in `src/bots/ClaudeAIBot.js` (also other SSE adapters) is connection termination, not independent successful generation completion. Local queues/store and exports are not a receive cursor or exact web-thread binding.
+- **Web2API is mixed-surface:** `chatgpt_dom.py` types/clicks Send; `cdp_driver.py` navigates and checks landing identity. `backend_client.py` reads/list/renames/archives/deletes via private backend APIs; Delete sends `is_visible:false` (soft hide), archive uses `is_archived`. Backend conversation IDs **may** identify the same web thread; current authenticated equivalence is **unproven**, not categorically impossible. No attach implementation was located in this checked surface.
+- **Web2API counterexamples:** `cdp_driver.py:1122–1208` may fail to find the requested model/picker and proceed with the active model. Static/fallback model catalogs are not truthful live availability. Completion/read paths mix DOM and private backend turn anchors; neither supplies AION acceptance automatically.
+- **CDPilot replay:** `src/cdpilot.py:3769–3787` resends a batch on a reused connection if no responses arrived. No response does not prove no effect; this is an unsafe replay counterexample, not at-most-once delivery. WebMCP page-tool invocation is effectful, not merely discovery. Receipt redaction, fake-wire fixtures and reason-code shapes are method references, not provider completeness or executed evidence.
+- **Cereon retry/privacy:** `content-bridge.ts:60–66` catches any message failure, injects and resends; an effect may already have occurred. `upload-image-tool.ts` explicitly supplies guidance only, not upload. Generic click/type cannot earn provider rename/edit/Stop support. Tab-group/title adoption is weaker than exact provider/account/conversation identity. `form-input-tool.ts:21` echoes the full supplied value and text-input actions include previews: redact receipt inputs before any reuse.
+
+## Gap limits and use by Development
+
+Use complementary **method patterns**, **negative tests/failure modes**, and only genuinely specified **protocol contract candidates**. There is no mandatory primary donor and no transplant recommendation. Any code reuse needs a separate Development decision plus license/security review. A donor's internal cursor/effect format is not automatically a standard for AION.
+
+The CSV is the full comparison; do not compute misleading total coverage percentages by adding I/P/R or mixing generic substrate, local/API operations and provider-native semantics. All-provider support, authenticated current layouts, exact account/thread equivalence, persisted new-chat identity, safe recovery and no-resend outcomes remain bounded/unverified. The 29-core contract is not replaced by the 40-row planning catalog.
+
+**Validation ownership:** parent session owns machine validation. This writing pass performs read/grep inspection only; no shell/runtime execution, donor tests, browser/network actions or git commit. No executed validation counts are asserted here. Required parent checks: CSV parses to 40 unique IDs matching the full catalog; its intersection with core is exactly the 29 core IDs; nine complete nonempty status/evidence/caveat triples per row; only I/P/R/U codes; all donor-relative evidence paths resolve beneath pinned roots; original AION fields unchanged; only these two files changed by this worker. Derive any status counts from the saved CSV, not this prose. A structural 40×9-cell fixture/check is **not runtime acceptance** and must never be reported as 360 working capabilities.
+
+Continue through the [existing exchange](../chrome-relay/harvest/EXCHANGE.md) and [existing delivery/handoff](../chrome-relay/harvest/external/DELIVERY.md), not a new registry, schema, triage file or product backlog.
