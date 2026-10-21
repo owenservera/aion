@@ -1,5 +1,6 @@
-AION agent-owned skills — 02-long-term-planning-alignment
+AION Planning role-owned skills (OpenCode V2 source root)
 
-First-pass skill selection belongs to this agent. Identify the recurring work and user corrections where a reusable skill will reduce effort or failure; reuse peer skills and the AION Master Skills Builder before adding new ones. Place portable skills in <slug>/SKILL.md under this directory, with optional references/, scripts/ and fixtures/ per skill. Keep only useful, validated material. Source in GitHub does not prove a local harness has installed or exercised it.
-Builder: https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md
-SITREP checks skill needs and staleness; no artificial schedule or mandatory quota.
+- planning-critical-path/SKILL.md: read-only task/evidence-link integrity and one-screen summary; Node tests in scripts/.
+- planning-leverage-decision/SKILL.md: decide whether donor and Harvest results change strategic priority, with Development still owning implementation.
+
+Shared builder: .opencode/skills/aion-skill-builder/SKILL.md. Reuse Toolsmith's verification-proof and Research's evidence assessment rather than cloning. Repo opencode.jsonc lists this skill directory, but remote configuration is not a Windows/ZCode installation or runtime receipt. Revisit on material SITREP changes; no mandatory skill quota.
