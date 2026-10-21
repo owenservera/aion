@@ -5,6 +5,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FIXTURES } from './fixtures.mjs';
+import { FIXTURES_V2 } from './fixtures-v2.mjs';
 import { discoverModel } from '../src/intel/discover.mjs';
 import { resolveType } from '../src/intel/identity.mjs';
 import { correlateRendered } from '../src/intel/correlate.mjs';
@@ -159,6 +160,52 @@ export async function runEval({ which = split, learner } = {}) {
   return results;
 }
 
+// Model signature for order-independence checks: type names, keys and field sets.
+export function modelSignature(model) {
+  return model.types.map((t) => `${t.name}|${t.key && !t.key.weak ? t.key.field : '-'}|${t.fields.map((f) => f.name).sort().join(',')}`).sort().join('\n') + '\n' + model.relationships.map((r) => `${r.kind}:${r.field ?? ''}`).sort().join(',');
+}
+
+// Held-out v2: unseen adversarial fixtures, scored with the same metrics plus extra checks.
+export async function runEvalV2({ learner } = {}) {
+  const L = learner ?? new ScopedLearner();
+  const out = { fixtures: {}, aggregate: null };
+  const acc = fresh();
+  const signatures = {};
+  for (const make of Object.values(FIXTURES_V2)) {
+    const fx = make();
+    if (fx.v1) {
+      const d = schemaDiff(induce(fx.v1), induce(fx.v2));
+      const got = Object.fromEntries(d.repairs.map((x) => [x.from, x.to]));
+      out.fixtures[fx.name] = { driftDetected: d.drifted, repairAccuracy: +(Object.entries(fx.gt.repairs).filter(([a, b]) => got[a] === b).length / Object.keys(fx.gt.repairs).length).toFixed(3), typeChangeDetected: fx.gt.typeChanged.every((f) => d.typeChanged.some((x) => x.field === f)), removedDetected: fx.gt.removed.filter((f) => d.removed.includes(f) || got[f]).length + '/' + fx.gt.removed.length, repairs: d.repairs };
+      continue;
+    }
+    if (fx.siteA) {
+      const ma = discoverModel(fx.siteA, { learner: L }), mb = discoverModel(fx.siteB, { learner: L });
+      const sa = scoreModel(fx.gt.a, ma, acc), sb = scoreModel(fx.gt.b, mb, acc);
+      const ta = ma.types.find((t) => sa.nameOf.get(t.id) === fx.gt.a.types[0].name), tb = mb.types.find((t) => sb.nameOf.get(t.id) === fx.gt.b.types[0].name);
+      const pairs = ta && tb ? alignFields(ta.schema, tb.schema).pairs : [];
+      const got = Object.fromEntries(pairs.map((p) => [p.a, p.b]));
+      out.fixtures[fx.name] = { crossSiteAlignmentAccuracy: +(Object.entries(fx.gt.alignment).filter(([a, b]) => got[a] === b).length / Object.keys(fx.gt.alignment).length).toFixed(3), alignment: pairs.map((p) => `${p.a}↔${p.b} (${p.score})`), keysA: ta?.key?.field, keysB: tb?.key?.field };
+      continue;
+    }
+    const t0 = performance.now();
+    const model = discoverModel(fx.samples, { learner: L, patchGroups: fx.patchGroups });
+    const ms = performance.now() - t0;
+    signatures[fx.name] = modelSignature(model);
+    const local = fresh();
+    const { nameOf } = scoreModel(fx.gt, model, local);
+    if (!fx.orderOf) scoreModel(fx.gt, model, acc);
+    const r = { ms: +ms.toFixed(1), samples: fx.samples.length, discovered: model.types.map((t) => `${t.name}[${t.key && !t.key.weak ? t.key.field : '-'}]`), metrics: summarize(local) };
+    if (fx.gt.identity) { r.identity = {}; for (const [g, exp] of Object.entries(fx.gt.identity)) { const t = model.types.find((x) => nameOf.get(x.id) === g); const res = t ? resolveType(t) : null; r.identity[g] = { expected: exp, resolved: res?.entities.length ?? null }; } }
+    if (fx.truth) { const t = model.types[0]; const res = t ? resolveType(t) : null; r.identityLinkage = { ...pairF1(fx.truth, res ? clusterMembership(t, res) : []), entities: res?.entities.length, expected: new Set(fx.truth).size }; }
+    if (fx.gt.mustSeeFields) for (const [g, fields] of Object.entries(fx.gt.mustSeeFields)) { const t = model.types.find((x) => nameOf.get(x.id) === g); r.rareFieldsSeen = fields.filter((f) => t?.fields.some((x) => x.name === f)).length + '/' + fields.length; }
+    if (fx.orderOf) r.orderIndependent = signatures[fx.orderOf] === signatures[fx.name];
+    out.fixtures[fx.name] = r;
+  }
+  out.aggregate = summarize(acc);
+  return out;
+}
+
 function clusterMembership(type, res) {
   // Map each instance back to its entity via the identity field or linkage clusters.
   const out = [];
@@ -193,6 +240,12 @@ function toMarkdown(r) {
     if (f.metrics?.misses?.relationships?.length) L.push(`relationship misses: ${f.metrics.misses.relationships.join('; ')}`);
     L.push('');
   }
+  if (r.heldout2) {
+    const m = r.heldout2.aggregate;
+    L.push('## Held-out v2 (unseen, adversarial)', '', `types P/R ${m.typeDiscovery.precision}/${m.typeDiscovery.recall}, keys ${m.keyAccuracy}, field types ${m.fieldTypeAccuracy}, roles ${m.roleAccuracy} (baseline ${m.heuristicBaselineRoleAccuracy}), relationships P/R ${m.relationships.precision}/${m.relationships.recall}, ECE ${m.roleCalibrationECE}`, '');
+    for (const [n, f] of Object.entries(r.heldout2.fixtures)) L.push(`- **${n}**: ${JSON.stringify({ discovered: f.discovered, keys: f.metrics?.misses?.keys, rels: f.metrics?.misses?.relationships, identity: f.identity, linkageF1: f.identityLinkage?.f1, rare: f.rareFieldsSeen, orderIndependent: f.orderIndependent, align: f.crossSiteAlignmentAccuracy, repair: f.repairAccuracy, typeChange: f.typeChangeDetected })}`);
+    L.push('');
+  }
   L.push('## Performance', '', '| Fixture | Samples | ms | ms / 1k samples | Heap Δ MB |', '| --- | --- | --- | --- | --- |');
   for (const p of r.performance) L.push(`| ${p.fixture} | ${p.samples} | ${p.ms} | ${p.msPer1kSamples} | ${p.heapDeltaMB} |`);
   if (r.learning) { L.push('', '## Learning loop', '', '```json', JSON.stringify(r.learning, null, 2), '```'); }
@@ -201,8 +254,8 @@ function toMarkdown(r) {
 
 if (process.argv[1] && process.argv[1].endsWith('run.mjs')) {
   const r = await runEval();
-  const { runLearningEval } = await import('./learning.mjs');
-  r.learning = await runLearningEval();
+  r.heldout2 = await runEvalV2();
+  try { const { runLearningEval } = await import('./learning.mjs'); r.learning = await runLearningEval(); } catch (e) { r.learning = { status: 'not available', error: String(e.message) }; }
   mkdirSync(path.join(here, 'results'), { recursive: true });
   writeFileSync(path.join(here, 'results', 'latest.json'), JSON.stringify(r, null, 2));
   writeFileSync(path.join(here, 'results', 'latest.md'), toMarkdown(r));
