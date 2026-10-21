@@ -2,6 +2,8 @@
 
 **Reviewed: 2026-10-21 UTC, against remote GitHub `main`; no Windows host/browser access or new live test in this pass.** Read this at **every interaction**, then revalidate changing facts when they drive an answer/action. It is a short reentry aid, **not** a second task ledger.
 
+**Owned executable skill (2026-10-21):** [ax-reuse-inspector](../../skills/ax-reuse-inspector/SKILL.md) is committed with a read-only Node CLI and five passing isolated fixture tests; the repo root declares the role's OpenCode V2 source, but **no local Windows/OpenCode/ZCode discovery or actual full-repo AX invocation has been verified**. Use for relevant AX source triage only, not every user turn. Next host receipt: have a real local harness advertise/load the skill and run its CLI in the synced repo, with exact checkout/SHA and no donor execution. Shared builder and peer tools remain canonical.
+
 ## Focus now
 
 1. **Maintain memory and shared intelligence correctly.** First-pass CANON/Immediate/Curated established under this role (check actual committed files). The dedicated [Harvest team intelligence](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/12-harvest-acceleration/README.md) already links donor/own-source evidence and the authoritative status documents; its [team index row](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/ACTIVE.md) is Active. Do not make another index.
