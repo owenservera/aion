@@ -1,6 +1,6 @@
 # Chief of Staff / Operations — Maintained Intelligence
 
-**Core owner:** Chief of Staff / Operations · [Existing role workspace](../../../../sessions/roles/03-chief-of-staff-operations/)
+**Core owner:** Chief of Staff / Operations · [Existing role workspace](https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/03-chief-of-staff-operations)
 
 This is the owner's dedicated shared intelligence entry point, **not** a new competing source of truth. On the first agent SITREP/self-bootstrap, identify which high-value records, trackers, reference docs, decisions, dependencies or other living resources the team genuinely needs from this role. Keep chosen material here or link canonical existing sources. Describe what is actually maintained and when it was last substantively checked.
 
