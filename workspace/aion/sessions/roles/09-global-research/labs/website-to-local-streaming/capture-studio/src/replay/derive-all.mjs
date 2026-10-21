@@ -1,6 +1,6 @@
 // Full offline derivation. Raw records are read-only; every stage is recomputable.
 import { derive } from './derive.mjs';
-import { CorpusSearchIndex } from '../intel/search.mjs';
+import { CorpusSearchIndex, primeFuzzySearch, highlightSpans } from '../intel/search.mjs';
 import { rankGraphNodes } from '../intel/graph.mjs';
 import { OnlineSchemaProfiler, toJsonSchema } from '../shapes/profiler.mjs';
 import { RevisionAccumulator } from '../intel/history.mjs';
@@ -324,18 +324,24 @@ export async function loadArtifacts(session) {
   };
 }
 
-export async function searchSession(session, query, { limit = 20 } = {}) {
+export async function searchSession(session, query, { limit = 20, fuzzy = true } = {}) {
   const rows = await readDataset(session, 'search-index');
   if (!rows?.length) return [];
   const cap = Number.isInteger(limit) && limit > 0 ? limit : 20;
-  return CorpusSearchIndex.fromRows(rows).search(String(query ?? ''), { limit: cap }).map((hit) => {
+  if (fuzzy) await primeFuzzySearch().catch(() => false);
+  return CorpusSearchIndex.fromRows(rows).search(String(query ?? ''), { limit: cap, fuzzy }).map((hit) => {
     const source = hit.source ?? hit.document?.source ?? {};
     const layer = source.layer ?? (source.domId != null ? 'dom' : 'events');
     const eid = source.eid ?? (layer === 'entities' ? hit.id : undefined);
     const ref = eid ?? (source.sid != null ? source.sid : null) ?? (source.domId != null ? `dom:${source.domId}` : hit.id);
+    const matched = hit.matched ?? hit.matchedTerms ?? [];
+    const fuzzyMatched = hit.fuzzyMatched ?? [];
+    const snippet = hit.snippet ?? '';
     return {
       ...(eid != null ? { eid } : {}),
-      ref, score: hit.score, snippet: hit.snippet ?? '', layer, id: hit.id, source, document: hit.document ?? null,
+      ref, score: hit.score, snippet, layer, id: hit.id, source, document: hit.document ?? null,
+      matched: [...matched], fuzzyMatched: fuzzyMatched.map((entry) => ({ ...entry })),
+      snippetDetail: { text: snippet, highlights: highlightSpans(snippet, [...matched, ...fuzzyMatched.map((entry) => entry.to)]) },
     };
   });
 }

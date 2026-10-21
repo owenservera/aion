@@ -1,6 +1,37 @@
 // Incremental, removable BM25 corpus index. Local evidence only; no embeddings or dependencies.
 import { textTokens, normalizeText, stableStringify } from './similarity.mjs';
 
+const WORD_PATTERN = /[\p{L}\p{N}]+(?:[._-][\p{L}\p{N}]+)*/gu;
+
+/** Ascending, non-overlapping character offsets of whole-token matches (case-insensitive). */
+export function highlightSpans(text, terms) {
+  const wanted = new Set((terms ?? []).map((term) => String(term).toLowerCase()));
+  const spans = [];
+  if (!wanted.size) return spans;
+  for (const match of String(text ?? '').matchAll(WORD_PATTERN)) {
+    if (!wanted.has(match[0].toLowerCase())) continue;
+    const start = match.index, end = start + match[0].length, last = spans[spans.length - 1];
+    if (last && start < last[1]) continue;
+    spans.push([start, end]);
+  }
+  return spans;
+}
+
+// Lazily resolved optional expansion module; a failed import degrades search to exact matching.
+let rankModule = null, rankLoad = null;
+function ensureRank() {
+  if (!rankLoad) {
+    rankLoad = import('./rank.mjs').then((mod) => (rankModule = mod)).catch(() => null);
+  }
+  return rankLoad;
+}
+
+/** Warm the optional rank module so a synchronous fuzzy search can use expandTerm. */
+export async function primeFuzzySearch() {
+  try { await ensureRank(); } catch { /* optional dependency */ }
+  return Boolean(rankModule?.expandTerm);
+}
+
 function documentText(value, depth = 0) {
   if (depth > 12 || value === null || value === undefined) return '';
   if (typeof value !== 'object') return String(value);
@@ -37,28 +68,55 @@ export class CorpusSearchIndex {
     }
     this.totalLength -= row.length; this.documents.delete(id); return true;
   }
-  search(query, { limit = 20, requireAll = false, filter, phraseBoost = 0.3 } = {}) {
+  vocabulary() { return this.postings.keys(); }
+  search(query, { limit = 20, requireAll = false, filter, phraseBoost = 0.3, fuzzy = false } = {}) {
     const terms = [...new Set(textTokens(query))];
     if (!terms.length || !this.documents.size) return [];
     const candidates = new Map(), N = this.documents.size, avg = this.totalLength / N || 1;
-    for (const term of terms) {
+    const weighted = terms.map((term) => ({ term, weight: 1, from: null, dist: 0 }));
+    if (fuzzy) {
+      if (!rankModule) ensureRank();
+      if (typeof rankModule?.expandTerm === 'function') {
+        let vocabulary = null;
+        for (const term of terms) {
+          if ((this.postings.get(term)?.size ?? 0) > 0) continue;
+          vocabulary ??= [...this.vocabulary()];
+          let expansions = [];
+          try { expansions = rankModule.expandTerm(term, vocabulary, { maxDist: 2, limit: 3 }) ?? []; } catch { expansions = []; }
+          for (const expansion of expansions) {
+            const next = String(expansion?.term ?? expansion ?? '');
+            if (!next || next === term || weighted.some((entry) => entry.term === next)) continue;
+            const dist = Number.isFinite(expansion?.dist) ? expansion.dist : 0;
+            weighted.push({ term: next, weight: 0.5, from: term, dist });
+          }
+        }
+      }
+    }
+    for (const { term, weight, from, dist } of weighted) {
       const posting = this.postings.get(term); if (!posting) continue;
       const idf = Math.log(1 + (N - posting.size + 0.5) / (posting.size + 0.5));
       for (const [id, frequency] of posting) {
-        const row = this.documents.get(id), hit = candidates.get(id) ?? { row, score: 0, matchedTerms: [] };
-        hit.score += idf * frequency * (this.k1 + 1) / (frequency + this.k1 * (1 - this.b + this.b * row.length / avg));
-        hit.matchedTerms.push(term); candidates.set(id, hit);
+        const row = this.documents.get(id), hit = candidates.get(id) ?? { row, score: 0, matchedTerms: [], fuzzyTerms: [] };
+        hit.score += weight * idf * frequency * (this.k1 + 1) / (frequency + this.k1 * (1 - this.b + this.b * row.length / avg));
+        if (!from) { if (!hit.matchedTerms.includes(term)) hit.matchedTerms.push(term); }
+        else if (!hit.fuzzyTerms.some((entry) => entry.from === from && entry.to === term)) {
+          hit.fuzzyTerms.push({ from, to: term, dist });
+        }
+        candidates.set(id, hit);
       }
     }
     const phrase = normalizeText(query);
     return [...candidates.values()].filter(({ row, matchedTerms }) => (!requireAll || matchedTerms.length === terms.length)
       && (!filter || filter(row.document, row.source)))
-      .map(({ row, score, matchedTerms }) => {
+      .map(({ row, score, matchedTerms, fuzzyTerms }) => {
         const exactPhrase = normalizeText(row.text).includes(phrase);
-        const words = terms.map((term) => row.text.toLowerCase().indexOf(term)).filter((i) => i >= 0);
+        const lowered = row.text.toLowerCase();
+        const words = [...matchedTerms, ...fuzzyTerms.map((entry) => entry.to)]
+          .map((term) => lowered.indexOf(String(term).toLowerCase())).filter((i) => i >= 0);
         const at = words.length ? Math.min(...words) : 0;
         return { id: row.id, score: +((score + (exactPhrase ? Math.max(0, phraseBoost) : 0)) * row.boost).toFixed(6),
-          matchedTerms, coverage: matchedTerms.length / terms.length, exactPhrase,
+          matchedTerms, matched: [...matchedTerms], fuzzyMatched: fuzzyTerms.map((entry) => ({ ...entry })),
+          coverage: matchedTerms.length / terms.length, exactPhrase,
           source: row.source, document: row.document, snippet: row.text.slice(Math.max(0, at - 70), at + 180),
           indexTruncated: row.truncated };
       }).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
