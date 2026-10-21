@@ -106,3 +106,7 @@ TOOLSMITH (Role 06) owns [RC-V1 issue #23](https://github.com/owenservera/aion/i
 
 ## P0 M1-002 — actual employee ACK and handoff chase — 2026-10-17
 **State: ASSIGNED_IN_GITHUB / NO REAL 06/08 ACK VERIFIED.** [Issue #26](https://github.com/owenservera/aion/issues/26) assigns TOOLSMITH 06 browser adapter and Z-FORGE 08 mock sandbox package. Obtain real acknowledgment from each independent employee chat, route technical output to 08, chase bounded delivery and report precise ACK/source/test/export receipt or blocker on #26. Do not equate SITREP/GitHub edits with worker activation. No unauthorized host execution or authenticated ChatGPT test.
+
+## Persistent agent memory (standing)
+
+Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap and relevant SITREPs. CANON holds verified durable rules, lessons, decisions and recurring failure/negative patterns with better alternatives; Immediate holds active work, current dependencies, risks, next actions and corrections and should be considered **every interaction**; Curated holds useful style, aesthetics, personalization and working preferences without guessing private facts. Own a high-value first pass; do not fill with stale copied chat or speculative facts. On SITREP reconcile these against the repo and agent intelligence index, and update only materially useful changes; promote durable facts out of Immediate, correct/retire stale material. No mandatory log on every turn. Existing owner's rules take priority.
