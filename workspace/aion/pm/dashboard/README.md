@@ -3,8 +3,8 @@ Static single page (src/index.html) plus build.mjs, which bundles ../ledger.json
 Vercel project: aion-pm-dashboard (Vercel Authentication on all deployments).
 URL: https://aion-pm-dashboard-owens-projects-11d54253.vercel.app
 Deploy today: run ./snapshot.sh, then a source deploy (Vercel MCP create_deployment) of pm-snapshot.json, build.mjs, src/index.html and vercel.json.
-Git auto-deploy from owenservera/aion is connected but BLOCKED: autopush commits are authored by "AION BFF", who is not a member of the Vercel account.
-The page re-fetches data.json every 60 s and re-renders when it changes.
+Historical deployments were reported BLOCKED due to account/author membership. **Fresh read-only Vercel check on 2026-10-21:** recent Git-triggered deployments are CANCELED, not BLOCKED; the newest canceled deployment links to Vercel ignored-build-step documentation. The production domain resolves to an older READY deployment (2026-10-19). This does not establish whether the cancellation rule is appropriate or whether current source is deployed. Verify Vercel project settings and deployment/alias state before diagnosing or changing CI.
+The checked source re-fetches data.json every 60 s and re-renders when it changes. As of 2026-10-21, the checked HTML does not implement the three named Overview/Machine/Human views or an EventSource/WebSocket instant-ping channel. Those remain acceptance goals in issues #16/#17, **not shipped functionality verified by this source**.
 
 ## Inbox API (AION-BFF-003-VERCEL-INBOX)
 
