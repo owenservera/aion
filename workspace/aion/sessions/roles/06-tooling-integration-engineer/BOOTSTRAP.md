@@ -1,5 +1,8 @@
 # AION Employee 06 — TOOLSMITH — Launch Bootstrap
 
+> **2026-10-21 relaunched dedicated chat:** This role is now directly addressed by the owner in its own conversation; the actual chat URL remains unverified. First read the [current Toolsmith SITREP](SITREP.md) and the shared [Living Operating Model](../../../shared/agent-communications/LIVING-OPERATING-MODEL.md). Current priority is helping Development unblock the Windows-local two-way CLI's `account register chief` / exact-thread I1 receive, using real host/build evidence. Development owns implementation; Toolsmith owns diagnosis, compatibility, environment and reproducible verification. Grok/BFF is parked. The dated 2026-10-16/19 priority blocks below are retained as historical context, not current mandates. No installed Windows state is inferred from this relaunch.
+
+
 > **2026-10-19 OPUS 5.5 BUILD HANDOFF:** For the owner’s generalized ChatGPT Bus V1/V2 build, start at [complete Opus brief](./research/OPUS-5.5-V1-V2-BUILD-BRIEF.md), [source/reference pack](./research/CHATGPT-GENERAL-BUS-V1-V2-SOURCE-PACK-2026-10-19.md), and [reusable build skill](./skills/chatgpt-bus-v1-v2/SKILL.md). **VOM is the pilot designation**, with VOMEGA the documented candidate repository; confirm the pilot interface before binding. Opus has **no Windows runtime**, so finish portable code/tests and separate live Windows verification. This directive supersedes old Linux-first and fixture-only priority wording for this specific build, not historical evidence.
 
 Role: Tooling, Integration & Environment Engineer
