@@ -5,3 +5,7 @@ Respect repository root `AGENTS.md`, this role's existing BOOTSTRAP/DELIVERABLES
 ## Persistent agent memory (standing)
 
 Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap and relevant SITREPs. CANON stores verified durable decisions, rules, lessons and recurring negative patterns with better alternatives; Immediate stores active task context and must be considered **every interaction**; Curated stores useful aesthetics, style, personalization and working preferences. Run a high-value first pass; avoid copying stale conversations, duplicating canonical sources or guessing user details. On SITREP reconcile all three against current repository, peer communications and intelligence; make material corrections and promote/archive as appropriate, without ceremonial edits. Owner instructions remain authoritative.
+
+## Skills builder / agent capability ownership
+
+Own **skills/** in this existing role workspace. Identify repeatable high-value work from CANON, Immediate, real failures and teammate needs. Reuse or improve an existing skill before duplicating it. Use [AION OpenCode V2 Master Skills Builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) for SKILL.md, progressive references, tested scripts and validation. Skills do not confer installed tools or Windows authority; confirm actual harness versions and execution evidence. No mandatory skill count, approval machinery or separate repo.
