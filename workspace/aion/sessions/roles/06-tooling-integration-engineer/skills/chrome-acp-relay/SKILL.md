@@ -43,6 +43,6 @@ node --test workspace/aion/sessions/roles/06-tooling-integration-engineer/skills
 node .opencode/skills/aion-skill-builder/scripts/skill-kit.mjs validate workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/chrome-acp-relay/SKILL.md
 ```
 
-A fixture test validates read-only behavior in that **test environment only**. On Windows, separately verify installed Node, repo path, host candidate paths, correct loaded extension provenance, harness discovery/invocation and actual I1 receipt. Update this skill for meaningful failures, not maintenance quotas.
+Six fixture tests validate read-only behavior in that **test environment only**. On Windows, separately verify installed Node, repo path, host candidate paths, correct loaded extension provenance, harness discovery/invocation and actual I1 receipt. Update this skill for meaningful failures, not maintenance quotas.
 
 **Historical note:** The former fixture-only six-role-card MVP and blanket pre-authorizations in this skill are superseded by the current twelve-agent, Windows-local owner direction. The original [issue #18](https://github.com/owenservera/aion/issues/18) is retained for provenance; do not reopen a duplicate relay project.
