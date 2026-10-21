@@ -20,3 +20,7 @@ Always start with AGENTS.md and pool README/SCHEMA/REVIEW-PROTOCOL. Choose one r
 - Preserve original claims even where inaccurate, but don't promote them to verified facts.
 - Link source and derivative separately; never silently change text.
 - Team evaluates; Intake preserves, atomizes, indexes and tallies.
+
+## Shared native skills builder
+
+Reuse and modernize these existing skills. The [AION builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) supports V2 discovery, repeatable creation and validation; review older runbooks for missing descriptions without blindly rewriting them. Maintain skills only when useful to this role or the team.

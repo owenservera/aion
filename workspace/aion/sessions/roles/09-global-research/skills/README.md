@@ -15,3 +15,7 @@ Skills are reusable runbooks for the **same research agent**, not separately lau
 | [09 SITREP](09-session-sitrep/SKILL.md) | every new session/scheduled task | fresh evidence-based state and next work |
 
 Resolve available tools from current session. None of these skills grants new permissions or creates a new autonomous scheduler.
+
+## Shared native skills builder
+
+Reuse and modernize these existing skills. The [AION builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) supports V2 discovery, repeatable creation and validation; review older runbooks for missing descriptions without blindly rewriting them. Maintain skills only when useful to this role or the team.

@@ -23,3 +23,7 @@ These are reusable procedural skills for **one specialist employee**, not proof 
 - Treat sandbox as ephemeral and external to Windows human-master machine.
 - Z.ai Agent Mode may experimentally write code in its isolated sandbox when user invokes it; promoting into canonical owner-master repos requires separate independent verification and authorization.
 - Only mark ACTIVE or EXECUTED from real user or agent turn receipts.
+
+## Shared native skills builder
+
+Reuse and modernize these existing skills. The [AION builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) supports V2 discovery, repeatable creation and validation; review older runbooks for missing descriptions without blindly rewriting them. Maintain skills only when useful to this role or the team.

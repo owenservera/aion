@@ -68,3 +68,7 @@ Employee 08 [research issue #21](https://github.com/owenservera/aion/issues/21) 
 ## Persistent agent memory (standing)
 
 Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap and relevant SITREPs. CANON stores verified durable decisions, rules, lessons and recurring negative patterns with better alternatives; Immediate stores active task context and must be considered **every interaction**; Curated stores useful aesthetics, style, personalization and working preferences. Run a high-value first pass; avoid copying stale conversations, duplicating canonical sources or guessing user details. On SITREP reconcile all three against current repository, peer communications and intelligence; make material corrections and promote/archive as appropriate, without ceremonial edits. Owner instructions remain authoritative.
+
+## Skills check on SITREP
+
+Examine **skills/** together with memory/Immediate, CANON, recent GitHub changes and peer skills. Detect missing recurring capabilities, stale or ineffective skills, duplicate procedures and verified new harness tools. Use the [shared builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) only when there is practical benefit; improve and test useful skills, and record real evidence level. No-change SITREPs require no file edits.
