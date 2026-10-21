@@ -23,3 +23,8 @@ Prefer one bounded coherent research packet to ten generic news blurbs. Defer lo
 ## SITREP and agent commons
 
 When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes, optional agent-created collaboration folders and communication rules, see [Agent Communications](../../../../../workspace/aion/shared/agent-communications/README.md). Notes are not work orders or execution authority.
+
+
+## Owned team intelligence
+
+Maintain the [Global Research shared intelligence home](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/09-global-research/README.md) as this role's **live, source-linked external-evidence and technology signal guide**. At every SITREP recheck the [one global index](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/ACTIVE.md), meaningful issue #30 deltas, relevant agent communications, authoritative technical sources and recipient evidence. Correct misleading confidence/availability/adoption claims and refresh the owned index row/changelog **only after material change**; no heartbeat commits. Do not copy Planning's priority board, Harvest's donor inventory, Toolsmith's host health or SOFTWARE_HQ technical docs into this intelligence home. Never present source research as Windows execution or another agent's acknowledgment.
