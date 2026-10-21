@@ -731,6 +731,31 @@ function renderKnowledgeEntities() {
   }).join('') : knowledgeFallback(q ? 'No entities match this filter.' : 'No derived entities are visible in this preview.');
   $('#knowledgeEntities').querySelectorAll('button[data-ke]').forEach((b) => b.onclick = guard(() => openKnowledgeEntity(entities[Number(b.dataset.ke)])));
 }
+function knowledgeGraphMap(graph) {
+  const all = knowledgeSafeList(graph?.nodes), edges = knowledgeSafeList(graph?.edges);
+  if (!all.length) return '';
+  const degree = new Map();
+  edges.forEach((e) => { degree.set(e.from, (degree.get(e.from) || 0) + 1); degree.set(e.to, (degree.get(e.to) || 0) + 1); });
+  const nodes = all.slice().sort((a, b) => (degree.get(b.eid) || 0) - (degree.get(a.eid) || 0) || String(a.eid).localeCompare(String(b.eid))).slice(0, 16);
+  const coords = new Map(nodes.map((n, i) => [n.eid, {
+    x: Math.round(400 + 335 * Math.cos(i * 2 * Math.PI / nodes.length - Math.PI / 2)),
+    y: Math.round(177 + 130 * Math.sin(i * 2 * Math.PI / nodes.length - Math.PI / 2)),
+  }]));
+  const lines = edges.filter((e) => coords.has(e.from) && coords.has(e.to) && e.from !== e.to).slice(0, 45).map((e) => {
+    const a = coords.get(e.from), b = coords.get(e.to);
+    const dash = e.status === 'confirmed' ? '' : ' stroke-dasharray="5 5"';
+    return '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="var(--l2)" opacity=".55" stroke-width="1.8"' + dash + '></line>';
+  }).join('');
+  const markers = nodes.map((n) => {
+    const pos = coords.get(n.eid), label = String(n.key ?? n.typeName ?? n.eid).slice(0, 12);
+    return '<g><circle cx="' + pos.x + '" cy="' + pos.y + '" r="13" fill="var(--panel)" stroke="var(--l1)" stroke-width="3"></circle>' +
+      '<text x="' + pos.x + '" y="' + (pos.y + 25) + '" font-size="12" text-anchor="middle" fill="var(--ink)">' + esc(label) + '</text></g>';
+  }).join('');
+  return '<div class="pad"><b>Relationship map</b><p class="small-note">Preview: ' + nodes.length + ' of ' + all.length +
+    ' nodes. Solid lines: confirmed status; dashed lines: hypotheses or other unconfirmed status. Click a node in the list below to inspect.</p>' +
+    '<svg viewBox="0 0 800 360" role="img" aria-label="Static relationship graph preview; inspect accessible node list below" style="width:100%;height:auto;max-height:300px;background:var(--paper);border-radius:6px">' +
+    lines + markers + '</svg></div>';
+}
 function renderKnowledgeGraph() {
   const k = S.knowledge; if (!k) return;
   const g = k.graph;
@@ -740,7 +765,7 @@ function renderKnowledgeGraph() {
   const nodes = knowledgeSafeList(g.data.nodes), edges = knowledgeSafeList(g.data.edges);
   const q = $('#graphFilter').value.trim().toLocaleLowerCase();
   const matching = nodes.map((n, i) => ({ n, i })).filter(({ n }) => [n.typeName, n.eid, n.key].some((x) => String(x ?? '').toLocaleLowerCase().includes(q))).slice(0, 200);
-  host.innerHTML = '<div class="pad small-note">' + esc(nodes.length) + ' nodes · ' + esc(edges.length) + ' edges' +
+  host.innerHTML = knowledgeGraphMap(g.data) + '<div class="pad small-note">' + esc(nodes.length) + ' nodes · ' + esc(edges.length) + ' edges' +
     (nodes.length > 200 ? ' · at most 200 matching nodes shown' : '') + '</div>' +
     (matching.map(({ n, i }) => '<div class="knowledge-entry"><button class="row-action" data-gn="' + i + '">' + esc(n.typeName || 'Graph node') +
       ' · ' + esc(n.key ?? n.eid) + '<div class="small-note">Inferred node · ' + esc(knowledgeSafeList(n.history).length) + ' revisions</div></button></div>').join('') ||
@@ -764,13 +789,21 @@ function renderKnowledgeModel() {
 function renderKnowledgeDrift() {
   const k = S.knowledge; if (!k) return;
   const hints = knowledgeSafeList(k.continuity?.typeDriftHints);
-  $('#knowledgeDrift').innerHTML = hints.length ? hints.map((h) =>
-    '<div class="knowledge-detail-field"><b>Unconfirmed possible same record type</b>' +
-    '<div class="small-note">Detected origin: ' + esc(h.origin ?? 'Unknown') + ' · Key: ' + esc(h.keyField ?? 'Unknown') + ' = ' + esc(h.key ?? '') +
-    ' · Field overlap: ' + esc(Math.round((Number(h.structuralFieldOverlap) || 0) * 100)) + '% (structural, not confidence)</div>' +
-    '<div class="small-note">' + knowledgeSafeList(h.candidates).map((c) => esc(c.typeName || c.type || 'Type') + ' (' + esc(c.id || 'No qualified ID') + ')').join(' ⇄ ') +
-    '</div><div class="small-note">No merge or correction performed. Same origin cannot establish same account.</div></div>'
-  ).join('') : knowledgeFallback('No review-only type-drift hints returned. This does not prove the schema was unchanged.');
+  const candidates = [];
+  $('#knowledgeDrift').innerHTML = hints.length ? hints.map((h) => {
+    const links = knowledgeSafeList(h.candidates).map((c) => {
+      const i = candidates.length; candidates.push(c);
+      return '<button class="knowledge-link" data-drift="' + i + '" aria-label="Inspect unconfirmed type candidate ' + esc(c.typeName || c.type || c.id) + '">' +
+        esc(c.typeName || c.type || 'Type') + ' · ' + esc(c.id || 'No qualified ID') + '</button>';
+    }).join(' ⇄ ');
+    return '<div class="knowledge-detail-field"><b>Unconfirmed possible same record type</b>' +
+      '<div class="small-note">Detected origin: ' + esc(h.origin ?? 'Unknown') + ' · Key: ' + esc(h.keyField ?? 'Unknown') + ' = ' + esc(h.key ?? '') +
+      ' · Field overlap: ' + esc(Math.round((Number(h.structuralFieldOverlap) || 0) * 100)) + '% (structural, not confidence)</div>' +
+      '<div class="knowledge-toolbar">' + links + '</div>' +
+      '<div class="small-note">No merge or correction performed. Same origin cannot establish same account.</div></div>';
+  }).join('') : knowledgeFallback('No review-only type-drift hints returned. This does not prove the schema was unchanged.');
+  $('#knowledgeDrift').querySelectorAll('button[data-drift]').forEach((button) =>
+    button.onclick = guard(() => openKnowledgeEntity(candidates[Number(button.dataset.drift)])));
 }
 function knowledgeSourceLinks(history) {
   const seen = new Set();
