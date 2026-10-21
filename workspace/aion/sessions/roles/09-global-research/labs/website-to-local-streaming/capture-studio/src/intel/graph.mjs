@@ -1,3 +1,5 @@
+import { foldRevision } from './history.mjs';
+
 // Canonical temporal evidence graph.
 //
 // Three strata, kept separate:
@@ -12,16 +14,16 @@ export class TemporalGraph {
 
   addType(t) { this.types.set(t.id, { id: t.id, name: t.name, key: t.key?.field ?? null, confidence: t.confidence, fields: t.fields.map((f) => ({ name: f.name, type: f.type, role: f.role, roleConfidence: f.roleConfidence })) }); }
 
-  upsertEntity({ eid, type, typeName, key, attrs, t, evidence, changed }) {
+  upsertEntity({ eid, type, typeName, key, attrs = {}, t, evidence, changed, removed = [] }) {
     let n = this.nodes.get(eid);
     if (!n) { n = { eid, type, typeName, key, attrs: {}, history: [], firstT: null, lastT: null }; this.nodes.set(eid, n); }
     const before = n.attrs;
-    n.attrs = { ...n.attrs, ...attrs };
+    n.attrs = foldRevision({ ...n.attrs }, { values: attrs, removed });
     if (Number.isFinite(t)) {
       n.firstT = n.firstT === null ? t : Math.min(n.firstT, t);
       n.lastT = n.lastT === null ? t : Math.max(n.lastT, t);
     }
-    const rev = { t, changed: changed ?? Object.keys(attrs).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(attrs[k])), values: attrs, evidence };
+    const rev = { t, changed: changed ?? Object.keys(attrs).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(attrs[k])), values: attrs, ...(removed.length ? { removed: [...removed] } : {}), evidence };
     n.history.push(rev);
     this.changes.push({ t, eid, revision: n.history.length, changed: rev.changed });
     return n;
@@ -57,7 +59,7 @@ export class TemporalGraph {
       if (!Number.isFinite(n.firstT) || n.firstT > t) continue;
       const revs = n.history.filter((r) => Number.isFinite(r.t) && r.t <= t).sort((a, b) => a.t - b.t);
       // Materialise the attribute state as of t by folding revision values in order.
-      const attrs = revs.reduce((acc, r) => Object.assign(acc, r.values ?? {}), {});
+      const attrs = revs.reduce((acc, r) => foldRevision(acc, r), {});
       nodes.push({ eid: n.eid, typeName: n.typeName, key: n.key, revision: revs.length, latestChange: revs.at(-1)?.t ?? null, attrs });
     }
     const edges = [];
@@ -81,6 +83,7 @@ export class TemporalGraph {
 }
 
 const countBy = (arr, k) => arr.reduce((a, x) => ((a[x[k]] = (a[x[k]] ?? 0) + 1), a), {});
+const nFromHistory = (history) => history.reduce((state, rev) => foldRevision(state, rev), {});
 
 // Build the graph from discovery + identity + correlation outputs.
 export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps = [], session }) {
@@ -90,13 +93,13 @@ export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps =
   for (const r of resolutions) for (const e of r.entities) {
     let first = true;
     for (const rev of e.revisions) {
-      g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key, attrs: rev.values ?? (first ? e.attrs : {}), t: rev.t, changed: rev.changed, evidence: { session: rev.session ?? session?.id, seq: rev.seq, sid: rev.sid, domId: rev.domId, t: rev.t } });
+      g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key, attrs: rev.values ?? (first ? e.attrs : {}), t: rev.t, changed: rev.changed, removed: rev.removed ?? [], evidence: { session: rev.session ?? session?.id, seq: rev.seq, sid: rev.sid, domId: rev.domId, t: rev.t } });
       first = false;
     }
     if (!e.revisions.length) g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key, attrs: e.attrs, t: e.first });
     // Current state = folded state; also carry the entity's identity confidence.
     const node = g.nodes.get(e.eid);
-    node.attrs = e.attrs; node.confidence = e.confidence; node.confidenceBasis = e.confidenceBasis; node.idBasis = e.idBasis; node.anchor = e.anchor;
+    node.attrs = e.revisions.some((r) => r.removed?.length) ? nFromHistory(node.history) : e.attrs; node.confidence = e.confidence; node.confidenceBasis = e.confidenceBasis; node.idBasis = e.idBasis; node.anchor = e.anchor;
     if (e.key !== null) keyIndex.set(`${e.type}|${e.scope}|${e.key}`, e.eid);
   }
   // Instance-level reference edges from type-level inclusion dependencies.
