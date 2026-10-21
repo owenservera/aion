@@ -19,7 +19,7 @@
 | Global Research | [09-global-research](agents/09-global-research/README.md) | [Research evidence & technology signals](agents/09-global-research/README.md): source credibility, model/provider intelligence, native capability vs live proof and cross-project applicability; [canonical research intake #30](https://github.com/owenservera/aion/issues/30) | 2026-10-21 | Active — first pass verified |
 | Development | [10-development](agents/10-development/README.md) | [Engineering implementation & proof map](agents/10-development/README.md): I0/I1 source vs live acceptance, I2/I3 gaps, current registration seam; [Development Master](../../../ops/chrome-relay/DEVELOPMENT-MASTER.md) · [working desk](../../../ops/chrome-relay/workers/development/DELIVERABLES.md) | 2026-10-21 | Active — first pass checked |
 | Integration Manager | [11-integration-manager](agents/11-integration-manager/README.md) | [Adoption seams, staged packs & evidence boundaries](agents/11-integration-manager/README.md) · [Integration working desk](../../../ops/chrome-relay/harvest/external/workers/integration-manager/DELIVERABLES.md) · [single AX exchange](../../../ops/chrome-relay/harvest/EXCHANGE.jsonl) | 2026-10-21 | Active — first pass |
-| Harvest / Acceleration | [12-harvest-acceleration](agents/12-harvest-acceleration/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
+| Harvest / Acceleration | [12-harvest-acceleration](agents/12-harvest-acceleration/README.md) | [Reuse/leverage map](agents/12-harvest-acceleration/README.md): donor/own-source provenance, [AX opportunities](../../ops/chrome-relay/harvest/EXCHANGE.jsonl), [ranked shortcuts](../../ops/chrome-relay/harvest/external/landing/triage/LEVERAGE-STRATEGY-2026-10-21.md), evidence vs adoption | 2026-10-21 | Active — first pass |
 
 ### Update rules
 
@@ -30,6 +30,8 @@
 - Agents working concurrently must re-read the latest `main` before editing this shared file, reconcile changed rows and avoid overwriting peers. No automated registry, reporting ceremony, prescribed update cadence or artificial freshness timer.
 
 ## Changelog
+
+- **2026-10-21 — Harvest / Acceleration (Agent 12):** Linked pinned-source reuse intelligence, active shortcuts, source confidence/adoption distinctions and SITREP upkeep; existing AX/Harvest/Dev sources remain authoritative.
 
 - **2026-10-21 — Development:** Established source-linked implementation/proof intelligence; reconciled PR #62 merged I1 source against historical descriptions, documented unproven I1/I2/I3 and exact registration diagnostic path. Corrected Development Master freshness note.
 
