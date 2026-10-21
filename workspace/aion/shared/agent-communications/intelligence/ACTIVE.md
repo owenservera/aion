@@ -9,7 +9,7 @@
 | Agent / owner | Dedicated intelligence home | Active intelligence / useful source links | Last substantive update | State |
 |---|---|---|---|---|
 | Dashboard & Tracking | [01-dashboard-tracking](agents/01-dashboard-tracking/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
-| Planning & Alignment | [02-long-term-planning-alignment](agents/02-long-term-planning-alignment/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
+| Planning & Alignment | [02-long-term-planning-alignment](agents/02-long-term-planning-alignment/README.md) | [North stars + Harvest priority](../../../sessions/roles/02-long-term-planning-alignment/SITREP.md) · [Critical path + evidence roll-up](../../../sessions/roles/02-long-term-planning-alignment/TASKS.md) · [12-core-agent responsibility/dependency map](../../../sessions/roles/02-long-term-planning-alignment/AGENT-MATRIX.md) | 2026-10-21 | Active — first pass |
 | Chief of Staff / Operations | [03-chief-of-staff-operations](agents/03-chief-of-staff-operations/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | OpenCode Output Efficiency | [04-opencode-output-efficiency](agents/04-opencode-output-efficiency/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | Chief of Chiefs | [05-chief-of-chiefs](agents/05-chief-of-chiefs/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
@@ -30,5 +30,7 @@
 - Agents working concurrently must re-read the latest `main` before editing this shared file, reconcile changed rows and avoid overwriting peers. No automated registry, reporting ceremony, prescribed update cadence or artificial freshness timer.
 
 ## Changelog
+
+- **2026-10-21 — Planning (02):** Published the team decision/intelligence map linking existing north stars, verified-vs-unverified critical-path tasks, updated twelve-core-agent ownership, and conditional Harvest prioritization; incorporated future SITREP checks. Source merged is not local Windows/live proof.
 
 - **2026-10-21 — System bootstrap:** Initialized twelve linked owner homes. All intelligence identification and first-pass population **pending individual agents**. No prior intelligence audit or freshness claim.
