@@ -15,6 +15,7 @@ import { exportDataset, exportTranscript } from '../src/export/export.mjs';
 import { applySuggestion } from '../src/profiles/apply.mjs';
 import { startStudio } from '../src/studio/server.mjs';
 import { ScopedLearner } from '../src/intel/learn.mjs';
+import { buildSiteContinuity, siteFromSession } from '../src/intel/continuity.mjs';
 
 const HELP = `Capture Studio ${VERSION} — local, read-only website capture
 
@@ -39,6 +40,8 @@ Sessions
   receipt <id|latest>      Print the metadata-only lab receipt
   shapes <id|latest>       Print suggestions
   model <id|latest>        Print the discovered data model, entity counts and relationships
+  continuity <id|latest> [--eid ID] [--at ISO] [--limit N]
+                           Join safely keyed entities across recorded sessions of the same site
   export <id|latest> --dataset NAME [--format jsonl|json|csv|md] [--out FILE]
   transcript <id|latest> [--out FILE]
   search <text> [--session ID]
@@ -209,6 +212,26 @@ async function main() {
       if (m.unmodelled?.length) console.log(`  unmodelled groups: ${m.unmodelled.length}`);
       const dropped = Object.values(m.corpus?.dropped ?? {}).reduce((a, b) => a + b, 0);
       if (dropped) console.log(`  corpus thinning: ${dropped} observation(s) not used for discovery (raw and events keep them)`);
+      return;
+    }
+    case 'continuity': {
+      const s = sessionArg();
+      const site = siteFromSession(s.meta);
+      if (!site) { console.error('This session has no verified target site; cross-session continuity is unavailable.'); process.exitCode = 2; return; }
+      const view = await buildSiteContinuity(paths.sessions, {
+        site, eid: args.eid ?? null, asOf: args.at ?? null, limit: args.limit ?? 20, includeHistory: !!args.eid,
+      });
+      console.log('Continuity for ' + site + ': ' + view.stats.sessionsWithDerivedKnowledge +
+        '/' + view.stats.sessionsDiscovered + ' derived sessions, ' + view.stats.joinedEntities +
+        ' keyed entities spanning multiple sessions, ' + view.stats.entitiesTotal + ' visible entities.');
+      if (view.stats.sessionsWithoutKnowledge.length || view.stats.sessionsWithDerivationError.length)
+        console.log('  Unavailable knowledge: ' + view.stats.sessionsWithoutKnowledge.length +
+          ' not derived, ' + view.stats.sessionsWithDerivationError.length + ' derivation errors.');
+      if (args.eid) { console.log(JSON.stringify(view.entities, null, 2)); return; }
+      for (const e of view.entities) console.log('  ' + e.id + '  ' + e.typeName +
+        '  sessions ' + e.sessionCount + '  revisions ' + e.revisions + '  ' + e.identityBasis);
+      if (view.stats.truncated) console.log('  ' + view.stats.truncated + ' more entities (use --limit or --eid).');
+      console.log('  Note: keyless identities are not merged; missing observations do not imply deletions.');
       return;
     }
     case 'export': {
