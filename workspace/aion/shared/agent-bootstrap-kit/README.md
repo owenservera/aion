@@ -2,6 +2,10 @@
 
 **Purpose:** Reusable, low-ceremony onboarding for a new AION agent or relaunch of an existing one. This kit is **instructions and copy/paste prompts only**. It is not an installer, scheduler, workflow runner or a new source of policy.
 
+## Bootstrap progress
+
+The [single active bootstrap tracker](BOOTSTRAP-TRACKER.md) has **agents as columns** and **stages as rows**, including self-reported dates, evidence, last bootstrap, next pending stage and a protocol changelog. BOOTSTRAP checks it first; SITREP checks for missed or updated stages.
+
 ## One-command autonomous launch
 
 Use `#AION @<AGENT-ROLE> BOOTSTRAP` (or `#AION BOOTSTRAP` in a conversation where the role is already established). The [Master Bootstrap Command](MASTER-BOOTSTRAP.md) tells the agent to run all four stages **in order, autonomously, with one closeout**. No separate prompts needed.
