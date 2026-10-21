@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <key id="label" for="node" attr.name="label" attr.type="string"/>
+  <key id="kind" for="node" attr.name="kind" attr.type="string"/>
+  <key id="status" for="node" attr.name="status" attr.type="string"/>
+  <key id="relation" for="edge" attr.name="relation" attr.type="string"/>
+  <graph id="aion-prototype-dependencies" edgedefault="directed">
+    <node id="NS1"><data key="label">NS1 - Introspection</data><data key="kind">north-star</data><data key="status">ongoing</data></node>
+    <node id="NS2"><data key="label">NS2 - Two-way prototype</data><data key="kind">north-star</data><data key="status">open</data></node>
+    <node id="NS3"><data key="label">NS3 - Recovery</data><data key="kind">north-star</data><data key="status">open</data></node>
+    <node id="AION-P01"><data key="label">P01 - Account registration</data><data key="kind">task</data><data key="status">blocked-observed</data></node>
+    <node id="AION-P02"><data key="label">P02 - Exact-thread receive I1</data><data key="kind">task</data><data key="status">open</data></node>
+    <node id="AION-P03"><data key="label">P03 - Persistent CLI I2</data><data key="kind">task</data><data key="status">open</data></node>
+    <node id="AION-P04"><data key="label">P04 - Independent introspection proof</data><data key="kind">task</data><data key="status">open</data></node>
+    <node id="AION-P05"><data key="label">P05 - Local build reconciliation</data><data key="kind">task</data><data key="status">open</data></node>
+    <node id="AION-P06"><data key="label">P06 - Recovery I3</data><data key="kind">task</data><data key="status">open</data></node>
+    <edge id="e1" source="AION-P05" target="AION-P01"><data key="relation">local-build-confidence</data></edge>
+    <edge id="e2" source="AION-P05" target="AION-P02"><data key="relation">local-build-confidence</data></edge>
+    <edge id="e3" source="AION-P01" target="AION-P02"><data key="relation">dependency</data></edge>
+    <edge id="e4" source="AION-P02" target="AION-P03"><data key="relation">dependency</data></edge>
+    <edge id="e5" source="AION-P03" target="AION-P06"><data key="relation">dependency</data></edge>
+    <edge id="e6" source="AION-P03" target="NS2"><data key="relation">outcome</data></edge>
+    <edge id="e7" source="AION-P04" target="NS1"><data key="relation">outcome</data></edge>
+    <edge id="e8" source="AION-P06" target="NS3"><data key="relation">outcome</data></edge>
+  </graph>
+</graphml>
