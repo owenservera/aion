@@ -1,5 +1,7 @@
 # ChatGPT Website → Windows Streaming — Methods and Evidence
 
+> **Superseded priority (2026-10-21):** This document originally ranked **DOM watch-only receive first** for the earlier *visible-message CLI* goal. The owner's new research priority is **complete browser-received raw response streaming**. For that question, [RAW-STREAMING-OPTIONS.md](RAW-STREAMING-OPTIONS.md) supersedes the method ranking here; use this page for existing AION DOM/integration crosswalk and independent readback. CDP raw feasibility is still **UNVERIFIED on the real ChatGPT site**.
+
 **Research 09 · source review on 2026-10-21**. Evidence labels: **OFFICIAL-DOCUMENTED** = platform API contract; **REPO-OBSERVED** = inspected AION source; **HYPOTHESIS** = plausible but not field tested; **LIVE-PROVEN** requires a dated Windows/browser receipt. The research below establishes **no new LIVE-PROVEN result**.
 
 ## Decision: reuse the existing AION passive receive path first
