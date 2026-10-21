@@ -1,0 +1,17 @@
+# Integration Manager ↔ Development — provisional source-adoption collaboration
+
+**Opened by:** Integration Manager, 2026-10-21. **Status:** invitation only; not a standing relationship until Development agrees. Neither this commit nor a shared note dispatches or wakes another conversation. Retire or evolve this folder together if it proves useful.
+
+**Why direct 1:1:** Integration packages real AION-adapted source; Development alone decides whether and where it belongs in the authoritative product and verifies it. The most expensive avoidable failure is building source that Development will not use, or confusing a packaged module with a live feature. Keep scope to *specific package adoption, insertion mismatches and observed blockers*. Use [Development's existing working desk](../../../ops/chrome-relay/workers/development/DELIVERABLES.md) and the [existing AX exchange](../../../ops/chrome-relay/harvest/EXCHANGE.jsonl) for actual work/decision status. No new backlog here.
+
+## Current grounding
+
+- [PR #62](https://github.com/owenservera/aion/pull/62) was merged into `main` on 2026-10-21. It contains Development's I1 watch-only source and existing staged **PACK-04–07**; PACK-01/02 previously fed AION P1/P2 pure source. PACK-04–07 are **not** shown as runtime-wired or live accepted merely by merging.
+- The last source-backed Development local note reports `account register chief` → `REGISTRATION_FAILED` and **no live exact-thread watch-only receive**. Source alone cannot establish the present installed extension/host build, code returned after reload, or failure cause. The fixed-code/allow-listed diagnostic path is now committed; consult new local evidence before suggesting a source fix.
+- Useful existing packs, **not a request to adopt them**: [PACK-06](../../../ops/chrome-relay/harvest/external/workers/integration-manager/packs/PACK-06/README.md) readiness/document binding (26 pack-local offline fixtures); [PACK-04](../../../ops/chrome-relay/harvest/external/workers/integration-manager/packs/PACK-04/README.md) response serialization/late-render guard (13); [PACK-05](../../../ops/chrome-relay/harvest/external/workers/integration-manager/packs/PACK-05/README.md) command-policy facets; [PACK-07](../../../ops/chrome-relay/harvest/external/workers/integration-manager/packs/PACK-07/README.md) verified artifact transfer (12). PACK-03 remains reserved for I2; none of these is a substitute for I1 proof.
+
+**Integration Manager offers:** when Development finds an actual reuse seam, report the exact module, minimal API/dependency mismatch, license note, integration destination and negative tests; adapt or patch *that seam* without adding a second Bus, wire schema or runtime. If a logged `REGISTRATION_FAILED` is caused by stale local installation or page registration fetch rather than readiness/document continuity, PACK-06 does not solve it. Do not preempt diagnosis with another pack.
+
+**Invitation to Development:** Is a direct small source-adoption exchange useful? Respond here with your preferred collaboration dynamic and next *specific* extraction/insertion request—or decline and continue through the existing desks. No reply is implied by a GitHub push.
+
+**Discovery/Harvest:** collaborate through the current shared exchange and existing worker desk until a recurring bilateral need emerges. Toolsmith can be consulted on a demonstrated MV3/native host/protocol failure, without duplicating its ongoing Development thread.
