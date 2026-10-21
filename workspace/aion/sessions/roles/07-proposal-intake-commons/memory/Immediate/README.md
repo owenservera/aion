@@ -1,5 +1,23 @@
-# Immediate — 07-proposal-intake-commons
+# Intake 07 — Immediate | Working context
 
-Live task context, active dependencies, blockers, user corrections and next actions; consult every interaction and update whenever material work changes.
+**Verified checkpoint:** 2026-10-21 · GitHub remote `main` and linked issues (not a continuous watch, not Windows local inspection). **Consult at every new interaction.** Reconcile on material changes; do not update merely to advance the date.
 
-Initialized 2026-10-21 as an unpopulated agent-owned memory tier. The agent independently chooses and maintains a useful first pass; do not manufacture content or duplicate globally canonical trackers.
+## Live truth and narrow next outcome
+
+- **Role 07 dedicated conversation:** explicitly launched by the owner on 2026-10-21, but exact ChatGPT conversation URL is **unknown** to this workspace. Historical bootstrap “pending launch” reflects 2026-10-16, not current role activity.
+- **Actual proposal pool:** [INDEX.json](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/technical-proposals/INDEX.json) has `items: []` = **0 accepted source-preserving proposals**. [RANKINGS.md](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/technical-proposals/RANKINGS.md) = **UNSCORED / 0 genuine scores**.
+- **Incoming sources:** [Intake issue #20](https://github.com/owenservera/aion/issues/20) is open; its **two observed comments are the operating-model update and this role's launch acknowledgment, not full original proposals**. No end-to-end live proposal capture-and-review acceptance has been observed. Do not turn old council topics into proposal records without the exact authorized source.
+- **Next highest-value action when a complete authorized source appears:** check rights/access, duplicate/provenance; preserve exact RAW with fidelity/hash; neutral atomized DECOMPOSITION; per-proposal issue and INDEX readback; route *one* expertise-matched question; wait for real reviewer-authored reply before claiming ACK/review. [Workflow](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/technical-proposals/INFORMATION-FLOW.md). **Until then:** correctly report `READY / NO COMPLETE SOURCE`; do not request invented pilot materials.
+- **Current unresolved dependency:** genuine publishable technical proposal source not yet present in the canonical inbox. This is **absence of input**, not a claim the entire project is blocked.
+
+## Collaboration and routing state
+
+- **Research 09:** actually replied on 2026-10-21 and **agreed to trial** the Intake ↔ Research source-reference split. The [1:1 folder](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intake--research-provisional/README.md) remains **PROVISIONAL** until a useful real handoff. A research request needs an original issue/RAW link+version, source/origin, one evidence question, affected project if known; no copied RAW. [Research issue #30](https://github.com/owenservera/aion/issues/30).
+- **Review/decisions:** 06 Toolsmith for interoperability, 02 Planning for strategy, 04 Efficiency for measurement, 05 Chief for real decisions, 03 Chief of Staff for approved task/ack chasing, 01 Dashboard for consuming INDEX, 10 Development for separately authorized implementation. Routing is conditional on actual relevant material; don't broadcast.
+- **Project direction (outside Intake execution):** [Planning's task view](https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/02-long-term-planning-alignment/TASKS.md) currently emphasizes local exact-thread account registration and I1 watch-only proof before persistent two-way CLI; [Development's desk](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/workers/development/DELIVERABLES.md) distinguishes merged I1 source from still-unverified local I1. Avoid volunteering Intake for host work or turning old Z-FORGE/M0.5 tasks into a new plan.
+
+## In-session resumption
+
+For **every interaction**: consult this page, inspect the actual named proposal/source involved and its canonical issue/index before deciding or reporting status. On `SITREP`: reconcile this page with [role SITREP](../../SITREP.md), repo updates, [living communications](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/LIVING-OPERATING-MODEL.md), relevant [peer intelligence](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/ACTIVE.md), and [Intake shared intelligence](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/07-proposal-intake-commons/README.md).
+
+Record only actual new source, response, decision, source-access change or owner direction. Cross-check older status against recent comments; **do not treat a GitHub note as notification/ACK or promise monitoring after the session**. No owner intervention is needed for ordinary authorized provenance, indexing and reconciliation work.
