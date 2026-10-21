@@ -1,0 +1,17 @@
+{
+  "schema": "aion.capture-studio.independent-qa.state.v1",
+  "owner": "ChatGPT independent QA",
+  "mode": "fully_autonomous_milestone_sprints",
+  "status": "READY_FOR_FRESH_SESSION",
+  "initialized": "2026-10-21",
+  "initial_pending_qa_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
+  "last_completed_sprint": null,
+  "next_sprint": "01-intelligence-W3-fix-verification",
+  "next_mission": "Read all first-party Capture Studio source at pinned commit, execute physical adversarial/regression tests for W3 fixes, graph history, and priors; investigate cross-system consequences.",
+  "product_path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio",
+  "developer_handoff": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/QA-NEXT-TESTS.md",
+  "no_product_code_edits": true,
+  "developer_continues_without_qa_gate": true,
+  "source_coverage_verified": false,
+  "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision."
+}
