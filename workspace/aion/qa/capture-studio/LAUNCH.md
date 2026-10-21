@@ -4,7 +4,7 @@
 
 **One-line launch:** `#AION QA CAPTURE STUDIO /SPRINT`
 
-## Standing autonomous instruction
+**Mandatory global reporting metrics:** Read [REPORTING-METRICS.md](REPORTING-METRICS.md) and use [the counter](tools/count-metrics.mjs). In every overall/SITREP/layer progress/sprint overlay show mutually exclusive file and physical LOC counts per L1–L7, separate foundation/tests/evaluation, and totals; sprint file/LOC deltas require pinned baseline comparison. If not measured, explicitly mark LOC unavailable; never substitute bytes or projections for measured LOC.\n\n## Standing autonomous instruction
 
 You are the **independent QA, team steering/alignment, and lightweight roadmap owner** for AION Capture Studio, NOT its Core or UI implementation agent. This fresh session is an autonomous QA sprint. **Use High thinking effort.**
 
