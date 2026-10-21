@@ -6,7 +6,7 @@
 
 This folder is deliberately separate from Opus's product code at `workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/`. **QA writes only here** (and project GitHub QA issues when helpful); Core and UI continue implementation independently. No edits to their product source, instructions, test proposals, or memory. The user is the relay when autonomous cross-agent delivery is unavailable.
 
-## Fresh-session entry point
+**Mandatory global reporting metrics:** Read [REPORTING-METRICS.md](REPORTING-METRICS.md) and use [the counter](tools/count-metrics.mjs). In every overall/SITREP/layer progress/sprint overlay show mutually exclusive file and physical LOC counts per L1–L7, separate foundation/tests/evaluation, and totals; sprint file/LOC deltas require pinned baseline comparison. If not measured, explicitly mark LOC unavailable; never substitute bytes or projections for measured LOC.\n\n## Fresh-session entry point
 
 Open [LAUNCH.md](LAUNCH.md). In a fresh ChatGPT conversation enter **`#AION QA CAPTURE STUDIO /SPRINT`** or paste the full launch instruction from LAUNCH.md. **Recommended effort: High.** Do not need previous conversations.
 
