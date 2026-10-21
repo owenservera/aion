@@ -116,16 +116,18 @@ export class Session {
       if (entry.torn) report.ok = false;
       report.segments.push(entry);
     }
+    const ranges = [];
     for await (const r of this.records()) {
       if (r.k === 'corrupt') { report.ok = false; continue; }
       report.records++;
-      if (r.seq !== lastSeq + 1) report.seqGaps.push({ after: lastSeq, next: r.seq });
+      if (r.seq !== lastSeq + 1) report.seqGaps.push({ from: lastSeq + 1, to: r.seq - 1 });
       lastSeq = r.seq;
-      if (r.k === 'gap') { report.gapRecords++; report.droppedRecords += r.droppedRecords ?? 0; }
+      if (r.k === 'gap') { report.gapRecords++; report.droppedRecords += r.droppedRecords ?? 0; ranges.push([r.droppedSeqFrom, r.droppedSeqTo]); }
     }
-    // Seq gaps that are fully explained by gap records are expected; unexplained ones are not.
-    report.unexplainedSeqGaps = report.seqGaps.length - report.gapRecords;
-    if (report.unexplainedSeqGaps > 0) report.ok = false;
+    // A seq hole is expected only if a gap record declares that dropped range.
+    const unexplained = report.seqGaps.filter((g) => !ranges.some(([a, b]) => a <= g.from && g.to <= b));
+    report.unexplainedSeqGaps = unexplained.length;
+    if (unexplained.length) { report.ok = false; report.unexplained = unexplained.slice(0, 20); }
     return report;
   }
 }
