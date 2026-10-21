@@ -1,0 +1,16 @@
+{
+  "schema": "aion.capture-studio.opus-build-sprint.v1",
+  "owner": "Claude Opus",
+  "mode": "autonomous_continuous_build",
+  "status": "READY_FOR_FRESH_OPUS_SESSION",
+  "created": "2026-10-21",
+  "last_observed_product_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
+  "source_of_truth": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/",
+  "next_action": "Fetch latest main, read complete Capture Studio first-party source and worklog, continue highest-value implementation without physical tests.",
+  "last_completed_build_sprint": null,
+  "testing_owner": "ChatGPT (separate QA workspace)",
+  "physical_tests_by_opus": false,
+  "pre_commit_qa_note": true,
+  "nonstop_until_owner_stop": true,
+  "warning": "This is a session handoff, not evidence of active unattended runtime."
+}
