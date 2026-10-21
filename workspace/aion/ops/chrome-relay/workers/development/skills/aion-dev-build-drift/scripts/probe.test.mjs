@@ -42,7 +42,9 @@ test('missing artifact yields fail-closed incomplete result',t=>{
 });
 test('symlinked generated file rejected without following target',t=>{
   const p=fixture(t);const built=join(p.extensionDir,'src/dev/dev-link.js');
-  unlinkSync(built);symlinkSync(join(p.repoRoot,PAIRS[0][0]),built);
+  unlinkSync(built);
+  try { symlinkSync(join(p.repoRoot,PAIRS[0][0]),built); }
+  catch (e) { if (process.platform==='win32' && e.code==='EPERM') { t.skip('symlink privilege unavailable'); return; } throw e; }
   assert.equal(probe(p).files[0].status,'BUILT_SYMLINK_REFUSED');
 });
 test('CLI accepts setup receipt without printing private receipt fields',t=>{
