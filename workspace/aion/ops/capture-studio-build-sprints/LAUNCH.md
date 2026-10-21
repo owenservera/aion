@@ -2,8 +2,8 @@
 
 **Purpose:** advance Capture Studio autonomously while spending expensive reasoning only where it changes the outcome. Each fresh session has ONE phase role, reads current source, does that phase, commits, and stops.
 
-**Launch:** `#AION @CAPTURE-STUDIO /BUILD-SPRINT <PHASE>` where `<PHASE>` is `RECON`, `DECIDE`, `BUILD`, `MECHANICAL` or `REVIEW`. If omitted, read [STATE.json](STATE.json) `phase.next` and run that.
-**Prompts per phase, model and thinking level:** [PHASES.md](PHASES.md). **Mission:** [SPRINT-01.md](SPRINT-01.md). **Checkpoint:** [STATE.json](STATE.json).
+**Launch:** `#AION @CAPTURE-STUDIO /BUILD-SPRINT <PHASE>` where `<PHASE>` is `RECON`, `DECIDE`, `BUILD`, `MECHANICAL`, `REVIEW` or `CONTINUE`. `CONTINUE` reads [STATE.json](STATE.json) `phase.next`, checks the model is right for it (otherwise says which to switch to), and runs it.
+**Prompts per phase, model and thinking level, and the CONTINUE prompt:** [PHASES.md](PHASES.md). Every phase ends with a NEXT STEP section naming the model/thinking to switch to and the next prompt, so no outside guide is needed. **Mission:** [SPRINT-01.md](SPRINT-01.md). **Checkpoint:** [STATE.json](STATE.json).
 **QA is separate:** [ChatGPT QA](../../qa/capture-studio/README.md).
 
 ## Phase map (the human flips model/thinking manually)
@@ -24,7 +24,7 @@
 4. **Opus decides and specifies; Sonnet implements.** DECIDE never edits product source. BUILD never changes the decision; if SPEC.md is wrong or blocked, record it in STATE.json `blockers` and stop rather than improvising a new direction.
 5. **BUILD commit rule.** Before each implementation commit, overwrite the product's single `QA-NEXT-TESTS.md` with a quick thought dump (no extra research, no test code) and include it in that commit. Commit and push ordinary safe scoped changes with conflict checks (see root `AGENTS.md`: standing commit/push authorization; fetch before push; no force-push).
 6. **Hold risky operations.** Destructive, irreversible or uncertain-effect changes are paused and explained per root governance. Real safety risks are handled immediately regardless of phase.
-7. **Every phase ends with a STATE.json update** (set `phase.completed`, `phase.next`, SHA, blockers, one-line handoff) committed in that phase's final commit. Report the actual remote commit hash, not an assumption.
+7. **Every phase ends with a STATE.json update and a NEXT STEP handoff** (model, thinking, next prompt, `handoff_next` in STATE.json). Every phase also (set `phase.completed`, `phase.next`, SHA, blockers, one-line handoff) committed in that phase's final commit. Report the actual remote commit hash, not an assumption.
 8. **Git attribution.** Commit messages end with the standard co-author trailer for the model that wrote them.
 
 ## Budget gates (owner applies; agent honors when told the % in the launch line)

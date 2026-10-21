@@ -10,13 +10,37 @@
   "phase": {
     "completed": "RECON",
     "next": "DECIDE",
-    "sequence": ["RECON", "DECIDE", "BUILD", "MECHANICAL", "REVIEW"],
+    "sequence": [
+      "RECON",
+      "DECIDE",
+      "BUILD",
+      "MECHANICAL",
+      "REVIEW"
+    ],
     "expected": {
-      "RECON": { "model": "haiku_or_sonnet", "thinking": "off_or_low" },
-      "DECIDE": { "model": "opus", "thinking": "high" },
-      "BUILD": { "model": "sonnet", "thinking": "medium", "escalate_to": "high_only_for_stuck_chunks" },
-      "MECHANICAL": { "model": "haiku_or_sonnet", "thinking": "low" },
-      "REVIEW": { "model": "opus", "thinking": "medium", "optional": true, "skip_if_usage_ge": 85 }
+      "RECON": {
+        "model": "haiku_or_sonnet",
+        "thinking": "off_or_low"
+      },
+      "DECIDE": {
+        "model": "opus",
+        "thinking": "high"
+      },
+      "BUILD": {
+        "model": "sonnet",
+        "thinking": "medium",
+        "escalate_to": "high_only_for_stuck_chunks"
+      },
+      "MECHANICAL": {
+        "model": "haiku_or_sonnet",
+        "thinking": "low"
+      },
+      "REVIEW": {
+        "model": "opus",
+        "thinking": "medium",
+        "optional": true,
+        "skip_if_usage_ge": 85
+      }
     }
   },
   "chunk_index": 0,
@@ -28,9 +52,16 @@
   },
   "budget": {
     "owner_reported_usage_start_pct": 67,
-    "gates": { "skip_review_at": 85, "build_low_at": 90, "checkpoint_only_at": 95 },
+    "gates": {
+      "skip_review_at": 85,
+      "build_low_at": 90,
+      "checkpoint_only_at": 95
+    },
     "calibration": "owner records usage % before/after RECON and DECIDE in this field so later phases can be re-planned",
-    "measured": { "recon_cost_pct": null, "decide_cost_pct": null }
+    "measured": {
+      "recon_cost_pct": null,
+      "decide_cost_pct": null
+    }
   },
   "blockers": [],
   "next_action": "Run DECIDE (Opus, high) per PHASES.md using RECON.md at SHA 9d2fe0cd. Security/secrets deprioritized by owner direction 2026-10-21.",
@@ -45,5 +76,13 @@
   "launch_protocol": "LAUNCH.md",
   "phase_prompts": "PHASES.md",
   "sprint_mission": "Trustworthy Continuity — investigate cross-layer identity, semantics, time and provenance without prescribing solutions",
-  "freshness_rule": "Owner direction and current source outrank old worklog sequence, guesses and estimated progress. RECON/DECISION/SPEC are valid only for the SHA they record."
+  "freshness_rule": "Owner direction and current source outrank old worklog sequence, guesses and estimated progress. RECON/DECISION/SPEC are valid only for the SHA they record.",
+  "handoff_next": {
+    "phase": "DECIDE",
+    "model": "opus",
+    "thinking": "high",
+    "prompt": "PHASES.md#DECIDE or the CONTINUE prompt",
+    "note": "RECON.md recorded at SHA 9d2fe0cd; if capture-studio source changed since, DECIDE will say to re-run RECON"
+  },
+  "continue_prompt": "PHASES.md#CONTINUE"
 }
