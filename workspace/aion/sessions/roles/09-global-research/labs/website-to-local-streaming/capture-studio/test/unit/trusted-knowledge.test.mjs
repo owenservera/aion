@@ -118,3 +118,32 @@ test('an explicitly removed field disappears from longitudinal as-of state', asy
   assert.equal(Object.hasOwn(after.entities[0].attrs, 'label'), false);
   assert.deepEqual(after.entities[0].history[1].removed, ['label']);
 });
+
+test('corrupt derived JSONL is excluded and counted as incomplete', async (t) => {
+  const { dir, add } = fixture(t);
+  add('corrupt', 'app.example.com', [], {
+    outcome: { status: 'complete', entityCount: 1 },
+    rawEntities: '{invalid-json-line\n',
+  });
+  const x = await buildSiteContinuity(dir, { site: 'example.com' });
+  assert.equal(x.entities.length, 0);
+  assert.ok(x.stats.sessionsIncompleteKnowledge.some((r) =>
+    r.session === 'corrupt' && r.reason === 'unreadable-entities-dataset'));
+  assert.ok(x.stats.sessionsWithoutKnowledge.includes('corrupt'));
+});
+
+test('type drift is review-only and does not invent an identity merge', async (t) => {
+  const { dir, add } = fixture(t);
+  add('first', 'app.example.com', [entity('thing:k:x', 'x', 'Earlier', 100)]);
+  const newer = entity('changed:k:x', 'x', 'Later', 200, {
+    type: 'changed', typeName: 'Thing' });
+  add('later', 'app.example.com', [newer], {
+    model: { types: [{ ...type, id: 'changed' }] },
+  });
+  const x = await buildSiteContinuity(dir, { site: 'example.com' });
+  assert.equal(x.stats.joinedEntities, 0);
+  assert.equal(x.entities.length, 2);
+  assert.equal(x.typeDriftHints.length, 1);
+  assert.equal(x.typeDriftHints[0].identityMerged, false);
+  assert.equal(x.typeDriftHints[0].status, 'unconfirmed');
+});
