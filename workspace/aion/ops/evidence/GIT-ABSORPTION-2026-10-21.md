@@ -76,6 +76,19 @@ Owner directive: everything not in `main` goes into `main`; conflicting files ar
 | #34 | `track-b/implementation-rounds-20261019` | closed |
 | #33 | `track-b/velocity-command-plane-20261019` | closed |
 
+## Conflict rule: most recent edit wins (verified)
+
+Owner rule: on conflict, the most recently edited version governs. Method: `git log -1 --format=%cI <ref> -- <path>` for `main` vs the absorbed branch ref.
+
+| Group | Files | Branch last edit | `main` last edit | Winner |
+|---|---|---|---|---|
+| `track-b/windows-integration-20261020` | 15 | 2026-10-19 21:09 – 2026-10-20 12:15 | 2026-10-20 23:18 – 2026-10-21 12:03 | `main`, all 15 |
+| `bootstrap/aion-09-global-research-20261019` | 15 | 2026-10-19 17:48 | 2026-10-21 11:34 – 14:27 | `main`, all 15 |
+| `harvest/external-browser-donors-20261020` | 5 | 2026-10-20 13:42 – 15:48 | 2026-10-20 18:33 – 2026-10-21 12:03 | `main`, all 5 |
+| `track-b/velocity-command-plane-20261019` | 2 | 2026-10-19 22:30 | 2026-10-20 00:10 / 15:00 | `main`, both |
+
+Result: every excluded file already carried the more recent version in `main`; no file needed to be restored from a branch. Earlier `--ours` resolutions coincide with the edit-date rule.
+
 ## Open assessment items
 
 1. The excluded files above keep `main`'s version. Branch versions remain recoverable only from `refs/aion-absorbed/` (see below) and the remote reflog — the remote branches themselves were deleted.
