@@ -73,7 +73,7 @@ export class Recorder extends EventEmitter {
     this.startedAt = Date.now();
     append({
       k: 'run.start', target: { id: target.id, url: redactUrl(target.url), title: target.title }, profile: { name: profile.name, version: profile.version },
-      coverage: 'Streams already in flight before this record are not observed; history earlier than attach is unknown unless the page re-sends it.',
+      coverage: 'Requests and WebSocket connections opened before this record are not observed at all (a long-lived socket stays invisible until the page reconnects or is reloaded); history earlier than attach is unknown unless the page re-sends it.',
     });
 
     await this.net.attach(this.page, 'p', { type: 'page' });
@@ -240,6 +240,9 @@ export class Recorder extends EventEmitter {
     return snap ? { url: snap.url, title: snap.title, bytes: Buffer.byteLength(snap.html ?? '') } : null;
   }
   async highlight(id) { return this.dom.highlight(id); }
+  // Only ever on an explicit user request: reloading changes the page, but it is the one way to
+  // observe connections that were opened before recording started.
+  async reloadPage() { this._append({ k: 'lifecycle', event: 'reload_requested_by_user' }); await this.page.send('Page.reload', { ignoreCache: false }); return true; }
 }
 
 function stripForDataset(ev) {

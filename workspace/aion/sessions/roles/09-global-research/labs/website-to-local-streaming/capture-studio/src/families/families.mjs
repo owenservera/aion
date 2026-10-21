@@ -32,6 +32,9 @@ function leafWalk(v, p, out, depth = 0) {
   if (depth > 9) return;
   if (v === null || typeof v !== 'object') { (out[p] ??= []).length < 50 && out[p].push(v); return; }
   if (Array.isArray(v)) { for (const x of v.slice(0, 30)) leafWalk(x, `${p}[*]`, out, depth + 1); return; }
+  // Objects keyed by indices ({"0":…,"1":…}) are collections, not fixed fields.
+  const keys = Object.keys(v);
+  if (keys.length && keys.every((k) => /^\d+(\.\d+)*$/.test(k))) { for (const k of keys.slice(0, 30)) leafWalk(v[k], `${p}[*]`, out, depth + 1); return; }
   for (const [k, x] of Object.entries(v)) leafWalk(x, `${p}.${k}`, out, depth + 1);
 }
 
@@ -81,7 +84,7 @@ const SIGNALS = {
   },
   collection_with: (ev, s) => {
     const names = [...ev.fieldNames].map((x) => x.toLowerCase());
-    const ok = s.fields.every((alts) => alts.split('|').some((a) => names.some((n) => n === a || n.endsWith('_' + a))));
+    const ok = s.fields.every((alts) => alts.split('|').some((a) => names.some((n) => n === a || n.endsWith('_' + a) || n.startsWith(a + '_'))));
     return ok ? `fields ${s.fields.map((f) => f.split('|')[0]).join(', ')}` : null;
   },
   pagination: (ev) => {

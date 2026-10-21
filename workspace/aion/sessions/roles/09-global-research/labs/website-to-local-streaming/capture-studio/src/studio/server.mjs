@@ -110,6 +110,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (b === 'pause') return send(res, 200, { paused: recorder.pause() || recorder.paused });
       if (b === 'resume') return send(res, 200, { resumed: recorder.resume() });
       if (b === 'turns') return send(res, 200, await recorder.domTurns());
+      if (b === 'reload') return send(res, 200, { reloaded: await recorder.reloadPage() });
       if (b === 'blocks') return send(res, 200, await recorder.domBlocks(Number(c)));
       if (b === 'inspect-dom') return send(res, 200, await recorder.inspectDom());
       if (b === 'highlight') return send(res, 200, { ok: await recorder.highlight(body.id) });
