@@ -25,6 +25,8 @@
 - The continuity UI is an existing feature to improve, not a blank-slate rewrite.
 - Explicit omissions: keyless cross-session joins, inferred retractions, type-rename alignment, confidence without evidence and claims of verified runtime behavior.
 
+**Next integration mission:** [SPRINT-03-INTEGRATION.md](SPRINT-03-INTEGRATION.md) — after UI's current sprint, prioritize coherent existing workflows and Core contract alignment over isolated screens.
+
 **Standing pull queue:** [CONTINUOUS-QUEUE.md](CONTINUOUS-QUEUE.md) (high-level priorities). [TASK-QUEUE.md](TASK-QUEUE.md) retains the detailed active breakdown. On finishing a slice, pull the next unblocked NOW item without waiting for QA.
 
 ## Initial work sequence
