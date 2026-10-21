@@ -312,7 +312,12 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
     <section class="view" id="v-search">
       <h2>Search</h2>
       <p class="lede">Find text across decoded events and rendered page blocks in recent sessions.</p>
-      <form class="row" id="searchForm" style="margin-bottom:12px"><input id="q" size="40" placeholder="Search text"><button class="primary">Search</button></form>
+      <form class="row" id="searchForm" style="margin-bottom:12px">
+        <label for="q">Text <input id="q" size="32" placeholder="Search captured text" required></label>
+        <label for="searchScope">Scope <select id="searchScope"><option value="recent">20 recent recordings</option><option value="selected">Selected recording only</option></select></label>
+        <button class="primary">Search evidence</button>
+      </form>
+      <p class="small-note" id="searchStatus" role="status" aria-live="polite">Search scans saved decoded events and page blocks, not every raw byte. Results may omit sampled or unavailable evidence.</p>
       <div class="panel scroll"><table id="hits"><tbody></tbody></table></div>
     </section>
   </div>
@@ -323,7 +328,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtB = (n) => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
-const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, knowledge: null };
+const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, searchRequestSeq: 0, knowledge: null };
 
 async function api(path, opts = {}) {
   const r = await fetch('/api/' + path, { method: opts.body ? 'POST' : 'GET', headers: opts.body ? { 'content-type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
@@ -849,8 +854,18 @@ async function openKnowledgeEntity(entity) {
       history.slice(-150).map((r) => '<tr><td>' + esc(knowledgeTime(r.t)) + '</td><td class="mono">' + esc(r.session || 'Unknown') +
         '</td><td>' + esc(knowledgeSafeList(r.changed).join(', ') || 'Unspecified') + '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td></tr>').join('') +
       '</tbody></table></div>' + (history.length > 150 ? '<p class="small-note">Latest 150 revisions shown; full history available through Core API.</p>' : '') +
-      '<h3>Source recordings</h3>' + knowledgeSourceLinks(history);
+      '<h3>Source recordings</h3>' + knowledgeSourceLinks(history) +
+      (String(e.key ?? e.typeName ?? '').trim() ? '<div class="knowledge-toolbar"><button id="knowledgeSearch">Search captured text for this key/type</button></div>' : '');
     wireKnowledgeSources(history);
+    const searchButton = host.querySelector?.('#knowledgeSearch');
+    if (searchButton) searchButton.onclick = () => {
+      const value = String(e.key ?? e.typeName ?? '').trim().slice(0, 200);
+      if (!value) return;
+      $('#q').value = value;
+      $('#searchScope').value = 'recent';
+      show('search');
+      $('#searchForm').requestSubmit();
+    };
   } catch (err) {
     if (detailSeq === S.knowledgeDetailSeq && epoch === S.knowledgeRequestSeq && S.view === 'knowledge') host.innerHTML = knowledgeMarkupError('Could not load entity history: ' + err.message);
   }
@@ -954,12 +969,49 @@ async function openProfile(name) {
 }
 
 /* ---------------- search ---------------- */
+function renderSearchHits(hits) {
+  const rows = Array.isArray(hits) ? hits : [];
+  $('#hits tbody').innerHTML = rows.length ? rows.map((h, i) =>
+    '<tr><td><span class="pill ' + (h.layer === 'L2' ? 'c-l2' : 'c-l3') + '">' +
+      (h.layer === 'L2' ? 'Recorded event' : 'Recorded page') + '</span></td>' +
+    '<td><button class="row-action" data-search-hit="' + i + '" aria-label="Open source recording">' + esc(String(h.session || '').slice(0, 15) || 'Unknown session') + '</button>' +
+    '<div class="small-note">Stream ' + esc(h.sid || '—') + ' · ' + esc(knowledgeTime(h.t)) + '</div></td>' +
+    '<td style="overflow-wrap:anywhere">' + esc(h.snippet ?? '') + '</td></tr>'
+  ).join('') : '<tr><td colspan="3" class="empty">No matching recorded text. This is not evidence that the subject did not exist.</td></tr>';
+  $('#hits tbody').querySelectorAll('button[data-search-hit]').forEach((button) =>
+    button.onclick = guard(async () => {
+      const hit = rows[Number(button.dataset.searchHit)];
+      if (!hit?.session) return toast('No source recording was attached to this search hit.');
+      show('sessions');
+      await openSession(hit.session);
+    }));
+}
 $('#searchForm').onsubmit = guard(async (e) => {
   e.preventDefault();
-  const q = $('#q').value.trim(); if (!q) return;
-  const s = src();
-  const hits = await api(`search?q=${encodeURIComponent(q)}${s?.kind === 'session' ? '&session=' + encodeURIComponent(s.id) : ''}`);
-  $('#hits tbody').innerHTML = hits.length ? hits.map((h) => `<tr><td><span class="pill ${h.layer === 'L2' ? 'c-l2' : 'c-l3'}">${h.layer === 'L2' ? 'event' : 'page'}</span></td><td class="mono" style="color:var(--muted)">${esc(h.session.slice(0, 15))} ${esc(h.sid || '#' + h.domId)}</td><td style="overflow-wrap:anywhere">${esc(h.snippet)}</td></tr>`).join('') : '<tr><td class="empty">No matches. Saved sessions are searchable after their datasets are built.</td></tr>';
+  const q = $('#q').value.trim();
+  if (!q) { $('#searchStatus').textContent = 'Enter text to search saved evidence.'; return; }
+  const scope = $('#searchScope').value;
+  if (scope === 'selected' && !S.sessionId) {
+    $('#searchStatus').innerHTML = knowledgeMarkupError('No saved recording is selected; choose one in Sessions or search recent recordings.');
+    return;
+  }
+  const epoch = ++S.searchRequestSeq;
+  $('#searchStatus').textContent = 'Searching ' + (scope === 'selected' ? 'selected recording' : '20 recent recordings') + '…';
+  $('#hits tbody').innerHTML = '<tr><td colspan="3" class="empty">Searching saved evidence…</td></tr>';
+  try {
+    const path = 'search?q=' + encodeURIComponent(q) + (scope === 'selected' ? '&session=' + encodeURIComponent(S.sessionId) : '&sessions=20');
+    const hits = await api(path);
+    if (epoch !== S.searchRequestSeq || S.view !== 'search') return;
+    if (!Array.isArray(hits)) throw new Error('Unexpected search response.');
+    $('#searchStatus').textContent = hits.length + ' match(es) in ' + (scope === 'selected' ? 'the selected recording' : 'up to 20 recent recordings') +
+      '; returned results are limited by the API (default 100), and missing evidence is not a negative finding.';
+    renderSearchHits(hits);
+  } catch (err) {
+    if (epoch === S.searchRequestSeq && S.view === 'search') {
+      $('#searchStatus').innerHTML = knowledgeMarkupError('Search unavailable: ' + err.message);
+      $('#hits tbody').innerHTML = '<tr><td colspan="3" class="empty">No results loaded due to an error.</td></tr>';
+    }
+  }
 });
 
 connectLive();
