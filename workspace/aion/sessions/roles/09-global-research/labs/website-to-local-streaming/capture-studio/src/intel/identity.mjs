@@ -10,6 +10,9 @@ import { createHash } from 'node:crypto';
 
 const isScalar = (v) => v !== null && v !== undefined && typeof v !== 'object';
 const sha = (x) => createHash('sha1').update(x).digest('hex').slice(0, 12);
+export const usableIdentityKey = (v) => typeof v === 'number' ? Number.isFinite(v)
+  : typeof v === 'string' && v.trim().length > 0
+    && !['undefined', 'null', 'nan'].includes(v.trim().toLowerCase());
 
 // Order-independent instance signature (content + provenance, never array position).
 export function instanceSig(i) { return `${JSON.stringify(i.obj)}|${i.prov.session ?? ''}|${i.prov.sid ?? ''}|${i.prov.seq ?? ''}|${i.prov.domId ?? ''}|${i.prov.t ?? ''}`; }
@@ -70,10 +73,10 @@ function buildEntities(type, clusters, method, basis, confidences = new Map()) {
     // appending later evidence never renames an entity; only genuinely earlier evidence can.
     const first = inst[0];
     const anchorOf = (i) => `${instanceSig(i)}|${i.prov.index ?? ''}|${i.prov.mapKey ?? ''}|${i.prov.snapshot ?? ''}`;
-    const eid = method === 'key' ? `${type.id}:k:${sha(`${scope}|${keyVal}`)}` : `${type.id}:e:${sha(anchorOf(first))}`;
+    const eid = method === 'key' ? `${type.id}:k:${sha(`${scope}|${keyVal}`)}` : method === 'provisional' ? `${type.id}:p:${sha(`${anchorOf(first)}|${label}`)}` : `${type.id}:e:${sha(anchorOf(first))}`;
     const anchor = { session: first.prov.session ?? null, sid: first.prov.sid ?? null, seq: first.prov.seq ?? null, domId: first.prov.domId ?? null, t: first.prov.t ?? null };
-    const conf = confidences.get(label) ?? (method === 'key' ? { value: +Math.min(1, type.key?.score ?? 0.5).toFixed(3), basis: 'identity key score' } : { value: null, basis: 'unscored' });
-    entities.push({ eid, idBasis: method === 'key' ? 'key' : 'first-observation', anchor, type: type.id, typeName: type.name, key: keyVal, scope, observations: inst.length, duplicates: inst.length - revisions.length, revisions, attrs: state, first: revisions[0]?.t ?? null, last: revisions[revisions.length - 1]?.t ?? null, method, confidence: conf.value, confidenceBasis: conf.basis });
+    const conf = method === 'provisional' ? { value: null, basis: 'identity key unavailable' } : confidences.get(label) ?? (method === 'key' ? { value: +Math.min(1, type.key?.score ?? 0.5).toFixed(3), basis: 'identity key score' } : { value: null, basis: 'unscored' });
+    entities.push({ eid, idBasis: method === 'key' ? 'key' : method === 'provisional' ? 'missing-key-observation' : 'first-observation', anchor, type: type.id, typeName: type.name, key: keyVal, scope, observations: inst.length, duplicates: inst.length - revisions.length, revisions, attrs: state, first: revisions[0]?.t ?? null, last: revisions[revisions.length - 1]?.t ?? null, method, confidence: conf.value, confidenceBasis: conf.basis });
   }
   entities.sort((a, b) => (a.eid < b.eid ? -1 : 1));
   return { type: type.id, typeName: type.name, method, basis, entities };
@@ -83,8 +86,24 @@ export function resolveType(type, opts = {}) {
   const inst = type.instances;
   if (type.key && !type.key.weak) {
     const by = new Map();
-    inst.forEach((i, n) => { const v = i.obj[type.key.field]; const k = v === undefined || v === null ? `__missing_${sha(instanceSig(i))}` : `${scopeOf(i.prov)}\u0000${String(v)}`; if (!by.has(k)) by.set(k, []); by.get(k).push(n); });
-    return buildEntities(type, by, 'key', { field: type.key.field, keyScore: type.key.score, scopedBy: 'site' });
+    const absent = new Map(), repeat = new Map();
+    inst.forEach((i, n) => {
+      const v = i.obj[type.key.field];
+      if (!usableIdentityKey(v)) {
+        const sig = [instanceSig(i), i.prov.index ?? null, i.prov.mapKey ?? null, i.prov.snapshot ?? null].join('|');
+        const ordinal = repeat.get(sig) ?? 0;
+        repeat.set(sig, ordinal + 1);
+        absent.set(sig + '|' + ordinal, [n]);
+      } else {
+        const k = JSON.stringify([scopeOf(i.prov), typeof v, String(v)]);
+        if (!by.has(k)) by.set(k, []);
+        by.get(k).push(n);
+      }
+    });
+    const valid = buildEntities(type, by, 'key', { field: type.key.field, keyScore: type.key.score, scopedBy: 'site' });
+    const provisional = buildEntities(type, absent, 'provisional', { field: type.key.field, reason: 'missing-or-invalid-key' });
+    return { ...valid, basis: { ...valid.basis, provisionalCount: provisional.entities.length },
+      entities: [...valid.entities, ...provisional.entities].sort((a, b) => a.eid.localeCompare(b.eid)) };
   }
   return linkage(type, opts);
 }
