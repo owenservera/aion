@@ -1,22 +1,30 @@
 # AION Employee 07 — INTAKE — SITREP
 
-## Current verified status — 2026-10-21 (new dedicated conversation)
+## Current verified status — 2026-10-21, after memory first pass
 
-**Activation:** Owner explicitly initiated this Role 07 conversation with SITREP + self-bootstrap instructions on 2026-10-21; Intake has read and responded in that conversation. **Chat permalink: UNKNOWN / not supplied or tool-exposed**, so no claim that a GitHub link to this chat exists. Historical entries below describing a pending launch are retained as dated evidence, not current status.
+**Role:** Owner-launched dedicated Intake 07 conversation is operating; its exact ChatGPT URL remains UNKNOWN / not exposed to this connector. **GitHub checkpoint:** current remote `main` readbacks and actual linked issues; not a Windows-local observation or continuously running monitor. Earlier “not launched” statements below are **historical 2026-10-16 scaffold records**.
 
-**GitHub observations:** AION `main` and role workspace/skills accessible with the connected GitHub service; root governance, [Agent Communications Living Operating Model](../../../shared/agent-communications/LIVING-OPERATING-MODEL.md) and [nine-role invitation](../../../shared/agent-communications/NINE-ROLE-RELAUNCH.md) read. First-contact marker `AION-COMMS-FIRST-CONTACT-20261021` discovered from GitHub during this SITREP (not pushed). Latest role-specific file readbacks and GitHub write receipts take precedence over older role launch assumptions.
+**Operational truth:** [canonical proposal INDEX](../../../shared/technical-proposals/INDEX.json) has **0 accepted originals** (`items: []`), [rankings](../../../shared/technical-proposals/RANKINGS.md) are **UNSCORED**, and [submission issue #20](https://github.com/owenservera/aion/issues/20) has **two actual process/activation comments**, no complete authored proposal. First real source→review acceptance **NOT VALIDATED**. Do not invent a submission or require the owner to provide a synthetic pilot.
 
-**Inbox reality:** [Technical Proposal Commons INDEX](../../../shared/technical-proposals/INDEX.json) has `items: []` and [Rankings](../../../shared/technical-proposals/RANKINGS.md) is UNSCORED. [Issue #20](https://github.com/owenservera/aion/issues/20) has one existing v0.2 operating-model comment, **not a full submitted technical proposal**. Zero complete source-preserving intakes and zero scored reviewer responses are therefore verified as of this check. Do not transform the relaunch invitation, GitHub research snippets, or absent ACPX ZIP into fabricated proposal records.
+**Collaboration correction:** [Research 09 replied](../../../shared/agent-communications/intake--research-provisional/README.md) on 2026-10-21 and agreed to **trial** source-reference exchange. It is still **provisional**, not a permanent collaboration or automatic handoff. Research 09 owns external investigation; Intake 07 owns verbatim authored technical-proposal custody. Older “Research not acknowledged” wording is superseded.
 
-**Current AION direction:** [Repository governance](../../../../../REPOSITORY-GOVERNANCE.md) is main-centric; Windows local machine is authoritative for live proof. Current [Planning tasks](../02-long-term-planning-alignment/TASKS.md) emphasize local account registration, exact-thread watch-only receive and persistent two-way CLI. Intake neither directs that critical path nor marks merged source as proven local execution. Older Z-FORGE / M1 council and ACPX crosswalk assignments remain accessible history, but missing source/full proposal and changed owner focus prevent treating them as an active intake pilot by assumption.
+**Current owner direction / dependencies:** [Planning's AION priority view](../02-long-term-planning-alignment/TASKS.md) emphasizes Windows-local exact-thread registration, watch-only I1 and interactive two-way CLI; Development/Toolsmith own engineering proof. Intake does not turn legacy Z-FORGE/ACPX discussion into new work or treat their source summaries as the full original material.
 
-**Boundaries and relationships:** Role 09 is the sole global research intake/investigation authority ([issue #30](https://github.com/owenservera/aion/issues/30)); Role 07 owns the verbatim custody, neutral decomposition and review record of **submitted technical proposals**, not research findings. Intake will form one provisional, optional [07 ↔ 09 discussion](../../../shared/agent-communications/intake--research-provisional/README.md) to avoid dual source queues; Role 09 has **not acknowledged** it. Role 06 gets targeted technical questions only after a real proposal; Role 02/05 decide strategy; Role 03 owns actual follow-up/dispatch; Role 01 consumes canonical index. No other standing 1:1 folder currently justified.
+### Three-tier role memory — consult and improve without file churn
 
-**Chosen operating model (no new registry):** On each relevant SITREP, read current `main`, issue #20, `INDEX.json`, any active proposal issues and relevant GitHub agent notes; identify concrete source/recipient/status changes. For genuine sources: preserve as received, capture exact integrity/provenance, neutral atomic ideas, publish/index one canonical GitHub issue, route one specific question if useful, and record only actual reviewer/decision/task receipts. Use issue comments as the event trail and this SITREP only for material continuity. An empty inbox means stay ready, not generate artificial work or periodic empty updates.
+- [CANON](memory/CANON/README.md): enduring custody/authority rules, evidence distinctions, prevention of stale-status, duplicate queues, invented proof and passive publish-only handoffs.
+- [Immediate](memory/Immediate/README.md): **consult every interaction**; actual inbox/review state, active dependency, real next action and trial collaboration. Update on material source, response, role/priority or access change.
+- [Curated](memory/Curated/README.md): grounded concise operating style, focused source-linked specialist packets and thinking-effort guidance; adapt on real owner feedback.
 
-**Immediate useful next work:** ingest the first genuinely complete, publishable technical proposal already available through the authorized inbox, perform independent RAW/hash/index readback, then request one expertise-matched real review. Until that source exists: source intake is READY / INBOX EMPTY, and evidence of end-to-end pilot is NOT VALIDATED.
+On `SITREP` reconcile the three tiers with [root governance](../../../../../REPOSITORY-GOVERNANCE.md), the current issue/INDEX, [agent communications](../../../shared/agent-communications/LIVING-OPERATING-MODEL.md) and [owned team intelligence](../../../shared/agent-communications/intelligence/agents/07-proposal-intake-commons/README.md); only write meaningful changes. The [shared ACTIVE index](../../../shared/agent-communications/intelligence/ACTIVE.md) remains a team discovery tool, **not** duplicated role memory.
+
+**Next useful action:** when a complete authorized original proposal is present, capture unmodified RAW with provenance/hash; decompose neutrally, publish/index/read back; route one useful question and record only a genuine response. Until then: **READY / NO COMPLETE SOURCE**. GitHub comments/commits do not awaken independent agents.
+
 
 ---
+
+## Historical scaffold and assignments (2026-10-16–17; superseded where noted above)
+
 Created: 2026-10-16 (document scaffold).
 **Role launch (historical 2026-10-16):** NOT VERIFIED at initial scaffold publication — superseded by the dated 2026-10-21 status above.
 **Role chat URL:** UNKNOWN; waiting for real created conversation.
