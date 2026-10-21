@@ -2,14 +2,14 @@
   "schema": "aion.capture-studio.build-sprint.v2",
   "owner": "Claude (phased: Haiku/Sonnet/Opus per PHASES.md)",
   "mode": "phased_credit_aware_build",
-  "status": "READY_FOR_RECON",
+  "status": "RECON_COMPLETE",
   "created": "2026-10-21",
   "updated": "2026-10-21",
-  "last_observed_product_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
+  "last_observed_product_sha": "9d2fe0cd347a73e9324d1c824c7c762917e0c3e6",
   "source_of_truth": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/",
   "phase": {
-    "completed": null,
-    "next": "RECON",
+    "completed": "RECON",
+    "next": "DECIDE",
     "sequence": ["RECON", "DECIDE", "BUILD", "MECHANICAL", "REVIEW"],
     "expected": {
       "RECON": { "model": "haiku_or_sonnet", "thinking": "off_or_low" },
@@ -33,7 +33,8 @@
     "measured": { "recon_cost_pct": null, "decide_cost_pct": null }
   },
   "blockers": [],
-  "next_action": "Run RECON (Haiku/Sonnet, low or off thinking) per PHASES.md. Do not run DECIDE until RECON.md is committed.",
+  "next_action": "Run DECIDE (Opus, high) per PHASES.md using RECON.md at SHA 9d2fe0cd. Security/secrets deprioritized by owner direction 2026-10-21.",
+  "handoff": "RECON complete at 9d2fe0cd. Intel modules (discover, identity linkage, graph, learn, correlate) are unwired from product paths; calibrator.observe and shapes.retention are never read; derive caps events at 400 per stream, which truncates family event extraction.",
   "last_completed_build_sprint": null,
   "testing_owner": "ChatGPT (separate QA workspace)",
   "physical_tests_by_any_phase": false,
