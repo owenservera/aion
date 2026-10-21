@@ -350,7 +350,8 @@ export async function runDevHost({argv,stdin,stdout,stateDir,expectedExtensionId
     if(!isPlain(raw)||raw.ok!==true){
       const code=typeof raw?.code==='string'&&KNOWN_REGISTRATION_CODES.has(raw.code)
         ?raw.code:REGISTRATION_CODES.REGISTRATION_FAILED;
-      return {ok:false,read_only:true,code};
+      const diagnostic=['fetch_rejected','http_error','body_unreadable','body_invalid','timeout','aborted','origin_not_allowed','body_too_large','response_too_large','redirect_refused','adapter_error','unknown_action'].includes(raw?.diagnostic)?raw.diagnostic:null;
+      return {ok:false,read_only:true,code,...(diagnostic?{diagnostic}:{})};
     }
     // The lane that answers must be the lane that is connected.
     if(String(raw.lane_id??'')!==workerLane.lane_id)

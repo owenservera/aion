@@ -420,7 +420,8 @@ export function createReceiveRouter({
       return {ok:false,read_only:true,code:REGISTRATION_CODES.REGISTRATION_FAILED};
     if(reply.ok!==true){
       const mapped=typeof reply.code==='string'?REGISTRATION_PAGE_CODE_MAP[reply.code]:null;
-      return {ok:false,read_only:true,code:mapped??REGISTRATION_CODES.REGISTRATION_FAILED};
+      const diagnostic=['fetch_rejected','http_error','body_unreadable','body_invalid','timeout','aborted','origin_not_allowed','body_too_large','response_too_large','redirect_refused','adapter_error','unknown_action'].includes(reply.code)?reply.code:null;
+      return {ok:false,read_only:true,code:mapped??REGISTRATION_CODES.REGISTRATION_FAILED,...(diagnostic?{diagnostic}:{})};
     }
     const email=canonicalizeEmail(reply.email);
     if(!email)return {ok:false,read_only:true,code:REGISTRATION_CODES.REGISTRATION_INVALID_EMAIL};
