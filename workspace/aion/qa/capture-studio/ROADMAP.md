@@ -2,6 +2,12 @@
 
 **Updated:** 2026-10-21 (team lane launch preparation). **Authority:** owner-directed QA stewardship of steering, alignment and light roadmap. **Recon baseline:** AION main `49095348141646ba8d90bfc27c30e8fa0d1c6eda` (source/document inspection, not executed acceptance). **State:** proposed sequence; lane owners remain autonomous. No GitHub write wakes another agent.
 
+## Always-on engineering pull queues
+
+- [Core continuous queue](../../ops/capture-studio-core/CONTINUOUS-QUEUE.md) — high-level Now/Next/Later; owner Core.
+- [UI / Integration continuous queue](../../ops/capture-studio-ui/CONTINUOUS-QUEUE.md) — high-level Now/Next/Later; detailed UI work remains in its existing TASK-QUEUE; owner UI.
+- QA/Steering maintains prioritization and cross-lane dependencies; each lane autonomously pulls the highest-impact unblocked NOW item after completion and records a commit/evidence receipt. A queue is not a running agent or QA gate. Completed source tasks should not be automatically recycled.
+
 ## Team steering checkpoint — 2026-10-21 (owner status)
 
 | Lane | Owner-reported state | GitHub evidence distinction | Next steering treatment |
