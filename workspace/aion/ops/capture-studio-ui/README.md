@@ -25,7 +25,7 @@
 - The continuity UI is an existing feature to improve, not a blank-slate rewrite.
 - Explicit omissions: keyless cross-session joins, inferred retractions, type-rename alignment, confidence without evidence and claims of verified runtime behavior.
 
-**Next integration mission:** [SPRINT-03-INTEGRATION.md](SPRINT-03-INTEGRATION.md) — after UI's current sprint, prioritize coherent existing workflows and Core contract alignment over isolated screens.
+**Current integration authority and delivery receipt:** [SPRINT-03-INTEGRATION.md](SPRINT-03-INTEGRATION.md) — source-delivered coherent workflows, Core derivation-status adapter, shared context, evidence drilldown, auth/recovery and 37 passing V8 UI checks; actual browser/Windows/Node/QA acceptance pending.
 
 **Standing pull queue:** [CONTINUOUS-QUEUE.md](CONTINUOUS-QUEUE.md) (high-level priorities). [TASK-QUEUE.md](TASK-QUEUE.md) retains the detailed active breakdown. On finishing a slice, pull the next unblocked NOW item without waiting for QA.
 
@@ -70,7 +70,7 @@ GitHub is the durable record; issues or files are not automatic agent wakeups. C
 
 - **Full result and commit trail:** [Sprint 02](SPRINT-02.md#delivery-closeout--2026-10-21).
 - **Execution queue:** [Continuous Queue](CONTINUOUS-QUEUE.md) and [Detailed Tasks](TASK-QUEUE.md).
-- **Next mission:** [Sprint 03 — Evidence Navigation](SPRINT-03.md).
+- **Current sprint:** [Sprint 03 — Integrated Capture Studio](SPRINT-03-INTEGRATION.md). [Evidence-navigation substream](SPRINT-03.md) is integrated, not a competing sprint.
 - **Verification:** 6 previous Studio contracts + 12 Knowledge contracts + 6 Search contracts = 24/24 executed in isolated V8 compatibility harness with committed source/test readback; no failures. Native Node runner, real browser/mobile/keyboard and independent QA remain unperformed in this lane.
 - **Core contract consumed:** authenticated read-only session model/graph/continuity and search endpoints. UI has not modified Core API or source.
 - **Safety:** no inference of same account from same origin, no silent type-drift merge, no invented deletion/retraction and rejected links omitted from active visual map. Mock/fixture checks are not live validation.
