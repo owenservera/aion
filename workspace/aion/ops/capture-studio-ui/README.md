@@ -63,3 +63,15 @@ GitHub is the durable record; issues or files are not automatic agent wakeups. C
 - Future UX work: navigate graph/model information visually (only via supported APIs), richer sorting/pagination for larger sites, and end-user evidence drilldown beyond latest 200 preview rows. Core retains any required API contract decisions.
 
 **Next sprint recommendation:** a visual knowledge workspace connecting sessions → entities → graph, using existing read-only API responses before proposing server changes.
+
+## Sprint 02 — Trusted Knowledge Workspace (2026-10-21)
+
+**Delivered in source; not Windows/browser accepted.** New accessible Knowledge view unites saved sessions, origin-qualified linked entities, historical attributes, source recording references, static bounded relationship map, graph node/edge details, inferred type summaries, review-only drift candidates and cross-recording recorded-text search.
+
+- **Full result and commit trail:** [Sprint 02](SPRINT-02.md#delivery-closeout--2026-10-21).
+- **Execution queue:** [Continuous Queue](CONTINUOUS-QUEUE.md) and [Detailed Tasks](TASK-QUEUE.md).
+- **Next mission:** [Sprint 03 — Evidence Navigation](SPRINT-03.md).
+- **Verification:** 6 previous Studio contracts + 12 Knowledge contracts + 6 Search contracts = 24/24 executed in isolated V8 compatibility harness with committed source/test readback; no failures. Native Node runner, real browser/mobile/keyboard and independent QA remain unperformed in this lane.
+- **Core contract consumed:** authenticated read-only session model/graph/continuity and search endpoints. UI has not modified Core API or source.
+- **Safety:** no inference of same account from same origin, no silent type-drift merge, no invented deletion/retraction and rejected links omitted from active visual map. Mock/fixture checks are not live validation.
+
