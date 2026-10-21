@@ -33,6 +33,7 @@
     "always-on": "node scripts/always-on.mjs",
     "always-on:status": "node scripts/always-on.mjs --status",
     "always-on:stop": "node scripts/always-on.mjs --stop",
+    "chrome:cdp": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/chrome-cdp.ps1",
     "help": "node bin/studio.mjs help"
   }
 }

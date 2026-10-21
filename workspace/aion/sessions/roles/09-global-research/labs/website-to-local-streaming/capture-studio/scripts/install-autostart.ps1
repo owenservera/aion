@@ -37,6 +37,7 @@ param(
   [switch]$Install,
   [switch]$Remove,
   [switch]$Status,
+  [string]$ChromeProfile = (Join-Path $env:LOCALAPPDATA 'chrome-cdp-profile'),
   [switch]$Start,
   [switch]$Stop
 )
@@ -119,7 +120,11 @@ function Install-Task {
   }
   $user = if ($env:USERDOMAIN) { "$env:USERDOMAIN\$env:USERNAME" } else { $env:USERNAME }
 
-  $action = New-ScheduledTaskAction -Execute $node -Argument ('"{0}"' -f $Script) -WorkingDirectory $Root
+  # Always pass the Chrome profile used for capture, so the supervisor can relaunch the
+  # owner's real browser with the DevTools port after Chrome is closed (--ensure-chrome).
+  $argParts = @('"{0}"' -f $Script, '--chrome-profile', ('"{0}"' -f $ChromeProfile))
+  $argLine  = ($argParts -join ' ')
+  $action = New-ScheduledTaskAction -Execute $node -Argument $argLine -WorkingDirectory $Root
   try {
     $action.Hidden = $true
   } catch {

@@ -29,6 +29,23 @@ import './commands/profiles.mjs';
 // A closed pipe (studio … | head) is a normal way to finish, not an error.
 process.stdout.on('error', (e) => { if (e.code === 'EPIPE') process.exit(0); });
 
+// Supervisor IPC stop (scripts/always-on.mjs sends { type: 'stop' }).
+// Windows cannot deliver a catchable SIGINT to a child: process.kill() terminates it outright,
+// which is what used to leave session.json at "recording" with an unfinalized raw segment. So the
+// supervisor asks over the IPC channel instead, and the request is re-emitted as the very same
+// SIGINT event the Ctrl+C path uses (bin/commands/capture.mjs:185 -> runRecording finalize), so
+// the save/derive/exit logic exists once. Nothing else in this file may stop a recording.
+if (process.channel) {
+  process.on('message', (m) => {
+    if (m !== 'stop' && m?.type !== 'stop') return;
+    const handled = process.emit('SIGINT');
+    // No recording is listening (e.g. a command that never attaches a handler): nothing to save.
+    if (!handled) process.exit(0);
+    // Safety net only: the graceful path exits by itself once the session is finalized.
+    setTimeout(() => process.exit(0), 25_000).unref();
+  });
+}
+
 async function main(argv) {
   const hasFlag = (...names) => { const end = argv.indexOf('--'); return argv.slice(0, end < 0 ? undefined : end).some((a) => names.includes(a)); };
   const words = leadingWords(argv, GLOBAL_FLAGS, 2);
