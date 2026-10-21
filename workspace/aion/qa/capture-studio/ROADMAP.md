@@ -2,6 +2,25 @@
 
 **Updated:** 2026-10-21 (team lane launch preparation). **Authority:** owner-directed QA stewardship of steering, alignment and light roadmap. **Recon baseline:** AION main `49095348141646ba8d90bfc27c30e8fa0d1c6eda` (source/document inspection, not executed acceptance). **State:** proposed sequence; lane owners remain autonomous. No GitHub write wakes another agent.
 
+## Team steering checkpoint — 2026-10-21 (owner status)
+
+| Lane | Owner-reported state | GitHub evidence distinction | Next steering treatment |
+|---|---|---|---|
+| Core | **Assigned four-task cycle complete** | `cc536481` identity safety source patch and `229678df` CLI/API continuity contract committed; no independent full acceptance receipt seen | Mark cycle complete, keep available for targeted interface questions; do not reassign Core's completed checklist |
+| UI / Integration | **Working** | UI queue and launch documented; no fresh UI implementation receipt observed in this read | Continue UI independently; reconcile API contract on delivery |
+| Systems | **Full assessment running** | Systems queue and launch documented; no finished assessment receipt observed in this read | Await source-backed ranked recommendations; do not interrupt |
+| QA / Steering | **Active** | QA roadmap and historical bounded graph evidence committed | Own integration steering, independent acceptance, owner-facing decisions and consolidated evidence |
+
+**Critical rule:** owner-reported agent activity/completion is valid coordination context, not proof of an executed test. GitHub changes alone do not wake an agent. This note does not impose new gates or change lane boundaries.
+
+### Steering queue (small, nonblocking)
+
+- [ ] **ST1 — Contract reconciliation (QA):** review Core's delivered CLI/API contract against current frontend calls, create discrepancy list only if evidence supports it.
+- [ ] **ST2 — UI receipt intake (QA):** when UI posts commits, compare actual UX against continuity/provenance/error-state contract; log evidence and missing integration details.
+- [ ] **ST3 — Systems synthesis (QA):** when assessment lands, rank architecture issues by cross-layer impact (identity × semantics × time × provenance), near-term cost and verification feasibility; retain decisions for owner.
+- [ ] **ST4 — Independent acceptance (QA):** execute pinned current-sha temporal graph and two-session continuity tests; distinguish Linux Node module tests from authenticated API and Windows/Chrome acceptance.
+- [ ] **ST5 — Regroup (QA):** produce one concise owner briefing with what shipped, defects proven, recommended next intervention and who owns it, rather than independently redirecting the other lanes.
+
 ## Team activation checkpoint
 
 - Core delivered source change `cc536481aaab466fd7e6cbe00b63f007027dd588` to isolate missing/ambiguous inferred keys; acceptance remains pending; do not assume remaining Core tasks complete.
