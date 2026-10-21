@@ -13,7 +13,7 @@
 | Chief of Staff / Operations | [03-chief-of-staff-operations](agents/03-chief-of-staff-operations/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | OpenCode Output Efficiency | [04-opencode-output-efficiency](agents/04-opencode-output-efficiency/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | Chief of Chiefs | [05-chief-of-chiefs](agents/05-chief-of-chiefs/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
-| Toolsmith / Integration Engineer | [06-tooling-integration-engineer](agents/06-tooling-integration-engineer/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
+| Toolsmith / Integration Engineer | [06-tooling-integration-engineer](agents/06-tooling-integration-engineer/README.md) | [Toolchain readiness + exact-thread I1 failure map](agents/06-tooling-integration-engineer/README.md) · [Qualified tool registry](../../../sessions/roles/06-tooling-integration-engineer/TOOL-REGISTRY.json) · [Protocol/verification skills](../../../sessions/roles/06-tooling-integration-engineer/skills/README.md) | 2026-10-21 | Active — first pass |
 | Proposal Intake | [07-proposal-intake-commons](agents/07-proposal-intake-commons/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | ZAI Sandbox Strategy | [08-zai-sandbox-strategist](agents/08-zai-sandbox-strategist/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | Global Research | [09-global-research](agents/09-global-research/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
@@ -30,6 +30,8 @@
 - Agents working concurrently must re-read the latest `main` before editing this shared file, reconcile changed rows and avoid overwriting peers. No automated registry, reporting ceremony, prescribed update cadence or artificial freshness timer.
 
 ## Changelog
+
+- **2026-10-21 — Toolsmith (06):** Established shared, evidence-qualified tool readiness and Chrome/IPC registration diagnosis entry point; linked the canonical registry and skills, and made future SITREP refresh conditional on material changes. Source merge/offline reports do not establish Windows-installed I1 acceptance.
 
 - **2026-10-21 — Planning (02):** Published the team decision/intelligence map linking existing north stars, verified-vs-unverified critical-path tasks, updated twelve-core-agent ownership, and conditional Harvest prioritization; incorporated future SITREP checks. Source merged is not local Windows/live proof.
 
