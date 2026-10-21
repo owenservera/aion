@@ -1,3 +1,8 @@
+---
+name: 02-repo-discovery
+description: "Discover the relevant authorized GitHub repositories for cross-project research without treating partial pagination or stale inventories as complete."
+---
+
 # repo discovery
 
 
