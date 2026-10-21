@@ -9,10 +9,10 @@
 //   activeQuestions which single clarification would reduce the most uncertainty
 //
 // All state is plain JSON so learned behaviour is versionable, inspectable and reversible.
-import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import { ROLES, PRIOR_FIELDS, PRIOR_ROLES } from './priors.mjs';
 import { tokens } from './schema.mjs';
+import { LearnerJournal } from './learner-journal.mjs';
 
 export { ROLES };
 
@@ -123,108 +123,185 @@ export function heuristicRole(name, d = {}) {
 // --------------------------------------------------------------------------------------------
 // Scopes and persistence
 // --------------------------------------------------------------------------------------------
-export const SCOPES = ['instance', 'page', 'site', 'family', 'global'];
-const SCOPE_WEIGHT = { global: 1, family: 2, site: 3, page: 4 };
+export const SCOPES = ['instance', 'page', 'site', 'account', 'family', 'global'];
+const SCOPE_WEIGHT = { global: 1, family: 2, site: 3, account: 4, page: 5 };
+const scopedKey = (scope, ctx = {}) => {
+  if (scope === 'family') return ctx.family ? 'family:' + ctx.family : null;
+  if (scope === 'site') return ctx.site ? (ctx.origin ? 'site:' + JSON.stringify([ctx.site, ctx.origin]) : 'site:' + ctx.site) : null;
+  if (scope === 'account') return ctx.site && ctx.origin && ctx.account ? 'account:' + JSON.stringify([ctx.site, ctx.origin, ctx.account]) : null;
+  if (scope === 'page') return ctx.site && ctx.page ? (ctx.origin || ctx.account
+    ? 'page:' + JSON.stringify([ctx.site, ctx.origin ?? '', ctx.account ?? '', ctx.page])
+    : 'page:' + ctx.site + '|' + ctx.page) : null;
+  return null;
+};
+const instanceKey = (ctx, name) => JSON.stringify([ctx.site ?? '', ctx.origin ?? '', ctx.account ?? '',
+  ctx.page ?? '', ctx.instanceId ?? '', ctx.typeKey ?? '', name]);
 
 export class ScopedLearner {
   constructor(dir = null) {
     this.dir = dir;
+    this.journal = dir ? new LearnerJournal(dir) : null;
+    this.revision = 0;
     this.global = priorModel();
-    this.models = {};          // `${scope}:${name}` -> RoleModel (corrections only)
-    this.overrides = {};       // instance scope: `${site}|${typeKey}|${field}` -> role (hard)
-    this.corrections = [];     // provenance log of every learning signal
+    this.models = {};
+    this.overrides = {};
+    this.corrections = [];
+    this.proposals = [];
+    this.audit = [];
+    this.nextCorrectionId = 0;
     this.calibrator = new Calibrator();
     if (dir) this._load();
   }
 
   _file() { return path.join(this.dir, 'learner.json'); }
-  _load() {
-    mkdirSync(this.dir, { recursive: true });
-    if (!existsSync(this._file())) return;
-    const s = JSON.parse(readFileSync(this._file(), 'utf8'));
-    for (const [k, v] of Object.entries(s.models ?? {})) this.models[k] = new RoleModel(v);
-    if (s.globalLearned) for (const c of s.globalLearned) this.global.train(c.features, c.role, c.weight);
-    this.overrides = s.overrides ?? {};
-    this.corrections = s.corrections ?? [];
-    this.calibrator = new Calibrator(s.calibrator);
+  _load(snapshot = this.journal?.read()) {
+    this.global = priorModel(); this.models = {}; this.overrides = {};
+    this.corrections = []; this.proposals = []; this.audit = [];
+    this.nextCorrectionId = 0; this.calibrator = new Calibrator();
+    this.revision = snapshot?.revision ?? 0;
+    if (!snapshot) return;
+    for (const [k, v] of Object.entries(snapshot.models ?? {})) this.models[k] = new RoleModel(v);
+    for (const c of snapshot.globalLearned ?? []) this.global.train(c.features, c.role, c.weight);
+    this.overrides = snapshot.overrides ?? {};
+    this.corrections = snapshot.corrections ?? [];
+    this.proposals = snapshot.proposals ?? [];
+    this.audit = snapshot.audit ?? [];
+    this.nextCorrectionId = Math.max(snapshot.nextCorrectionId ?? 0, this.corrections.length + this.proposals.length);
+    this.calibrator = new Calibrator(snapshot.calibrator);
   }
+  reload() { if (!this.journal) return this.revision; this._load(); return this.revision; }
+  versions() { return this.journal?.versions() ?? []; }
   save() {
-    if (!this.dir) return;
-    const data = { version: 1, savedAt: new Date().toISOString(), models: Object.fromEntries(Object.entries(this.models).map(([k, m]) => [k, m.toJSON()])), globalLearned: this.corrections.filter((c) => c.scope === 'global' && !c.reverted).map((c) => ({ features: c.features, role: c.role, weight: c.weight })), overrides: this.overrides, corrections: this.corrections, calibrator: this.calibrator.toJSON() };
-    writeFileSync(this._file() + '.tmp', JSON.stringify(data)); renameSync(this._file() + '.tmp', this._file());
+    if (!this.journal) return null;
+    const state = {
+      models: Object.fromEntries(Object.entries(this.models).map(([k, m]) => [k, m.toJSON()])),
+      globalLearned: this.corrections.filter((c) => c.scope === 'global' && !c.reverted && c.status !== 'rejected')
+        .map((c) => ({ features: c.features, role: c.role, weight: c.weight })),
+      overrides: this.overrides, corrections: this.corrections, proposals: this.proposals,
+      audit: this.audit, nextCorrectionId: this.nextCorrectionId, calibrator: this.calibrator.toJSON(),
+    };
+    const written = this.journal.commit(state, this.revision);
+    this.revision = written.revision;
+    return this.revision;
   }
-
+  rollbackTo(revision, { actor = null, reason = null } = {}) {
+    if (!this.journal) throw new Error('Rollback requires persistent learner state');
+    const from = this.revision;
+    const priorAudit = this.audit.slice();
+    const snap = this.journal.at(revision);
+    this._load(snap);
+    this.revision = from; // rollback is a NEW revision, never a rewrite of history
+    this.nextCorrectionId = Math.max(this.nextCorrectionId,
+      ...priorAudit.map((a) => Number(a.sequence ?? 0)).filter(Number.isFinite), 0);
+    this.audit = [...priorAudit, { action: 'rollback', fromRevision: from, toRevision: revision,
+      actor, reason, at: new Date().toISOString(), sequence: ++this.nextCorrectionId }];
+    return this.save();
+  }
   _chain(ctx) {
-    const c = [];
-    if (ctx.family) c.push(['family', `family:${ctx.family}`]);
-    if (ctx.site) c.push(['site', `site:${ctx.site}`]);
-    if (ctx.site && ctx.page) c.push(['page', `page:${ctx.site}|${ctx.page}`]);
-    return c;
+    return ['family', 'site', 'account', 'page']
+      .map((scope) => [scope, scopedKey(scope, ctx)]).filter(([, key]) => !!key);
   }
-
   predict(name, d, ctx = {}) {
-    const key = `${ctx.site ?? ''}|${ctx.typeKey ?? ''}|${name}`;
-    if (this.overrides[key]) return { dist: { [this.overrides[key]]: 1 }, role: this.overrides[key], confidence: 1, source: 'instance-override' };
+    const key = instanceKey(ctx, name);
+    const legacyKey = !ctx.origin && !ctx.account && !ctx.page && !ctx.instanceId
+      ? `${ctx.site ?? ''}|${ctx.typeKey ?? ''}|${name}` : null;
+    const override = this.overrides[key] ?? (legacyKey ? this.overrides[legacyKey] : null);
+    if (override) return { dist: { [override]: 1 }, role: override, confidence: 1, source: 'instance-override' };
     const feats = fieldFeatures(name, d, ctx);
     const total = this.global.logScores(feats);
     let source = 'prior';
     for (const [scope, k] of this._chain(ctx)) {
       const m = this.models[k]; if (!m || !m.examples) continue;
       const ls = m.logScores(feats);
-      // Scoped evidence sharpens the prior; weight grows with scope specificity and examples.
       const w = SCOPE_WEIGHT[scope] * Math.min(1, m.examples / 3);
       for (const r of ROLES) total[r] += w * (ls[r] - Math.log(1 / ROLES.length));
       source = scope;
     }
     const dist = softmax(total);
     const [role, p] = argmax(dist);
-    return { dist, role, confidence: p, calibrated: this.calibrator.calibrate('field_role', p), entropy: entropy(dist), source, features: feats };
+    return { dist, role, confidence: p,
+      calibrated: this.calibrator.calibrate('field_role', p), entropy: entropy(dist), source, features: feats };
   }
-
-  // A user correction is a labelled example in exactly the scope the user chose.
-  learn({ scope, name, d, ctx = {}, role, weight = 5, note }) {
-    if (!SCOPES.includes(scope)) throw new Error(`scope must be one of ${SCOPES}`);
-    const feats = fieldFeatures(name, d, ctx);
-    const entry = { id: `c${this.corrections.length + 1}`, at: new Date().toISOString(), scope, name, role, ctx: { site: ctx.site, family: ctx.family, page: ctx.page, typeKey: ctx.typeKey }, features: feats, weight, note };
-    if (scope === 'instance') this.overrides[`${ctx.site ?? ''}|${ctx.typeKey ?? ''}|${name}`] = role;
-    else if (scope === 'global') this.global.train(feats, role, weight);
-    else {
-      const k = scope === 'family' ? `family:${ctx.family}` : scope === 'site' ? `site:${ctx.site}` : `page:${ctx.site}|${ctx.page}`;
-      if (scope === 'family' && !ctx.family) throw new Error('family scope needs ctx.family');
-      (this.models[k] ??= new RoleModel()).train(feats, role, weight);
-    }
-    this.corrections.push(entry);
+  _validate({ scope, name, role, ctx = {}, weight = 5 }) {
+    if (!SCOPES.includes(scope)) throw new Error('Invalid correction scope');
+    if (!ROLES.includes(role)) throw new Error('Invalid correction role');
+    if (typeof name !== 'string' || !name.trim()) throw new Error('Correction field name required');
+    if (!Number.isFinite(weight) || weight <= 0 || weight > 100) throw new Error('Invalid correction weight');
+    if (scope !== 'global' && scope !== 'instance' && !scopedKey(scope, ctx)) throw new Error('Missing scope context: ' + scope);
+    if (scope === 'instance' && !ctx.site && !ctx.instanceId) throw new Error('Instance correction requires site or instanceId');
+  }
+  _context(ctx = {}) { return { site: ctx.site, origin: ctx.origin, account: ctx.account,
+    family: ctx.family, page: ctx.page, instanceId: ctx.instanceId, typeKey: ctx.typeKey }; }
+  _id() { this.nextCorrectionId++; return 'c' + this.nextCorrectionId; }
+  _audit(action, item, actor, evidence, note) {
+    this.audit.push({ action, correctionId: item.id, actor: actor ?? null,
+      evidence: evidence ?? null, note: note ?? null, at: new Date().toISOString(),
+      modelRevision: this.revision, sequence: ++this.nextCorrectionId });
+  }
+  proposeCorrection({ scope, name, d = {}, ctx = {}, role, weight = 5, note, actor, evidence } = {}) {
+    this._validate({ scope, name, role, ctx, weight });
+    const proposal = { id: this._id(), status: 'proposed', scope, name, role, weight,
+      features: fieldFeatures(name, d, ctx), ctx: this._context(ctx),
+      at: new Date().toISOString(), note: note ?? null, actor: actor ?? null,
+      evidence: evidence ?? null };
+    this.proposals.push(proposal);
+    this._audit('propose', proposal, actor, evidence, note);
+    return proposal;
+  }
+  reviewCorrection(id, { action, actor, evidence, note } = {}) {
+    if (!['accept', 'reject'].includes(action)) throw new Error('Review action must be accept or reject');
+    const p = this.proposals.find((x) => x.id === id);
+    if (!p || p.status !== 'proposed') throw new Error('No pending correction proposal for ' + id);
+    p.status = action === 'accept' ? 'accepted' : 'rejected';
+    p.reviewedAt = new Date().toISOString(); p.reviewedBy = actor ?? null;
+    this._audit(action, p, actor, evidence, note);
+    if (action === 'accept') this._apply({ ...p, status: 'accepted' });
+    return p;
+  }
+  _apply(entry) {
+    if (entry.scope === 'instance') this.overrides[instanceKey(entry.ctx, entry.name)] = entry.role;
+    else if (entry.scope === 'global') this.global.train(entry.features, entry.role, entry.weight);
+    else (this.models[scopedKey(entry.scope, entry.ctx)] ??= new RoleModel()).train(entry.features, entry.role, entry.weight);
+    if (!this.corrections.some((c) => c.id === entry.id)) this.corrections.push(entry);
+  }
+  // Backward-compatible direct accepted correction; use propose/review for explicit human approval.
+  learn({ scope, name, d = {}, ctx = {}, role, weight = 5, note, actor, evidence }) {
+    this._validate({ scope, name, role, ctx, weight });
+    const entry = { id: this._id(), at: new Date().toISOString(), scope, name, role,
+      ctx: this._context(ctx), features: fieldFeatures(name, d, ctx), weight,
+      status: 'accepted', actor: actor ?? null, evidence: evidence ?? null, note: note ?? null };
+    this._apply(entry);
+    this._audit('accept', entry, actor, evidence, note);
     return entry;
   }
-
-  // Undo one correction by retraining its scope from the remaining log (rollback).
-  revert(id) {
+  // Retrain from accepted non-reverted evidence; rejecting a proposal never trains.
+  revert(id, { actor, note } = {}) {
     const c = this.corrections.find((x) => x.id === id);
     if (!c || c.reverted) return false;
-    c.reverted = true;
-    this.global = priorModel();
-    this.models = {}; this.overrides = {};
-    const log = this.corrections; this.corrections = [];
-    for (const x of log) { if (!x.reverted) { const k = x.scope; this._replay(x, k); } this.corrections.push(x); }
+    c.reverted = true; c.revertedAt = new Date().toISOString(); c.revertedBy = actor ?? null;
+    this.global = priorModel(); this.models = {}; this.overrides = {};
+    for (const x of this.corrections) if (!x.reverted && x.status !== 'rejected') this._replay(x);
+    this._audit('revert', c, actor, c.evidence, note);
     return true;
   }
   _replay(x) {
-    if (x.scope === 'instance') this.overrides[`${x.ctx.site ?? ''}|${x.ctx.typeKey ?? ''}|${x.name}`] = x.role;
+    if (x.scope === 'instance') this.overrides[instanceKey(x.ctx, x.name)] = x.role;
     else if (x.scope === 'global') this.global.train(x.features, x.role, x.weight);
-    else { const k = x.scope === 'family' ? `family:${x.ctx.family}` : x.scope === 'site' ? `site:${x.ctx.site}` : `page:${x.ctx.site}|${x.ctx.page}`; (this.models[k] ??= new RoleModel()).train(x.features, x.role, x.weight); }
+    else (this.models[scopedKey(x.scope, x.ctx)] ??= new RoleModel()).train(x.features, x.role, x.weight);
   }
-
-  // Promotion candidates: the same (feature-signature, role) corrected on >= minSites sites.
   promotionCandidates(minSites = 2) {
     const by = new Map();
     for (const c of this.corrections) {
-      if (c.reverted || !['site', 'page', 'instance'].includes(c.scope)) continue;
+      if (c.reverted || c.status === 'rejected' || !['site', 'page', 'account', 'instance'].includes(c.scope)) continue;
       const sig = `${c.role}|${c.features.filter((f) => f.startsWith('last:') || f.startsWith('kind:') || f.startsWith('fmt:')).sort().join(',')}`;
       const e = by.get(sig) ?? { role: c.role, signature: sig, sites: new Set(), families: new Set(), examples: [] };
       e.sites.add(c.ctx.site); if (c.ctx.family) e.families.add(c.ctx.family); e.examples.push(c.id);
       by.set(sig, e);
     }
-    return [...by.values()].filter((e) => e.sites.size >= minSites).map((e) => ({ role: e.role, signature: e.signature, sites: [...e.sites], suggestedScope: e.families.size === 1 ? `family:${[...e.families][0]}` : 'global', corrections: e.examples }));
+    return [...by.values()].filter((e) => e.sites.size >= minSites)
+      .map((e) => ({ role: e.role, signature: e.signature, sites: [...e.sites],
+        suggestedScope: e.families.size === 1 ? 'family:' + [...e.families][0] : 'global',
+        corrections: e.examples }));
   }
 }
 
