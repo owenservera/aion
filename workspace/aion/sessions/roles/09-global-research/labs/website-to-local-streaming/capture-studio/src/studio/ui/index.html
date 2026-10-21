@@ -267,6 +267,12 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
         <label for="knowledgeAt">As of <input id="knowledgeAt" type="datetime-local" aria-label="Knowledge history as of time"></label>
         <button id="knowledgeOpenSession">Open recording</button>
       </div>
+      <div class="row small-note" aria-label="Evidence legend" style="gap:12px; margin:8px 0">
+        <span><b class="c-l1">Recorded</b> · observation from a saved recording</span>
+        <span><b class="c-l2">Inferred</b> · a derived type or relationship</span>
+        <span><b class="c-l3">Linked by key</b> · conservative origin-qualified match</span>
+        <span><b class="c-act">Incomplete</b> · missing, failed, unknown or preview-limited evidence</span>
+      </div>
       <div id="knowledgeState" role="status" aria-live="polite" class="small-note">Choose a saved session to explore. No network scan runs until requested.</div>
       <div class="knowledge-metrics" id="knowledgeMetrics"></div>
       <div class="knowledge-grid">
@@ -741,7 +747,7 @@ function knowledgeGraphMap(graph) {
     x: Math.round(400 + 335 * Math.cos(i * 2 * Math.PI / nodes.length - Math.PI / 2)),
     y: Math.round(177 + 130 * Math.sin(i * 2 * Math.PI / nodes.length - Math.PI / 2)),
   }]));
-  const lines = edges.filter((e) => coords.has(e.from) && coords.has(e.to) && e.from !== e.to).slice(0, 45).map((e) => {
+  const lines = edges.filter((e) => e.status !== 'rejected' && coords.has(e.from) && coords.has(e.to) && e.from !== e.to).slice(0, 45).map((e) => {
     const a = coords.get(e.from), b = coords.get(e.to);
     const dash = e.status === 'confirmed' ? '' : ' stroke-dasharray="5 5"';
     return '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="var(--l2)" opacity=".55" stroke-width="1.8"' + dash + '></line>';
@@ -752,7 +758,7 @@ function knowledgeGraphMap(graph) {
       '<text x="' + pos.x + '" y="' + (pos.y + 25) + '" font-size="12" text-anchor="middle" fill="var(--ink)">' + esc(label) + '</text></g>';
   }).join('');
   return '<div class="pad"><b>Relationship map</b><p class="small-note">Preview: ' + nodes.length + ' of ' + all.length +
-    ' nodes. Solid lines: confirmed status; dashed lines: hypotheses or other unconfirmed status. Click a node in the list below to inspect.</p>' +
+    ' nodes. Solid lines: confirmed status; dashed lines: hypotheses or unconfirmed status; rejected edges are omitted from this map. Click a node in the list below to inspect full status.</p>' +
     '<svg viewBox="0 0 800 360" role="img" aria-label="Static relationship graph preview; inspect accessible node list below" style="width:100%;height:auto;max-height:300px;background:var(--paper);border-radius:6px">' +
     lines + markers + '</svg></div>';
 }
