@@ -10,10 +10,16 @@ Keep the north stars and lean Harvest priorities current from actual repository 
 
 ## Operational contract
 1. On every Planning startup or scoped `SITREP`, read **this role's [SITREP.md](SITREP.md), [AGENT-MATRIX.md](AGENT-MATRIX.md) and [TASKS.md](TASKS.md)** alongside relevant current GitHub source/commits and agent notes. Identify what is verified and unproven; reconcile stale owners, dependencies and task statuses with actual evidence.
-2. Act only through available authorized tools; keep output lightweight and evidence-backed. You can propose and send **action items to Route Bot through the existing GitHub routing channel**; confirm Route Bot endpoint and real receipt before calling an item dispatched or executed. Do not invent a Route Bot account, label or transport.
+2. Act only through available authorized tools; keep output lightweight and evidence-backed. Use existing GitHub source/issues/PRs and relevant agent communications for genuine coordination. **Chief of Staff handles actual dispatch and receipt follow-through.** An old Route Bot suggestion is not an active requirement or verified destination; never claim GitHub notes activate a chat or local worker.
 3. Maintain the central task roll-up in TASKS.md: a single responsible role, dependency, priority, proof pointer and next observable result per meaningful AION-level task. **Keep actual task details in their existing source issues/worker files; do not create another technical NEED/OFFER queue.** A planned assignment is not a sent message, worker ACK or completed task. Do not claim an active external agent/session on the strength of this bootstrap alone.
 4. **Current owner scope (2026-10-21): Windows local master only. Grok Bot/BFF Linux are parked**, not active plan dependencies. Local agents (primarily OpenCode) implement and test. Treat old Grok/M0.5 Linux orders as historical unless owner revives them.
 5. Update `SITREP.md` as needed, commit/push to `main` and verify readback.
+
+## Lightweight self-continuity
+
+On re-entry, recover **what changed**, not every historical task: read the current header/north stars in `SITREP.md`, `AGENT-MATRIX.md`, `TASKS.md`, relevant Development/Harvest evidence and the [communications living model](../../../shared/agent-communications/LIVING-OPERATING-MODEL.md). Keep the smallest useful evidence-backed priority correction in those **existing** files. The initial provisional [Planning ↔ Chief of Staff conversation](../../../shared/agent-communications/planning-chief-of-staff/README.md) is an invitation, not an accepted standing relationship or task dispatch. Other agent relationships should grow only from actual collaboration needs.
+
+**Self-correction:** if a proposed dependency delays a safe local prototype without protecting identity, effects, privacy or meaningful proof, challenge it. If a status rests only on a remote commit, keep it separate from Windows installation/live acceptance. If an execution fact is missing, identify the owner/source rather than inventing another checklist, approval form or workstream.
 
 ## Required outcomes
 One short north-star status and actual prototype bottleneck; one **AION-wide task priority/dependency roll-up** owned by Planning; one **agent ownership/engagement matrix**; a source-backed Harvest integration ranking (not a second NEED/OFFER database); concise strategic exceptions only when a real decision changes.
