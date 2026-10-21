@@ -259,30 +259,94 @@ export async function sendMessage(page, adapter = null) {
   const button = btn.ok ? btn.value : null;
 
   if (strategy === 'button' && button?.found && await clickStored(page, '__aionSendBtn')) {
-    await sleep(500);
-    return { ok: true, method: 'button', cleared: !norm(await composerText(page)) };
+    await sleep(700);
+    const after = await sendState(page, adapter);
+    return { ok: after.sent, method: 'button', ...after };
   }
+
+  // The state BEFORE the send, so the outcome can be judged by what changed on the page rather
+  // than by whether the composer happens to be empty: Qwen keeps the text in the textarea after
+  // sending, which used to look like a failed send and triggered a second click (a double send).
+  const before = await sendState(page, adapter);
 
   try {
     await pressEnter(page);
   } catch (e) {
-    if (button?.found && await clickStored(page, '__aionSendBtn')) return { ok: true, method: 'button-after-enter-error' };
+    if (button?.found && await clickStored(page, '__aionSendBtn')) {
+      await sleep(700);
+      const after = await sendState(page, adapter);
+      return { ok: after.sent, method: 'button-after-enter-error', ...after };
+    }
     return { ok: false, method: 'enter-failed', reason: String(e?.message ?? e) };
   }
 
-  await sleep(700);
-  let cleared = !norm(await composerText(page));
-  let streaming = false;
-  try { streaming = (await isStreaming(page, adapter)).streaming; } catch { /* ignore */ }
-  if (!cleared && !streaming && button?.found) {
+  await sleep(900);
+  let after = await sendState(page, adapter);
+  if (!after.sent && button?.found) {
+    // Nothing moved: the Enter did not submit. Only now is a click on the send button safe.
     if (await clickStored(page, '__aionSendBtn')) {
-      await sleep(500);
-      cleared = !norm(await composerText(page));
-      try { streaming = (await isStreaming(page, adapter)).streaming; } catch { /* ignore */ }
-      return { ok: cleared || streaming, method: 'button-fallback', cleared };
+      await sleep(900);
+      after = await sendState(page, adapter);
+      return { ok: after.sent, method: 'button-fallback', ...after };
     }
   }
-  return { ok: cleared || streaming, method: 'enter', cleared };
+  return { ok: after.sent, method: 'enter', ...after };
+}
+
+// What the page looks like right after a send attempt, and whether the send clearly took:
+// the composer emptied, a new turn appeared, the page started streaming, or a site-side error
+// appeared. Any of these is proof the message left the composer.
+export async function sendState(page, adapter = null, before = null) {
+  const state = await tryEval(page, String.raw`(() => { ${IN_PAGE}
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1; };
+    const composer = live();
+    let text = '';
+    try { text = composer ? String(composer.value ?? composer.innerText ?? '') : ''; } catch (e) { text = ''; }
+    if (!text) {
+      const a = document.activeElement;
+      if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT')) text = String(a.value ?? '');
+    }
+    const TURN_SEL = [
+      '[data-message-author-role]',
+      '[data-content-search-unit-key$="user"]',
+      '[data-content-search-unit-key$="assistant"]',
+      '[data-testid="user-message"]',
+      '[data-testid*="assistant" i]',
+      '[data-markdown-text-style]',
+      'article',
+      'div.ds-markdown',
+      'div[class*="markdown"]',
+    ].join(',');
+    let turns = 0;
+    try { turns = document.querySelectorAll(TURN_SEL).length; } catch (e) { turns = 0; }
+    const root = document.querySelector('main') || document.body;
+    const bodyLen = String((root && root.innerText) || '').length;
+    const buttons = [...document.querySelectorAll('button,[role="button"]')].filter(vis);
+    const sendDisabled = buttons.some((b) => {
+      const l = ((b.getAttribute('aria-label') || '') + ' ' + (b.innerText || '')).toLowerCase();
+      if (!/send|发送|submit|发送消息/.test(l)) return false;
+      return b.disabled === true || b.getAttribute('aria-disabled') === 'true';
+    });
+    return { text: text, turns: turns, bodyLen: bodyLen, sendDisabled: sendDisabled };
+  })()`);
+  const s = state.ok ? state.value : { text: '', turns: 0, bodyLen: 0, sendDisabled: false };
+  const cleared = !norm(s.text);
+  let streaming = false;
+  try { streaming = (await isStreaming(page, adapter)).streaming; } catch { /* ignore */ }
+  const grew = !before || s.turns > (before.turns ?? 0) || s.bodyLen > (before.bodyLen ?? 0);
+  const changed = !before || s.text !== (before.text ?? '');
+  const sent = cleared || streaming || (grew && changed) || s.sendDisabled;
+  return {
+    sent,
+    cleared,
+    streaming,
+    turns: s.turns,
+    bodyLen: s.bodyLen,
+    sendDisabled: s.sendDisabled,
+    reason: sent
+      ? (cleared ? 'composer cleared' : streaming ? 'response started' : s.sendDisabled ? 'send control disabled' : 'new turn appeared')
+      : 'no visible change after the send',
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -360,13 +424,18 @@ export async function readTranscript(page, adapter = null) {
     const root = document.querySelector('main') || document.body;
     if (!root) return { turns: [], reason: 'no document body' };
     const blocks = [];
-    for (const el of root.querySelectorAll('p,li,pre,blockquote,h1,h2,h3,h4,td')) {
+    const BLOCK_SEL = 'p,li,pre,blockquote,h1,h2,h3,h4,td';
+    for (const el of root.querySelectorAll(BLOCK_SEL + ',div')) {
       if (composer && (el === composer || el.contains(composer))) continue;
       if (!vis(el)) continue;
       if (el.closest('nav,aside,header,footer,script,style')) continue;
       // Interactive chrome (a "Reply" button, a link) is not the answer: on a page with no
       // recognised assistant container this fallback used to return the last button label.
       if (el.closest('button,a,[role="button"],[role="link"],input,textarea,[contenteditable]')) continue;
+      // A div counts only when it is a leaf text block: some sites render the answer in a plain
+      // div with a hashed class and no <p> inside (DeepSeek), so only divs that contain no
+      // block-level descendant are taken, which keeps the text from being duplicated.
+      if (el.tagName === 'DIV' && el.querySelector(BLOCK_SEL)) continue;
       const t = txt(el);
       if (t.length < 2) continue;
       blocks.push({ t: t, top: el.getBoundingClientRect().top + window.scrollY });
@@ -450,6 +519,13 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     if (text && text !== lastText) { lastText = text; lastChangeAt = now; }
     if (stream.streaming) lastStreamingAt = now;
 
+    // A site-side failure (quota, network error, captcha) is a finished drive, not a timeout:
+    // the page will never stream anything, so waiting for the full budget only wastes time.
+    const failure = await detectSiteFailure(page, adapter);
+    if (failure.failed) {
+      return { done: true, failed: true, ms: Date.now() - startedAt, text: text || failure.message, reason: `site failure: ${failure.message}` };
+    }
+
     const quietFor = now - Math.max(lastChangeAt, lastStreamingAt);
     if (!stream.streaming && text && quietFor >= stableMs) {
       return { done: true, ms: Date.now() - startedAt, text, reason: `settled: no change for ${quietFor} ms` };
@@ -459,6 +535,33 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     }
     await sleep(pollMs);
   }
+}
+
+// A page that refuses to answer says so in the UI. Detecting it turns a 2.5-minute timeout into
+// an immediate, honest failure with the site's own words.
+export async function detectSiteFailure(page, adapter = null) {
+  const r = await tryEval(page, String.raw`(() => { ${IN_PAGE}
+    const patterns = [
+      /network error/i,
+      /something went wrong/i,
+      /you'?re out of usage credits/i,
+      /out of usage credits/i,
+      /rate limit(ed)?|too many requests/i,
+      /verify you are human|are you a robot|captcha/i,
+      /service (is )?unavailable/i,
+      /failed to (generate|send|connect)/i,
+      /服务(?:暂时)?不可用|网络错误|请求失败|额度不足|超出额度/i,
+    ];
+    const root = document.querySelector('main') || document.body;
+    const text = String((root && root.innerText) || '').slice(-4000);
+    for (const p of patterns) {
+      const m = text.match(p);
+      if (m) return { failed: true, message: m[0].slice(0, 120) };
+    }
+    return { failed: false };
+  })()`);
+  if (!r.ok) return { failed: false, message: `failure probe failed: ${r.error}` };
+  return r.value ?? { failed: false };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -509,6 +612,9 @@ export async function detectAuthWall(page, adapter = null) {
 export async function dismissCookieBanner(page, adapter = null) {
   const found = await tryEval(page, String.raw`(() => { ${IN_PAGE}
     const cookieish = /cookie|consent|privacy preference|gdpr/i;
+    // A link that OPENS the settings modal is not a choice: clicking it leaves a modal open that
+    // swallows the next click (arena.ai ends up at ?manage-cookies=true with the chat blocked).
+    const settingsish = /setting|manage|configur|customi|preference|policy|more info|learn more/i;
     const cands = [];
     for (const el of document.querySelectorAll('div,section,aside,form,[role="dialog"]')) {
       if (!vis(el)) continue;
@@ -526,6 +632,7 @@ export async function dismissCookieBanner(page, adapter = null) {
       if (!vis(b)) continue;
       const label = String((b.innerText || b.value || b.getAttribute('aria-label') || '')).replace(/\s+/g, ' ').trim();
       if (!label) continue;
+      if (settingsish.test(label)) continue;
       const conservative = /necessary|essential only|reject all|declin|deny|only necessary|continue without|reject/i.test(label);
       const permissive = /accept all|allow all|agree/i.test(label);
       if (!conservative && !permissive) continue;
@@ -537,6 +644,7 @@ export async function dismissCookieBanner(page, adapter = null) {
     globalThis.__aionCookieBtn = null;
     for (const b of banner.querySelectorAll('button,[role="button"],a.button,input[type="button"]')) {
       const label = String((b.innerText || b.value || b.getAttribute('aria-label') || '')).replace(/\s+/g, ' ').trim();
+      if (settingsish.test(label)) continue;
       if (/necessary|essential only|reject all|declin|deny|only necessary|continue without|reject/i.test(label)) {
         globalThis.__aionCookieBtn = b;
         return { found: true, dismissible: true, label: label.slice(0, 60), options: options.map((o) => o.label) };
@@ -551,7 +659,37 @@ export async function dismissCookieBanner(page, adapter = null) {
   const clicked = await clickStored(page, '__aionCookieBtn');
   if (!clicked) return { found: true, dismissed: false, reason: 'cookie option could not be clicked' };
   await sleep(900);
-  return { found: true, dismissed: true, label: info.label, options: info.options ?? [], reason: 'dismissed with the least permissive cookie option' };
+  const closed = await closeCookieModal(page);
+  return { found: true, dismissed: true, label: info.label, options: info.options ?? [], closedModal: closed.closed, reason: 'dismissed with the least permissive cookie option' };
+}
+
+// Some sites open a cookie SETTINGS modal instead of offering a choice in the banner. Escape
+// closes it, and the site leaves the ?manage-cookies=true state behind.
+export async function closeCookieModal(page) {
+  const probe = String.raw`(() => ({
+    url: location.href,
+    dialogs: [...document.querySelectorAll('[role="dialog"],dialog')].filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 1 && r.height > 1;
+    }).length,
+  }))()`;
+  const before = await tryEval(page, probe);
+  if (!before.ok) return { closed: false, reason: 'modal probe failed' };
+  const b = before.value;
+  const looksOpen = /manage-cookies|cookie[-_]?settings/i.test(String(b.url ?? '')) || (b.dialogs ?? 0) > 0;
+  if (!looksOpen) return { closed: false, reason: 'no cookie modal open' };
+
+  const esc = { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 };
+  try {
+    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', ...esc });
+    await page.send('Input.dispatchKeyEvent', { type: 'keyUp', ...esc });
+  } catch { /* the modal may close on its own */ }
+  await sleep(700);
+
+  const after = await tryEval(page, probe);
+  const a = after.ok ? after.value : { url: b.url, dialogs: b.dialogs };
+  const closed = !/manage-cookies/i.test(String(a.url ?? '')) && (a.dialogs ?? 0) === 0;
+  return { closed, url: a.url ?? null, dialogs: a.dialogs ?? 0 };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -718,9 +856,10 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     if (!sent.ok) { errors.push(`send did not take (${sent.method})`); result.reason = 'send-failed'; return; }
 
     const wait = await waitForCompletion(page, adapter, { timeoutMs });
-    emit({ type: 'completion', done: wait.done, ms: wait.ms, reason: wait.reason });
+    emit({ type: 'completion', done: wait.done, failed: !!wait.failed, ms: wait.ms, reason: wait.reason });
     result.reply = wait.text ?? '';
     result.done = wait.done;
+    if (wait.failed) { errors.push(wait.reason); result.reason = 'site-failure'; return; }
     if (!wait.done) { errors.push(wait.reason); result.reason = 'timeout'; return; }
     result.ok = true;
   };
