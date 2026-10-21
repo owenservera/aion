@@ -1,14 +1,14 @@
 # Knowledge & Learning — L5 Sprint 01 Evidence
 
-**Date:** 2026-10-21. **Owner:** Knowledge–Learning specialist. **State:** implementation delivered; independent QA not accepted. **Core:** paused, unmodified. **Product commit checkpoint:** `bbe51cf6eadcfe6914949467653fdaba7d0a1863`. Evidence below is deliberately specific to the executable/code slice tested.
+**Date:** 2026-10-21. **Owner:** Knowledge–Learning specialist. **State:** implementation delivered; independent QA not accepted. **Core:** paused, unmodified. **Product/test commit checkpoint:** `64b193117941220a30f6b17d5fd481a6274dcd70`. Evidence below is deliberately specific to the executable/code slice tested.
 
 ## Shipped product files
 
 - `src/intel/learner-journal.mjs` — revisioned immutable snapshots, v1 archival migration, integrity hashes, exclusive writer directory lock, optimistic expected-revision comparison, atomic unique temporary files and durable file fsync; writes to existing `learner.json` path.
 - `src/intel/learn.mjs` — integrates the journal without changing existing public `predict/learn/revert/save` API; `proposeCorrection`, `reviewCorrection`, `versions`, `reload`, `rollbackTo`, explicit actor/evidence/action audit, account+origin scoped models, bounded validation, corrected instance-override scope and accepted-only promotion.
-- `test/unit/learner-journal.test.mjs` and `test/unit/learning-lifecycle.test.mjs` — specialist-owned regression suites. No server/CLI/derive/UI source edits.
+- `test/unit/learner-journal.test.mjs`, `test/unit/learning-lifecycle.test.mjs` and `test/unit/learning-heldout.test.mjs` — specialist-owned regression suites. No server/CLI/derive/UI source edits.
 
-**Implementation commits:** journal `faa927dc3e690501a78b765e39c67708fbdd954e`; learner `5f49d3a00296b449c8f6ad1e6b0d1dc1ebbc81fc`; tests `90f1fee72beb6533b79f90f410accd618b92c830`, `77f6d86562e4fa56c18fb117c895cace903cf725`, `bbe51cf6eadcfe6914949467653fdaba7d0a1863`.
+**Implementation commits:** journal `faa927dc3e690501a78b765e39c67708fbdd954e`; learner `5f49d3a00296b449c8f6ad1e6b0d1dc1ebbc81fc`; tests `90f1fee72beb6533b79f90f410accd618b92c830`, `77f6d86562e4fa56c18fb117c895cace903cf725`, `bbe51cf6eadcfe6914949467653fdaba7d0a1863`, `64b193117941220a30f6b17d5fd481a6274dcd70`.
 
 ## Executed tests (builder, NOT independent QA)
 
@@ -31,6 +31,8 @@
 
 This narrow fixture demonstrates model update **and isolated effect**, not calibrated performance, broad false-merge risk, production accuracy, or integration acceptance. The two Node suites committed to GitHub were **not executed together with the full repository checkout**, which was unavailable in this isolated runtime. Their source is ready for normal Node 22 execution in an authorized checkout. Windows/browser and independent QA remain pending. Zero criteria may be labelled independently accepted.
 
+Additional isolated V8 verification against the same committed learner blob checked out-of-order approvals/reverts and a calibration serialize/rehydrate cycle (ECE `0.1333` before and after). The new held-out regression is committed as a Node test but has **not** been run in a complete checkout.
+
 ## Source-file and physical LOC inventory (pinned GitHub file readback)
 
 | L5 file | Physical LOC |
@@ -41,9 +43,10 @@ This narrow fixture demonstrates model update **and isolated effect**, not calib
 | **L5 source: 3 files** | **512** |
 | `test/unit/learner-journal.test.mjs` | 80 |
 | `test/unit/learning-lifecycle.test.mjs` | 106 |
-| **L5 specialist tests: 2 files** | **186** |
+| `test/unit/learning-heldout.test.mjs` | 74 |
+| **L5 specialist tests: 3 files** | **260** |
 
-Original specialist baseline: 2 source files / 348 physical LOC; this sprint added 1 source file and 164 physical LOC net (source-only). New dedicated tests add 2 files / 186 physical LOC. These are GitHub-fetched **L5 subset counts**, not a complete product checkout-based layer audit, and do not include shared imports or unrelated Core/UI/tests. LOC growth is not an acceptance percentage.
+Original specialist baseline: 2 source files / 348 physical LOC; this sprint added 1 source file and 164 physical LOC net (source-only). New dedicated tests add 3 files / 260 physical LOC. These are GitHub-fetched **L5 subset counts**, not a complete product checkout-based layer audit, and do not include shared imports or unrelated Core/UI/tests. LOC growth is not an acceptance percentage.
 
 ## Acceptance evidence matrix — L5 A1–A7
 
