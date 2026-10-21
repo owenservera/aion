@@ -5,6 +5,10 @@
 
 This is an **instruction macro**, not an installed CLI, GitHub Action or background service. A supported agent invoked in a chat reads this entry point and executes the existing four-stage kit **sequentially within the current interaction** using only its available tools. Do not require the owner to paste four more prompts.
 
+## Bootstrap tracker check
+
+Read [BOOTSTRAP-TRACKER.md](BOOTSTRAP-TRACKER.md) first. Find your agent column and compare its completion versions against the current stage rows. Run missing or revised stages in sequence. After each stage, record your own status with UTC date and evidence; at closeout update last bootstrap and next outstanding stage. Preserve other agents' columns by reconciling latest main before writing. Existing folder scaffolding alone is not a completed stage. Normal SITREP checks and flags missing or newer stages without automatically running them.
+
 ## Resolve identity and scope
 
 1. `#AION` selects the `owenservera/aion` GitHub repository. `@<AGENT-ROLE>` selects its **existing** canonical role workspace, instructions and scope. In an already-established role conversation, the short form inherits that role; no `@` means **do not presume Chief of Chiefs or the whole team**.
