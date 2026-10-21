@@ -24,7 +24,7 @@ const setup = () => {
   const close = () => rmSync(root, { recursive: true, force: true });
   return { root, dir, id, meta, close };
 };
-const withFixture = (name, run) => test(name, () => { const f = setup(); try { run(f); } finally { f.close(); } });
+const withFixture = (name, run) => test(name, t => { const f = setup(); try { run(f, t); } finally { f.close(); } });
 
 withFixture('accepts valid source bytes and metadata', f => assert.equal(checkPackage(f.dir).ok, true));
 withFixture('detects changed original content', f => {
@@ -43,9 +43,10 @@ withFixture('does not accept incomplete source as verified complete capture', f 
   writeFileSync(join(f.dir, 'META.json'), JSON.stringify(f.meta));
   assert.ok(checkPackage(f.dir).errors.some(x => x.code === 'STATUS'));
 });
-withFixture('refuses symlinked RAW', f => {
+withFixture('refuses symlinked RAW', (f, t) => {
   rmSync(join(f.dir, 'RAW.md'));
-  symlinkSync(join(f.root, 'foreign-raw'), join(f.dir, 'RAW.md'));
+  try { symlinkSync(join(f.root, 'foreign-raw'), join(f.dir, 'RAW.md')); }
+  catch (e) { if (['EPERM', 'EACCES'].includes(e.code)) { t.skip('Host does not allow symlink fixture'); return; } throw e; }
   assert.ok(checkPackage(f.dir).errors.some(x => x.code === 'FILE'));
 });
 withFixture('flags missing index entry and accepts matching index', f => {
