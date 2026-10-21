@@ -9,12 +9,12 @@ const script = html.split('<script>')[1]?.split('</script>')[0] ?? '';
 const begin = script.indexOf('/* ---------------- Knowledge workspace');
 const end = script.indexOf('/* ---------------- profiles ---------------- */', begin);
 const code = script.split('\n').find((line) => line.startsWith('const esc = ')) + '\n' + script.slice(begin, end);
-const names = ['knowledgeSummary','knowledgeGraphMap','renderKnowledgeEntities','renderKnowledgeGraph','renderKnowledgeModel','renderKnowledgeDrift','openKnowledgeEntity','openKnowledgeNode','refreshKnowledge','knowledgeSourceLinks','wireKnowledgeSources'];
+const names = ['knowledgeSummary','knowledgeGraphMap','renderKnowledgeEntities','renderKnowledgeGraph','renderKnowledgeModel','renderKnowledgeDrift','openKnowledgeEntity','openKnowledgeNode','refreshKnowledge','knowledgeSourceLinks','wireKnowledgeSources','knowledgeOutcomeMarkup','knowledgeStatusPromise','openRecordedEvidence'];
 
 function createHarness() {
   const dom = new Map(), S = { view:'knowledge', sessionId:'s1', knowledge:null, knowledgeRequestSeq:0, knowledgeDetailSeq:0 };
   let impl = async () => ({});
-  let opened = '';
+  let opened = '',streamOpened = '';
   function element(selector) {
     if (!dom.has(selector)) {
       const node = { value:'', textContent:'', innerHTML:'', hidden:false, isConnected:true, onclick:null,
@@ -35,9 +35,10 @@ function createHarness() {
   }
   const ctx = { $:element, S, api:(url)=>impl(url), guard:(fn)=>fn,
     show:(v)=>{ S.view=v; }, openSession:async (id)=>{opened=id;},
-    toast:()=>{}, updateInvestigationTrail:()=>{}, URLSearchParams };
+    toast:()=>{}, openStream:async (sid)=>{streamOpened=sid;},
+    updateInvestigationTrail:()=>{}, URLSearchParams };
   const out = runInNewContext(code + '\n({' + names.join(',') + '})', ctx, { timeout: 1500 });
-  return { ...out, S, el:element, setApi:(fn)=>{impl=fn;}, opened:()=>opened };
+  return { ...out, S, el:element, setApi:(fn)=>{impl=fn;}, opened:()=>opened,streamOpened:()=>streamOpened };
 }
 
 test('complete Studio script parses and Knowledge navigation exists', () => {
@@ -194,4 +195,68 @@ test('late workspace load cannot replace selection from a newer recording', asyn
   await old;
   assert.equal(h.S.knowledge.sessionId,'new');
   assert.equal(h.S.knowledge.continuity.site,'new');
+});
+
+test('Core knowledge-outcome states distinguish successful-empty, deriving, failed and legacy', () => {
+  const h=createHarness();
+  assert.match(h.knowledgeOutcomeMarkup({schema:'capture-studio.knowledge-status/1',status:'complete',entityCount:0,typeCount:0}),/Derived successfully: zero entities/);
+  assert.match(h.knowledgeOutcomeMarkup({status:'complete',entityCount:3,typeCount:2}),/3 entities/);
+  assert.match(h.knowledgeOutcomeMarkup({status:'deriving'}),/Do not trust older model\/graph/);
+  assert.match(h.knowledgeOutcomeMarkup({status:'failed',stage:'identity',error:'<bad>'}),/Derivation failed during identity/);
+  assert.doesNotMatch(h.knowledgeOutcomeMarkup({status:'failed',error:'<bad>'}),/<bad>/);
+  assert.match(h.knowledgeOutcomeMarkup({status:'legacy-unverified'}),/Missing outcome metadata is not proof/);
+  assert.match(h.knowledgeOutcomeMarkup({status:'status-unavailable',error:'401 unauthorized'}),/Could not verify derivation outcome/);
+});
+
+test('knowledge status adapter reads Core endpoint without interpreting missing status as verified', async () => {
+  const h=createHarness();
+  h.setApi(async(path)=>{ assert.match(path,/sessions\/s1\/knowledge-status/);return {status:'complete',entityCount:0}; });
+  const r=await h.knowledgeStatusPromise('s1');
+  assert.equal(r.data.status,'complete');
+  const n=createHarness();
+  n.setApi(async()=>{ const e=new Error('not found');e.status=404;throw e; });
+  const missing=await n.knowledgeStatusPromise('s1');
+  assert.equal(missing.status,404);
+  assert.equal(missing.error,'not found');
+});
+
+test('integrated graph and model suppress prior derived data during Core derivation', async () => {
+  const h=createHarness();
+  h.el('#knowledgeSession').value='s1';
+  h.setApi(async(path)=>{
+    if(path.endsWith('/knowledge-status'))return {status:'deriving'};
+    if(path.endsWith('/graph'))return {nodes:[{eid:'old',typeName:'STALE'}],edges:[]};
+    if(path.endsWith('/model'))return {types:[{name:'STALE'}]};
+    return {entities:[{id:'old',typeName:'STALE'}],stats:{}};
+  });
+  await h.refreshKnowledge();
+  assert.match(h.el('#knowledgeGraph').innerHTML,/old graph results are not shown as current/);
+  assert.match(h.el('#knowledgeModel').innerHTML,/old model results are not shown as current/);
+  assert.match(h.el('#knowledgeEntities').innerHTML,/not shown while the current derivation is deriving/);
+  assert.doesNotMatch(h.el('#knowledgeGraph').innerHTML,/STALE/);
+});
+
+test('integrated knowledge loads zero-entity successful derivation without presenting it as failed', async () => {
+  const h=createHarness();
+  h.el('#knowledgeSession').value='s1';
+  h.setApi(async(path)=>{
+    if(path.endsWith('/knowledge-status'))return {status:'complete',entityCount:0,typeCount:0};
+    if(path.endsWith('/graph'))return {nodes:[],edges:[]};
+    if(path.endsWith('/model'))return {types:[]};
+    return {entities:[],stats:{sessionsDiscovered:1,sessionsWithDerivedKnowledge:1,entitiesTotal:0,joinedEntities:0}};
+  });
+  await h.refreshKnowledge();
+  assert.match(h.el('#knowledgeMetrics').innerHTML,/Derived successfully: zero entities/);
+  assert.match(h.el('#knowledgeEntities').innerHTML,/No derived entities are visible/);
+  assert.doesNotMatch(h.el('#knowledgeMetrics').innerHTML,/Derivation failed/);
+});
+
+test('exact source navigation preserves session and sid when available', async () => {
+  const h=createHarness();
+  h.el('#evBody').querySelectorAll=()=>[];
+  await h.openRecordedEvidence({session:'s1',sid:'stream-42',seq:17,t:1700000000000});
+  assert.equal(h.opened(),'s1');
+  assert.equal(h.streamOpened(),'stream-42');
+  assert.equal(h.S.workflowStep,'Original recorded evidence');
+  assert.equal(h.S.view,'streams');
 });
