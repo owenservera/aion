@@ -168,3 +168,30 @@ test('source navigation switches to the chosen recording, not an inferred identi
   assert.equal(h.opened(),'actual-source-02');
   assert.equal(h.S.view,'sessions');
 });
+
+test('rejected relationships never appear as active links in the map', () => {
+  const h=createHarness();
+  const out=h.knowledgeGraphMap({nodes:[{eid:'a'},{eid:'b'}],
+    edges:[{from:'a',to:'b',status:'rejected',kind:'references'}]});
+  assert.match(out,/rejected edges are omitted/);
+  assert.doesNotMatch(out,/<line /);
+});
+
+test('late workspace load cannot replace selection from a newer recording', async () => {
+  const h=createHarness();
+  h.el('#knowledgeSession').value='old';
+  let resolveOld;
+  h.setApi(async (url) => {
+    if(url.includes('/old/continuity')) return new Promise((resolve) => { resolveOld=resolve; });
+    if(url.includes('/new/continuity')) return {site:'new',entities:[],stats:{}};
+    return url.endsWith('/graph') ? {nodes:[],edges:[]} : {types:[]};
+  });
+  const old=h.refreshKnowledge();
+  h.el('#knowledgeSession').value='new';
+  const newer=h.refreshKnowledge();
+  await newer;
+  resolveOld({site:'old',entities:[],stats:{}});
+  await old;
+  assert.equal(h.S.knowledge.sessionId,'new');
+  assert.equal(h.S.knowledge.continuity.site,'new');
+});
