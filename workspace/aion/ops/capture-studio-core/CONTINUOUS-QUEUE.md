@@ -1,3 +1,5 @@
+> **Specialist delegation, 2026-10-21:** [Knowledge & Learning worker](../capture-studio-knowledge-learning/README.md) has a dedicated L4/L5 queue and criterion-based acceptance. Core retains integration, derive wiring, server/CLI, persistence and overall reliability; coordinate any edits to `src/intel` to prevent simultaneous conflicting changes. L4/L5 queue ownership is specialist, not removal of Core's end-to-end responsibility. The latest Core missing-key graph fix `1990a5243` must be inspected before duplicate effort.
+
 > **Next large build:** [SPRINT-03.md](SPRINT-03.md) — Trusted Knowledge Foundations. Priority now: provisional EID uniqueness → derivation completeness → trustworthy contracts/history → measured scaling. Systems' origin-scoping concern is partially mitigated by `97463264`; same-origin tenant ambiguity remains open. This queue is for future selection, not an assertion that Sprint 03 has started.
 
 # Core — Standing High-Level Queue
