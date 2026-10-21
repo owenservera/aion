@@ -41,3 +41,7 @@ Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap an
 ## Skills builder / agent capability ownership
 
 Own and evolve this role's existing **skills/**. Find high-value recurring methods from CANON corrections, Immediate work, real failures and teammate needs; improve existing ones before creating duplicates. Use the shared [OpenCode V2 Master Skills Builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) for reusable SKILL.md, optional scripts/references and validation. Loading a skill never grants local host permissions. Verify OpenCode/ZCode availability and actual use before claiming it works locally. No skill quota or mandatory process.
+
+## Memory context
+
+At launch and SITREP, read all four tiers in `workspace/aion/shared/agent-memory/` and every file under this role's `memory/` (including `Curated/BEST-PRACTICES.md`). Consult Immediate every interaction. Caveman one-line lessons: max signal, min tokens, no copied trackers. Propose systemic learning in `workspace/aion/shared/agent-communications/GLOBAL-MEMORY-CANDIDATES.md`; explicit owner approval is required before any global tier edit.
