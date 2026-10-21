@@ -535,34 +535,27 @@ async function openSession(id) {
     <pre class="panel receipt mono" id="receipt">${esc(d.receipt ? JSON.stringify(d.receipt, null, 2) : 'Rebuild datasets to produce the receipt.')}</pre></div>`;
   $('#bDerive').onclick = guard(async () => { await api(`sessions/${id}/derive`, { body: {} }); toast('Datasets rebuilt from raw'); openSession(id); });
   $('#bVerify').onclick = guard(async () => { const v = await api(`sessions/${id}/verify`); toast(v.ok ? `Verified: ${v.records} records, ${v.gapRecords} declared gaps` : `Integrity problem: ${JSON.stringify(v.unexplained || v.segments.filter((s) => s.torn || s.shaMatches === false))}`); });
-   $('#bContinuity').onclick = guard(async () => {
-     const selectedTime = $('#continuityAsOf').value;
-     const timeQuery = selectedTime ? '&at=' + encodeURIComponent(new Date(selectedTime).toISOString()) : '';
-     const endpoint = 'sessions/' + encodeURIComponent(id) + '/continuity';
-     const view = await api(endpoint + '?limit=50' + timeQuery);
-     const st = view.stats;
-     const intro = '<div>' + st.joinedEntities + ' keyed entities span multiple sessions · ' +
-       st.sessionsWithDerivedKnowledge + '/' + st.sessionsDiscovered + ' sessions with knowledge · ' +
-       st.entitiesTotal + ' entities visible</div>';
-     const missing = st.sessionsWithoutKnowledge.length + st.sessionsWithDerivationError.length;
-     const note = missing ? '<div class="c-gap">' + missing + ' sessions have missing/failed derivation</div>' : '';
-     const rows = view.entities.map((e, i) => '<tr><td><button class="continuity-detail" data-index="' + i +
-       '">Details</button></td><td>' + esc(e.typeName || e.type || 'unknown') + '</td><td class="mono">' +
-       esc(String(e.key ?? '(keyless)')) + '</td><td>' + e.sessionCount + '</td><td>' + e.revisions + '</td></tr>').join('');
-     $('#continuityOut').innerHTML = intro + note + '<div class="panel scroll" style="max-height:32vh;margin:8px 0"><table><thead><tr><th></th><th>Type</th><th>Key</th><th>Sessions</th><th>Revisions</th></tr></thead><tbody>' +
-       (rows || '<tr><td colspan="5">No saved entities at this point in time.</td></tr>') + '</tbody></table></div>' +
-       (st.truncated ? '<div>' + st.truncated + ' more entities; use CLI/API for full access.</div>' : '') +
-       '<pre class="panel receipt mono" id="continuityDetail" style="display:none"></pre>';
-     document.querySelectorAll('#continuityOut .continuity-detail').forEach((button) => {
-       button.onclick = guard(async () => {
-         const entity = view.entities[Number(button.dataset.index)];
-         const full = await api(endpoint + '?eid=' + encodeURIComponent(entity.id) + timeQuery);
-         const detail = $('#continuityDetail');
-         detail.style.display = 'block';
-         detail.textContent = JSON.stringify(full.entities[0] ?? { message: 'No matching entity at this time.' }, null, 2);
-       });
-     });
-   });
+  $('#bContinuity').onclick = guard(async () => {
+    const callSeq = ++S.continuityRequestSeq;
+    const button = $('#bContinuity'), out = $('#continuityOut');
+    button.disabled = true;
+    out.textContent = 'Loading same-site evidence across saved sessions…';
+    try {
+      const selectedTime = $('#continuityAsOf').value;
+      const at = selectedTime ? new Date(selectedTime) : null;
+      if (at && !Number.isFinite(at.getTime())) throw new Error('Enter a valid historical time.');
+      const timeQuery = at ? '&at=' + encodeURIComponent(at.toISOString()) : '';
+      const endpoint = 'sessions/' + encodeURIComponent(id) + '/continuity';
+      const view = await api(endpoint + '?limit=50' + timeQuery);
+      if (callSeq !== S.continuityRequestSeq || requestSeq !== S.sessionRequestSeq) return;
+      renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq);
+    } catch (e) {
+      if (callSeq === S.continuityRequestSeq && requestSeq === S.sessionRequestSeq)
+        out.innerHTML = '<div class="feedback-error">Could not load continuity: ' + esc(e.message) + '</div>';
+    } finally {
+      if (callSeq === S.continuityRequestSeq && requestSeq === S.sessionRequestSeq) button.disabled = false;
+    }
+  });
   $('#bCopy').onclick = () => navigator.clipboard.writeText($('#receipt').textContent).then(() => toast('Receipt copied'));
   const t0 = Date.parse(m.createdAt), t1 = Date.parse(m.endedAt || new Date().toISOString());
   const tt = $('#tt'), lab = $('#ttLabel');
@@ -573,6 +566,64 @@ async function openSession(id) {
     const st = await api(`sessions/${id}/at?t=${Math.round(tAt())}`);
     $('#ttOut').innerHTML = `<div style="color:var(--muted)">${st.streams.length} streams, ${st.dom.length} visible page blocks, ${st.gaps.length} gaps at this moment</div>` + st.streams.filter((x) => x.assembledTexts?.length).slice(0, 4).map((x) => `<div class="panel pad" style="margin-top:6px"><div class="mono" style="color:var(--muted)">${esc(x.endpoint)} (${esc(x.status)})</div>${esc(x.assembledTexts[0].text.slice(0, 600))}</div>`).join('');
   });
+}
+
+
+/* Read-only rendering of Core's read-through continuity contract. */
+function formatEvidenceTime(t) {
+  if (t === null || t === undefined || !Number.isFinite(Number(t))) return 'Time unavailable';
+  const d = new Date(Number(t));
+  return Number.isFinite(d.getTime()) ? d.toLocaleString() : 'Time unavailable';
+}
+function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
+  const out = $('#continuityOut'), st = view?.stats || {};
+  const entities = Array.isArray(view?.entities) ? view.entities : [];
+  const missing = (st.sessionsWithoutKnowledge?.length || 0) + (st.sessionsWithDerivationError?.length || 0);
+  const summary = '<div class="continuity-summary"><span><b>' + esc(st.joinedEntities ?? 0) + '</b> cross-session keyed matches</span>' +
+    '<span><b>' + esc(st.sessionsWithDerivedKnowledge ?? 0) + ' / ' + esc(st.sessionsDiscovered ?? 0) + '</b> sessions derived</span>' +
+    '<span><b>' + esc(st.entitiesTotal ?? 0) + '</b> entities in scope</span></div>';
+  const incomplete = missing ? '<div class="feedback-error">' + esc(missing) + ' saved session(s) lack successful derived knowledge. This view may be incomplete.</div>' : '';
+  const notices = '<p class="small-note">Conservative matches require the same verified site, type, key and identity. Session-local or ambiguous identities stay separate. Missing observations do not mean deletion; cross-session confidence is not calibrated.</p>' +
+    (view?.asOf != null ? '<p class="small-note">Historical state as of ' + esc(formatEvidenceTime(view.asOf)) + '. Untimed revisions cannot establish past state.</p>' : '') +
+    (st.untimedRevisions ? '<p class="small-note">' + esc(st.untimedRevisions) + ' untimed revision(s) are not evidence of historical state.</p>' : '');
+  const rows = entities.map((e, i) => '<tr><td><button class="continuity-detail" data-index="' + i + '" aria-label="Inspect evidence for ' + esc(e.typeName || e.type || e.id) + '">Evidence</button></td>' +
+    '<td>' + esc(e.typeName || e.type || 'Unknown') + '<div class="small-note">' + (e.identityBasis === 'exact-site-type-key' ? 'Exact keyed identity' : 'Session-local identity') + '</div></td>' +
+    '<td class="mono">' + esc(e.key ?? '—') + '</td><td class="num">' + esc(e.sessionCount ?? 0) +
+    '</td><td class="num">' + esc(e.revisions ?? 0) + '</td></tr>').join('');
+  const truncation = Number(st.truncated) > 0 ?
+    '<p class="small-note">Showing ' + esc(entities.length) + ' of ' + esc(st.entitiesTotal ?? entities.length) + ' entities. ' +
+      esc(st.truncated) + ' additional entries are not displayed (50-row API request limit); use the CLI/API for complete output.</p>' : '';
+  out.innerHTML = summary + incomplete + notices +
+    '<div class="panel scroll" style="max-height:32vh;margin:8px 0"><table><thead><tr><th>Inspect</th><th>Type / matching</th><th>Key</th><th class="num">Sessions</th><th class="num">Revisions</th></tr></thead><tbody>' +
+    (rows || '<tr><td colspan="5" class="empty">No saved entities at this point in time.</td></tr>') + '</tbody></table></div>' +
+    truncation + '<div id="continuityDetail" class="panel" hidden></div>';
+  out.querySelectorAll('.continuity-detail').forEach((b) => b.onclick = guard(async () => {
+    const entity = entities[Number(b.dataset.index)];
+    if (!entity) return;
+    const detail = $('#continuityDetail');
+    detail.hidden = false;
+    detail.textContent = 'Loading evidence and history…';
+    try {
+      const full = await api(endpoint + '?eid=' + encodeURIComponent(entity.id) + timeQuery);
+      if (callSeq !== S.continuityRequestSeq || requestSeq !== S.sessionRequestSeq || !detail.isConnected) return;
+      const e = full?.entities?.[0];
+      if (!e) { detail.textContent = 'This entity has no matching evidence at the selected time.'; return; }
+      const provenance = Array.isArray(e.history) ? e.history : [];
+      const historyRows = provenance.map((r) => '<tr><td>' + esc(formatEvidenceTime(r.t)) + '</td><td class="mono">' +
+        esc(r.session || '') + '</td><td>' + esc(Array.isArray(r.changed) ? r.changed.join(', ') : 'Not recorded') +
+        '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td></tr>').join('');
+      detail.innerHTML = '<h3>Entity evidence</h3><p class="small-note">Identity: ' +
+        esc(e.identityBasis === 'exact-site-type-key' ? 'Exact site + type + key + identity' : 'Session-local; not merged') +
+        ' · ' + esc(e.sessionCount ?? 0) + ' session(s) · ' + esc(e.revisions ?? 0) + ' revision(s)</p>' +
+        '<h3>Observed attributes</h3><pre class="mono">' + esc(JSON.stringify(e.attrs ?? {}, null, 2)) + '</pre>' +
+        '<h3>Revision provenance</h3><div class="continuity-history"><table><thead><tr><th>Observed</th><th>Source session</th><th>Fields changed</th><th>Evidence basis</th></tr></thead><tbody>' +
+        (historyRows || '<tr><td colspan="4" class="empty">No revision details available.</td></tr>') + '</tbody></table></div>' +
+        '<p class="small-note">Derived interpretation; absence does not prove deletion. Source recordings remain authoritative.</p>';
+    } catch (e) {
+      if (callSeq === S.continuityRequestSeq && requestSeq === S.sessionRequestSeq && detail.isConnected)
+        detail.innerHTML = '<div class="feedback-error">Could not retrieve entity evidence: ' + esc(e.message) + '</div>';
+    }
+  }));
 }
 
 /* ---------------- profiles ---------------- */
