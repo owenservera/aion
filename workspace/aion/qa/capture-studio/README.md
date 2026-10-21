@@ -2,15 +2,24 @@
 
 > **Scope correction (2026-10-21):** This folder is for **ChatGPT independent QA**, not Claude Opus build sprints. For the requested **Opus fast build sessions with NO physical test creation or execution**, use [Opus BUILD-SPRINT LAUNCH](../../ops/capture-studio-build-sprints/LAUNCH.md). Do not launch this QA protocol when intending Opus implementation work.
 
-**Owner:** ChatGPT independent quality assurance. **Implementation owner:** Claude Opus. **Authority:** owner-approved autonomous QA sprints, 2026-10-21.
+**Owner:** ChatGPT — independent QA, cross-lane steering/alignment, and lightweight roadmap. **Implementation owners:** Core (engine/CLI/server) and UI (client). **Advisory owner:** Systems (algorithms/usability). **Authority:** owner direction, 2026-10-21.
 
-This folder is deliberately separate from Opus's product code at `workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/`. **QA writes only here** (and project GitHub QA issues when helpful); Opus continues implementation independently. No edits to Opus's product source, instructions, test proposals, or memory. The user is the relay when autonomous cross-agent delivery is unavailable.
+This folder is deliberately separate from Opus's product code at `workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/`. **QA writes only here** (and project GitHub QA issues when helpful); Core and UI continue implementation independently. No edits to their product source, instructions, test proposals, or memory. The user is the relay when autonomous cross-agent delivery is unavailable.
 
 ## Fresh-session entry point
 
 Open [LAUNCH.md](LAUNCH.md). In a fresh ChatGPT conversation enter **`#AION QA CAPTURE STUDIO /SPRINT`** or paste the full launch instruction from LAUNCH.md. **Recommended effort: High.** Do not need previous conversations.
 
 The fresh session must read this README, LAUNCH.md, STATE.json, the currently relevant QA findings, the exact target commit's Opus `QA-NEXT-TESTS.md`, and **all first-party Capture Studio source files** (including runtime entry points, import dependencies, existing tests, evaluation and configs). Report any files not inspected. Independently build a complete cross-system model, then run **real tests** in an available execution environment; simulation alone is not QA.
+
+## Steering, alignment and lightweight roadmap (owner directive, 2026-10-21)
+
+- This QA lane is also the **Capture Studio team steering/alignment coordinator**. Maintain a compact **Now / Next / Later** product roadmap, explicit owners, dependencies, integration seams and acceptance signals; link existing sprint plans instead of duplicating them.
+- Core owns engine, capture, identity, continuity, persistence, CLI and server contracts. UI owns frontend, interactions and client-side integration. Systems owns independent architecture, algorithms and usability advice. QA owns independent validation **and cross-lane alignment**, not those agents' implementations.
+- Identify conflicting assumptions, stale handoffs, API/UI contract mismatches and sequencing risks; recommend a smallest-next-step resolution. Distinguish **proposed steering** from **owner-approved direction** and from **implemented/verified** status.
+- Coordinate without stopping ordinary development: do not impose QA gates, rewrite another lane's files, change their commitments unilaterally, or dispatch agents merely by posting a GitHub record. Escalate material conflicts and scope changes to the owner; use GitHub for authorized task distribution.
+- Keep roadmap reporting lightweight: **Now | Next | Later**, owner, dependency/blocker, evidence/acceptance signal. Publish substantive cross-lane updates in this QA-owned workspace; defer accumulated defect handoffs or patches until the owner requests regrouping, except urgent destructive/security risks.
+- Refresh the map against current source and each lane's latest committed work; do not mistake old Claude-specific build phases for a current model-switching requirement.
 
 ## Mission and boundaries
 
