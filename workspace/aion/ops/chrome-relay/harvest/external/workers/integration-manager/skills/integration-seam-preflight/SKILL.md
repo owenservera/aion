@@ -9,7 +9,7 @@ Use when an existing Integration Manager PACK is being inspected, handed off, or
 
 ## Before running
 
-1. Read current [Integration Immediate memory](../../memory/Immediate/README.md), [Development desk](../../../../../workers/development/DELIVERABLES.md), and [single AX exchange](../../../EXCHANGE.jsonl); resolve actual Development selection and up-to-date status. These are authoritative, not this helper's output.
+1. Read current [Integration Immediate memory](../../memory/Immediate/README.md), [Development desk](../../../../../../workers/development/DELIVERABLES.md), and [single AX exchange](../../../../../EXCHANGE.jsonl); resolve actual Development selection and up-to-date status. These are authoritative, not this helper's output.
 2. Check whether Toolsmith's existing \`verification-proof\` or \`tool-discovery\` skill better fits the task. Use this role skill **only** for our pack-specific source/seam/link preflight.
 3. Run from the **AION repository root** in a host with Node.js available, or supply \`--root /path/to/aion\`. All commands below are read-only.
 
