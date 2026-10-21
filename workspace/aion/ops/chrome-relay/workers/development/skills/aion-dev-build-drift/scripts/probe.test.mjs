@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,copyFileSync,unlinkSync,symlinkSync,readFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,copyFileSync,unlinkSync,symlinkSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,dirname} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -9,7 +9,7 @@ import {PAIRS,probe} from './probe.mjs';
 
 function fixture(t){
   const home=mkdtempSync(join(tmpdir(),'aion-drift-'));
-  t.after(()=>{import('node:fs').then(({rmSync})=>rmSync(home,{recursive:true,force:true}));});
+  t.after(()=>rmSync(home,{recursive:true,force:true}));
   const repoRoot=join(home,'aion'),extensionDir=join(home,'unpacked');
   for(const [source,built] of PAIRS){
     const a=join(repoRoot,source),b=join(extensionDir,built);
