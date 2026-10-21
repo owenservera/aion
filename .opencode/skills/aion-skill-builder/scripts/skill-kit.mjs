@@ -25,9 +25,10 @@ const rootSkill = path.join(root, '.opencode', 'skills');
 function findSkills(folder, depth = 0) {
   if (!fs.existsSync(folder) || depth > 6) return [];
   if (fs.existsSync(path.join(folder, 'SKILL.md'))) return [path.join(folder, 'SKILL.md')];
-  return fs.readdirSync(folder, { withFileTypes: true })
-    .filter(x => x.isDirectory() && !x.name.startsWith('.') && x.name !== 'node_modules')
-    .flatMap(x => findSkills(path.join(folder, x.name), depth + 1));
+  const entries = fs.readdirSync(folder, { withFileTypes: true });
+  const flat = depth === 0 ? entries.filter(x => x.isFile() && x.name.endsWith('.md')).map(x => path.join(folder, x.name)) : [];
+  return [...flat, ...entries.filter(x => x.isDirectory() && !x.name.startsWith('.') && x.name !== 'node_modules')
+    .flatMap(x => findSkills(path.join(folder, x.name), depth + 1))];
 }
 function inspect(file) {
   const src = fs.readFileSync(file, 'utf8');
@@ -35,11 +36,13 @@ function inspect(file) {
   const front = block?.[1] || '';
   const description = front.match(/^description:\s*(.*)$/m)?.[1]?.trim() || '';
   const name = front.match(/^name:\s*(.*)$/m)?.[1]?.trim() || '';
-  const id = path.basename(path.dirname(file));
+  const flat = path.basename(file) !== 'SKILL.md';
+  const id = flat ? path.basename(file, '.md') : path.basename(path.dirname(file));
   const problems = [];
   if (!block) problems.push('missing YAML frontmatter (legacy/not reliably discoverable)');
   if (!description) problems.push('missing description');
   if (!isSlug(id)) problems.push('nonportable skill ID');
+  if (flat && id.toLowerCase() === 'readme') problems.push('root README.md is interpreted as a flat skill by OpenCode V2; relocate it thoughtfully');
   if (description.length > 1024) problems.push('description exceeds portable limit');
   return { id, file: path.relative(root, file).replaceAll('\\', '/'), name, description, problems };
 }
