@@ -735,6 +735,9 @@ function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
   const out = $('#continuityOut'), st = view?.stats || {};
   const entities = Array.isArray(view?.entities) ? view.entities : [];
   const missing = (st.sessionsWithoutKnowledge?.length || 0) + (st.sessionsWithDerivationError?.length || 0);
+  const empty = knowledgeSafeList(st.sessionsSuccessfulEmpty).length;
+  const legacy = knowledgeSafeList(st.sessionsLegacyUnverified).length;
+  const collisions = Number(st.legacyEidCollisions) || 0;
   const summary = '<div class="continuity-summary"><span><b>' + esc(st.joinedEntities ?? 0) + '</b> cross-session keyed matches</span>' +
     '<span><b>' + esc(st.sessionsWithDerivedKnowledge ?? 0) + ' / ' + esc(st.sessionsDiscovered ?? 0) + '</b> sessions derived</span>' +
     '<span><b>' + esc(st.entitiesTotal ?? 0) + '</b> entities in scope</span></div>';
@@ -809,6 +812,9 @@ function knowledgeSummary(view) {
     '<span><b>' + esc(st.joinedEntities ?? 0) + '</b> linked by key</span>' +
     '<span><b>' + esc(st.sessionsWithDerivedKnowledge ?? 0) + '/' + esc(st.sessionsDiscovered ?? 0) + '</b> recordings derived</span>' +
     (issues ? '<span class="c-gap"><b>' + esc(issues) + '</b> incomplete</span>' : '') +
+    (empty ? '<span class="c-l3"><b>' + esc(empty) + '</b> successfully empty</span>' : '') +
+    (legacy ? '<span class="c-act"><b>' + esc(legacy) + '</b> legacy-unverified</span>' : '') +
+    (collisions ? '<span class="c-gap"><b>' + esc(collisions) + '</b> legacy identity collisions isolated</span>' : '') +
     (limits.length ? '<span class="c-act">' + limits.join(' · ') + '</span>' : '') + missing;
 }
 function knowledgeOutcomeMarkup(outcome) {
@@ -955,7 +961,9 @@ async function openKnowledgeEntity(entity) {
       '<div class="knowledge-detail-field"><b>Recorded attribute values</b><pre class="mono">' + esc(JSON.stringify(e.attrs ?? {}, null, 2)) + '</pre></div>' +
       '<h3>Revision provenance</h3><div class="scroll" style="max-height:30vh"><table><thead><tr><th>Observed</th><th>Source</th><th>Changed fields</th><th>Basis</th><th>Original evidence</th></tr></thead><tbody>' +
       history.slice(-150).map((r, i) => '<tr><td>' + esc(knowledgeTime(r.t)) + '</td><td class="mono">' + esc(r.session || 'Unknown') +
-        '</td><td>' + esc(knowledgeSafeList(r.changed).join(', ') || 'Unspecified') + '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td><td>' +
+        '</td><td>' + esc(knowledgeSafeList(r.changed).join(', ') || 'Unspecified') +
+        (knowledgeSafeList(r.removed).length ? '<div class="c-gap">Explicitly removed: ' + esc(r.removed.join(', ')) + '</div>' : '') +
+        '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td><td>' +
         (r.session && r.sid ? '<button class="knowledge-link" data-observation="' + i + '">Open stream</button>' : 'No stream reference') + '</td></tr>').join('') +
       '</tbody></table></div>' + (history.length > 150 ? '<p class="small-note">Latest 150 revisions shown; full history available through Core API.</p>' : '') +
       '<h3>Source recordings</h3>' + knowledgeSourceLinks(history) +
