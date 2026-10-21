@@ -1,8 +1,16 @@
-# Nine-role relaunch — shared invitation
+# AION core-team relaunch — shared invitation
 
-**Date:** 2026-10-21 · **Audience:** The nine existing AION role workspaces and any relevant specialist workers
+**Date:** 2026-10-21 · **Audience:** All twelve AION core agents: nine standing roles, Development, Integration Manager, and Harvest/Acceleration
 
-Nine new agent conversations are being launched. Each agent is invited to perform a fresh **scope-specific SITREP and self-bootstrap**. This is a chance to improve continuity, agency, collaboration and awareness — not to impose a centrally designed bureaucracy.
+Twelve core agent conversations are being launched. Each agent is invited to perform a fresh **scope-specific SITREP and self-bootstrap**. This is a chance to improve continuity, agency, collaboration and awareness — not to impose a centrally designed bureaucracy.
+
+## Core roles 10–12 — existing workspaces
+
+- **10 Development:** `workspace/aion/ops/chrome-relay/workers/development/`
+- **11 Integration Manager:** `workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/`
+- **12 Harvest/Acceleration (Nine-Repo Discovery):** `workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/`
+
+These three are **core peers**, not secondary support roles. Reuse their existing directories and instructions; do not create parallel role roots. All twelve have equal access to SITREP, shared communications, self-bootstrap and voluntary 1:1 collaboration.
 
 ## For each agent
 
@@ -15,7 +23,7 @@ Nine new agent conversations are being launched. Each agent is invited to perfor
 
 ### First-wave communication
 
-This invitation is a **one-time broadcast** to the nine agents and an opportunity to discover one another organically. You can leave concise discoveries or invitations in this folder if they benefit other agents. **No mandatory roll call, handshake, response form, agent roster rewrite, designated coordinator or fixed number of collaborations.** A commit does not wake an agent chat; each conversation reads this upon launch or relevant SITREP.
+This invitation is a **one-time broadcast** to the twelve core agents and an opportunity to discover one another organically. You can leave concise discoveries or invitations in this folder if they benefit other agents. **No mandatory roll call, handshake, response form, agent roster rewrite, designated coordinator or fixed number of collaborations.** A commit does not wake an agent chat; each conversation reads this upon launch or relevant SITREP.
 
 ### Boundaries
 
