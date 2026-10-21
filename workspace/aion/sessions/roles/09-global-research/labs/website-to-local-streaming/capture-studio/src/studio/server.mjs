@@ -83,6 +83,16 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
         return res.end(readFileSync(new URL('./ui/live.mjs', import.meta.url)));
       }
+      if (url.pathname === '/platform') {
+        if (req.method !== 'GET') { res.setHeader('allow', 'GET'); return send(res, 405, { error: 'GET required' }); }
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" });
+        return res.end(readFileSync(new URL('./ui/platform.html', import.meta.url)));
+      }
+      if (url.pathname === '/ui/platform.mjs') {
+        if (req.method !== 'GET') { res.setHeader('allow', 'GET'); return send(res, 405, { error: 'GET required' }); }
+        res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+        return res.end(readFileSync(new URL('./ui/platform.mjs', import.meta.url)));
+      }
       if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'not found' });
       if (await handlePlatformX(req, res, { settings: rawOptions ?? {}, dataDir: paths.root, sessionsDir: paths.sessions }, url)) return;
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};

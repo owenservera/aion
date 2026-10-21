@@ -10,10 +10,13 @@
 //   LengthPrefixedDecoder  "<len>\n<payload>" and netstring "<len>:<payload>," framing
 //   GrpcFrameDecoder    gRPC / gRPC-Web length-prefixed message frames (1+4 byte prefix)
 //   WholeBodyDecoder    non-incremental bodies (json/html/text/binary)
+//   CsvRowDecoder       CSV tables (declared text/csv, or sniffed plain-text CSV)
 //   AutoDecoder         re-sniffs the first bytes and switches decoder before any event is emitted
 //   WsFrameDecoder      WebSocket frames incl. continuation reassembly + app-protocol decoding
 //
 // Nothing here is site specific: every recogniser keys off wire shape, never off a hostname.
+
+import { CsvDecoder, sniffDelimiter } from './csv.mjs';
 
 export const NL = 0x0a, CR = 0x0d, RS = 0x1e, TAB = 0x09, SP = 0x20;
 
@@ -523,7 +526,7 @@ export class AutoDecoder {
       if (this.emitted === 0 && this.inner instanceof WholeBodyDecoder && this.chunkCount > 1) {
         const head = Buffer.concat(this.head);
         const better = sniff(this.mime, head);
-        if (better !== this.inner.kind && ['sse', 'ndjson', 'jsonseq', 'chunked-json', 'grpc', 'length-prefixed'].includes(better)) {
+        if (better !== this.inner.kind && ['sse', 'ndjson', 'jsonseq', 'chunked-json', 'grpc', 'length-prefixed', 'csv'].includes(better)) {
           this.switched = { from: this.inner.kind, to: better, atChunk: this.chunkCount };
           this.inner = decoderForKind(better, { forced: this.forced });
           this.kind = this.inner.kind;
@@ -557,14 +560,32 @@ export function classifyMime(mime = '') {
   if (m.includes('json-seq')) return 'jsonseq';
   if (m.includes('ndjson') || m.includes('jsonl') || m.includes('x-json-stream')) return 'ndjson';
   if (m.includes('json')) return 'json';
+  if (m.includes('csv')) return 'csv';
   if (m.includes('html')) return 'html';
   if (m.startsWith('text/') || m.includes('javascript') || m.includes('xml')) return 'text';
   if (!m) return 'unknown';
   return 'binary';
 }
 
+// CSV rows are emitted with the same event envelope as the other decoders
+// (type / text / span / index) plus the decoded payload: `data` (mirrored into `json`)
+// holds the row object when a header row was detected, otherwise the array of cell values.
+class CsvRowDecoder extends CsvDecoder {
+  _event(r) {
+    const ev = super._event(r);
+    const row = this.hasHeader ? ev.row : (ev.values ?? []);
+    ev.data = row;
+    ev.json = row;
+    const headers = Array.isArray(ev.columns) ? ev.columns : [];
+    const delimiter = ev.delimiter ?? ',';
+    ev.envelope = { headers: headers.slice(), delimiter, raw: headers.join(delimiter) };
+    return ev;
+  }
+}
+
 export function decoderForKind(kind, { forced } = {}) {
   switch (kind) {
+    case 'csv': return new CsvRowDecoder();
     case 'sse': return new SseDecoder();
     case 'ndjson': return new NdjsonDecoder();
     case 'jsonseq': return new JsonSeqDecoder();
@@ -590,7 +611,7 @@ export function pickAutoDecoder(mime, forced, opts = {}) {
 
 export function sniff(mime, firstBytes) {
   const declared = classifyMime(mime);
-  if (declared === 'sse' || declared === 'ndjson' || declared === 'jsonseq' || declared === 'grpc') return declared;
+  if (declared === 'sse' || declared === 'ndjson' || declared === 'jsonseq' || declared === 'grpc' || declared === 'csv') return declared;
   const buf = firstBytes && firstBytes.length ? firstBytes : null;
   const head = buf ? buf.subarray(0, 1024).toString('utf8') : '';
   // SSE: field lines, or a comment-only keepalive preamble.
@@ -620,7 +641,21 @@ export function sniff(mime, firstBytes) {
     if (declared === 'binary' && textLike) return 'json';
   }
   if (declared === 'unknown' && /^\s*[{[]/.test(head)) return 'json';
+  // CSV: only for bodies that are plain text and carry an unambiguous delimiter structure.
+  // The checks above already rejected JSON / SSE / NDJSON / json-seq / gRPC / framed input,
+  // and HTML is only reachable through its mime type, so those never land here.
+  if (declared === 'text' || declared === 'unknown') {
+    const csvBuf = buf ? buf.subarray(0, 4096) : null;
+    if (csvBuf && looksLikeTextBytes(csvBuf) && sniffDelimiter(csvBuf.toString('utf8')).confidence >= 0.8) return 'csv';
+  }
   return declared === 'unknown' ? 'text' : declared;
+}
+
+// Plain-text test for a byte window: no NUL bytes and no UTF-8 replacement characters.
+function looksLikeTextBytes(buf) {
+  if (!buf || !buf.length) return false;
+  if (buf.includes(0x00)) return false;
+  return !buf.toString('utf8').includes('\ufffd');
 }
 
 // ---------------------------------------------------------------------------------------------

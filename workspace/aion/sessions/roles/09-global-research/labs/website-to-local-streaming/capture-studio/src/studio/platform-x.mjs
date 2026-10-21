@@ -17,7 +17,14 @@ export async function handlePlatformX(req, res, ctx, url) {
     return true;
   }
   try {
-    if (route.bench) { json(res, 501, { error: 'bench not implemented' }); return true; }
+    if (route.bench) {
+      let mod;
+      try { mod = await import('../intel/bench.mjs'); }
+      catch (e) { json(res, 501, { error: `bench unavailable: ${String(e?.message ?? e)}` }); return true; }
+      const data = await mod.runBench();
+      if (!res.headersSent) json(res, 200, data);
+      return true;
+    }
     const data = await route.run(req, ctx, url);
     if (!res.headersSent) json(res, 200, data);
   } catch (e) {
