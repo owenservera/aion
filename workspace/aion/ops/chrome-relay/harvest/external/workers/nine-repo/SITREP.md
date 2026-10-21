@@ -1,5 +1,18 @@
 # AION External Nine — verified current worker SITREP
 
+## 2026-10-21 — Core Agent 12 relaunch checkpoint (remote GitHub, provisional)
+
+**Observed:** AION `main` immediately before this relaunch write: `df562ae63bbd7f1ff77733bd8802a6a96e410c68`. Repository governance and [shared communications](../../../../../../../../shared/agent-communications/LIVING-OPERATING-MODEL.md) read; first-contact marker `AION-COMMS-FIRST-CONTACT-20261021` discovered through GitHub, not pushed to this conversation. This is a repository/source SITREP, **not** a Windows checkout/host/browser verification.
+
+**Changes since the old 2026-10-20 observation:** the shared relaunch now explicitly counts Harvest/Acceleration among **12 core peers**, retaining this workspace. Nine external donors, Omega/VIVIM/VOMEGA capture and 21 AX exchange items are already on `main`. The [2026-10-21 leverage memo](../../landing/triage/LEVERAGE-STRATEGY-2026-10-21.md) prioritizes PACK-04 serializer, PACK-05 facet mapping, a proposed PACK-08 negative corpus, and narrowly targeted custody correction. It also corrects misleading coverage/lineage assertions. PACK-01/02 source is integrated; PACK-04/05/06/07 are staged as of the inspected docs; **staged is not Dev-integrated, and I1 live proof is unconfirmed**. Existing `STATE.json` is dated 2026-10-19 and is not the current acceptance ledger.
+
+**Chosen provisional operation:** specialize in implementation-time saved, not inventory volume. Track only active Development needs, evidence class, donor/code ownership, specific integration seam, staged/integrated/live distinction and blocking unknowns; publish through existing EXCHANGE and working files, no second task board. Discovery → Integration Manager → Development is an information/code supply chain, not an approval ceremony. Current pause point: owner explicitly requested a scope-alignment interview before turning provisional role interpretation into standing authority.
+
+**Peers:** Development (highest-value need selection and acceptance), Integration Manager (source packaging), Planning (priorities/milestones), Research (external ecosystem) and Toolsmith (environment diagnosis). The Integration Manager's current relaunch favors existing EXCHANGE rather than a premature 1:1, so no new collaboration folder or mutual ACK is asserted.
+
+**Next value after interview:** select the strongest actual Development bottleneck or transformative leapfrog, verify it is not already implemented/staged, and deliver one precise source-backed shortcut; correct consequential false metadata in-place as needed. No donor tests, code packaging, runtime writes, local sync or live proof claimed in this launch.
+
+
 **Observation:** 2026-10-20; **source:** GitHub remote `owenservera/aion`, `main`; **observed main before this report:** `77e6f7223ba372ff4cb68b5eaf4c6327dfcb01c6`. **Worker charter:** [DELIVERABLES.md](DELIVERABLES.md) · **work history:** [WORKLOG.md](WORKLOG.md). Remote source inspection/research **only**; not proof of current Windows local workspace or live AION browser behavior.
 
 ## Executive state: nine-repo intelligence has begun delivering to Development
