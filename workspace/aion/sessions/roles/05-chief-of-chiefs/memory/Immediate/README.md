@@ -8,7 +8,7 @@
 - **P03 / I2 — OPEN:** usable `aion chat chief` two-way Send and response not proved.
 - **P06 / I3 — OPEN:** restart/reconnect, unknown-effect and no-duplicate recovery not proved live.
 - **NS1 / M1 — INCOMPLETE:** [2026-10-19 UIA send and readback](https://github.com/owenservera/aion/blob/main/workspace/aion/agents/windows-master/LIVE-INTEGRATION-2026-10-19.md) is partial reality, not extension Send PASS. Independent negative and acceptance evidence missing; last `m1_verified=false`. `STATE.json` is dated October 19 and contains superseded roster/source language.
-- **Canonical task owners:** [Planning task roll-up](../../02-long-term-planning-alignment/TASKS.md) and [agent matrix](../../02-long-term-planning-alignment/AGENT-MATRIX.md); [Development desk](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/workers/development/DELIVERABLES.md).
+- **Canonical task owners:** [Planning task roll-up](../../../02-long-term-planning-alignment/TASKS.md) and [agent matrix](../../../02-long-term-planning-alignment/AGENT-MATRIX.md); [Development desk](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/workers/development/DELIVERABLES.md).
 
 ## Highest-value next actions
 1. Watch for current local source/build provenance, allowlisted registration diagnostic and genuinely received exact-thread I1 evidence; route operational chase to CoS, and technical fix to Development/Windows + Toolsmith only if needed.
