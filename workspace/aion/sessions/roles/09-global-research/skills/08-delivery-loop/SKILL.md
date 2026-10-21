@@ -1,3 +1,8 @@
+---
+name: 08-delivery-loop
+description: "Route a completed research finding to the native owner and distinguish publication, genuine recipient acknowledgment, implementation and live verification."
+---
+
 # delivery loop
 
 
