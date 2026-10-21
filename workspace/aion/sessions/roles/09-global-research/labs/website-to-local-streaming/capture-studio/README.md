@@ -12,6 +12,7 @@ Node.js itself. Captured data is private and lives **outside the repository** by
 - Design principles, capability matrix and roadmap: [`ARCHITECTURE.md`](ARCHITECTURE.md) (root) and
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (module map and data flow).
 - Review findings and worklog: [`ASSESSMENT-AND-WORKLOG.md`](ASSESSMENT-AND-WORKLOG.md).
+- Live-test runbook on Windows PowerShell: [`docs/LIVE-TEST.md`](docs/LIVE-TEST.md).
 
 ## What it is
 
@@ -172,6 +173,19 @@ suffix, `latest`, `latest~2` (third newest), `latest:claude.ai` (newest for that
 | `profile export` · `profile import` · `profile op` | Portable JSON profile files; apply a semantic model operation. |
 | `family list` · `family show` · `family new` · `family records` · `family detect` | Provider families: shared data models many sites map into. |
 
+### Platform and analysis
+| Command | Purpose |
+| --- | --- |
+| `detect <file\|->` | Detect the shape of a saved document or stream and summarise it. |
+| `scan <file\|->` | Scan text for credentials (exit 4 when any are found); `--pii` also reports personal data. |
+| `csv <file\|->` | Analyse delimited text: columns, types and row statistics. |
+| `dedupe <session>` | Find duplicate or near-duplicate records in a saved session. |
+| `knowledge graph-stats` | Graph statistics, top PageRank nodes and community summary. |
+| `knowledge keyphrases` | Extract key phrases from a saved session. |
+| `integrity build <dir\|session>` | Write a SHA-256 `MANIFEST.json` for a directory. |
+| `integrity verify <dir\|session>` | Verify a directory against its manifest (exit 4 when it does not match). |
+| `platform stats` · `platform registry` | Platform capability/usage statistics; a snapshot of the local platform registry. |
+
 ### System
 | Command | Purpose |
 | --- | --- |
@@ -210,14 +224,12 @@ Notes on the optional capabilities:
 
 - **Optional means optional.** Each backend module is imported on demand. If the module or the
   required export is not in the build, the endpoint answers **HTTP 501 `CAPABILITY_UNAVAILABLE`**
-  and everything else keeps working. In the current tree the live-tap backend
-  (`src/capture/live-tap.mjs`) is present; the full-derivation backend (`src/replay/derive-all.mjs`)
-  and the mirror entry point (`src/mirror/index.mjs`) are not, so `derive-all`, `artifacts`,
-  `schemas`, `graph/ranked`, `timelines`, `search` and the mirror routes currently return 501, and
-  the CLI commands that depend on them (`studio derive`, `studio mirror …`, `studio knowledge
-  search`, `studio export schemas`) exit with code 5. The in-tree derivation path
-  (`src/replay/derive.mjs`) is used by `record --derive`, by the studio's `POST …/derive` and by
-  `POST /api/record/stop`.
+  and everything else keeps working. In the current tree all three optional backends are present:
+  the live-tap backend (`src/capture/live-tap.mjs`), the full-derivation backend
+  (`src/replay/derive-all.mjs`) and the mirror entry point (`src/mirror/index.mjs`), so
+  `derive-all`, `artifacts`, `schemas`, `graph/ranked`, `timelines`, `search` and the mirror
+  routes are served. The default derivation path (`src/replay/derive.mjs`) is still what
+  `record --derive`, the studio's `POST …/derive` and `POST /api/record/stop` use.
 - **Tools endpoint.** `GET /integrations/tools` publishes an MCP-style manifest (JSON input
   schemas plus read-only/destructive annotations); `POST /integrations/tools/call` invokes a
   declared tool. It is a manifest and invocation adapter, not a full MCP transport.
@@ -235,6 +247,14 @@ The studio UI also uses unversioned `/api/*` routes implemented in `src/studio/s
 `/api/live/*`, `/api/sessions/*`, `/api/search`, `/api/profiles/*`, `/api/families/*`,
 `/api/preview`). They are not part of the versioned contract and are not described in the OpenAPI
 document.
+
+### MCP stdio server
+
+A real MCP server ships in the tree: `node src/mcp/server-stdio.mjs` speaks newline-delimited
+JSON-RPC 2.0 on stdin/stdout (`initialize`, `tools/list`, `tools/call`, `resources/list`,
+`resources/read`; protocol versions `2025-06-18`, `2025-03-26`, `2024-11-05`). stdout carries
+JSON-RPC only — logs go to stderr. Resources are exposed as `capture-studio://sessions/...`.
+It talks to the same in-process integration hub as the web UI.
 
 ## Data directory layout
 

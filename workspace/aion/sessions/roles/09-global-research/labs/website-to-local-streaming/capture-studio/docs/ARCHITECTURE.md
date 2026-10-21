@@ -57,6 +57,9 @@ loopback-only DevTools), `ensureChrome()`, `chromeStatus()`.
 - `compact.mjs` — `compactRaw()`, `compactSession()`, `estimateCompaction()`, `dirBytes()`.
 - `versioned.mjs` — `VersionedStore`: every save writes a new immutable `vNNNN.json`; `CURRENT`
   names the active version; rollback moves the pointer.
+- `integrity.mjs` — `FORMAT` (`aion-integrity/1`), `canonicalJson()`, `sha256Hex()`,
+  `buildManifest()`, `verifyManifest()`, `exportSnapshot()`, `importSnapshot()`: the SHA-256
+  directory manifest behind `studio integrity build` / `integrity verify`.
 
 ### `src/decode/` — L2 protocol decoding
 - `decoders.mjs` — `SseDecoder`, `NdjsonDecoder`, `ChunkedJsonDecoder`, `JsonSeqDecoder`,
@@ -68,6 +71,9 @@ loopback-only DevTools), `ensureChrome()`, `chromeStatus()`.
 - `delta.mjs` — `DeltaAssembler`, `detectDialect()`, `applyMergePatch()`, `parsePointer()`,
   `parseDotted()`, `getPointer()`, `reconstruct()`. Assembles incremental documents (JSON Patch,
   path ops, typed events) into the document a user actually saw.
+- `csv.mjs` — `parseCsv()`, `sniffDelimiter()`, `headerLikelihood()`, `coerceCell()`,
+  `csvToObjects()`, `CsvDecoder`: delimited-text decoding and column typing (the backend of
+  `studio csv`).
 
 ### `src/replay/` — offline reconstruction
 - `reducer.mjs` — `StreamReducer`, `transportOf()`, `transportDetailOf()`, `isStreaming()`,
@@ -78,6 +84,10 @@ loopback-only DevTools), `ensureChrome()`, `chromeStatus()`.
   `reconstructStream()`, `streamText()`, `search()`, `fidelityBreakdown()`. Rebuilds every derived
   artifact from raw: datasets, shapes, family records, assembled documents, the receipt and the
   knowledge layer.
+- `derive-all.mjs` — `deriveAll()`, `loadArtifacts()`, `searchSession()`: the staged full
+  derivation (all artifacts, incremental or forced) and the artifact/search loaders behind
+  `POST /api/v1/sessions/{id}/derive-all`, `GET .../artifacts`, `GET /api/v1/search` and
+  `studio knowledge search`. Loaded on demand as the `derive` capability.
 
 ### `src/shapes/` — v1 shape inference
 - `infer.mjs` — `ShapeInferencer` (endpoints, collections, drift, quality), `templateUrl()`,
@@ -101,6 +111,17 @@ message) that many sites map into; families are priors, not classification gates
 - `apply.mjs` — `applySuggestion()`: accept/reject an inferred suggestion into a new version.
 - `model-ops.mjs` — `applyModelOp()`: semantic model operations (`rename_field`, `set_identity`,
   `merge_records`, …).
+- `migrations.mjs` — `createMigrationChain()`, `migrations`: the deterministic versioned profile
+  migration chain (`schemaVersion` 1 → 2).
+
+### `src/security/` — credential and PII detection
+- `patterns.mjs` — `luhn()`, `ibanMod97()`, `shannonEntropy()`, `PATTERNS`, `detectSecrets()`,
+  `scrub()`, `registerPatterns()`: the credential/PII pattern library behind `studio scan`
+  (exit 4 when a secret is found).
+
+### `src/plugins/` — extension registry
+- `registry.mjs` — `DEFAULT_KINDS` (`formats`, `codecs`, `secretPatterns`, `migrations`,
+  `transforms`), `createRegistry()`, `registry`: a zero-dependency, fixed-kind plugin registry.
 
 ### `src/intel/` — intelligence engine
 - `corpus.mjs` — `buildCorpus()`, `CorpusCollector`, `discriminatorOf()`: session → discovery
@@ -125,6 +146,19 @@ message) that many sites map into; families are priors, not classification gates
 - `statistics.mjs` — `CardinalitySketch`, `wilsonInterval()`.
 - `continuity.mjs` — `buildSiteContinuity()`, `siteFromSession()`, `originFromSession()`,
   `continuityTime()`: cross-session continuity without automatic type-drift merges.
+- `rank.mjs` — `trigrams()`, `damerauLevenshtein()`, `expandTerm()`, `simhash()`, `hamming()`,
+  `minhash()`, `jaccardFromMinhash()`, `lshClusters()`, `tfidfVectors()`, `cosine()`, `rake()`:
+  fuzzy matching, near-duplicate detection and keyword extraction.
+- `graph-analytics.mjs` — `pagerank()`, `betweenness()`, `components()`, `communities()`,
+  `topK()`, `graphAnalytics()`: the metrics behind `knowledge graph-stats` and
+  `export graph-ranked`.
+- `autodetect.mjs` — `detectContent()`, `detectBatch()`: shape detection for arbitrary documents
+  or streams (the backend of `studio detect`).
+- `platform.mjs` — `sessionTexts()`, `sessionGraph()`, `dedupeSession()`, `analyzeSessionGraph()`,
+  `keyphrasesSession()`, `detectAndScan()`, `csvAnalyze()`, `platformStats()`, `registrySnapshot()`:
+  the read-only analysis layer behind the `detect`/`scan`/`csv`/`dedupe`/`platform` commands and
+  the `/api/x/*` routes.
+- `bench.mjs` — `runBench()`: the self-benchmark behind `GET /api/x/bench`.
 
 ### `src/export/` — artifacts
 - `export.mjs` — `exportDataset()`, `exportTranscript()`, `exportKnowledge()`, `exportGraph()`,
@@ -145,9 +179,9 @@ message) that many sites map into; families are priors, not classification gates
 `synthesize.mjs` (`synthesizeUnits()`, `renderUnit()`, `sseBlock()`), `ws.mjs` (`FrameParser`,
 `WsConnection`, `encodeFrame()`, `acceptUpgrade()`).
 
-> The mirror's entry point (`src/mirror/index.mjs`, exposing `startMirror` / `buildRouteTable`) is
-> **not in this tree**, so `studio mirror …` and the `/api/v1/mirrors*` routes currently report the
-> capability as unavailable.
+- `index.mjs` — the mirror entry point: `startMirror()`, `buildRouteTable()`, and re-exports of
+  `loadCatalog`, `findMatch`, `parseIncoming`, `scoreExchange`, `synthesizeUnits`, `learnDeltas`.
+  `bin/lib/capabilities.mjs` loads it on demand as the `mirror` capability.
 
 ### `src/studio/` — the local web UI and API
 - `server.mjs` — `startStudio()`: loopback-only HTTP server, token → HttpOnly cookie exchange,
@@ -161,6 +195,10 @@ message) that many sites map into; families are priors, not classification gates
 - `http.mjs` — `problem()`, `json()`, `integer()`, `text()`, `object()`, `storageName()`,
   `timestamp()`, `page()`, `datasetPage()`: request validation and pagination.
 - `ui/index.html`, `ui/live.html`, `ui/live.mjs` — the studio UI and the minimal live viewer.
+- `platform-x.mjs` — `handlePlatformX()`: the optional `/api/x/*` routes — `/api/x/stats`,
+  `/api/x/registry`, `/api/x/autodetect`, `/api/x/csv`, `/api/x/bench`, and the per-session
+  `/api/x/graph/{id}`, `/api/x/dedupe/{id}`, `/api/x/keyphrases/{id}`.
+- `ui/platform.html`, `ui/platform.mjs` — the `/platform` page of the studio UI.
 
 ### `bin/` — the CLI
 - `studio.mjs` — entry point: parse → resolve → run → stable exit codes.
@@ -176,7 +214,18 @@ message) that many sites map into; families are priors, not classification gates
 - `lib/capabilities.mjs` — `capability()`: keeps optional engines out of the startup import graph.
 - `lib/query.mjs`, `lib/util.mjs` — query parsing and shared helpers.
 - `commands/` — `system.mjs`, `capture.mjs`, `sessions.mjs`, `replay.mjs`, `mirror.mjs`,
-  `export.mjs`, `knowledge.mjs`, `learn.mjs`, `profiles.mjs`.
+  `export.mjs`, `knowledge.mjs`, `learn.mjs`, `profiles.mjs`, `platform.mjs`.
+
+### `src/mcp/` — the stdio MCP server
+- `server-stdio.mjs` — `createServer()`, `serveStdio()`: the newline-delimited JSON-RPC 2.0 stdio
+  transport (`tools/list`, `tools/call`, `resources/list`, `resources/read`). Run it with
+  `node src/mcp/server-stdio.mjs`; stdout carries JSON-RPC only, logs go to stderr.
+- `jsonrpc.mjs` — `ErrorCode`, `RpcError`, `rpcResult()`, `rpcError()`, `parseMessage()`,
+  `serialize()`.
+- `resources.mjs` — `resourceUri()`, `listCaptureResources()`, `readCaptureResource()`: the
+  `capture-studio://sessions/...` resource tree.
+- `runtime.mjs` — `createRuntime()`, `callRoute()`, `listTools()`, `callTool()`: the in-process
+  bridge to the studio integration hub.
 
 ## 2. Data flow
 
@@ -248,11 +297,17 @@ STUDIO API      CLI             EXPORTS            MIRROR            LEARNER
 | Provider families | `families/<name>/vNNNN.json` + `CURRENT` | versioned |
 | Learner state | `learner/learner.json` + `learner/history/` | immutable revisions; rollback is a new revision |
 
-## 3. Known gaps in this tree
+## 3. Optional backends
 
-Modules referenced by the CLI and the API but **not present** in `src/`:
+The optional engines are still loaded on demand (`bin/lib/capabilities.mjs`,
+`src/studio/capabilities.mjs`), so a build that lacks one answers HTTP 501
+`CAPABILITY_UNAVAILABLE` instead of failing. In the current tree both optional backends are
+present:
 
-| Missing module | Consumers | Effect |
+| Capability | Module | Loaded for |
 | --- | --- | --- |
-| `src/replay/derive-all.mjs` | `studio derive`, `studio knowledge search`, `studio export schemas`, `POST /api/v1/sessions/{id}/derive-all`, `GET .../artifacts`, `.../schemas`, `.../graph/ranked`, `.../timelines`, `GET /api/v1/search` | CLI exits 5 (`CAPABILITY_UNAVAILABLE`); API answers HTTP 501. The in-tree `src/replay/derive.mjs` path still works: `record --derive`, `POST /api/v1/sessions/{id}/derive`, `POST /api/record/stop`. |
-| `src/mirror/index.mjs` | `studio mirror serve`, `studio mirror routes`, all `/api/v1/mirrors*` routes | CLI exits 5; API answers HTTP 501. The mirror building blocks under `src/mirror/` are present. |
+| `derive` | `src/replay/derive-all.mjs` | `studio derive --full`/`derive-all`, `studio knowledge search`, `studio export schemas`, `POST /api/v1/sessions/{id}/derive-all`, `GET .../artifacts`, `.../schemas`, `.../graph/ranked`, `.../timelines`, `GET /api/v1/search` |
+| `mirror` | `src/mirror/index.mjs` | `studio mirror serve`, `studio mirror routes`, all `/api/v1/mirrors*` routes |
+
+The in-tree derivation path (`src/replay/derive.mjs`) remains the default used by
+`record --derive`, by `POST /api/v1/sessions/{id}/derive` and by `POST /api/record/stop`.

@@ -29,6 +29,7 @@
     "sessions": "node bin/studio.mjs sessions",
     "knowledge": "node bin/studio.mjs knowledge",
     "learn": "node bin/studio.mjs learn status",
+    "selftest": "node bin/studio.mjs selftest",
     "help": "node bin/studio.mjs help"
   }
 }
