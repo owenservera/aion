@@ -1,3 +1,5 @@
+> **Next large build:** [SPRINT-03.md](SPRINT-03.md) — Trusted Knowledge Foundations. Priority now: provisional EID uniqueness → derivation completeness → trustworthy contracts/history → measured scaling. Systems' origin-scoping concern is partially mitigated by `97463264`; same-origin tenant ambiguity remains open. This queue is for future selection, not an assertion that Sprint 03 has started.
+
 # Core — Standing High-Level Queue
 
 **Owner:** Core. **Steward:** QA / Steering. **Updated:** 2026-10-21. **Nature:** rolling priorities, not QA gates or evidence of completion.
