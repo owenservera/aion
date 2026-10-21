@@ -25,6 +25,10 @@
 
 **Boundary that saves everyone time:** Planning owns *why, order, accountable role and strategic dependencies*. Chief of Staff owns dispatch/ACK/receipts, Development owns build and test, Toolsmith diagnoses tooling, Research supplies sourced alternatives, Harvest discovers and Integration Manager adapts. GPM owns portfolio-wide PM; this file is **AION-only**. No new queue, approvals or status ceremony.
 
+## Newly relevant parallel capability — 2026-10-21
+
+[Research 09's website-to-local Capture Studio](https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming) now contains source and Chromium-synthetic-browser verification for raw L1 network chunks, L2 decoded events and L3 DOM observations. The lab is **not** the same product as AION's accepted exact-thread CLI (NS2), does not satisfy P01/P02/P03, and should not become a blocker for it. Planning tracks the field-proof/adoption boundary in [AION-X08](https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/02-long-term-planning-alignment/TASKS.md); Research owns lab exploration, Development owns any chosen product integration. Reported synthetic tests do not demonstrate real chatgpt.com or Windows acceptance. The CLI executable declared in the lab package manifest is currently absent from the reviewed source tree.
+
 ## Maintenance on future SITREP
 
 Compare the [global active index](../../ACTIVE.md), this page, Planning's three canonical files, relevant [agent communications](../../../LIVING-OPERATING-MODEL.md), latest Development/Harvest and Windows evidence. Update canonical owner files if priority/role/dependency/proof **materially changes**; then adjust this short navigation page and **only Planning's** row in ACTIVE.md, with a UTC date and short changelog. If facts have not materially changed, make no edit. Keep historical evidence at its original source; never turn a GitHub note into presumed agent notification or a remote commit into local execution proof.
