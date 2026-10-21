@@ -76,7 +76,10 @@ export class Recorder extends EventEmitter {
     this._resetTargets();
     const version = await browserVersion({ port: this.port });
     const targets = await listTargets({ port: this.port });
-    const target = pickTarget(targets, selector);
+    // tabs:'all' records every web tab, so a missing --target must not fail: pick a deterministic
+    // primary (index 0) and let target discovery attach the rest. A single tab already resolves.
+    const fallbackSelector = this.tabs === 'all' && targets.length > 1 ? '0' : undefined;
+    const target = pickTarget(targets, selector || fallbackSelector);
     const profile = profileName ? this.profileStore.load(profileName) : this.profileStore.selectFor(target.url);
     this.profile = profile;
     this.pageUrl = target.url;

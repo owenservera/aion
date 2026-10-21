@@ -104,6 +104,9 @@ export async function waitForTarget(selector, opts = {}, { timeoutMs = 30_000, i
 export function pickTarget(targets, selector) {
   if (selector === undefined || selector === null || selector === '') {
     if (targets.length === 1) return targets[0];
+    if (targets.length === 0) {
+      throw new Error('No recordable tabs are open in the browser on this DevTools port. Open a page, or run "studio launch".');
+    }
     throw new Error(`Several tabs are open; choose one with --target (run "studio targets").`);
   }
   const s = String(selector);

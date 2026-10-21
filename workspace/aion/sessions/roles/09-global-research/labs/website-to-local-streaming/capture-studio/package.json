@@ -30,6 +30,9 @@
     "knowledge": "node bin/studio.mjs knowledge",
     "learn": "node bin/studio.mjs learn status",
     "selftest": "node bin/studio.mjs selftest",
+    "always-on": "node scripts/always-on.mjs",
+    "always-on:status": "node scripts/always-on.mjs --status",
+    "always-on:stop": "node scripts/always-on.mjs --stop",
     "help": "node bin/studio.mjs help"
   }
 }
