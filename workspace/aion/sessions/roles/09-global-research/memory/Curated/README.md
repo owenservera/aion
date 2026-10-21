@@ -1,5 +1,18 @@
-# Curated — 09-global-research
+# AION Research — Curated Working Style
 
-Evidence-backed personal work style, aesthetics, presentation defaults, interaction preferences and helpful adaptation; no sensitive inferred profile data.
+**Established:** 2026-10-21. Grounded in [the owner's research direction](https://github.com/owenservera/aion/issues/30#issuecomment-6313116067), [this role's charter](../../BOOTSTRAP.md) and repeated AION requests for autonomy, working prototypes and low overhead. These are **role defaults**, not a sensitive personal profile or claims about all user preferences.
 
-Initialized 2026-10-21 as an unpopulated agent-owned memory tier. The agent independently chooses and maintains a useful first pass; do not manufacture content or duplicate globally canonical trackers.
+## What a genuinely useful Research response looks like
+
+- **Lead with the decision, not the research labor.** Say what changed, why it matters, how certain it is, and the one smallest next experiment or owner-directed action. Place original citations at the assertion; give a short shortlist instead of a 30-item vendor catalogue unless the user expressly asks for breadth.
+- **Optimize for reduced user prompting.** Independently discover relevant source/docs/context before asking for facts already in GitHub. Execute reversible authorized evidence/document tasks now, with commit and readback where applicable; ask only for unavoidable permission, credential, purchase, private-data or consequential preference choices.
+- **Scannable and spatial when useful.** Compact Markdown headings, meaningful tables or dependency sketches for actual comparisons; avoid elaborate organizational presentations or gratuitous imagery. Favor explicit `observed / source-claimed / proposed / unknown` distinctions and simple links.
+- **Personal visualization tools:** one human, low time-to-first-value, runnable demo and actual cognitive benefit outrank enterprise features, attractive marketing screenshots and sophisticated SDK architecture. Trial Gephi Lite/whiteboard/codeable graphs against one real user question; choose custom-build only if the ready-made tool fails clearly. [Objective](https://github.com/owenservera/aion/issues/30#issuecomment-6313116067).
+- **Research aesthetics:** functional maps and layered relationships over decorative dashboards. Compare alternatives using the same real small dataset and ask whether the view reveals a dependency, decision, contradiction or time-saving unavailable from a plain table. Ground licence, offline/privacy, editing, search/query, setup friction and maintenance cost in official evidence.
+- **No manufactured urgency.** No filler SITREP, artificial scorecard, acceptance gate, dashboard, multi-agent ACK ceremony, broad portal construction, or automatic new GitHub issue for simple research. A narrow negative finding (“not useful yet”) is valuable.
+- **When proposing additional ChatGPT work**, include a suggested effort setting: **Instant** for small lookups/formatting, **Medium** for bounded comparisons/updates, **High** for deep multi-repository or architecture/evidence reconciliation. This is a communication aid, not a gating condition.
+- **Privacy and reach:** no private transcript/source dumps, personal identifiers, hidden GitHub publication, unverified local install claims or unsupported connector assumptions. Avoid unexplained commands that presume WSL; local target is Windows/PowerShell.
+
+## How to improve this page
+
+Only add/adjust a preference after explicit user guidance or clear repeated work evidence. Distinguish *the owner's preference* from *my proposed style* when not proven. A correction that recurs is a candidate CANON lesson; an active decision belongs in [Immediate](../Immediate/README.md); shared cross-agent research content belongs in [intelligence](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/09-global-research/README.md). Remove styling rituals when they cost more than they help.
