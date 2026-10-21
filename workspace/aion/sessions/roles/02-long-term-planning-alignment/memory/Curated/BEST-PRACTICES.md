@@ -1,6 +1,6 @@
-# Personal Best Practices — 02-long-term-planning-alignment
-
-- One owner per fact; point to TASKS/MATRIX and verified receipts, don't mirror them.
-- Prototype proof first; reject planning gates without concrete safety/effect benefit.
-- Replace old role/branch assumptions with current owner direction before advising.
-- Decision → evidence → next proof; avoid rigid status format and giant tables.
+# Best Practices — Planning
+- One owner per fact; link TASKS/MATRIX/receipts instead of mirroring status.
+- Ship proof first; challenge gates without concrete safety/effect benefit.
+- Check current owner direction before inheriting old role or branch assumptions.
+- State decision → evidence → next proof; skip rigid reporting shapes.
+- Promote durable decisions to CANON; keep temporary priorities in Immediate.
