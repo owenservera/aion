@@ -24,6 +24,24 @@ export const FORMAT_TESTS = {
   multiline: (s) => s.includes('\n'),
 };
 
+// Shape-aware sampling for large arrays: head + deterministic stride over the rest + the first
+// occurrences of every distinct shape (sorted key set / kind), so rare variants are never lost.
+export function sampleIndices(len, shapeOf, { head = 150, stride = 150, perShape = 3, maxShapes = 64 } = {}) {
+  if (len <= head + stride) return Array.from({ length: len }, (_, i) => i);
+  const keep = new Set();
+  for (let i = 0; i < head; i++) keep.add(i);
+  const step = (len - head) / stride;
+  for (let k = 0; k < stride; k++) keep.add(head + Math.floor(k * step));
+  const seen = new Map();
+  for (let i = 0; i < len; i++) {
+    const sh = shapeOf(i);
+    const c = seen.get(sh) ?? 0;
+    if (c < perShape && (seen.size < maxShapes || seen.has(sh))) { keep.add(i); seen.set(sh, c + 1); }
+  }
+  return [...keep].sort((a, b) => a - b);
+}
+export const shapeKey = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().join('|') : Array.isArray(v) ? '[]' : typeof v);
+
 const kindOf = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v === 'object' ? 'object' : typeof v === 'number' ? (Number.isInteger(v) ? 'integer' : 'number') : typeof v);
 
 export class SchemaNode {
@@ -69,7 +87,8 @@ export class SchemaNode {
   _arr(a, depth) {
     const st = (this.arr ??= { n: 0, lenSum: 0, lenMax: 0, empty: 0, items: new SchemaNode() });
     st.n++; st.lenSum += a.length; st.lenMax = Math.max(st.lenMax, a.length); if (!a.length) st.empty++;
-    for (const x of a.slice(0, 200)) st.items.observe(x, depth + 1);
+    for (const i of sampleIndices(a.length, (i) => shapeKey(a[i]))) st.items.observe(a[i], depth + 1);
+    if (a.length > 300) st.sampled = (st.sampled ?? 0) + 1;
   }
 
   _obj(o, depth) {
@@ -211,7 +230,7 @@ export function flatten(desc, out = []) {
 export const tokens = (name) => String(name).replace(/\[\*\]/g, '').split(/[.\s]/).pop().replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 
 const SYNONYMS = [
-  ['id', 'uuid', 'key', 'identifier'], ['title', 'name', 'label', 'headline', 'subject'], ['text', 'content', 'body', 'message', 'value', 'description', 'summary'],
+  ['id', 'uuid', 'key', 'identifier', 'sku', 'code', 'ref', 'reference', 'number', 'no', 'num', 'handle', 'slug'], ['title', 'name', 'label', 'headline', 'subject'], ['text', 'content', 'body', 'message', 'value', 'description', 'summary'],
   ['created', 'createdat', 'timestamp', 'time', 'date', 'ts', 'inserted'], ['updated', 'modified', 'changed'], ['url', 'href', 'link', 'uri', 'permalink'],
   ['author', 'user', 'owner', 'by', 'creator', 'sender', 'from'], ['status', 'state', 'stage', 'phase'], ['count', 'total', 'num', 'number', 'amount'],
   ['price', 'cost', 'amount', 'value'], ['role', 'kind', 'type'], ['parent', 'thread', 'conversation', 'container'], ['done', 'completed', 'finished', 'closed'],

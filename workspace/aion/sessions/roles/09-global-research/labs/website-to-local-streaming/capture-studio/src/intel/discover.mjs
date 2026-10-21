@@ -5,7 +5,7 @@
 // (composition, references, dangling references), merged types, family alignments — every item
 // with confidence and the evidence it rests on. Nothing here knows any specific website.
 import { createHash } from 'node:crypto';
-import { SchemaNode, schemaSimilarity, alignFields, nameSimilarity, tokens } from './schema.mjs';
+import { SchemaNode, schemaSimilarity, alignFields, nameSimilarity, tokens, sampleIndices, shapeKey } from './schema.mjs';
 import { ScopedLearner, argmax } from './learn.mjs';
 import { shingles, containment } from './identity.mjs';
 
@@ -24,11 +24,20 @@ function looksDynamicKeys(o) {
 
 function collectInstances(value, path, out, prov, depth = 0) {
   if (depth > 12) return;
-  if (Array.isArray(value)) { value.slice(0, 500).forEach((x, i) => collectInstances(x, `${path}[*]`, out, { ...prov, index: i }, depth + 1)); return; }
+  if (Array.isArray(value)) { for (const i of sampleIndices(value.length, (i) => shapeKey(value[i]), { head: 400, stride: 400 })) collectInstances(value[i], `${path}[*]`, out, { ...prov, index: i }, depth + 1); return; }
   if (!isObj(value)) return;
-  if (looksDynamicKeys(value)) { for (const [k, x] of Object.entries(value).slice(0, 500)) collectInstances(x, `${path}[*]`, out, { ...prov, mapKey: k }, depth + 1); return; }
+  if (looksDynamicKeys(value)) { const ents = Object.entries(value); for (const i of sampleIndices(ents.length, (i) => shapeKey(ents[i][1]), { head: 400, stride: 400 })) collectInstances(ents[i][1], `${path}[*]`, out, { ...prov, mapKey: ents[i][0] }, depth + 1); return; }
   const list = out.get(path) ?? [];
   if (list.length < VAL_CAP) list.push({ obj: value, prov });
+  else {
+    // Past the cap (deterministic): a new shape is always kept; otherwise a stride replacement
+    // keeps the sample spread over the whole stream instead of only its head.
+    list._seen = (list._seen ?? VAL_CAP) + 1;
+    list._shapes ??= new Set(list.map((x) => shapeKey(x.obj)));
+    const sh = shapeKey(value);
+    if (!list._shapes.has(sh)) { list._shapes.add(sh); list.push({ obj: value, prov }); }
+    else if (list._seen % 7 === 0) { const j = (list._seen * 7919) % VAL_CAP; if (shapeKey(list[j].obj) === sh) list[j] = { obj: value, prov }; }
+  }
   out.set(path, list);
   for (const [k, v] of Object.entries(value)) if (v && typeof v === 'object') collectInstances(v, `${path}.${k}`, out, prov, depth + 1);
 }
@@ -73,12 +82,13 @@ export function discoverModel(corpus, { learner = new ScopedLearner(), ctx = {},
   // Drop candidates that are just a projection of a parent type's single nested object
   // (e.g. "$.author" with 2 fields inside a message) unless they repeat (arrays/maps) or carry a key.
   const kept = types.filter((t) => t.path.endsWith('[*]') || t.path === '$' || t.key || t.fields.length >= 4);
-  resolveForeignKeys(kept);
-  markWeakEntities(kept);
-  uniqueNames(kept);
 
-  // 3. Merge the same entity type observed in several groups/positions.
+  // 3. Merge the same entity type observed in several groups/positions (order-independent),
+  //    then decide primary vs foreign keys on the merged types.
   const merged = mergeTypes(kept);
+  resolveForeignKeys(merged);
+  markWeakEntities(merged);
+  uniqueNames(merged);
 
   // 4. Relationships.
   const relationships = [...composition(merged), ...references(merged)];
@@ -216,20 +226,33 @@ function contentCoherence(groups, instances, contentFields) {
   return pairs ? +(cont / pairs).toFixed(3) : null;
 }
 
-// Primary vs foreign key: a chosen key whose values are contained in ANOTHER type's key values
-// references that type; prefer this type's best non-referencing candidate.
+// Primary vs foreign key. A chosen key whose values are contained in ANOTHER type's key values
+// references that type. Under mutual containment the direction is decided by evidence
+// (revision stability of the owning type, field named after the other type, key strength).
+// All decisions are computed first and applied together, so input order cannot matter.
 function resolveForeignKeys(types) {
-  const keyVals = (t, field) => new Set(t.instances.map((i) => i.obj[field]).filter((v) => v !== undefined && v !== null).map(String));
-  for (let pass = 0; pass < 2; pass++) {
-    for (const t of types) {
-      if (!t.key || t.key.weak) continue;
-      const mine = keyVals(t, t.key.field);
-      const target = types.find((u) => u !== t && u.key && !u.key.weak && (() => { const theirs = keyVals(u, u.key.field); let i = 0; for (const v of mine) if (theirs.has(v)) i++; return mine.size && i / mine.size >= 0.8; })());
-      if (!target) continue;
-      const alt = (t.key.alternatives ?? []).find((a) => a.score >= 0.45);
-      const note = `values of ${t.key.field} are keys of ${target.name}: foreign key, not identity`;
-      t.key = alt ? { field: alt.field, score: alt.score, basis: { reason: 'foreign-key demotion', demoted: t.key.field }, alternatives: [{ field: t.key.field, score: t.key.score, note }] } : { ...t.key, weak: true, weakReason: note };
+  const vals = new Map(types.map((t) => [t, t.key && !t.key.weak ? new Set(t.instances.map((i) => i.obj[t.key.field]).filter((v) => v !== undefined && v !== null).map(String)) : null]));
+  const contained = (a, b) => { const A = vals.get(a), B = vals.get(b); if (!A || !B || !A.size) return false; let i = 0; for (const v of A) if (B.has(v)) i++; return i / A.size >= 0.8; };
+  const primaryLikelihood = (t, other) => {
+    const k = t.key, toks = tokens(k.field), own = tokens(t.name), oth = tokens(other.name);
+    const bare = /^(id|uuid|guid|key|_id|pk)$/i.test(k.field);
+    const compoundRef = !bare && toks.length > 1 && /^(id|uuid|guid|key|ref|no|number)$/.test(toks[toks.length - 1]);
+    return (k.basis?.revisionStability ?? 0) + (bare ? 0.4 : 0) - (compoundRef ? 0.3 : 0) + (toks.some((x) => own.includes(x)) ? 0.3 : 0) - (toks.some((x) => oth.includes(x)) && !toks.some((x) => own.includes(x)) ? 0.6 : 0) + 0.3 * (k.score ?? 0);
+  };
+  const demote = new Map();
+  const sorted = [...types].sort((a, b) => (a.id < b.id ? -1 : 1));
+  for (const t of sorted) {
+    for (const u of sorted) {
+      if (t === u || !contained(t, u)) continue;
+      const mutual = contained(u, t);
+      if (mutual) { const pt = primaryLikelihood(t, u), pu = primaryLikelihood(u, t); if (pt > pu || (pt === pu && t.id < u.id)) continue; }
+      if (!demote.has(t)) demote.set(t, u);
     }
+  }
+  for (const [t, target] of demote) {
+    const alt = (t.key.alternatives ?? []).find((a) => a.score >= 0.45);
+    const note = `values of ${t.key.field} are keys of ${target.name}: foreign key, not identity`;
+    t.key = alt ? { field: alt.field, score: alt.score, basis: { reason: 'foreign-key demotion', demoted: t.key.field }, alternatives: [{ field: t.key.field, score: t.key.score, note }] } : { ...t.key, weak: true, weakReason: note };
   }
 }
 
@@ -280,30 +303,59 @@ function suggestName(c, fields) {
 // ---------------------------------------------------------------------------------------------
 function keyValues(t) { if (!t.key) return new Set(); return new Set(t.instances.map((i) => i.obj[t.key.field]).filter((v) => v !== undefined && v !== null).map(String)); }
 
+function mergeEvidence(o, t) {
+  const sim = schemaSimilarity(o.schema, t.schema);
+  const kv = keyValues(o), tv = keyValues(t);
+  let overlap = 0; for (const v of tv) if (kv.has(v)) overlap++;
+  const keyOverlap = tv.size && kv.size ? overlap / Math.min(tv.size, kv.size) : 0;
+  const sameKeyName = !!(o.key && t.key && nameSimilarity(o.key.field, t.key.field) > 0.8);
+  const ok = (sim >= 0.8 && (sameKeyName || (!o.key && !t.key))) || (sim >= 0.55 && keyOverlap >= 0.3);
+  return { ok, score: sim + keyOverlap, schemaSimilarity: sim, keyOverlap: +keyOverlap.toFixed(3) };
+}
+
+// Order-independent average-linkage agglomeration: inputs are sorted by a content-derived id,
+// all pairwise evidence is computed up front, and the best eligible pair (by average evidence
+// over cluster members, ties by id) merges first. The result does not depend on input order.
 function mergeTypes(types) {
-  const out = [];
-  for (const t of types) {
-    let target = null, why = null;
-    for (const o of out) {
-      const sim = schemaSimilarity(o.schema, t.schema);
-      const kv = keyValues(o), tv = keyValues(t);
-      let overlap = 0; for (const v of tv) if (kv.has(v)) overlap++;
-      const keyOverlap = tv.size ? overlap / tv.size : 0;
-      const sameKeyName = o.key && t.key && nameSimilarity(o.key.field, t.key.field) > 0.8;
-      if ((sim >= 0.8 && (sameKeyName || (!o.key && !t.key))) || (sim >= 0.55 && keyOverlap >= 0.3)) { target = o; why = { schemaSimilarity: sim, keyOverlap: +keyOverlap.toFixed(3) }; break; }
+  const items = [...types].sort((a, b) => (a.id < b.id ? -1 : 1));
+  const ev = new Map();
+  for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) ev.set(`${i}|${j}`, mergeEvidence(items[i], items[j]));
+  const get = (i, j) => ev.get(i < j ? `${i}|${j}` : `${j}|${i}`);
+  let clusters = items.map((_, i) => [i]);
+  for (;;) {
+    let best = null;
+    for (let a = 0; a < clusters.length; a++) for (let b = a + 1; b < clusters.length; b++) {
+      const pairs = []; for (const i of clusters[a]) for (const j of clusters[b]) pairs.push(get(i, j));
+      if (!pairs.every((p) => p.ok)) continue; // complete-linkage eligibility: no chaining
+      const avg = pairs.reduce((s, p) => s + p.score, 0) / pairs.length;
+      if (!best || avg > best.avg + 1e-12) best = { a, b, avg };
     }
-    if (!target) { out.push({ ...t, mergedFrom: [] }); continue; }
-    target.groups = [...new Set([...target.groups, ...t.groups])];
-    target.paths.push(...t.paths);
-    target.instances = target.instances.concat(t.instances).slice(0, VAL_CAP);
-    target.support += t.support;
-    target.mergedFrom.push({ id: t.id, group: t.group ?? t.groups[0], path: t.path, ...why });
-    // Union of fields (keep the richer description per name).
-    const have = new Set(target.fields.map((f) => f.name));
-    for (const f of t.fields) if (!have.has(f.name)) target.fields.push({ ...f, presence: (f.presence ?? 1) * t.support / target.support });
-    target.confidence = +Math.min(1, target.confidence + 0.05).toFixed(3);
+    if (!best) break;
+    clusters[best.a] = [...clusters[best.a], ...clusters[best.b]].sort((x, y) => x - y);
+    clusters.splice(best.b, 1);
   }
-  return out;
+  return clusters.map((idxs) => {
+    // Representative: the member with the most support (ties by id) carries the identity.
+    const members = idxs.map((i) => items[i]).sort((x, y) => y.support - x.support || (x.id < y.id ? -1 : 1));
+    const target = { ...members[0], mergedFrom: [] };
+    for (const t of members.slice(1)) {
+      const why = mergeEvidence(members[0], t);
+      target.groups = [...new Set([...target.groups, ...t.groups])].sort();
+      target.paths = [...target.paths, ...t.paths];
+      target.instances = target.instances.concat(t.instances).slice(0, VAL_CAP);
+      target.support += t.support;
+      target.mergedFrom.push({ id: t.id, group: t.groups[0], path: t.path, schemaSimilarity: why.schemaSimilarity, keyOverlap: why.keyOverlap });
+      const have = new Set(target.fields.map((f) => f.name));
+      for (const f of t.fields) if (!have.has(f.name)) target.fields.push({ ...f, presence: (f.presence ?? 1) * t.support / target.support });
+      target.confidence = +Math.min(1, target.confidence + 0.05).toFixed(3);
+    }
+    if (members.length > 1 && target.key) {
+      // Re-infer the key over the union of instances (merged evidence can change the answer).
+      const k = inferKey(target.fields, target.instances);
+      if (k) target.key = k;
+    }
+    return target;
+  });
 }
 
 // ---------------------------------------------------------------------------------------------
