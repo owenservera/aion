@@ -2,7 +2,7 @@
 
 **Reviewed: 2026-10-21 UTC, against remote GitHub `main`; no Windows host/browser access or new live test in this pass.** Read this at **every interaction**, then revalidate changing facts when they drive an answer/action. It is a short reentry aid, **not** a second task ledger.
 
-**Owned executable skill (2026-10-21):** [ax-reuse-inspector](../../skills/ax-reuse-inspector/SKILL.md) is committed with a read-only Node CLI and five passing isolated fixture tests; the repo root declares the role's OpenCode V2 source, but **no local Windows/OpenCode/ZCode discovery or actual full-repo AX invocation has been verified**. Use for relevant AX source triage only, not every user turn. Next host receipt: have a real local harness advertise/load the skill and run its CLI in the synced repo, with exact checkout/SHA and no donor execution. Shared builder and peer tools remain canonical.
+**Owned executable skill (2026-10-21):** [ax-reuse-inspector](../../skills/ax-reuse-inspector/SKILL.md) is committed with a read-only Node CLI and six passing isolated fixture tests; the repo root declares the role's OpenCode V2 source, but **no local Windows/OpenCode/ZCode discovery or actual full-repo AX invocation has been verified**. Use for relevant AX source triage only, not every user turn. Next host receipt: have a real local harness advertise/load the skill and run its CLI in the synced repo, with exact checkout/SHA and no donor execution. One AX-0001 historical source reference does not exist on inspected `main`; preserve provenance and only correct after verifying equivalent current source. Shared builder and peer tools remain canonical.
 
 ## Focus now
 
