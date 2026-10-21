@@ -124,15 +124,15 @@ define({
     const text = readInput(ctx.args[0]);
     const mod = await capability('../../src/intel/platform.mjs', ['csvAnalyze'], 'CSV analysis');
     const result = await mod.csvAnalyze(text);
-    const cols = Array.isArray(result?.columns) ? result.columns : [];
-    const rawRows = Array.isArray(result?.rows) ? result.rows : [];
+    const cols = Array.isArray(result?.header) ? result.header : Array.isArray(result?.columns) ? result.columns : [];
+    const rawRows = Array.isArray(result?.records) ? result.records : Array.isArray(result?.rows) ? result.rows : [];
     const rows = rawRows.slice(0, ctx.flags.limit).map((r) => (Array.isArray(r) ? Object.fromEntries(cols.map((c, i) => [typeof c === 'string' ? c : c?.name ?? `c${i}`, r[i]])) : r));
     ctx.out.emit(result, (o) => {
       const stats = result?.stats ?? result?.summary;
       if (stats && typeof stats === 'object') { o.kv(Object.entries(stats).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])); o.line(''); }
       const colRows = cols.filter((c) => c && typeof c === 'object');
       if (colRows.length) { o.table(colRows, columnsFor(colRows)); o.line(''); }
-      o.result(`${rawRows.length || result?.rowCount || 0} row(s), ${cols.length} column(s).`);
+      o.result(`${result?.stats?.rows ?? rawRows.length ?? 0} row(s), ${result?.stats?.columns ?? cols.length} column(s).`);
       if (rows.length) o.table(rows, columnsFromStrings(rows, cols));
     });
   },
