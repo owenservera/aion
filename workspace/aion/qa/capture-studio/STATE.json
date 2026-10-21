@@ -7,7 +7,7 @@
   "initial_pending_qa_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
   "last_completed_sprint": null,
   "next_sprint": "targeted-temporal-graph-and-cross-session-continuity",
-  "next_mission": "Pin current implementation SHA; execute temporal graph regression, keyed cross-session and negative isolation/as-of cases; validate CLI/API/UI differences; publish sanitized independent receipts. Maintain Now/Next/Later steering without slowing Core/UI.",
+  "next_mission": "Independently retest latest Core origin-scoped continuity, missing-key identity alias, successful-empty derivation, graph temporal history, CLI/API contracts, and UI evidence/drift rendering. Reconcile incoming Core Sprint 03 and UI Sprint 02 changes; do not gate development.",
   "product_path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio",
   "developer_handoff": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/QA-NEXT-TESTS.md",
   "no_product_code_edits": true,
@@ -16,7 +16,7 @@
   "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision.",
   "last_recon_date": "2026-10-21",
   "recon_baseline_sha": "49095348141646ba8d90bfc27c30e8fa0d1c6eda",
-  "last_observed_main_sha": "2f508edfe31194ffb680122e3fba57129f96ad31",
+  "last_observed_main_sha": "ac5c9129faf34459f5dcd6053983d4a6cae2d39b",
   "roadmap": "workspace/aion/qa/capture-studio/ROADMAP.md",
   "historical_executed_qa": {
     "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
@@ -39,5 +39,12 @@
     ]
   },
   "current_recon_executed_tests": 0,
-  "steering_authority": "owner-authorized unilateral QA-owned records and roadmap updates; no other-lane code edits or quality gates"
+  "steering_authority": "owner-authorized unilateral QA-owned records and roadmap updates; no other-lane code edits or quality gates",
+  "latest_scanned_product_head": "64f1ee89a6a7e46628f037e74bfbcc6a1f662de3",
+  "next_parallel_build": {
+    "status": "queued_not_started",
+    "core": "workspace/aion/ops/capture-studio-core/SPRINT-03.md",
+    "ui": "workspace/aion/ops/capture-studio-ui/SPRINT-02.md",
+    "systems": "workspace/aion/ops/capture-studio-systems/ASSESSMENT-01.md"
+  }
 }
