@@ -13,6 +13,16 @@ export function siteFromSession(meta = {}) {
   } catch { return ''; } // A free-form session label is not a trustworthy site identity.
 }
 
+// Registrable site is a discovery grouping, not proof of a shared account/tenant.
+// Exact origin is a narrower, observable boundary for automatic keyed joins.
+export function originFromSession(meta = {}) {
+  try {
+    const url = new URL(meta.target?.url);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname
+      ? url.origin : '';
+  } catch { return ''; }
+}
+
 export function continuityTime(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -49,7 +59,7 @@ function recordRevisions(entity, sessionId, sessionCreatedAt) {
   }));
 }
 
-function safeJoin(entity, site) {
+function safeJoin(entity, site, origin, keyField) {
   // The keyed resolver stringifies inferred key values. A missing field can therefore
   // appear as the literal "undefined" (or "null") and must never establish a
   // cross-session identity. Conservatively isolate ambiguous literal keys too.
@@ -57,8 +67,53 @@ function safeJoin(entity, site) {
   const usableKey = (typeof key === 'string' || typeof key === 'number')
     && String(key).trim().length > 0
     && !['undefined', 'null', 'nan'].includes(String(key).trim().toLowerCase());
-  return entity.method === 'key' && usableKey
+  return entity.method === 'key' && usableKey && !!origin && !!keyField
     && entity.scope === site && !!entity.type && !!entity.eid;
+}
+
+// A review-only indication, never an inferred identity merge or probability.
+// Require a shared origin, exact key and key-field semantics, distinct sessions,
+// and materially overlapping structural fields before even surfacing a hint.
+function reviewTypeDrift(records, stats) {
+  const groups = new Map();
+  for (const r of records) {
+    const k = JSON.stringify([r.origin, r.keyField, String(r.key)]);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  const hints = [];
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => a.id.localeCompare(b.id));
+    // Bound comparisons per repeated key; disclose omitted variants, not fake completeness.
+    const sampled = group.slice(0, 32);
+    if (group.length > sampled.length) stats.typeDriftVariantsOmitted += group.length - sampled.length;
+    for (let i = 0; i < sampled.length; i++) for (let j = i + 1; j < sampled.length; j++) {
+      const a = sampled[i], b = sampled[j];
+      if (a.type === b.type || a.sessions.some((s) => b.sessions.includes(s))) continue;
+      const fieldsA = new Set(a.fields), fieldsB = new Set(b.fields);
+      const overlapCount = [...fieldsA].filter((f) => fieldsB.has(f)).length;
+      const union = new Set([...fieldsA, ...fieldsB]).size;
+      const overlap = union ? overlapCount / union : 0;
+      const sameName = a.typeName && b.typeName && a.typeName.toLowerCase() === b.typeName.toLowerCase();
+      if (!(overlap >= 0.6 && overlapCount >= 2) && !(sameName && overlapCount >= 1)) continue;
+      hints.push({
+        kind: 'possible-type-drift', status: 'unconfirmed', identityMerged: false,
+        origin: a.origin, key: a.key, keyField: a.keyField,
+        structuralFieldOverlap: +overlap.toFixed(3),
+        evidenceBasis: 'same-origin keyed structural similarity across disjoint saved sessions',
+        candidates: [a, b].map(({ fields, ...member }) => member),
+      });
+    }
+  }
+  hints.sort((a, b) => b.structuralFieldOverlap - a.structuralFieldOverlap
+    || a.origin.localeCompare(b.origin)
+    || String(a.key).localeCompare(String(b.key))
+    || a.candidates[0].id.localeCompare(b.candidates[0].id));
+  stats.typeDriftHintsTotal = hints.length;
+  stats.typeDriftHintsReturned = Math.min(hints.length, 25);
+  stats.typeDriftHintsTruncated = Math.max(0, hints.length - 25);
+  return hints.slice(0, 25);
 }
 
 // The default is intentionally complete for the selected site: any optional limit applies to
@@ -77,6 +132,8 @@ export async function buildSiteContinuity(sessionsDir, {
     sessionsWithoutKnowledge: [], sessionsWithDerivationError: [],
     sourceEntities: 0, keylessOrUnsafeIsolated: 0, untimedRevisions: 0,
     missingRevisionValues: 0, joinedEntities: 0, entitiesTotal: 0, returned: 0, truncated: 0,
+    typeDriftHintsTotal: 0, typeDriftHintsReturned: 0,
+    typeDriftHintsTruncated: 0, typeDriftVariantsOmitted: 0,
   };
   const groups = new Map();
   for (const meta of sessions) {
@@ -87,31 +144,40 @@ export async function buildSiteContinuity(sessionsDir, {
     if (!existsSync(session.dataset('entities').file)) { stats.sessionsWithoutKnowledge.push(meta.id); continue; }
     stats.sessionsWithDerivedKnowledge++;
     const createdAt = continuityTime(meta.createdAt);
+    const origin = originFromSession(meta);
+    const types = new Map((model.types ?? []).map((t) => [t.id, t]));
     for await (const e of session.dataset('entities').iterate()) {
       if (!e || typeof e.eid !== 'string') continue;
       stats.sourceEntities++;
-      const joinable = safeJoin(e, site);
+      const typeInfo = types.get(e.type);
+      const keyField = typeInfo?.key?.field ?? null;
+      const joinable = safeJoin(e, site, origin, keyField);
       if (!joinable) stats.keylessOrUnsafeIsolated++;
       // Verify identity components in addition to eid; a matching hash alone is not proof.
       const groupKey = joinable
-        ? JSON.stringify(['key', site, e.type, String(e.key), e.eid])
+        ? JSON.stringify(['key', site, origin, e.type, keyField, String(e.key), e.eid])
         : JSON.stringify(['session', meta.id, e.eid]);
       let item = groups.get(groupKey);
       if (!item) {
         item = {
-          id: joinable ? e.eid : meta.id + '::' + e.eid,
+          // Stable origin-qualified public ID prevents colliding site-level EIDs across hosts.
+          // The raw EID remains available and accepted by the existing eid filter.
+          id: joinable ? origin + '::' + e.eid : meta.id + '::' + e.eid,
           eid: e.eid, type: e.type ?? null, typeName: e.typeName ?? null,
-          scope: e.scope ?? null, key: e.key ?? null, identityBasis: joinable ? 'exact-site-type-key' : 'session-local',
+          scope: e.scope ?? null, origin: joinable ? origin : null,
+          key: e.key ?? null, keyField: joinable ? keyField : null,
+          fieldNames: new Set(), identityBasis: joinable ? 'exact-site-type-key' : 'session-local',
           confidence: e.confidence ?? null, sessionIds: [], observationCount: 0, history: [],
         };
         groups.set(groupKey, item);
       }
       item.sessionIds.push(meta.id);
+      for (const field of typeInfo?.fields ?? []) if (field.name) item.fieldNames.add(field.name);
       item.observationCount += e.observations ?? 0;
       item.history.push(...recordRevisions(e, meta.id, createdAt));
     }
   }
-  const entries = [];
+  const entries = [], driftRecords = [];
   for (const item of groups.values()) {
     item.history.sort(byTime);
     const revisions = requestedAt === null ? item.history
@@ -127,7 +193,8 @@ export async function buildSiteContinuity(sessionsDir, {
     const times = revisions.map((rv) => rv.t).filter((t) => t !== null);
     const result = {
       id: item.id, eid: item.eid, type: item.type, typeName: item.typeName,
-      scope: item.scope, key: item.key, identityBasis: item.identityBasis,
+      scope: item.scope, origin: item.origin, key: item.key, keyField: item.keyField,
+      identityBasis: item.identityBasis,
       confidence: visibleSessionIds.length > 1 ? null : item.confidence,
       confidenceBasis: visibleSessionIds.length > 1 ? 'cross-session confidence not calibrated' : 'single-session resolver estimate',
       sessions: visibleSessionIds, sessionCount: visibleSessionIds.length,
@@ -138,18 +205,30 @@ export async function buildSiteContinuity(sessionsDir, {
       ...(includeHistory ? { history: revisions.map(({ sessionCreatedAt, ...r }) => r) } : {}),
     };
     entries.push(result);
-    if (item.identityBasis === 'exact-site-type-key' && visibleSessionIds.length > 1) stats.joinedEntities++;
+    if (item.identityBasis === 'exact-site-type-key') {
+      if (visibleSessionIds.length > 1) stats.joinedEntities++;
+      const source = revisions.find((r) => r.seq !== null || r.domId !== null) ?? revisions[0];
+      driftRecords.push({
+        id: result.id, eid: result.eid, type: result.type, typeName: result.typeName,
+        origin: item.origin, key: result.key, keyField: item.keyField,
+        sessions: visibleSessionIds, fields: [...item.fieldNames].sort(),
+        evidence: { session: source.session, seq: source.seq, sid: source.sid,
+          domId: source.domId, t: source.t },
+      });
+    }
   }
   entries.sort((a, b) => b.sessionCount - a.sessionCount || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   stats.entitiesTotal = entries.length;
+  const typeDriftHints = reviewTypeDrift(driftRecords, stats);
   const matched = eid ? entries.filter((e) => e.id === eid || e.eid === eid) : entries;
   const returned = matched.slice(0, maxReturn);
   stats.returned = returned.length;
   stats.truncated = matched.length - returned.length;
   return {
-    site, asOf: requestedAt, entities: returned, stats,
+    site, asOf: requestedAt, entities: returned, typeDriftHints, stats,
     limitations: [
-      'Joins require exactly matching site, type, keyed value and eid; schema drift is not silently reconciled.',
+      'Automatic joins require an exact target origin, site, model key field, type, keyed value and eid; this does not prove tenant equality inside one origin.',
+      'Possible type-drift hints are unconfirmed structural comparisons, not identity matches or calibrated probabilities; they never change joined entities.',
       'Keyless and missing/ambiguous keyed observations remain separate across sessions; missing observations are not deletions.',
       'Historical state uses saved revision values; missing or untimed evidence cannot establish an as-of state.',
       'No copied knowledge index is stored; results recompute from extant derived session data.',
