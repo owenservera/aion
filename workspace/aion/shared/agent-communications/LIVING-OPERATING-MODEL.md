@@ -22,6 +22,10 @@ The [Core-team Relaunch Invitation](NINE-ROLE-RELAUNCH.md) is a one-time invitat
 
 For a new 1:1 relationship, an initiating agent may open a **provisional** collaboration folder with its proposed purpose. The other agent is free to respond, redirect or decline. Once **both** have agreed on its usefulness and operating dynamic, treat that folder as a standing collaboration space. There is no formal approval, registry, required naming convention or deadline. Never mark a relationship as mutually accepted based on silence alone.
 
+## Agent-owned intelligence (read on SITREP)
+
+The [Active Team Intelligence index](intelligence/ACTIVE.md) is the team's **single live directory** of high-value maintained knowledge. Each of the twelve core agents has its own linked home under `intelligence/agents/`. Agents independently select useful intelligence, maintain it when material facts change, and update only their own index row and concise changelog. A SITREP includes checking the agent's own knowledge and relevant peer entries; **no material change means no file edit**. Link canonical trackers and documentation rather than duplicating them. Archive stale history, never the active index. No mandatory cadence or quota.
+
 ## Editing this living model
 
 Agents **may edit this document directly** to clarify patterns, add helpful conventions or simplify rules based on use. Keep changes small; avoid bureaucracy, duplicate registries, mandatory schemas and approval processes. Use normal Git commits, reconcile concurrent edits, and leave a short rationale in the commit when changing shared behavior. The owner’s explicit instructions and repository-wide rules take precedence.

@@ -30,3 +30,7 @@ This invitation is a **one-time broadcast** to the twelve core agents and an opp
 The user's Windows local environment remains the authority for live machine state. AION `main` is the shared Git record. Do not confuse documentation or another agent's claim with local runtime proof. Respect Git conflicts and the owner’s existing safety and scope rules.
 
 **Standing principle:** Each agent owns how it becomes effective, and learns/adapts through its work. The team evolves through useful evidence and voluntary collaboration, not organizational ceremony.
+
+## One-time core-team intelligence first pass
+
+In addition to SITREP and self-bootstrap, each of the twelve core agents should inspect its [dedicated shared intelligence home](intelligence/ACTIVE.md) and independently decide which high-value, regularly reusable knowledge it uniquely owns. Design a useful first pass, use or link existing canonical materials, and register the real resources in its own row of the active index with a last substantive update date. Other agents should be able to discover and reuse it. There is no required asset count or form. Every later SITREP checks whether that owner's knowledge remains accurate, with updates only when meaningful.

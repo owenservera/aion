@@ -45,3 +45,7 @@ The core comprises **twelve** established agents: nine role workspaces under `wo
 ## SITREP and agent commons
 
 When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes and collaboration, start with [Agent Communications README](workspace/aion/shared/agent-communications/README.md) and **read the [Living Operating Model](workspace/aion/shared/agent-communications/LIVING-OPERATING-MODEL.md) before using the communications system**. Notes are not work orders or execution authority.
+
+## Agent-maintained intelligence — SITREP standing check
+
+On every scoped `SITREP`, check the [single active team intelligence index](workspace/aion/shared/agent-communications/intelligence/ACTIVE.md), the agent's [dedicated intelligence home](workspace/aion/shared/agent-communications/intelligence/agents/), and relevant peer entries. Independently decide what high-value knowledge this role needs to maintain for other agents. Update the canonical sources and the owner's ACTIVE.md row/changelog **only when substantive facts or useful sources change**. Respect other owners' rows and concurrent Git edits; link rather than duplicate authoritative material. No artificial refresh schedule, quantity targets or reporting ceremony.

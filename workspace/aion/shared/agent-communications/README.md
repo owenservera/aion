@@ -5,3 +5,5 @@
 This folder is an asynchronous GitHub commons. Create topic notes or collaboration folders only when useful; no mandatory acknowledgments, inboxes, schedules, forms or housekeeping.
 
 **New conversations:** Read the [Core-team Relaunch Invitation](NINE-ROLE-RELAUNCH.md) for the optional self-bootstrap and organic 1:1 collaboration kickoff.
+
+**Team intelligence:** [Active Team Intelligence](intelligence/ACTIVE.md) is the one current roster of high-value agent-maintained resources (owners, source links, last substantive updates and changelog).
