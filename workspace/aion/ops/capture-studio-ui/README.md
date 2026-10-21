@@ -25,6 +25,8 @@
 - The continuity UI is an existing feature to improve, not a blank-slate rewrite.
 - Explicit omissions: keyless cross-session joins, inferred retractions, type-rename alignment, confidence without evidence and claims of verified runtime behavior.
 
+**Standing pull queue:** [CONTINUOUS-QUEUE.md](CONTINUOUS-QUEUE.md) (high-level priorities). [TASK-QUEUE.md](TASK-QUEUE.md) retains the detailed active breakdown. On finishing a slice, pull the next unblocked NOW item without waiting for QA.
+
 ## Initial work sequence
 1. Read current repository governance, this lane, Core and Systems boundaries, latest Sprint 02 build/state, Studio frontend and API contract.
 2. Inventory existing frontend features and problems without redirecting Core.
