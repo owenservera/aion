@@ -1,3 +1,8 @@
+---
+name: 06-cross-project-transfer
+description: "Assess a source-backed research finding for concrete reuse across authorized repositories and route only useful decisions to native owners."
+---
+
 # cross project transfer
 
 
