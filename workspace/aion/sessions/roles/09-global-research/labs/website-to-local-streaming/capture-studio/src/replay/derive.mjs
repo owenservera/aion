@@ -8,8 +8,13 @@ import { collectorSourceSha } from '../config.mjs';
 import { extractFamilyRecords, familyRecordsFromEvent } from '../families/families.mjs';
 import { CorpusCollector } from '../intel/corpus.mjs';
 import { siteOf } from '../profiles/profiles.mjs';
+import { discoverModel, modelSummary } from '../intel/discover.mjs';
+import { resolveModel } from '../intel/identity.mjs';
+import { correlateRendered, correlateActions } from '../intel/correlate.mjs';
+import { buildGraph } from '../intel/graph.mjs';
+import { ScopedLearner } from '../intel/learn.mjs';
 
-export async function derive(session, profile, { onProgress, families } = {}) {
+export async function derive(session, profile, { onProgress, families, learner } = {}) {
   // Events kept in memory are bounded per stream (evidence + drift); the dataset keeps all of them.
   const reducer = new StreamReducer({ deltaDialect: profile?.decode?.delta ?? 'auto', keepEvents: true, maxEventsPerStream: 400 });
   const shapes = new ShapeInferencer();
@@ -74,7 +79,45 @@ export async function derive(session, profile, { onProgress, families } = {}) {
   receipt.quality = Object.fromEntries(Object.entries(report.quality).filter(([k]) => k !== 'assumptions').map(([k, v]) => [k, v.score]));
   receipt.family = report.families[0] ? { best: report.families[0].family, score: report.families[0].score, linked: profile?.family ?? null } : null;
   session.kv.set('RECEIPT', receipt);
-  return { records: n, summary, report, receipt, familyCounts, recordCounts: Object.fromEntries([...recordSets].map(([k, d]) => [k, d.count])) };
+
+  // ---- Knowledge layer: corpus -> model -> entities -> hypotheses -> temporal graph. ----
+  // Isolated: any failure is recorded (MODEL.error / MODEL.stage) and never affects the outputs
+  // written above. Raw is never touched; everything here is recomputable from raw.
+  const resetEntities = () => session.dataset('entities').reset();
+  resetEntities();
+  let knowledge, stage = 'discover';
+  try {
+    const L = learner ?? new ScopedLearner();
+    const model = discoverModel(corpusResult.samples, { learner: L, ctx: { site: siteName, family: profile?.family ?? undefined }, families: familyList, patchGroups: corpusResult.patchGroups });
+    stage = 'identity';
+    const resolutions = resolveModel(model);
+    const entities = resolutions.flatMap((r) => r.entities);
+    stage = 'correlate';
+    const subjectsAll = [...entities].sort((a, b) => b.observations - a.observations || (a.eid < b.eid ? -1 : 1));
+    const subjects = subjectsAll.slice(0, 500).map((e) => ({ id: e.eid, kind: 'entity', attrs: e.attrs, t0: e.first, t1: e.last }));
+    const blocksAll = [...reducer.dom.blocks.values()].filter((b) => !b.removed && (b.text?.length ?? 0) >= 20);
+    const elements = blocksAll.slice(-2000).map((b) => ({ id: b.id, text: b.text, firstT: b.firstT, lastT: b.lastT }));
+    const renderedHyps = correlateRendered(subjects, elements);
+    const actionHyps = correlateActions(reducer.actions, summary.streams);
+    const caps = { subjectsTotal: subjectsAll.length, subjectsUsed: subjects.length, elementsTotal: blocksAll.length, elementsUsed: elements.length };
+    stage = 'graph';
+    const graph = buildGraph({ model, resolutions, renderedHyps, actionHyps, session });
+    stage = 'persist';
+    session.kv.set('MODEL', { ...modelSummary(model), corpus: corpusResult.stats });
+    session.dataset('entities').push(entities);
+    session.kv.set('GRAPH', graph.toJSON());
+    session.kv.set('HYPOTHESES', { rendered: renderedHyps, actions: actionHyps, caps });
+    knowledge = { types: model.types.length, entities: entities.length, edges: graph.edges.size, corpusSamples: corpusResult.stats.samples, corpusDropped: Object.values(corpusResult.stats.dropped).reduce((a, b) => a + b, 0), unmodelledGroups: model.unmodelled.length };
+  } catch (e) {
+    knowledge = { error: String(e?.message ?? e), stage };
+    resetEntities();
+    session.kv.set('MODEL', knowledge);
+    session.kv.set('GRAPH', null);
+    session.kv.set('HYPOTHESES', null);
+  }
+  receipt.knowledge = knowledge;
+  session.kv.set('RECEIPT', receipt);
+  return { records: n, summary, report, receipt, knowledge, familyCounts, recordCounts: Object.fromEntries([...recordSets].map(([k, d]) => [k, d.count])) };
 }
 
 // Metadata-only lab receipt in the format of EXPERIMENTS.md. Safe to paste into an issue:

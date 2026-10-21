@@ -19,12 +19,15 @@ import { extractFamilyRecords } from '../families/families.mjs';
 import { ruleMatchesEvent, extractRecords } from '../shapes/extract.mjs';
 import { StreamReducer } from '../replay/reducer.mjs';
 import { VERSION } from '../config.mjs';
+import { ScopedLearner } from '../intel/learn.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
 export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token = randomBytes(18).toString('base64url'), rawOptions } = {}) {
+  // Persistent learning state (role models, corrections, calibration) lives in the data dir.
+  const learner = new ScopedLearner(paths.learner ?? path.join(paths.root, 'learner'));
   const recorder = new Recorder({ sessionsDir: paths.sessions, profileStore, familyStore, port: cdpPort, rawOptions });
-  const famOpt = { families: familyStore };
+  const famOpt = { families: familyStore, learner };
   const replayCache = new Map();
   // Replayed reducers for saved sessions (bounded cache) so previews run on real captured data.
   async function reducerFor(session, profile) {
@@ -125,6 +128,9 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (c === 'verify') return send(res, 200, await s.verify());
       if (c === 'streams') return send(res, 200, await s.dataset('streams').toArray());
       if (c === 'shapes') return send(res, 200, s.kv.get('SHAPES') ?? null);
+      if (c === 'model') return send(res, 200, s.kv.get('MODEL') ?? null);
+      if (c === 'graph') return send(res, 200, s.kv.get('GRAPH') ?? null);
+      if (c === 'hypotheses') return send(res, 200, s.kv.get('HYPOTHESES') ?? null);
       if (c === 'assembled') return send(res, 200, d ? (s.kv.get('ASSEMBLED') ?? {})[d] ?? null : s.kv.get('ASSEMBLED') ?? {});
       if (c === 'dom') return send(res, 200, s.kv.get('DOM_BLOCKS') ?? []);
       if (c === 'turns') return send(res, 200, s.kv.get('DOM_TURNS') ?? []);

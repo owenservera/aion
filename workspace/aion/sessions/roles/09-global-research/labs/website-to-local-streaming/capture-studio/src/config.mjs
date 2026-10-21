@@ -21,6 +21,7 @@ export function dataPaths(dataDir = defaultDataDir()) {
     sessions: path.join(dataDir, 'sessions'),
     profiles: path.join(dataDir, 'profiles'),
     families: path.join(dataDir, 'families'),
+    learner: path.join(dataDir, 'learner'),
     chromeProfile: path.join(dataDir, 'chrome-profile'),
   };
 }

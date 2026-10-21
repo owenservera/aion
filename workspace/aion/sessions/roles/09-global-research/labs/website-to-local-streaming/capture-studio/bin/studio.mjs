@@ -14,6 +14,7 @@ import { derive, search } from '../src/replay/derive.mjs';
 import { exportDataset, exportTranscript } from '../src/export/export.mjs';
 import { applySuggestion } from '../src/profiles/apply.mjs';
 import { startStudio } from '../src/studio/server.mjs';
+import { ScopedLearner } from '../src/intel/learn.mjs';
 
 const HELP = `Capture Studio ${VERSION} — local, read-only website capture
 
@@ -37,6 +38,7 @@ Sessions
   verify <id|latest>       Integrity check (hashes, sequence accounting, declared gaps)
   receipt <id|latest>      Print the metadata-only lab receipt
   shapes <id|latest>       Print suggestions
+  model <id|latest>        Print the discovered data model, entity counts and relationships
   export <id|latest> --dataset NAME [--format jsonl|json|csv|md] [--out FILE]
   transcript <id|latest> [--out FILE]
   search <text> [--session ID]
@@ -83,6 +85,7 @@ async function main() {
   const port = Number(args.port ?? 9222);
   const profiles = () => new ProfileStore(paths.profiles);
   const families = () => new FamilyStore(paths.families);
+  const learner = () => new ScopedLearner(paths.learner);
   const sessionArg = (i = 1) => Session.open(paths.sessions, args._[i] ?? 'latest');
 
   switch (cmd) {
@@ -132,7 +135,7 @@ async function main() {
         const r = await rec.stop({ reason });
         if (!r) return;
         const sess = Session.open(paths.sessions, r.id);
-        const d = await derive(sess, profiles().load(sess.meta.profile.name), { families: families() });
+        const d = await derive(sess, profiles().load(sess.meta.profile.name), { families: families(), learner: learner() });
         console.log(`\n\nSaved ${r.id} (${r.reason}); integrity ${r.verify.ok ? 'verified' : 'WARNINGS'}.`);
         console.log(`Verdict ${d.receipt.verdict}: ${d.receipt.actual_response_transport}, ${d.receipt.raw_chunks_received} chunks, ${fmtB(d.receipt.raw_bytes_received)}, ${d.receipt.replay_and_gap_diagnostics.gap_records} gaps.`);
         console.log(`${d.report.suggestions.length} suggestions. Review them with "studio serve" or "studio shapes ${r.id}".`);
@@ -166,7 +169,7 @@ async function main() {
     }
     case 'derive': {
       const s = sessionArg();
-      const d = await derive(s, profiles().load(s.meta.profile?.name ?? 'generic'), { families: families(), onProgress: (n) => process.stdout.write(`\r${n} records`) });
+      const d = await derive(s, profiles().load(s.meta.profile?.name ?? 'generic'), { families: families(), learner: learner(), onProgress: (n) => process.stdout.write(`\r${n} records`) });
       console.log(`\nDerived ${s.id}: ${d.records} raw records, ${d.summary.streams.length} streams, ${d.report.suggestions.length} suggestions.`);
       for (const [k, v] of Object.entries(d.recordCounts)) console.log(`  records-${k}: ${v}`);
       for (const [k, v] of Object.entries(d.familyCounts ?? {})) console.log(`  ${k}: ${v}`);
@@ -181,15 +184,31 @@ async function main() {
     case 'receipt': {
       const s = sessionArg();
       let r = s.kv.get('RECEIPT');
-      if (!r) r = (await derive(s, profiles().load(s.meta.profile?.name ?? 'generic'), { families: families() })).receipt;
+      if (!r) r = (await derive(s, profiles().load(s.meta.profile?.name ?? 'generic'), { families: families(), learner: learner() })).receipt;
       console.log(JSON.stringify(r, null, 2));
       return;
     }
     case 'shapes': {
       const s = sessionArg();
       let rep = s.kv.get('SHAPES');
-      if (!rep) rep = (await derive(s, profiles().load(s.meta.profile?.name ?? 'generic'), { families: families() })).report;
+      if (!rep) rep = (await derive(s, profiles().load(s.meta.profile?.name ?? 'generic'), { families: families(), learner: learner() })).report;
       for (const g of rep.suggestions) console.log(`${String(Math.round(g.confidence * 100)).padStart(3)}%  ${g.id.padEnd(28)} ${g.title}\n      ${g.detail}`);
+      return;
+    }
+    case 'model': {
+      const s = sessionArg();
+      let m = s.kv.get('MODEL');
+      if (!m) { await derive(s, profiles().load(s.meta.profile?.name ?? 'generic'), { families: families(), learner: learner() }); m = s.kv.get('MODEL'); }
+      if (!m || m.error) { console.log(`No model for ${s.id}: ${m?.error ?? 'unavailable'}${m?.stage ? ` (failed at stage ${m.stage})` : ''}`); process.exitCode = m?.error ? 2 : 0; return; }
+      const ents = {};
+      for await (const e of s.dataset('entities').iterate()) ents[e.type] = (ents[e.type] ?? 0) + 1;
+      console.log(`Model for ${s.id}: ${m.types.length} type(s), ${m.relationships.length} relationship(s)`);
+      for (const t of m.types) console.log(`  ${String(t.name).padEnd(28)} key ${t.key ? `${t.key.field}${t.key.weak ? ' (weak)' : ''}` : '(keyless)'}  support ${t.support}  confidence ${t.confidence}  entities ${ents[t.id] ?? 0}`);
+      const byKind = {}; for (const r of m.relationships) byKind[r.kind] = (byKind[r.kind] ?? 0) + 1;
+      if (Object.keys(byKind).length) console.log(`  relationships: ${Object.entries(byKind).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+      if (m.unmodelled?.length) console.log(`  unmodelled groups: ${m.unmodelled.length}`);
+      const dropped = Object.values(m.corpus?.dropped ?? {}).reduce((a, b) => a + b, 0);
+      if (dropped) console.log(`  corpus thinning: ${dropped} observation(s) not used for discovery (raw and events keep them)`);
       return;
     }
     case 'export': {
@@ -233,7 +252,7 @@ async function main() {
       if (sub === 'rollback') { const p = store.rollback(name, Number(args._[3])); console.log(`${name} now uses v${p.version}.`); return; }
       if (sub === 'apply') {
         const s = Session.open(paths.sessions, args.session ?? 'latest');
-        const rep = s.kv.get('SHAPES') ?? (await derive(s, store.load(name), { families: families() })).report;
+        const rep = s.kv.get('SHAPES') ?? (await derive(s, store.load(name), { families: families(), learner: learner() })).report;
         const g = rep.suggestions.find((x) => x.id === args.suggestion);
         if (!g) throw new Error(`No suggestion ${args.suggestion} in ${s.id}.`);
         const { profile, note } = applySuggestion(store.load(name), g, { action: args.reject ? 'reject' : 'accept' });

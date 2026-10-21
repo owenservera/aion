@@ -1,14 +1,16 @@
 # QA-NEXT-TESTS (developer thought dump, not verified; PENDING INDEPENDENT QA)
 
-Last change: Sprint 01 chunk C2, stable scoped identity + honest edge kinds. (C1 notes still apply: full-evidence corpus, family event extraction, CORPUS_STATS.)
+Last change: Sprint 01 chunk C3, intelligence wired into derive. (C1: full-evidence corpus, CORPUS_STATS. C2: earliest-observation keyless ids, scoped graph keys, 'preceded' action edges.)
 
-C2 ideas to check:
-- Keyless linkage cluster: append a LATER observation of the same entity -> eid unchanged. Add an EARLIER one -> eid may change (expected, new history).
-- Shuffle input order of instances: same eids (sort is total: t, seq, instanceSig). Equal t/seq ties fall to instanceSig.
-- Two observations with identical obj and identical prov except index/mapKey/snapshot: anchorOf includes those, so ids differ; check singletons in dynamic-key maps do not collide.
-- Keyed entities unchanged: eid still type:k:sha(scope|key); idBasis 'key'; entity now has idBasis and anchor fields (additive).
-- Eval fixtures that assert exact eid strings (if any) will fail by design; entity COUNTS and pair F1 should be unchanged.
-- Graph: two sites with the same key value must not cross-reference (keyIndex now type|scope|key). Check 'references' edges only link same-scope entities.
-- Graph 'contains': same sid+seq in two different sessions must not link (key now includes session).
-- Action edges: all kind 'preceded'; evidence.scoredRelation keeps 'causal'/'temporal', evidence.score the score. Anything that filtered on kind 'caused' (UI/eval?) will find none.
-- upsertEntity evidence now has t; graph nodes carry idBasis/anchor; check toJSON size not exploding.
+C3 ideas to check:
+- derive(session, profile) with NO third arg: works with an in-memory prior learner; returns `knowledge`; RECEIPT.knowledge present.
+- After derive: kv MODEL (types, relationships, unmodelled, corpus stats), kv GRAPH (types/nodes/edges/stats), kv HYPOTHESES (rendered, actions, caps), dataset `entities`.
+- Failure isolation: force discoverModel to throw (bad sample) -> MODEL = {error, stage}, GRAPH/HYPOTHESES null, entities empty, and every earlier output (events, streams, timeline, records-*, family-*, SHAPES, ASSEMBLED, DOM_BLOCKS, RECEIPT) still correct.
+- Re-derive the same session twice: identical MODEL/entities/GRAPH (determinism); no stale entities left from a previous run.
+- Universality e2e sessions: types and keys plausible vs fixture ground truth; references only within same site scope.
+- Every entity revision carries session/sid/seq (or domId); anchor present; graph node history evidence has t.
+- Large session: derive time and memory with discovery + linkage; correlateRendered capped at 500 subjects x 2000 blocks (caps recorded in HYPOTHESES.caps).
+- `studio model <id|latest>` prints types, keys, entity counts, relationship kinds, thinning note; prints error+stage when MODEL failed (exit code 2).
+- API: GET /api/sessions/:id/model | graph | hypotheses; entities via /api/sessions/:id/dataset/entities.
+- learner dir <data>/learner is created on first studio/CLI derive; no learner.json written by derive itself.
+- receipt is pasteable: knowledge holds counts only (and an error string on failure).

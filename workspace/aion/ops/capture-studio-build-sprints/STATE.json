@@ -43,7 +43,7 @@
       }
     }
   },
-  "chunk_index": 2,
+  "chunk_index": 3,
   "artifacts": {
     "recon": "RECON.md",
     "decision": "DECISION.md",
@@ -64,8 +64,8 @@
     }
   },
   "blockers": [],
-  "next_action": "Run BUILD at chunk_index 2 (C3) with HIGH thinking, then C4.",
-  "handoff": "BUILD C1+C2 done. C3 (wire intelligence into derive) is stuck-risk and needs High thinking; then C4.",
+  "next_action": "Run BUILD at chunk_index 3 (C4).",
+  "handoff": "BUILD C1-C3 done. Intelligence now runs in derive (MODEL, GRAPH, HYPOTHESES, entities). Next: C4 calibration loop.",
   "last_completed_build_sprint": null,
   "testing_owner": "ChatGPT (separate QA workspace)",
   "physical_tests_by_any_phase": false,
@@ -80,9 +80,8 @@
   "handoff_next": {
     "phase": "BUILD",
     "model": "sonnet",
-    "thinking": "high",
-    "prompt": "PHASES.md#BUILD",
-    "note": "C3 is stuck-risk; C4 can drop to Medium"
+    "thinking": "medium",
+    "prompt": "PHASES.md#BUILD"
   },
   "continue_prompt": "PHASES.md#CONTINUE",
   "decision_sha": "f1bab393b6d03917d42e9f84d539e7a8f302890a",
@@ -108,7 +107,8 @@
       "depends": [
         "C1",
         "C2"
-      ]
+      ],
+      "done": true
     },
     {
       "id": "C4",
