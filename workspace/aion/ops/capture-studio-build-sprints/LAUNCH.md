@@ -1,26 +1,36 @@
-# Capture Studio — Opus Fast Build Sprints
+# Capture Studio — Opus Fresh Build Sprints
 
-**Owner:** Claude Opus implementation agent. **Purpose:** fresh Claude sessions with small starting context and continuous, high-quality implementation. **Distinct from** `workspace/aion/qa/capture-studio/`, which is ChatGPT's independent real-test workspace.
+**Role:** Claude Opus, autonomous implementation owner. **Purpose:** start a low-history-context session with deep current-system understanding, independently choose high-leverage work, implement continuously, and hand off to the next session without losing engineering knowledge.
 
-## Fresh-session launch
+**Launch:** `#AION @CAPTURE-STUDIO /BUILD-SPRINT`  
+**Model:** Claude Opus; use its strongest available reasoning setting. **First directional mission:** [SPRINT-01.md](SPRINT-01.md). **Checkpoint:** [STATE.json](STATE.json).  
+**QA is separate:** [ChatGPT QA](../../qa/capture-studio/README.md).
 
-`#AION @CAPTURE-STUDIO /BUILD-SPRINT`
+## Fresh-session operating protocol
 
-**Recommended Claude configuration:** Opus 5.5, High.
+1. **Orient to actual reality, not old tasks.** Refresh latest GitHub `main` safely, record the exact implementation SHA, and read the entire first-party Capture Studio source tree, including entry points, imports, configuration, existing test/evaluation files as *reference*, and interactions with surrounding AION modules. Read applicable repository `AGENTS.md` / governance, product `ARCHITECTURE.md`, `ASSESSMENT-AND-WORKLOG.md`, and only relevant active owner/agent context. Record missing access; don't claim full coverage if any significant first-party code was unavailable. Source reading is required; copying source into the conversation is not.
+2. **Build a compact present-tense system model.** Identify what exists and is actually connected across Capture, Evidence, Interpretation, Knowledge, Learning, Behavior and Experience. Note contracts, failure propagation, unknowns and the observed state of each leverage point. Pay attention to identity, semantics, temporal continuity and provenance, **without assuming they are the right implementation order or even the primary bottlenecks**.
+3. **Reconcile prior context with code.** Worklog W1–W18, archived findings, old percentages, milestone ordering and predecessor session guesses are historical inputs, not orders or proofs. Classify consequential assertions as *current-source-supported*, *superseded*, *hypothesis*, or *unknown*. Prefer owner intent and current binding decisions; never silently override repository safety rules.
+4. **Investigate, choose, implement.** Seek the smallest number of high-leverage changes that create the greatest end-to-end improvement. Trace adjacent layers and risks; select the sequence based on live source and dependencies. If a different leverage point materially dominates the suggested first cluster, follow the evidence and record why. No mandatory file list, algorithm, refactor, quota, rigid sprint duration or percentage target.
+5. **Opus does NOT physically test.** Read existing test/fixture code when useful, but **do not create or modify test files, execute test suites, run benchmark/eval harnesses, perform independent QA experiments, or delegate test execution**. Use deep virtual reasoning, internal simulations, static call-path and data-flow analysis; do not report these as verified test results. Actual testing and acceptance are ChatGPT QA responsibilities.
+6. **Deliver safe implementation continuously.** Before each implementation commit, overwrite the product's single `QA-NEXT-TESTS.md` with a quick immediate thought dump from current context—no extra research, reasoning stage or test code. Include it in the same implementation commit. Commit/push ordinary safe scoped changes with conflict protection; continue to next meaningful work without waiting for QA, owner responses or planned milestones. Only an explicit owner instruction stops ordinary development; hold concrete risky/destructive operations according to governance.
+7. **Checkpoint at a coherent boundary or context pressure.** Refresh [STATE.json](STATE.json) concisely: actual implementation SHA, source coverage gaps, changes made, architectural discoveries (with evidence pointers), current unfinished problem, immediate next move, external blockers, and why this is a good continuation boundary. No elaborate prose or duplicated source inventory. Commit/push checkpoint; report actual receipt. Ending one context-limited session does not imply work continues automatically while the runtime is inactive.
 
-1. Fetch current `main`, record the SHA, and read **all first-party Capture Studio source files** (including tests and evaluation code as reference), then trace runtime entry points, imports, contracts, and important data paths. Read root `AGENTS.md`, the product `ASSESSMENT-AND-WORKLOG.md`, `ARCHITECTURE.md`, the rolling `QA-NEXT-TESTS.md`, and this folder's `STATE.json`. Report unavailable source honestly. Prefer compact in-context system maps to verbatim source repetition.
-2. Resume the **highest-value unfinished engineering objective** from the worklog and owner priority order: universal schema/identity; adaptive learning/semantic relevance; browser capture/streaming; local storage/replay; CLI/localhost host; behavioral intelligence. Follow genuine integration dependencies; don't restart planning or refactor merely for neatness.
-3. **Build continuously and autonomously.** Use deep internal world-model reasoning, virtual code-graph traversal, call-chain inspection, and mental execution to find bugs and improve implementation. **Do not physically create test files, run unit/integration/E2E tests, execute benchmarks or test harnesses, or delegate those to yourself.** Existing tests may be *read* to understand intended behavior. Mental simulations are not measured evidence.
-4. Before **each implementation commit**, overwrite the existing product `QA-NEXT-TESTS.md` with a **flat immediate brain dump** of what ChatGPT should test for that commit. No extra thinking, research, verification or test creation for this note. Include it **in the same commit**, push, and continue.
-5. Keep working through the session without stopping for QA, reviews, milestones, status, or responses. Only an **explicit user stop** pauses ordinary development. Hold individually unsafe/destructive actions under existing safety rules, but continue other safe work. No Playwright/Puppeteer.
-6. When the session approaches context limits, **checkpoint rather than lose continuity**: write/update `STATE.json` in this separate sprint folder with the last known implementation SHA, changed modules, unfinished task, immediate next action, critical dependencies and uncertainties. Commit/push that checkpoint, then stop **this session** for a fresh one; this is a context handoff, not a pause instruction to the ongoing engineering program. Do not claim to run while the Claude runtime is inactive.
-7. At the end, report one compact receipt: implementation SHA(s), actual changes, `PENDING INDEPENDENT QA`, next sprint focus. Do not claim tests passed without a ChatGPT QA receipt.
+## Context authority and freshness
 
-**Source authority:** the latest actual implementation code, not a stale handoff. The handoff accelerates startup but never replaces full source intake. GitHub `main` is the shared record; preserve the owner's local-master and conflict safety rules.
+| Surface | Use | Freshness/authority |
+| --- | --- | --- |
+| Owner directives, repo governance and current binding contracts | Scope, safety, intent | Binding until superseded |
+| Actual current source and import/data flows | What really exists, including mismatches | Re-read each fresh sprint; current implementation authority |
+| Engineering history, architecture docs, baseline scorecards, old task list | Explain rationale and unresolved risks | Evidence to challenge, **not** present-day instructions or acceptance |
+| Sprint design + checkpoint | Direction, continuity and decisions | Context aids, never allowed to overrule the preceding sources |
 
-## Scope boundaries
+**Memory rule:** retain decision-worthy insights, not a transcript. Cite code paths/SHAs where useful; don't perpetuate guesses into canon. Historical scorecards are true for their tested commits, not automatically for main. No fabricated execution evidence.
 
-- **Opus writes:** product source, its rolling pre-commit QA thought dump, and **this** sprint state. No independent QA test assets.
-- **ChatGPT QA writes:** `workspace/aion/qa/capture-studio/`. Opus does not modify it.
-- **Owner:** decides priorities and explicit stop/resume.
-- **No acceptance gate:** `PENDING INDEPENDENT QA` does not prevent next implementation commits.
+**Finish rule:** a sprint ends for context efficiency or a coherent cross-layer handoff, **not because a module or a predetermined W-item is marked complete**. Work may be pending external QA; Opus continues engineering.
+
+## Scope ownership
+
+**Opus:** product implementation, product `QA-NEXT-TESTS.md`, and this build-sprint checkpoint.  
+**ChatGPT:** independent physical QA and acceptance in its own folder.  
+**Owner:** priorities, explicit stop, and exceptions. GitHub issues/commits do not wake another agent.
