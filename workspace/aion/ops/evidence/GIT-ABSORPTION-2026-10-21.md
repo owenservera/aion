@@ -1,0 +1,91 @@
+# Git absorption — remote branch consolidation (2026-10-21)
+
+Owner directive: everything not in `main` goes into `main`; conflicting files are excluded and assessed later. All open PRs closed.
+
+## Result
+
+| Item | Value |
+|---|---|
+| `main` before | `f1039bd` |
+| `main` after | `1ec415b` |
+| Remote branches | 25 → 0 (`origin/main` only) |
+| Local branches | 1 (`main`) |
+| Worktrees | 1 (`C:/0-BlackBoxProject-0/AION`) |
+| Open PRs | 0 |
+
+## Merge rules applied
+
+1. Branch already contained in `main` → skip.
+2. Clean merge → merge commit (`--no-ff`).
+3. File-level conflict → merge everything else, keep `main`'s version for conflicting paths, and record the excluded paths below.
+4. Branch that would delete live files → not auto-merged; handled per case.
+
+## Branches merged, with conflicting files kept from `main`
+
+### `bootstrap/aion-09-global-research-20261019` — 15 files excluded
+- `workspace/aion/sessions/roles/09-global-research/AGENTS.md`
+- `workspace/aion/sessions/roles/09-global-research/BOOTSTRAP.md`
+- `workspace/aion/sessions/roles/09-global-research/LAUNCH-PROMPT.md`
+- `workspace/aion/sessions/roles/09-global-research/SCHEDULES.md`
+- `workspace/aion/sessions/roles/09-global-research/SITREP.md`
+- `workspace/aion/sessions/roles/09-global-research/WORKSPACE.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/01-source-intake/SKILL.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/02-repo-discovery/SKILL.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/03-evidence-assessment/SKILL.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/04-docs-intelligence/SKILL.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/05-media-intelligence/SKILL.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/06-cross-project-transfer/SKILL.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/07-notebooklm/SKILL.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/08-delivery-loop/SKILL.md`
+- `workspace/aion/sessions/roles/09-global-research/skills/09-session-sitrep/SKILL.md`
+
+### `harvest/external-browser-donors-20261020` — 5 files excluded
+- `workspace/aion/ops/chrome-relay/harvest/external/02-REPO-PRIORITIZATION.md`
+- `workspace/aion/ops/chrome-relay/harvest/external/reference/capability-universe.csv`
+- `workspace/aion/ops/chrome-relay/harvest/external/sources.json`
+- `workspace/aion/ops/chrome-relay/velocity/bin/aion-local.mjs`
+- `workspace/aion/ops/chrome-relay/velocity/design/12-ACCEPTED-ARCHITECTURE-AND-ALIGNMENT.md`
+
+### `track-b/velocity-command-plane-20261019` — 2 files excluded
+- `workspace/aion/ops/chrome-relay/velocity/AGENTS.md`
+- `workspace/aion/ops/chrome-relay/velocity/README.md`
+
+### Merged with no conflicts
+`cleanup/donor-snapshots-media-20261020`, `design/agent-fabric-20261020`, `harvest/crosswalk-20261020`,
+`harvest/omega-github-20261020`, `harvest/vivim-final-github-20261020`, `harvest/vomega-semantic-cli-20261020`,
+`integration/command-space-p0-final-20261020`, `integration/harvest-crosswalk-synthesis-20261020`,
+`integration/harvest-research-snapshots-20261020`, `track-b/strategic-capability-roadmap-20261020`,
+`harvest/external-custody-20261020`, `review/principal-architect-20261020`.
+
+### Already contained in `main` (branch was an ancestor)
+`integration/i1-watch-20261020`, `track-b/implementation-rounds-20261019`,
+`harvest/external-custody-20261020-chatgpt`, `track-b/platform-local-candidate-20261020`.
+
+### Redundant content, deleted after verification
+`feature/command-space-p0-provider-research-20261020`, `feature/command-space-registry-20261020`,
+`integration/command-space-p0-additions-20261020`, `integration/harvest-catalog-20261020`,
+`structure/main-trackb-harvest-20261020`, `wip/native-transport-first-attempt`
+— zero files absent from `main` at merge time.
+
+## PRs closed
+
+| PR | Branch | Outcome |
+|---|---|---|
+| #46 | `track-b/platform-local-candidate-20261020` | closed |
+| #35 | `design/agent-fabric-20261020` | auto-marked merged once commits landed in `main` |
+| #34 | `track-b/implementation-rounds-20261019` | closed |
+| #33 | `track-b/velocity-command-plane-20261019` | closed |
+
+## Open assessment items
+
+1. The excluded files above keep `main`'s version. Branch versions remain recoverable only from `refs/aion-absorbed/` (see below) and the remote reflog — the remote branches themselves were deleted.
+2. `harvest/external-custody*` and `harvest/external-browser-donors` carried ~20-23 files that did not exist in `main` under the same paths before absorption; confirm after the fact that these landed through the merged branch content rather than being superseded renames.
+
+## Recovery
+
+All processed branches have local refs:
+
+```powershell
+git for-each-ref --format='%(refname:short) %(objectname:short)' refs/aion-absorbed
+git update-ref refs/heads/<name> refs/aion-absorbed/remote-<sanitized-name>
+```
