@@ -7,7 +7,7 @@ description: Diagnose and verify the AION Windows Chrome MV3 extension, native m
 
 **Trigger:** AION's Chrome service worker, native messaging host, CLI registration, exact-thread watch-only readback, reconnect or ACP relay behaves unexpectedly; or the Windows-installed source version is uncertain. This extends the existing skill rather than inventing a separate registration or incident platform.
 
-**Do not use for:** rebuilding product observers/routers, probing private ChatGPT session payloads, making a Send, installing browser hooks without scope, or declaring end-to-end I1/I2 acceptance. Development owns those product tests and integration decisions. Root [AGENTS.md](../../../../../../AGENTS.md) and [Development working desk](../../../../ops/chrome-relay/workers/development/DELIVERABLES.md) define current safety and objectives; the original [relay architecture](../../../../ops/chrome-relay/ARCHITECTURE.md) remains useful for architecture background, not necessarily current install reality.
+**Do not use for:** rebuilding product observers/routers, probing private ChatGPT session payloads, making a Send, installing browser hooks without scope, or declaring end-to-end I1/I2 acceptance. Development owns those product tests and integration decisions. Root [AGENTS.md](../../../../../../../AGENTS.md) and [Development working desk](../../../../../ops/chrome-relay/workers/development/DELIVERABLES.md) define current safety and objectives; the original [relay architecture](../../../../../ops/chrome-relay/ARCHITECTURE.md) remains useful for architecture background, not necessarily current install reality.
 
 ## Fast path — current registration failure
 
