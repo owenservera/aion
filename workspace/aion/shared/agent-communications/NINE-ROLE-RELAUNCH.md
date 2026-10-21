@@ -42,3 +42,9 @@ Each core agent should make its own high-value first pass inside its existing ro
 ## First-pass skills ownership — all twelve core agents
 
 Each agent owns its existing `skills/` directory, including older skills it can reuse. Inspect repeat tasks, harmful patterns and user corrections from memory/CANON and Immediate; identify missing valuable reusable capabilities, choose a small first pass of real SKILL.md workflows and optional scripts/references, and improve existing skills before making duplicates. Use the [native AION Skills Builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) and [shared guidance](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/skills/README.md). OpenCode V2 project sources are declared in `opencode.jsonc`; actual OpenCode/ZCode activation and host capability must be independently verified on Windows. SITREP includes a practical skills health/gap check, not a mandatory file rewrite or numerical target.
+
+## Global memory and personal best-practices pass
+
+All twelve agents should review their personal `memory/CANON/`, `memory/Immediate/` and `memory/Curated/`. Maintain distilled, one-line personal lessons in `memory/Curated/BEST-PRACTICES.md`; compress existing tiers to maximize signal per token. Immediate stays relevant every interaction; a repeated owner correction should produce one better default, not an ever-growing log.
+
+Review [four thin global memory tiers](../agent-memory/CANON/README.md) during SITREP; they contain **only owner-approved** global lines. Put proposed systemic improvements in [GLOBAL-MEMORY-CANDIDATES.md](GLOBAL-MEMORY-CANDIDATES.md) and request short owner approval before promotion. Personal edits need no such approval.
