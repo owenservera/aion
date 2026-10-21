@@ -147,3 +147,18 @@ test('type drift is review-only and does not invent an identity merge', async (t
   assert.equal(x.typeDriftHints[0].identityMerged, false);
   assert.equal(x.typeDriftHints[0].status, 'unconfirmed');
 });
+
+test('user-facing origin filter does not expose unrelated hosted subdomains', async (t) => {
+  const { dir, add } = fixture(t);
+  add('alice', 'alice.github.io', [entity('one', 'x', 'Alice', 100)]);
+  add('bob', 'bob.github.io', [entity('two', 'x', 'Bob', 100)]);
+  const narrowed = await buildSiteContinuity(dir, {
+    site: 'github.io', origin: 'https://alice.github.io',
+  });
+  assert.equal(narrowed.origin, 'https://alice.github.io');
+  assert.equal(narrowed.stats.sessionsDiscovered, 1);
+  assert.equal(narrowed.entities.length, 1);
+  assert.deepEqual(narrowed.entities[0].sessions, ['alice']);
+  const audit = await buildSiteContinuity(dir, { site: 'github.io' });
+  assert.equal(audit.stats.sessionsDiscovered, 2);
+});
