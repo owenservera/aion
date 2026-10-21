@@ -1,3 +1,5 @@
+> **Next priority after the current UI sprint:** [Sprint 03 — Integrated Capture Studio](SPRINT-03-INTEGRATION.md). UI Sprint 02 is recorded source-delivered (24 deterministic V8 checks), not Windows/browser accepted. From the next execution session, prioritize **cross-component integration** over creating standalone screens. Existing items below remain a historical/long-tail backlog; prefer the new Sprint 03 queue for NOW selection.
+
 > **Next large build:** [SPRINT-02.md](SPRINT-02.md) — Trusted Knowledge Workspace. UI first-sprint source work and six V8 contract checks are delivered; promote graph/model exploration and review-only type-drift presentation to the next NOW slice. Not yet Windows/browser accepted.
 
 # UI / Integration — Standing High-Level Queue
