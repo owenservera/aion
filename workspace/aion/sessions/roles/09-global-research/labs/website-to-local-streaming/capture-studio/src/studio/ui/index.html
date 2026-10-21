@@ -788,6 +788,7 @@ function knowledgeOutcomeMarkup(outcome) {
     (outcome.stage ? ' during ' + esc(outcome.stage) : '') + '</span>' +
     (outcome.error ? ' · ' + esc(outcome.error) : '') + '. Saved raw source is separate.';
   if (status === 'deriving') return '<span class="c-act">Derivation in progress, interrupted, or not yet finalized.</span> Do not trust older model/graph results during rebuild.';
+  if (status === 'status-unavailable') return '<span class="c-gap">Could not verify derivation outcome: ' + esc(outcome.error || 'Unknown reason') + '.</span> Derived content is unverified.';
   return '<span class="c-act">Unknown derivation outcome: ' + esc(status ?? 'Unavailable') + '.</span> Inspect source evidence.';
 }
 function knowledgeStatusPromise(id) {
@@ -1018,7 +1019,7 @@ async function refreshKnowledge() {
   const derivation = results[3].status === 'fulfilled' ? results[3].value : {error: results[3].reason?.message || 'Status endpoint unavailable'};
   const rawStatus = derivation?.data;
   const legacy = !!derivation?.error && (derivation.status === 404 || derivation.status === 405);
-  const outcome = legacy ? {status:'legacy-unverified'} : rawStatus || {status:'legacy-unverified'};
+  const outcome = legacy ? {status:'legacy-unverified'} : rawStatus || (derivation?.error ? {status:'status-unavailable',error:derivation.error} : {status:'legacy-unverified'});
 
   S.knowledge = { sessionId: id, at: at ? at.toISOString() : '', continuity: continuity.data, graph, model, outcome };
   S.workflowStep = 'Derived knowledge'; updateInvestigationTrail();
@@ -1030,9 +1031,13 @@ async function refreshKnowledge() {
     (continuity.data ? knowledgeSummary(continuity.data) : knowledgeMarkupError('Continuity unavailable: ' + continuity.error));
   if (continuity.error) $('#knowledgeEntities').innerHTML = knowledgeMarkupError('Continuity unavailable: ' + continuity.error);
   else renderKnowledgeEntities();
-  renderKnowledgeGraph();
-  renderKnowledgeModel();
+  if (outcome.status === 'deriving' || outcome.status === 'failed') {
+    $('#knowledgeGraph').innerHTML = knowledgeFallback('The current derivation is ' + outcome.status + '; old graph results are not shown as current.');
+    $('#knowledgeModel').innerHTML = knowledgeFallback('The current derivation is ' + outcome.status + '; old model results are not shown as current.');
+    $('#knowledgeEntities').innerHTML = knowledgeFallback('Entities are not shown while the current derivation is ' + outcome.status + '.');
+  } else { renderKnowledgeGraph(); renderKnowledgeModel(); }
   if (continuity.error) $('#knowledgeDrift').innerHTML = knowledgeMarkupError('Type-drift hints unavailable: ' + continuity.error);
+  else if (outcome.status === 'deriving' || outcome.status === 'failed') $('#knowledgeDrift').innerHTML = knowledgeFallback('Type comparisons are not shown while this recording is ' + outcome.status + '.');
   else renderKnowledgeDrift();
   $('#knowledgeDetail').innerHTML = knowledgeFallback('Select an entity or graph node to inspect its evidence.');
 }
