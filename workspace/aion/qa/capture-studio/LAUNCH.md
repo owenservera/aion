@@ -1,5 +1,7 @@
 # Independent QA — Fresh-Session Launch
 
+> **Scope correction (2026-10-21):** This folder is for **ChatGPT independent QA**, not Claude Opus build sprints. For the requested **Opus fast build sessions with NO physical test creation or execution**, use [Opus BUILD-SPRINT LAUNCH](../../ops/capture-studio-build-sprints/LAUNCH.md). Do not launch this QA protocol when intending Opus implementation work.
+
 **One-line launch:** `#AION QA CAPTURE STUDIO /SPRINT`
 
 ## Standing autonomous instruction
