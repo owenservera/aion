@@ -1,3 +1,8 @@
+---
+name: 01-source-intake
+description: "Capture and deduplicate original research URLs, papers, media, questions and claims into AION Research issue 30 without copying proposal RAW."
+---
+
 # source intake
 
 
