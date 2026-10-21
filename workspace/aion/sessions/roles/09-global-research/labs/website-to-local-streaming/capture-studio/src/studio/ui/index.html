@@ -425,7 +425,7 @@ async function loadShapes() {
   $('#shapeProfile').textContent = profileName ? `Decisions save to profile “${profileName}” (v${prof?.version})` : '';
   $('#suggestions').innerHTML = report.suggestions.length ? report.suggestions.map((g) => `<div class="sugg ${done.has(g.id) ? 'done' : ''}" data-id="${esc(g.id)}">
       <div class="bar" style="background:${KIND_COLOR[g.kind] || 'var(--line)'}"></div>
-      <div><div class="t">${esc(g.title)}<span class="conf">${Math.round(g.confidence * 100)}%</span></div><div class="d">${esc(g.detail)}</div></div>
+      <div><div class="t">${esc(g.title)}<span class="conf" title="raw ${Math.round(g.confidence * 100)}%">${Math.round((g.calibratedConfidence ?? g.confidence) * 100)}%</span></div><div class="d">${esc(g.detail)}</div></div>
       <div class="acts">${done.has(g.id) ? '<span style="color:var(--muted)">decided</span>' : `<button data-act="accept">${g.proposal ? 'Accept' : 'Confirm'}</button><button data-act="reject">Reject</button>`}</div></div>`).join('') : '<div class="empty">No suggestions yet.</div>';
   const byId = Object.fromEntries(report.suggestions.map((g) => [g.id, g]));
   document.querySelectorAll('.sugg button').forEach((b) => b.onclick = guard(async () => {

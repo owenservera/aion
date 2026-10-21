@@ -61,7 +61,7 @@ export async function derive(session, profile, { onProgress, families, learner }
   const domInspect = session.kv.get('DOM_INSPECT') ?? null;
   const domTurns = session.kv.get('DOM_TURNS') ?? [];
   const familyList = families ? families.names().map((n) => families.load(n)) : [];
-  const report = shapes.report(reducer, { families: familyList, profile, domInspect, domTurns });
+  const report = shapes.report(reducer, { families: familyList, profile, domInspect, domTurns, calibrator: learner?.calibrator });
   session.kv.set('SHAPES', report);
   corpus.addDomTurns(domTurns);
   const corpusResult = corpus.result(reducer);

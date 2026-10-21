@@ -121,7 +121,7 @@ async function main() {
     }
 
     case 'record': {
-      const rec = new Recorder({ sessionsDir: paths.sessions, profileStore: profiles(), familyStore: families(), port, allBodies: !!args['all-bodies'], maxSessionBytes: Number(args['max-mb'] ?? 0) * 1048576 });
+      const rec = new Recorder({ sessionsDir: paths.sessions, profileStore: profiles(), familyStore: families(), port, allBodies: !!args['all-bodies'], maxSessionBytes: Number(args['max-mb'] ?? 0) * 1048576, learner: learner() });
       rec.on('warn', (e) => console.error(`warning: ${e.message ?? e}`));
       const s = await rec.start({ target: args.target, profile: args.profile, label: args.label });
       console.log(`Recording ${s.meta.target.title} -> session ${s.id}\nProfile ${s.meta.profile.name}@v${s.meta.profile.version}. Press Ctrl+C to stop and save.`);
@@ -258,6 +258,7 @@ async function main() {
         const { profile, note } = applySuggestion(store.load(name), g, { action: args.reject ? 'reject' : 'accept' });
         const saved = store.save(name, profile, note);
         if (saved.family && families().has(saved.family)) families().addMember(saved.family, name);
+        if (g.kind && Number.isFinite(Number(g.confidence))) { const L = learner(); L.calibrator.observe(`suggestion:${g.kind}`, Number(g.confidence), !args.reject); L.save(); }
         console.log(`${note} -> ${name}@v${saved.version}`);
         return;
       }

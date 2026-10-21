@@ -2,14 +2,14 @@
   "schema": "aion.capture-studio.build-sprint.v2",
   "owner": "Claude (phased: Haiku/Sonnet/Opus per PHASES.md)",
   "mode": "phased_credit_aware_build",
-  "status": "BUILD_IN_PROGRESS",
+  "status": "BUILD_COMPLETE",
   "created": "2026-10-21",
   "updated": "2026-10-21",
   "last_observed_product_sha": "9d2fe0cd347a73e9324d1c824c7c762917e0c3e6",
   "source_of_truth": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/",
   "phase": {
-    "completed": "DECIDE",
-    "next": "BUILD",
+    "completed": "BUILD",
+    "next": "MECHANICAL",
     "sequence": [
       "RECON",
       "DECIDE",
@@ -43,7 +43,7 @@
       }
     }
   },
-  "chunk_index": 3,
+  "chunk_index": 4,
   "artifacts": {
     "recon": "RECON.md",
     "decision": "DECISION.md",
@@ -64,8 +64,8 @@
     }
   },
   "blockers": [],
-  "next_action": "Run BUILD at chunk_index 3 (C4).",
-  "handoff": "BUILD C1-C3 done. Intelligence now runs in derive (MODEL, GRAPH, HYPOTHESES, entities). Next: C4 calibration loop.",
+  "next_action": "Run MECHANICAL (Haiku/Sonnet Low).",
+  "handoff": "BUILD C1-C4 done. PENDING INDEPENDENT QA. Next: MECHANICAL checkpoint.",
   "last_completed_build_sprint": null,
   "testing_owner": "ChatGPT (separate QA workspace)",
   "physical_tests_by_any_phase": false,
@@ -78,10 +78,10 @@
   "sprint_mission": "Trustworthy Continuity \u2014 investigate cross-layer identity, semantics, time and provenance without prescribing solutions",
   "freshness_rule": "Owner direction and current source outrank old worklog sequence, guesses and estimated progress. RECON/DECISION/SPEC are valid only for the SHA they record.",
   "handoff_next": {
-    "phase": "BUILD",
-    "model": "sonnet",
-    "thinking": "medium",
-    "prompt": "PHASES.md#BUILD"
+    "phase": "MECHANICAL",
+    "model": "haiku_or_sonnet",
+    "thinking": "low",
+    "prompt": "PHASES.md#MECHANICAL"
   },
   "continue_prompt": "PHASES.md#CONTINUE",
   "decision_sha": "f1bab393b6d03917d42e9f84d539e7a8f302890a",
@@ -116,7 +116,8 @@
       "stuck_risk": false,
       "depends": [
         "C3"
-      ]
+      ],
+      "done": true
     }
   ]
 }

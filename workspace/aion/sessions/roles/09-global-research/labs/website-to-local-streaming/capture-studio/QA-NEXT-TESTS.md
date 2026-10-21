@@ -1,16 +1,19 @@
 # QA-NEXT-TESTS (developer thought dump, not verified; PENDING INDEPENDENT QA)
 
-Last change: Sprint 01 chunk C3, intelligence wired into derive. (C1: full-evidence corpus, CORPUS_STATS. C2: earliest-observation keyless ids, scoped graph keys, 'preceded' action edges.)
+Sprint 01 complete in code (C1-C4). Last change: C4, suggestion confidence calibration loop.
 
-C3 ideas to check:
-- derive(session, profile) with NO third arg: works with an in-memory prior learner; returns `knowledge`; RECEIPT.knowledge present.
-- After derive: kv MODEL (types, relationships, unmodelled, corpus stats), kv GRAPH (types/nodes/edges/stats), kv HYPOTHESES (rendered, actions, caps), dataset `entities`.
-- Failure isolation: force discoverModel to throw (bad sample) -> MODEL = {error, stage}, GRAPH/HYPOTHESES null, entities empty, and every earlier output (events, streams, timeline, records-*, family-*, SHAPES, ASSEMBLED, DOM_BLOCKS, RECEIPT) still correct.
-- Re-derive the same session twice: identical MODEL/entities/GRAPH (determinism); no stale entities left from a previous run.
-- Universality e2e sessions: types and keys plausible vs fixture ground truth; references only within same site scope.
-- Every entity revision carries session/sid/seq (or domId); anchor present; graph node history evidence has t.
-- Large session: derive time and memory with discovery + linkage; correlateRendered capped at 500 subjects x 2000 blocks (caps recorded in HYPOTHESES.caps).
-- `studio model <id|latest>` prints types, keys, entity counts, relationship kinds, thinning note; prints error+stage when MODEL failed (exit code 2).
-- API: GET /api/sessions/:id/model | graph | hypotheses; entities via /api/sessions/:id/dataset/entities.
-- learner dir <data>/learner is created on first studio/CLI derive; no learner.json written by derive itself.
-- receipt is pasteable: knowledge holds counts only (and an error string on failure).
+C4 ideas to check:
+- Fresh data dir, no feedback: every suggestion has calibratedConfidence === confidence; UI shows the same % as before; hover title shows raw %.
+- Accept/reject >= 3 suggestions of one kind in the same confidence bin (studio apply route or `studio profile apply`): <data>/learner/learner.json gets calibrator.bins["suggestion:<kind>"]; next derive/live report shifts calibratedConfidence toward the observed acceptance rate (shrunk while n < 20).
+- Ranking unchanged: suggestions still sorted by raw confidence; ids unchanged.
+- Rejecting records accepted=false; the bin input is RAW confidence, never the calibrated one (check body.suggestion.confidence used).
+- Live recording: Recorder gets the studio's learner; liveReport carries calibratedConfidence.
+- Studio + CLI writing learner.json concurrently: last write wins (accepted risk on single-owner machine); file stays valid JSON (atomic rename).
+- ECE: Calibrator.ece('suggestion:<kind>') after a batch of decisions should be computable.
+
+Whole sprint regression ideas (C1-C3):
+- derive(session, profile) without options still works (e2e tests call it so).
+- Family event-mapping coverage beyond 400 events per stream; CORPUS_STATS present.
+- Keyless eid stable when appending later observations; keyed eids unchanged.
+- MODEL/GRAPH/HYPOTHESES/entities persisted; failure isolation keeps all prior outputs.
+- No 'caused' edges anywhere; evidence.scoredRelation kept.

@@ -26,7 +26,7 @@ const UI = new URL('./ui/index.html', import.meta.url);
 export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token = randomBytes(18).toString('base64url'), rawOptions } = {}) {
   // Persistent learning state (role models, corrections, calibration) lives in the data dir.
   const learner = new ScopedLearner(paths.learner ?? path.join(paths.root, 'learner'));
-  const recorder = new Recorder({ sessionsDir: paths.sessions, profileStore, familyStore, port: cdpPort, rawOptions });
+  const recorder = new Recorder({ sessionsDir: paths.sessions, profileStore, familyStore, port: cdpPort, rawOptions, learner });
   const famOpt = { families: familyStore, learner };
   const replayCache = new Map();
   // Replayed reducers for saved sessions (bounded cache) so previews run on real captured data.
@@ -230,6 +230,9 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         const saved = profileStore.save(b, profile, note);
         if (saved.family && familyStore?.has(saved.family)) familyStore.addMember(saved.family, b);
         if (recorder.state === 'recording' && recorder.profile.name === b) { recorder.profile = saved; recorder.net.setProfile(saved); }
+        // The user's decision is a calibration signal for this suggestion kind (raw confidence is the bin input).
+        const sg = body.suggestion;
+        if (sg?.kind && Number.isFinite(Number(sg.confidence))) { learner.calibrator.observe(`suggestion:${sg.kind}`, Number(sg.confidence), body.action !== 'reject'); learner.save(); }
         return send(res, 200, saved);
       }
       if (c === 'rollback') return send(res, 200, profileStore.rollback(b, Number(body.version)));

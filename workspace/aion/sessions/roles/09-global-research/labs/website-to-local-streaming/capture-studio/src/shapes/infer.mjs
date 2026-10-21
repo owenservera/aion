@@ -146,6 +146,9 @@ export class ShapeInferencer {
     const renames = ctx.profile?.shapes?.renames ?? {};
     for (const g of suggestions) { if (acc.has(g.id)) g.decided = acc.get(g.id); if (g.kind === 'event_type' && renames[g.evidence?.group]) g.title += ` — named “${renames[g.evidence.group]}”`; }
     for (const g of groups) if (renames[g.key]) g.name = renames[g.key];
+    // Calibrated confidence sits NEXT to the raw score (which stays the ranking key): it reflects how
+    // often suggestions of this kind and score were actually accepted by the user.
+    for (const g of suggestions) g.calibratedConfidence = opts.calibrator ? opts.calibrator.calibrate(`suggestion:${g.kind}`, g.confidence) : g.confidence;
     suggestions.sort((a, b) => (a.decided ? 1 : 0) - (b.decided ? 1 : 0) || b.confidence - a.confidence);
     return { generatedAt: new Date().toISOString(), endpoints: endpointTable(summary.streams), groups, families, suggestions, quality: quality(summary, reducer, suggestions, families, ctx, evidence) };
   }

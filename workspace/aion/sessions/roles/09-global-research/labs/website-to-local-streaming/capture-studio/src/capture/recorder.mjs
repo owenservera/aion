@@ -14,7 +14,7 @@ import { redactUrl } from './redact.mjs';
 import { collectorSourceSha, VERSION } from '../config.mjs';
 
 export class Recorder extends EventEmitter {
-  constructor({ sessionsDir, profileStore, familyStore = null, port = 9222, rawOptions = {}, allBodies = false, liveEventsPerStream = 2000, maxSessionBytes = 0 }) {
+  constructor({ sessionsDir, profileStore, familyStore = null, port = 9222, rawOptions = {}, allBodies = false, liveEventsPerStream = 2000, maxSessionBytes = 0, learner = null }) {
     super();
     this.setMaxListeners(50);
     this.sessionsDir = sessionsDir;
@@ -24,6 +24,7 @@ export class Recorder extends EventEmitter {
     this.allBodies = allBodies;
     this.liveEventsPerStream = liveEventsPerStream;
     this.familyStore = familyStore;
+    this.learner = learner; // optional ScopedLearner: supplies the suggestion calibrator
     this.maxSessionBytes = maxSessionBytes; // 0 = unlimited; otherwise stop cleanly with reason quota_reached
     this.paused = false;
     this.state = 'idle';
@@ -177,7 +178,7 @@ export class Recorder extends EventEmitter {
 
   liveReport() {
     const families = this.familyStore ? this.familyStore.names().map((n) => this.familyStore.load(n)) : [];
-    return this.shapes.report(this.reducer, { families, profile: this.profile, domInspect: this.lastInspect, domTurns: this.lastTurns });
+    return this.shapes.report(this.reducer, { families, profile: this.profile, domInspect: this.lastInspect, domTurns: this.lastTurns, calibrator: this.learner?.calibrator });
   }
 
   status() {
