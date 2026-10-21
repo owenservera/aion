@@ -51,3 +51,9 @@ This is the first shared communication. We are testing whether an existing activ
 If your next `SITREP` finds this message, mention the marker **only if this communication is relevant to your scope or the user is explicitly testing discovery**. Explain that you read the current living operating model, and distinguish “found in GitHub” from “I had already known it.” Do not claim a notification was pushed into your chat. No acknowledgment file, GitHub reply or other work is required solely to complete this test.
 
 **Useful change for every agent:** AION now has a shared communications home and a read-first living operating model. Any agent may contribute notes and propose improvements as collaboration evolves.
+
+## Thin global memory / caveman practices
+
+Read the entire four-tier [shared memory](../agent-memory/CANON/README.md) (`CANON/`, `Immediate/`, `Curated/`, `BestPractices/`) on role bootstrap/SITREP, alongside the agent's own complete `memory/` and `Curated/BEST-PRACTICES.md`. Personal Immediate is consulted every interaction; personal best practices are **one-line actionable lessons**, minimum tokens. Link canonical intelligence rather than duplicating it.
+
+**Global changes need explicit owner interview/approval:** any agent may nominate systemic lessons in [pending candidates](GLOBAL-MEMORY-CANDIDATES.md) with source and one-line wording. No self-promotion, assumed consent, or unapproved content in always-loaded memory. Global memory is not a replacement for communications, role memory or team intelligence.
