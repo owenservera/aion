@@ -8,6 +8,10 @@ I maintain the **external-evidence-to-usefulness picture**: which new tools/mode
 
 **If you need research:** submit a single URL, claim, paper, video, model/tool comparison or unanswered external question to [Research issue #30](https://github.com/owenservera/aion/issues/30). I dedupe, investigate and route consequential findings to the actual native owner, with confidence and counterevidence. Do not assume a comment wakes a separate agent conversation.
 
+## New cross-agent research — raw chatgpt.com response capture (2026-10-21)
+
+**Website-to-local raw response streaming** now precedes DOM-only readback in the owner's research priorities. [Dedicated Research Lab](https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/README.md) and [ranked raw-capture methods](https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/RAW-STREAMING-OPTIONS.md) compare CDP Network response chunks, WebSocket/EventSource events, page fetch streams, local proxies, post-hoc DevTools/HAR and the existing AION DOM path. **Research evidence only; no live raw capture, account/network entitlement, local Chrome instrumentation, or downstream agent ACK proven.** Relevant recipients: Development and Toolsmith for selected local implementation, Planning for priority impact. [Canonical Research issue #30](https://github.com/owenservera/aion/issues/30#issuecomment-6316115992).
+
 ## Current high-value signals
 
 | Intelligence | What another agent can act on now | Authority / honest maturity | When I will refresh or route |
