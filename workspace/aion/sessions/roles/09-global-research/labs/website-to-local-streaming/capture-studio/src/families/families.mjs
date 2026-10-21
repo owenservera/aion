@@ -221,11 +221,34 @@ export function endpointPattern(endpoint) {
   return p.split('{id}').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^/?#]+');
 }
 
+// Family records produced by ONE decoded event, for 'event' mappings. derive calls this for every
+// event while streaming, so coverage does not depend on the reducer's bounded event window.
+const _endpointRe = new WeakMap();
+export function familyRecordsFromEvent(profile, ev, stream, session) {
+  const out = [];
+  if (!profile?.family || ev?.json === undefined) return out;
+  for (const fm of profile.familyMappings ?? []) {
+    if (fm.source?.kind !== 'event') continue;
+    if (fm.source.endpoint) {
+      let re = _endpointRe.get(fm);
+      if (!re) { re = new RegExp(fm.source.endpoint); _endpointRe.set(fm, re); }
+      if (!re.test(templateUrl(stream?.url))) continue;
+    }
+    for (const item of select(ev.json, fm.source.itemsPath ?? '$')) {
+      if (item && typeof item === 'object') out.push({ dataset: `family-${profile.family}-${fm.entity}`, record: { ...applyMapping(fm, item), _family: profile.family, _entity: fm.entity, _provenance: { site: profile.name, session: session?.id, source: 'network', sid: ev.sid, seq: ev.seq, t: ev.t } } });
+    }
+  }
+  return out;
+}
+
 // Produce canonical family records from a reducer using the profile's accepted familyMappings.
-export function extractFamilyRecords(profile, reducer, { session, domTurns = [] } = {}) {
+// When eventRecords ({ dataset: record[] }) is supplied, 'event' mappings are taken from it
+// (complete, streamed by derive) instead of the reducer's bounded in-memory events.
+export function extractFamilyRecords(profile, reducer, { session, domTurns = [], eventRecords } = {}) {
   const out = {};
   if (!profile?.family) return out;
   const push = (entity, rec) => { (out[`family-${profile.family}-${entity}`] ??= []).push(rec); };
+  if (eventRecords) for (const [ds, recs] of Object.entries(eventRecords)) (out[ds] ??= []).push(...recs);
   for (const fm of profile.familyMappings ?? []) {
     if (fm.source.kind === 'assembled') {
       const re = new RegExp(fm.source.endpoint);
@@ -237,7 +260,7 @@ export function extractFamilyRecords(profile, reducer, { session, domTurns = [] 
       }
     } else if (fm.source.kind === 'dom-turns') {
       for (const t of domTurns) push(fm.entity, { ...applyMapping(fm, t), _family: profile.family, _entity: fm.entity, _provenance: { site: profile.name, session: session?.id, source: 'dom', domId: t.id } });
-    } else if (fm.source.kind === 'event') {
+    } else if (fm.source.kind === 'event' && !eventRecords) {
       for (const s of reducer.streams.values()) for (const e of s._events ?? []) {
         if (e.json === undefined || (fm.source.endpoint && !new RegExp(fm.source.endpoint).test(templateUrl(s.url)))) continue;
         for (const item of select(e.json, fm.source.itemsPath ?? '$')) if (item && typeof item === 'object') push(fm.entity, { ...applyMapping(fm, item), _family: profile.family, _entity: fm.entity, _provenance: { site: profile.name, session: session?.id, source: 'network', sid: s.sid, seq: e.seq, t: e.t } });

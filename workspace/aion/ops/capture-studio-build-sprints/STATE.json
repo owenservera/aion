@@ -2,7 +2,7 @@
   "schema": "aion.capture-studio.build-sprint.v2",
   "owner": "Claude (phased: Haiku/Sonnet/Opus per PHASES.md)",
   "mode": "phased_credit_aware_build",
-  "status": "DECIDE_COMPLETE",
+  "status": "BUILD_IN_PROGRESS",
   "created": "2026-10-21",
   "updated": "2026-10-21",
   "last_observed_product_sha": "9d2fe0cd347a73e9324d1c824c7c762917e0c3e6",
@@ -43,7 +43,7 @@
       }
     }
   },
-  "chunk_index": 0,
+  "chunk_index": 1,
   "artifacts": {
     "recon": "RECON.md",
     "decision": "DECISION.md",
@@ -64,8 +64,8 @@
     }
   },
   "blockers": [],
-  "next_action": "Run BUILD (Sonnet, Medium) from chunk_index 0 per SPEC.md. C3 is stuck-risk: switch to High thinking for it.",
-  "handoff": "DECIDE at f1bab393: wire intel into derive on full evidence, anchor keyless ids on earliest observation, scope graph keys, downgrade causal edges, close calibration loop. 4 chunks in SPEC.md.",
+  "next_action": "Run BUILD at chunk_index 1 (C2). C3 is stuck-risk: High thinking.",
+  "handoff": "BUILD C1 done (CorpusCollector, familyRecordsFromEvent, derive streams all events). Next: C2 then C3 (stuck-risk, needs High).",
   "last_completed_build_sprint": null,
   "testing_owner": "ChatGPT (separate QA workspace)",
   "physical_tests_by_any_phase": false,
@@ -91,7 +91,8 @@
       "id": "C1",
       "title": "Full-evidence corpus and family event extraction",
       "stuck_risk": false,
-      "depends": []
+      "depends": [],
+      "done": true
     },
     {
       "id": "C2",

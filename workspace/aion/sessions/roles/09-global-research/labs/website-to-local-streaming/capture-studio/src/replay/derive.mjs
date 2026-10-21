@@ -5,7 +5,9 @@ import { StreamReducer, transportOf } from './reducer.mjs';
 import { ShapeInferencer, templateUrl } from '../shapes/infer.mjs';
 import { ruleMatchesEvent, extractRecords, extractFromAssembled } from '../shapes/extract.mjs';
 import { collectorSourceSha } from '../config.mjs';
-import { extractFamilyRecords } from '../families/families.mjs';
+import { extractFamilyRecords, familyRecordsFromEvent } from '../families/families.mjs';
+import { CorpusCollector } from '../intel/corpus.mjs';
+import { siteOf } from '../profiles/profiles.mjs';
 
 export async function derive(session, profile, { onProgress, families } = {}) {
   // Events kept in memory are bounded per stream (evidence + drift); the dataset keeps all of them.
@@ -23,11 +25,18 @@ export async function derive(session, profile, { onProgress, families } = {}) {
   const emit = (rule, recs) => { const f = finals.get(rule.name); if (!f) return recordSets.get(rule.name).push(recs); for (const r of recs) { const prev = f.get(r._key); f.set(r._key, { ...r, _revision: (prev?._revision ?? 0) + 1 }); } };
   let n = 0, batch = [];
   const flush = () => { if (batch.length) { ds.events.push(batch); batch = []; } };
+  // Complete-evidence collectors: fed with EVERY decoded event (not the bounded in-memory window).
+  let siteName = '';
+  try { siteName = siteOf(new URL(session.meta?.target?.url).hostname); } catch { /* no target url */ }
+  const corpus = new CorpusCollector({ session, site: siteName });
+  const famEvents = {};
   for await (const rec of session.records()) {
     const evs = reducer.ingest(rec);
     for (const ev of evs) {
       batch.push(ev);
       const st = reducer.streams.get(ev.sid);
+      corpus.addEvent(ev, st);
+      for (const { dataset, record } of familyRecordsFromEvent(profile, ev, st, session)) (famEvents[dataset] ??= []).push(record);
       shapes.observeEvent(ev, st);
       for (const rule of rules) if (ruleMatchesEvent(rule, ev, st)) emit(rule, extractRecords(rule, ev, st));
     }
@@ -49,7 +58,10 @@ export async function derive(session, profile, { onProgress, families } = {}) {
   const familyList = families ? families.names().map((n) => families.load(n)) : [];
   const report = shapes.report(reducer, { families: familyList, profile, domInspect, domTurns });
   session.kv.set('SHAPES', report);
-  const familySets = extractFamilyRecords(profile, reducer, { session, domTurns });
+  corpus.addDomTurns(domTurns);
+  const corpusResult = corpus.result(reducer);
+  session.kv.set('CORPUS_STATS', corpusResult.stats);
+  const familySets = extractFamilyRecords(profile, reducer, { session, domTurns, eventRecords: famEvents });
   const familyCounts = {};
   for (const name of listFamilyDatasets(session)) session.dataset(name).reset();
   for (const [name, recs] of Object.entries(familySets)) { session.dataset(name).push(recs); familyCounts[name] = recs.length; }
