@@ -1,6 +1,6 @@
 {
   "schema": "aion.platform.semantic-seed/0.1",
-  "edition": "2026-10-20-harvest-c003",
+  "edition": "2026-10-20-harvest-c004",
   "status": "PROPOSED_DESIGN_ONLY",
   "executable": false,
   "source_authority": "AION_CURRENT_RUNTIME_CONTRACTS",
@@ -9,7 +9,7 @@
     "aion_branch": "track-b/implementation-rounds-20261019",
     "strategy_pr": 39,
     "crosswalk_pr": 41,
-    "crosswalk_sha": "7fcd334a07086282cfcb0097d198ce2017ccafad",
+    "crosswalk_sha": "ae3fe8881bea77604cf8cc7dae3bd3a67168e1bc",
     "final_pr": 40,
     "final_head": "4454f9b913b4e3e5baeb8671daab127ca36030b3",
     "omega_pr": 37,
@@ -33,7 +33,7 @@
   ],
   "axes": {
     "provider_family": [
-      "ai_chat_webapp",
+      "ai_conversation_webapp",
       "bespoke_webapp",
       "native_agent_runtime",
       "protocol_service"
@@ -255,9 +255,6 @@
   "provider_examples": [
     {
       "provider_id": "chatgpt.com",
-      "family": "ai_chat_webapp",
-      "shape": "conversational_thread",
-      "realization": "browser_mediated",
       "adapter": "chatgpt.com",
       "status": "EXISTING_ADAPTER_LIVE_CHROME_UNVERIFIED",
       "donor_ids": [
@@ -266,49 +263,52 @@
       "capabilities": [
         "conversation.send",
         "conversation.observe_reply"
-      ]
+      ],
+      "application_family": "ai_conversation_webapp",
+      "application_shape": "conversational_thread",
+      "realization_mode": "browser_mediated"
     },
     {
       "provider_id": "claude.ai",
-      "family": "ai_chat_webapp",
-      "shape": "conversational_thread",
-      "realization": "browser_mediated",
       "adapter": null,
       "status": "DONOR_MANIFEST_ONLY_NO_AION_ADAPTER",
       "donor_ids": [
         "VF-0002",
         "VF-0021"
       ],
-      "capabilities": []
+      "capabilities": [],
+      "application_family": "ai_conversation_webapp",
+      "application_shape": "conversational_thread",
+      "realization_mode": "browser_mediated"
     },
     {
       "provider_id": "opencode-v2",
-      "family": "native_agent_runtime",
-      "shape": "coding_ide",
-      "realization": "api_native",
       "adapter": "opencode-v2",
       "status": "EXISTING_NATIVE_ADAPTER_WITH_REPORTED_WINDOWS_RECEIPTS",
       "donor_ids": [],
       "capabilities": [
         "executor.prompt"
-      ]
+      ],
+      "application_family": "native_agent_runtime",
+      "application_shape": "coding_ide",
+      "realization_mode": "api_native"
     },
     {
       "provider_id": "bespoke-webapp-example",
-      "family": "bespoke_webapp",
-      "shape": "structured_workflow",
-      "realization": "unknown",
       "adapter": null,
       "status": "DESIGN_COUNTEREXAMPLE_ONLY",
       "donor_ids": [
         "VF-0004"
       ],
-      "capabilities": []
+      "capabilities": [],
+      "application_family": "bespoke_webapp",
+      "application_shape": "structured_workflow",
+      "realization_mode": "unknown"
     }
   ],
   "alias_policy": {
     "runtime_id_renames": "NOT_AUTHORIZED",
-    "migration": "OPEN_DECISION",
+    "migration": "ONE_TIME_RUNTIME_MIGRATION_DEFERRED",
     "initial_strategy": "read_only_crosswalk",
     "alias_unrecognized": "UNKNOWN_NO_FALLBACK",
     "no_rewrite": [
@@ -318,7 +318,15 @@
       "bindings",
       "browser journal",
       "active operation locks"
-    ]
+    ],
+    "taxonomy_aliases": {
+      "ai_chat_webapp": "ai_conversation_webapp"
+    },
+    "metadata_field_aliases": {
+      "family": "application_family",
+      "shape": "application_shape",
+      "realization": "realization_mode"
+    }
   },
   "acceptance_minimum": [
     "undefined side-effect risk => refused",
