@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": [
+    "./workspace/aion/sessions/roles/01-dashboard-tracking/skills",
+    "./workspace/aion/sessions/roles/02-long-term-planning-alignment/skills",
+    "./workspace/aion/sessions/roles/03-chief-of-staff-operations/skills",
+    "./workspace/aion/sessions/roles/04-opencode-output-efficiency/skills",
+    "./workspace/aion/sessions/roles/05-chief-of-chiefs/skills",
+    "./workspace/aion/sessions/roles/06-tooling-integration-engineer/skills",
+    "./workspace/aion/sessions/roles/07-proposal-intake-commons/skills",
+    "./workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills",
+    "./workspace/aion/sessions/roles/09-global-research/skills",
+    "./workspace/aion/ops/chrome-relay/workers/development/skills",
+    "./workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/skills",
+    "./workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/skills"
+  ]
+}
