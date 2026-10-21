@@ -423,11 +423,15 @@ export async function readTranscript(page, adapter = null) {
     const composer = live();
     const root = document.querySelector('main') || document.body;
     if (!root) return { turns: [], reason: 'no document body' };
+    // Chrome is not the answer: a sidebar or a header (Kimi's "New chat / My Kimi / Plugins" menu)
+    // is navigation, not the reply.
+    const CHROME = 'nav,aside,header,footer,[role="navigation"],[role="banner"],[role="complementary"],[class*="sidebar"],[class*="side-bar"],[class*="navigation"],[class*="menu"],[class*="header"],[class*="toolbar"],[class*="breadcrumb"]';
     const blocks = [];
     const BLOCK_SEL = 'p,li,pre,blockquote,h1,h2,h3,h4,td';
     for (const el of root.querySelectorAll(BLOCK_SEL + ',div')) {
       if (composer && (el === composer || el.contains(composer))) continue;
       if (!vis(el)) continue;
+      if (el.closest(CHROME)) continue;
       if (el.closest('nav,aside,header,footer,script,style')) continue;
       // Interactive chrome (a "Reply" button, a link) is not the answer: on a page with no
       // recognised assistant container this fallback used to return the last button label.
@@ -437,12 +441,13 @@ export async function readTranscript(page, adapter = null) {
       // block-level descendant are taken, which keeps the text from being duplicated.
       if (el.tagName === 'DIV' && el.querySelector(BLOCK_SEL)) continue;
       const t = txt(el);
-      if (t.length < 2) continue;
+      if (t.length < 8) continue;
       blocks.push({ t: t, top: el.getBoundingClientRect().top + window.scrollY });
     }
     blocks.sort((a, b) => a.top - b.top);
-    const joined = blocks.map((b) => b.t).join('\n').slice(-12000);
-    if (joined) return { turns: [{ role: 'assistant', text: joined }], reason: 'generic text blocks (no assistant container matched)' };
+    // The answer is the last thing said: keep the tail of the transcript, not the whole page.
+    const tail = blocks.slice(-8).map((b) => b.t).join('\n').slice(-12000);
+    if (tail) return { turns: [{ role: 'assistant', text: tail }], reason: 'generic text blocks (no assistant container matched)' };
     return { turns: [], reason: 'no assistant text found' };
   })()`);
   if (!r.ok) return { turns: [], reason: `transcript read failed: ${r.error}` };
@@ -500,13 +505,14 @@ export async function isStreaming(page, adapter = null) {
   return { streaming: !!r.value?.streaming, evidence: r.value?.evidence ?? 'none' };
 }
 
-export async function waitForCompletion(page, adapter = null, { timeoutMs = 120000, stableMs = 2500, pollMs = 400 } = {}) {
+export async function waitForCompletion(page, adapter = null, { timeoutMs = 120000, stableMs = 2500, pollMs = 400, baseline = null } = {}) {
   const startedAt = Date.now();
   let lastText = '';
   let lastChangeAt = startedAt;
   let lastStreamingAt = 0;
   let evidence = 'none';
   let text = '';
+  const base = baseline == null ? null : norm(baseline);
 
   for (;;) {
     const now = Date.now();
@@ -527,11 +533,14 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     }
 
     const quietFor = now - Math.max(lastChangeAt, lastStreamingAt);
-    if (!stream.streaming && text && quietFor >= stableMs) {
+    // The text must have CHANGED since the send. A page that still shows its greeting ("How can
+    // I help you?") is not an answer, and treating it as one reported a reply that never came.
+    const changed = base === null || norm(text) !== base;
+    if (!stream.streaming && text && changed && quietFor >= stableMs) {
       return { done: true, ms: Date.now() - startedAt, text, reason: `settled: no change for ${quietFor} ms` };
     }
     if (now - startedAt >= timeoutMs) {
-      return { done: false, ms: Date.now() - startedAt, text, reason: `timeout after ${timeoutMs} ms (${evidence}${stream.streaming ? ', still streaming' : ''})` };
+      return { done: false, ms: Date.now() - startedAt, text, reason: `timeout after ${timeoutMs} ms (${evidence}${stream.streaming ? ', still streaming' : ''}${changed ? '' : '; the visible text is unchanged since the send'})` };
     }
     await sleep(pollMs);
   }
@@ -590,8 +599,21 @@ export async function detectAuthWall(page, adapter = null) {
     // input but refuses to accept input until the user signs in.
     const composerUsable = hasComposer && !composer.disabled && !composer.readOnly && composer.getAttribute('aria-disabled') !== 'true';
 
-    if (composerUsable && !urlWall) return { blocked: false, reason: hits.length ? 'auth-like selectors present but a composer is usable' : 'composer available' };
+    // A login MODAL over a usable composer (Kimi shows a WeChat/phone login dialog while the
+    // composer looks fine) is still a wall: the message would never be sent.
+    let modalWall = null;
+    for (const d of document.querySelectorAll('[role="dialog"],dialog,[class*="login-modal" i],[class*="loginMask" i],[class*="signin" i]')) {
+      if (!vis(d)) continue;
+      const t = String(d.innerText || '').slice(0, 400);
+      if (/log ?in|sign ?in|send code|scan.{0,12}(qr|code)|wechat|phone number|password|手机号|扫码|登录/i.test(t)) {
+        modalWall = t.replace(/\s+/g, ' ').slice(0, 120);
+        break;
+      }
+    }
+
+    if (composerUsable && !urlWall && !modalWall) return { blocked: false, reason: hits.length ? 'auth-like selectors present but a composer is usable' : 'composer available' };
     if (urlWall) return { blocked: true, reason: 'login URL: ' + url };
+    if (modalWall) return { blocked: true, reason: 'login modal open: ' + modalWall };
     if (hits.length && !composerUsable) return { blocked: true, reason: 'auth wall selector matched, no usable composer: ' + hits.slice(0, 3).join(', ') };
     if (m && !composerUsable) return { blocked: true, reason: 'login wall text: ' + m[0] };
     if (hasComposer && !composerUsable) return { blocked: true, reason: 'composer is disabled or read-only (signed out)' };
@@ -843,6 +865,12 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     emit({ type: 'clear', ...cleared });
     if (!cleared.ok) errors.push('composer still holds a draft after select-all + Backspace');
 
+    // What the page says BEFORE the prompt is sent. The reply is only accepted when the visible
+    // text has changed since then, so a static greeting is never mistaken for an answer.
+    const pre = await readTranscript(page, adapter);
+    const baseline = [...(pre.turns ?? [])].reverse().find((t) => t.role === 'assistant')?.text ?? '';
+    result.baseline = baseline ? baseline.slice(0, 200) : '';
+
     const typed = await typeText(page, result.prompt, { human: humanPace });
     emit({ type: 'typed', ok: typed.ok, method: typed.method, chars: String(typed.typed ?? '').length, grewBy: typed.grewBy });
     if (!typed.ok) { errors.push(`typing failed (${typed.method ?? 'unknown'}): ${typed.reason ?? ''}`.trim()); result.reason = 'type-failed'; return; }
@@ -855,7 +883,7 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     emit({ type: 'sent', ...sent });
     if (!sent.ok) { errors.push(`send did not take (${sent.method})`); result.reason = 'send-failed'; return; }
 
-    const wait = await waitForCompletion(page, adapter, { timeoutMs });
+    const wait = await waitForCompletion(page, adapter, { timeoutMs, baseline });
     emit({ type: 'completion', done: wait.done, failed: !!wait.failed, ms: wait.ms, reason: wait.reason });
     result.reply = wait.text ?? '';
     result.done = wait.done;
