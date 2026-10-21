@@ -454,13 +454,19 @@ function onStatus(st) {
 
 function connectLive() {
   const es = new EventSource('/api/live');
-  es.addEventListener('status', (m) => onStatus(JSON.parse(m.data)));
+  es.addEventListener('status', (m) => {
+    onStatus(JSON.parse(m.data));
+    if (!S.authExpired) $('#connectionNote').textContent = '';
+  });
   es.addEventListener('record', (m) => onRecord(JSON.parse(m.data)));
   es.addEventListener('event', (m) => onEvent(JSON.parse(m.data)));
   es.addEventListener('started', (m) => { const d = JSON.parse(m.data); S.liveId = d.id; S.sessionId = null; feedRows.length = 0; toast(`Recording ${d.target.title || d.target.url}`); });
   es.addEventListener('stopped', (m) => { const d = JSON.parse(m.data); toast(`Saved session ${d.id.slice(0, 15)} (${d.reason})`); });
   es.addEventListener('warn', (m) => toast(JSON.parse(m.data).message));
-  es.onerror = () => { $('#stateText').textContent = 'Studio disconnected'; };
+  es.onerror = () => {
+    $('#stateText').textContent = 'Studio disconnected';
+    if (!S.authExpired) $('#connectionNote').textContent = 'Connection interrupted — live updates will retry automatically. Saved recordings remain available if authorization is valid.';
+  };
 }
 
 /* ---------------- capture ---------------- */
@@ -534,6 +540,7 @@ function appendEvent(e) {
   const body = $('#evBody'); if (body.querySelector('.empty')) body.innerHTML = '';
   const d = document.createElement('details'); d.className = 'ev';
   const label = e.type === 'sse' ? `${e.event}${e.terminal ? ' (end marker)' : ''}` : e.type === 'ws.text' || e.type === 'ws.binary' ? `${e.dir === 'in' ? 'received' : 'sent'} frame` : e.type;
+  d.dataset.seq = e.seq == null ? '' : String(e.seq);
   d.innerHTML = `<summary><span class="mono c-l2">#${e.index ?? ''}</span> ${esc(label)} <span style="color:var(--muted)">${e.revision ? 'revision ' + e.revision : ''} ${e.span ? 'bytes ' + e.span.join('–') : ''}</span></summary><pre class="mono">${esc(e.json !== undefined ? JSON.stringify(e.json, null, 2) : e.jsonPreview || e.data || e.text || '')}</pre>`;
   body.appendChild(d);
 }
@@ -619,8 +626,11 @@ async function openSession(id) {
   try {
     d = await api('sessions/' + encodeURIComponent(id));
   } catch (e) {
-    if (requestSeq === S.sessionRequestSeq)
-      $('#sessionDetail').innerHTML = '<div class="feedback-error" role="alert">Could not open session: ' + esc(e.message) + '</div>';
+    if (requestSeq === S.sessionRequestSeq) {
+      if (e.status === 404) { S.sessionId = null; S.sid = null; S.knowledge = null; updateSrcNote(); renderSessions(); }
+      $('#sessionDetail').innerHTML = '<div class="feedback-error" role="alert">' +
+        (e.status === 404 ? 'This recording is no longer available. It may have been deleted.' : 'Could not open session: ' + esc(e.message)) + '</div>';
+    }
     return;
   }
   if (requestSeq !== S.sessionRequestSeq) return;
@@ -884,8 +894,7 @@ function wireKnowledgeSources(history) {
   const seen = [...new Set(knowledgeSafeList(history).map((r) => r.evidence?.session ?? r.session).filter(Boolean))].slice(0, 10);
   $('#knowledgeDetail').querySelectorAll('button[data-source]').forEach((b) => b.onclick = guard(async () => {
     const id = seen[Number(b.dataset.source)]; if (!id) return;
-    show('sessions');
-    await openSession(id);
+    await openRecordedEvidence({session:id});
   }));
 }
 async function openKnowledgeEntity(entity) {
@@ -906,13 +915,20 @@ async function openKnowledgeEntity(entity) {
       '</div><div class="knowledge-warning">' + (e.identityBasis === 'exact-site-type-key' ? 'Linked by key and exact detected origin; same account is not verified.' : 'Provisional/session-local identity, not linked across recordings.') +
       ' Attributes represent observations, not a guaranteed current or complete state.</div>' +
       '<div class="knowledge-detail-field"><b>Recorded attribute values</b><pre class="mono">' + esc(JSON.stringify(e.attrs ?? {}, null, 2)) + '</pre></div>' +
-      '<h3>Revision provenance</h3><div class="scroll" style="max-height:30vh"><table><thead><tr><th>Observed</th><th>Source</th><th>Changed fields</th><th>Basis</th></tr></thead><tbody>' +
-      history.slice(-150).map((r) => '<tr><td>' + esc(knowledgeTime(r.t)) + '</td><td class="mono">' + esc(r.session || 'Unknown') +
-        '</td><td>' + esc(knowledgeSafeList(r.changed).join(', ') || 'Unspecified') + '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td></tr>').join('') +
+      '<h3>Revision provenance</h3><div class="scroll" style="max-height:30vh"><table><thead><tr><th>Observed</th><th>Source</th><th>Changed fields</th><th>Basis</th><th>Original evidence</th></tr></thead><tbody>' +
+      history.slice(-150).map((r, i) => '<tr><td>' + esc(knowledgeTime(r.t)) + '</td><td class="mono">' + esc(r.session || 'Unknown') +
+        '</td><td>' + esc(knowledgeSafeList(r.changed).join(', ') || 'Unspecified') + '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td><td>' +
+        (r.session && r.sid ? '<button class="knowledge-link" data-observation="' + i + '">Open stream</button>' : 'No stream reference') + '</td></tr>').join('') +
       '</tbody></table></div>' + (history.length > 150 ? '<p class="small-note">Latest 150 revisions shown; full history available through Core API.</p>' : '') +
       '<h3>Source recordings</h3>' + knowledgeSourceLinks(history) +
       (String(e.key ?? e.typeName ?? '').trim() ? '<div class="knowledge-toolbar"><button id="knowledgeSearch">Search captured text for this key/type</button></div>' : '');
     wireKnowledgeSources(history);
+    const displayed = history.slice(-150);
+    host.querySelectorAll('button[data-observation]').forEach((b) => b.onclick = guard(async () => {
+      const rv = displayed[Number(b.dataset.observation)];
+      if (!rv?.session || !rv.sid) return toast('This revision does not identify a saved source stream.');
+      await openRecordedEvidence({session:rv.session,sid:rv.sid,seq:rv.seq,t:rv.t});
+    }));
     const searchButton = host.querySelector?.('#knowledgeSearch');
     if (searchButton) searchButton.onclick = () => {
       const value = String(e.key ?? e.typeName ?? '').trim().slice(0, 200);
@@ -925,6 +941,31 @@ async function openKnowledgeEntity(entity) {
   } catch (err) {
     if (detailSeq === S.knowledgeDetailSeq && epoch === S.knowledgeRequestSeq && S.view === 'knowledge') host.innerHTML = knowledgeMarkupError('Could not load entity history: ' + err.message);
   }
+}
+async function openRecordedEvidence(source) {
+  if (!source?.session) return toast('No source recording was attached to this observation.');
+  S.workflowStep = 'Original recorded evidence';
+  ++S.knowledgeRequestSeq; ++S.knowledgeDetailSeq;
+  show('sessions');
+  await openSession(source.session);
+  if (S.sessionId !== source.session) return;
+  if (!source.sid) {
+    toast('Opened source recording; exact stream was not recorded with this observation.');
+    return;
+  }
+  show('streams');
+  try {
+    await openStream(source.sid);
+    if (S.sessionId !== source.session) return;
+    const seq = source.seq;
+    if (seq !== undefined && seq !== null) {
+      const event = [...$('#evBody').querySelectorAll('details.ev')].find((node) =>
+        node.dataset.seq === String(seq));
+      if (event) { event.open = true; event.scrollIntoView({behavior:'auto',block:'center'}); }
+      else toast('Source stream opened; exact sequence is outside the decoded event preview.');
+    }
+    S.workflowStep = 'Original recorded evidence'; updateInvestigationTrail();
+  } catch (e) { toast('Could not open original stream: ' + e.message); }
 }
 function openKnowledgeNode(node, edges) {
   ++S.knowledgeDetailSeq;
