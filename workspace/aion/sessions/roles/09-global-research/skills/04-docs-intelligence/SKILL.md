@@ -1,3 +1,8 @@
+---
+name: 04-docs-intelligence
+description: "Research versioned official API, SDK, standards and model-provider documentation, preserving reusable approved technical evidence in SOFTWARE_HQ."
+---
+
 # docs intelligence
 
 
