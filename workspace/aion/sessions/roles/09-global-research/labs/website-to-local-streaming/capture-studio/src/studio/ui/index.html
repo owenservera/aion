@@ -516,7 +516,14 @@ async function openSession(id) {
   S.sessionId = id; S.sid = null; updateSrcNote();
   renderSessions();
   $('#sessionDetail').innerHTML = '<div class="empty" role="status">Loading session details…</div>';
-  const d = await api('sessions/' + encodeURIComponent(id));
+  let d;
+  try {
+    d = await api('sessions/' + encodeURIComponent(id));
+  } catch (e) {
+    if (requestSeq === S.sessionRequestSeq)
+      $('#sessionDetail').innerHTML = '<div class="feedback-error" role="alert">Could not open session: ' + esc(e.message) + '</div>';
+    return;
+  }
   if (requestSeq !== S.sessionRequestSeq) return;
   const m = d.meta;
   const datasets = Array.isArray(d.datasets) ? d.datasets : [];
@@ -597,7 +604,9 @@ function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
     '<div class="panel scroll" style="max-height:32vh;margin:8px 0"><table><thead><tr><th>Inspect</th><th>Type / matching</th><th>Key</th><th class="num">Sessions</th><th class="num">Revisions</th></tr></thead><tbody>' +
     (rows || '<tr><td colspan="5" class="empty">No saved entities at this point in time.</td></tr>') + '</tbody></table></div>' +
     truncation + '<div id="continuityDetail" class="panel" hidden></div>';
+  let evidenceRequestSeq = 0;
   out.querySelectorAll('.continuity-detail').forEach((b) => b.onclick = guard(async () => {
+    const evidenceSeq = ++evidenceRequestSeq;
     const entity = entities[Number(b.dataset.index)];
     if (!entity) return;
     const detail = $('#continuityDetail');
@@ -605,22 +614,23 @@ function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
     detail.textContent = 'Loading evidence and history…';
     try {
       const full = await api(endpoint + '?eid=' + encodeURIComponent(entity.id) + timeQuery);
-      if (callSeq !== S.continuityRequestSeq || requestSeq !== S.sessionRequestSeq || !detail.isConnected) return;
+      if (evidenceSeq !== evidenceRequestSeq || callSeq !== S.continuityRequestSeq || requestSeq !== S.sessionRequestSeq || !detail.isConnected) return;
       const e = full?.entities?.[0];
       if (!e) { detail.textContent = 'This entity has no matching evidence at the selected time.'; return; }
       const provenance = Array.isArray(e.history) ? e.history : [];
-      const historyRows = provenance.map((r) => '<tr><td>' + esc(formatEvidenceTime(r.t)) + '</td><td class="mono">' +
+      const displayRevisions = provenance.slice(-200);
+      const historyRows = displayRevisions.map((r) => '<tr><td>' + esc(formatEvidenceTime(r.t)) + '</td><td class="mono">' +
         esc(r.session || '') + '</td><td>' + esc(Array.isArray(r.changed) ? r.changed.join(', ') : 'Not recorded') +
         '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td></tr>').join('');
       detail.innerHTML = '<h3>Entity evidence</h3><p class="small-note">Identity: ' +
         esc(e.identityBasis === 'exact-site-type-key' ? 'Exact site + type + key + identity' : 'Session-local; not merged') +
         ' · ' + esc(e.sessionCount ?? 0) + ' session(s) · ' + esc(e.revisions ?? 0) + ' revision(s)</p>' +
         '<h3>Observed attributes</h3><pre class="mono">' + esc(JSON.stringify(e.attrs ?? {}, null, 2)) + '</pre>' +
-        '<h3>Revision provenance</h3><div class="continuity-history"><table><thead><tr><th>Observed</th><th>Source session</th><th>Fields changed</th><th>Evidence basis</th></tr></thead><tbody>' +
+        '<h3>Revision provenance</h3>' + (provenance.length > 200 ? '<p class="small-note">Showing latest 200 of ' + esc(provenance.length) + ' revisions; use the API for the full record.</p>' : '') + '<div class="continuity-history"><table><thead><tr><th>Observed</th><th>Source session</th><th>Fields changed</th><th>Evidence basis</th></tr></thead><tbody>' +
         (historyRows || '<tr><td colspan="4" class="empty">No revision details available.</td></tr>') + '</tbody></table></div>' +
         '<p class="small-note">Derived interpretation; absence does not prove deletion. Source recordings remain authoritative.</p>';
     } catch (e) {
-      if (callSeq === S.continuityRequestSeq && requestSeq === S.sessionRequestSeq && detail.isConnected)
+      if (evidenceSeq === evidenceRequestSeq && callSeq === S.continuityRequestSeq && requestSeq === S.sessionRequestSeq && detail.isConnected)
         detail.innerHTML = '<div class="feedback-error">Could not retrieve entity evidence: ' + esc(e.message) + '</div>';
     }
   }));
