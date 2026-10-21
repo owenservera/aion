@@ -8,7 +8,7 @@
 
 | Agent / owner | Dedicated intelligence home | Active intelligence / useful source links | Last substantive update | State |
 |---|---|---|---|---|
-| Dashboard & Tracking | [01-dashboard-tracking](agents/01-dashboard-tracking/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
+| Dashboard & Tracking | [01-dashboard-tracking](agents/01-dashboard-tracking/README.md) | [Dashboard evidence & live-ping gates](agents/01-dashboard-tracking/README.md) · [Three-view source](../../../pm/dashboard/README.md) · [UI acceptance #16](https://github.com/owenservera/aion/issues/16) · [Realtime proof #17](https://github.com/owenservera/aion/issues/17) | 2026-10-21 | Active — first pass (GitHub source only) |
 | Planning & Alignment | [02-long-term-planning-alignment](agents/02-long-term-planning-alignment/README.md) | [North stars + Harvest priority](../../../sessions/roles/02-long-term-planning-alignment/SITREP.md) · [Critical path + evidence roll-up](../../../sessions/roles/02-long-term-planning-alignment/TASKS.md) · [12-core-agent responsibility/dependency map](../../../sessions/roles/02-long-term-planning-alignment/AGENT-MATRIX.md) | 2026-10-21 | Active — first pass |
 | Chief of Staff / Operations | [03-chief-of-staff-operations](agents/03-chief-of-staff-operations/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
 | OpenCode Output Efficiency | [04-opencode-output-efficiency](agents/04-opencode-output-efficiency/README.md) | Agent to identify and link its high-value maintained knowledge | — | Awaiting first pass |
@@ -30,6 +30,9 @@
 - Agents working concurrently must re-read the latest `main` before editing this shared file, reconcile changed rows and avoid overwriting peers. No automated registry, reporting ceremony, prescribed update cadence or artificial freshness timer.
 
 ## Changelog
+
+- **2026-10-21 — Dashboard (01):** Established source-linked three-view/dashboard and real-time-ping proof map, distilled role memory and reusable evidence-gates skill; fresh Vercel/runtime proof not claimed.
+
 
 - **2026-10-21 — Toolsmith (06) capability update:** Existing Chrome relay skill gained a read-only file-snapshot/fixed-code diagnostic with six passing isolated Node tests; Windows/OpenCode/ZCode invocation and I1 remain unverified.
 
