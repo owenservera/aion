@@ -241,11 +241,14 @@ export async function buildSiteContinuity(sessionsDir, {
     const revisions = requestedAt === null ? item.history
       : item.history.filter((r) => r.t !== null && r.t <= requestedAt);
     if (!revisions.length) continue;
+    // Entity details are a frequent UI/API request. Preserve full scan,
+    // completeness counts and drift hints but avoid folding unrelated histories.
+    const materialize = !eid || eid === item.id || eid === item.eid;
     const attrs = {};
     for (const rv of revisions) {
-      if (rv.t === null) { stats.untimedRevisions++; continue; } // Unknown time cannot establish a historical state.
+      if (rv.t === null) { stats.untimedRevisions++; continue; }
       if (rv.provenanceBasis === 'revision-values-unavailable') stats.missingRevisionValues++;
-      foldRevision(attrs, rv);
+      if (materialize) foldRevision(attrs, rv);
     }
     const visibleSessionIds = [...new Set(revisions.map((rv) => rv.session))].sort();
     const times = revisions.map((rv) => rv.t).filter((t) => t !== null);
@@ -261,7 +264,7 @@ export async function buildSiteContinuity(sessionsDir, {
       timedRevisions: times.length, untimedRevisions: revisions.length - times.length,
       firstT: times.length ? times[0] : null, lastT: times.length ? times[times.length - 1] : null,
       attrs,
-      ...(includeHistory ? { history: revisions.map(({ sessionCreatedAt, ...r }) => r) } : {}),
+      ...(includeHistory && materialize ? { history: revisions.map(({ sessionCreatedAt, ...r }) => r) } : {}),
     };
     entries.push(result);
     if (item.identityBasis === 'exact-site-type-key') {
