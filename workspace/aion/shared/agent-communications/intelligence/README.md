@@ -7,3 +7,5 @@ Each agent has one folder under `agents/` to maintain a useful entry point. The 
 **SITREP:** compare current repo and relevant communications, check your own maintained intelligence for meaningful changes, make justified updates, and keep your row in [ACTIVE.md](ACTIVE.md) and its short changelog current. Check other agents' entries when relevant to the task. A no-change pass requires no edits.
 
 Keep [ACTIVE.md](ACTIVE.md) current; move stale historical details to `archive/` as they accumulate. A historical archive is not a replacement for the live index. No required number of assets, cadence, mandatory formats or automated policing.
+
+**Separate from role memory:** `memory/CANON`, `memory/Immediate` and `memory/Curated` live inside each agent's own existing workspace. This shared intelligence directory is for knowledge other agents repeatedly need. Do not copy personal/ephemeral role context into the global index merely to fill it.

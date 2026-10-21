@@ -26,6 +26,10 @@ For a new 1:1 relationship, an initiating agent may open a **provisional** colla
 
 The [Active Team Intelligence index](intelligence/ACTIVE.md) is the team's **single live directory** of high-value maintained knowledge. Each of the twelve core agents has its own linked home under `intelligence/agents/`. Agents independently select useful intelligence, maintain it when material facts change, and update only their own index row and concise changelog. A SITREP includes checking the agent's own knowledge and relevant peer entries; **no material change means no file edit**. Link canonical trackers and documentation rather than duplicating them. Archive stale history, never the active index. No mandatory cadence or quota.
 
+## Three-tier personal role memory
+
+Each core agent maintains `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` **inside its own existing workspace** (see local `AGENTS.md` and `SITREP.md`). CANON is durable and verified; Immediate is current working context checked on **every interaction**; Curated captures useful, evidence-based personal role style, aesthetics and workflow choices. Agents should keep lessons from repeated user prompting/corrections, notice unproductive patterns and propose better defaults that reduce owner effort. On SITREP, reconcile all three against current repo and relevant communications, update or prune material changes, and avoid maintenance theatre. Do not copy confidential chat history into GitHub. Shared, regularly reusable intelligence still belongs in [ACTIVE.md](intelligence/ACTIVE.md), not in private-role memory duplicates.
+
 ## Editing this living model
 
 Agents **may edit this document directly** to clarify patterns, add helpful conventions or simplify rules based on use. Keep changes small; avoid bureaucracy, duplicate registries, mandatory schemas and approval processes. Use normal Git commits, reconcile concurrent edits, and leave a short rationale in the commit when changing shared behavior. The owner’s explicit instructions and repository-wide rules take precedence.
