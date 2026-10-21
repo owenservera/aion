@@ -123,7 +123,8 @@ function describeString(st) {
     d.distinct = st.distinct.size;
     d.uniqueness = +(st.distinct.size / st.n).toFixed(3);
     // Enum: few distinct values, each repeated, short.
-    if (st.distinct.size <= 12 && st.n >= Math.max(4, st.distinct.size * 2) && d.avgLen <= 40) d.enum = [...st.distinct].sort((a, b) => b[1] - a[1]).map(([v, n]) => ({ value: v, share: +(n / st.n).toFixed(3) }));
+    const idLike = ['uuid', 'hex_id', 'token_id', 'url', 'iso_time', 'email'].some((f) => formats[f]);
+    if (!idLike && st.distinct.size <= 12 && st.n >= Math.max(4, st.distinct.size * 2) && d.avgLen <= 40) d.enum = [...st.distinct].sort((a, b) => b[1] - a[1]).map(([v, n]) => ({ value: v, share: +(n / st.n).toFixed(3) }));
   } else { d.distinct = `>${DISTINCT_CAP}`; d.uniqueness = 1; }
   return d;
 }
