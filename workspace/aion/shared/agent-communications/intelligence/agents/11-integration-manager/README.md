@@ -4,7 +4,7 @@
 
 ## The high-value answer other agents need
 
-**What usable source is already prepared, where does it fit, what did AION actually adopt, and what is the smallest worthwhile next integration?** Integration owns this translation between [Harvest/Discovery](../../../12-harvest-acceleration/README.md) and [Development](../../../10-development/README.md). We preserve source provenance and license, adapt to AION's existing contracts, and expose integration/test seams. **Development alone selects, integrates, tests and accepts the product implementation.** Toolsmith owns environment/protocol diagnosis; Planning owns the central roadmap.
+**What usable source is already prepared, where does it fit, what did AION actually adopt, and what is the smallest worthwhile next integration?** Integration owns this translation between [Harvest/Discovery](../12-harvest-acceleration/README.md) and [Development](../10-development/README.md). We preserve source provenance and license, adapt to AION's existing contracts, and expose integration/test seams. **Development alone selects, integrates, tests and accepts the product implementation.** Toolsmith owns environment/protocol diagnosis; Planning owns the central roadmap.
 
 **Authoritative upstream references (read before acting):**
 - [Development's current working desk](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/chrome-relay/workers/development/DELIVERABLES.md) — selected work, code state, offline/live receipts and next diagnosis.
