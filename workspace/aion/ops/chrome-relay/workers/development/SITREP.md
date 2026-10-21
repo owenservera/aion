@@ -9,3 +9,7 @@ Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap an
 ## Skills check on SITREP
 
 During SITREP check the role's **skills/** with memory/CANON, Immediate, GitHub changes and relevant peer skills. Discover missing or duplicated recurring capabilities, out-of-date procedures and verified new harness opportunities; refine/create only useful skills. Consult [the master builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) for real skill work. Validate improvements and keep source-defined versus locally executable states distinct. No-change SITREPs require no files.
+
+## Memory on SITREP
+
+Read all approved global tiers plus the full local `memory/` and `Curated/BEST-PRACTICES.md`; compare current facts, prune stale Immediate, distill repeated corrections into one-line personal practices. Reduce tokens without deleting important signal. Submit globally useful candidates for owner interview; never self-promote or make no-change edits.
