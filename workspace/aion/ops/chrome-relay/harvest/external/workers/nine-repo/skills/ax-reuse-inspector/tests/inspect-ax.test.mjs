@@ -41,6 +41,21 @@ test('topic filtering excludes unrelated offers and reports missing refs as warn
   assert.equal(r.warnings.length, 1);
 });
 
+test('donor shorthand resolves via canonical pinned sources catalog', t => {
+  const opts = sandbox(t, [{ ...offer, source_refs: ['multi-ai-chat/src/observer.ts'] }]);
+  const donorDir = path.join(opts.root, 'donors', 'multi-ai-chat', 'src');
+  fs.mkdirSync(donorDir, { recursive: true });
+  fs.writeFileSync(path.join(donorDir, 'observer.ts'), '// source\n');
+  const catalog = path.join(opts.root, 'workspace/aion/ops/chrome-relay/harvest/external');
+  fs.mkdirSync(catalog, { recursive: true });
+  fs.writeFileSync(path.join(catalog, 'sources.json'), JSON.stringify({
+    donors: [{ id: 'multi-ai-chat', aion_source_root: 'donors/multi-ai-chat' }]
+  }));
+  const r = inspectExchange(opts);
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.warnings, []);
+});
+
 test('duplicate identity, malformed JSON, and traversal cannot pass unnoticed', t => {
   const opts = sandbox(t, [offer, { ...offer, source_refs: ['../../outside.ts'] }, '{bad json']);
   const r = inspectExchange(opts);
