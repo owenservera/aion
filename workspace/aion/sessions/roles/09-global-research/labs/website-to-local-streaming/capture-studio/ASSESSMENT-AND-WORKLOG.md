@@ -4,6 +4,17 @@
 
 This is a one-time planning run. It contains no new capability claims. The measured numbers come from `eval/results/baseline-2026-10-21.json` (synthetic ground truth; held-out fixtures were not tuned on).
 
+## Owner-directed execution split — 2026-10-21 (supersedes conflicting testing instructions below)
+
+**Capture Studio only. Current owner directive overrides the prior worklog's developer-run-test requirements.**
+
+- **Claude Opus — uninterrupted implementation owner.** Build and improve the code through deep reasoning, internal-world-model simulations, virtual code/graph traversal, dependency and call-path inspection, and mental execution. **Do not create physical test files, run unit/integration/E2E test suites, execute benchmark harnesses, run independent test campaigns, or spend implementation cycles physically validating speculative cases.** Treat internal simulations as predictions, **never as executed tests or acceptance proof**. Do not make claims like “tests pass” without an actual external QA receipt.
+- **ChatGPT — independent real-testing owner.** Read the latest committed source; physically run actual tests, adversarial experiments, differential/randomized cases, integration and performance checks where runtime is available; own reproducible inputs, outcomes, evidence, regression criteria, independent acceptance and follow-up verification. Real Windows/Chrome-only checks require an authorized local runner; ChatGPT assesses returned raw receipts and does not claim local execution. The testing owner may maintain test code/artifacts independently; Opus should not duplicate them.
+- **Milestone cadence.** Opus develops continuously through significant integration milestones. ChatGPT performs comprehensive external testing at: **A: schema + identity + learning**, **B: capture + streaming + storage + replay**, **C: CLI/localhost integration + behavior and reconstruction**. Earlier independent feedback is reserved for high-impact boundary risks, particularly identity-to-learning/persistence corruption and pre-disk credential exposure.
+- **Release/acceptance boundary.** Opus can mark implementation **code-complete/pending independent QA** and commit/push ordinary safe implementation changes without test-run claims. A feature is **verified/accepted** only after ChatGPT's real test evidence (plus local host receipts where necessary). Test failures return to Opus as concise reproductions, inputs, observed/expected behavior, blast radius, and the affected commit. Opus independently decides fixes using virtual analysis.
+- **No redundant ceremony.** Existing W1–W18 scope, technical objectives and source-of-truth worklog remain in effect. References below to “tests pass” or “scorecards committed” become **external QA acceptance obligations**, not Opus's physical testing workload. Do not rewrite past execution history or silently claim an unexecuted check.
+- **GitHub delivery.** GitHub issue(s)/commit(s) carry the implementation↔QA handoff. GitHub writes do not autonomously wake either agent; the owner relays the relevant issue/commit between conversations when necessary.
+
 ## 1. Measured baseline
 
 | Metric | Dev | Held-out | Reading |
