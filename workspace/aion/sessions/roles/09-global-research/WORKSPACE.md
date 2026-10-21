@@ -49,3 +49,16 @@ Daily: deduped research intake and source deltas; do most work quietly and repor
 
 ## Canonical related systems
 `owenservera/aion` AION control; `owenservera/001.PROJECTS.PM` GPM; `owenservera/SOFTWARE_HQ` tech docs; `workspace/aion/shared/technical-proposals/` proposal originals; AION Windows-master inventory is dated, not current execution proof.
+
+
+## Relaunch operating choice — 2026-10-21
+
+This role is an **evidence-to-decision supply line**, not a scanning-for-volume service. Preserve the existing single [intake issue #30](https://github.com/owenservera/aion/issues/30), this resumption workspace, and original project-native evidence; create no alternative research tracker. At each SITREP: read the shared [Living Operating Model](../../../shared/agent-communications/LIVING-OPERATING-MODEL.md), then relevant commons/1:1 notes, issue #30 deltas, current GitHub head, native recipient status and actual scheduler history. Correct stale claims only when evidence changes; no heartbeat commits.
+
+**Two research emphases, deliberately separate:**
+- **AION critical path:** read [Planning central tasks](../02-long-term-planning-alignment/TASKS.md). AION-P01 registration, P02 live exact-thread I1 and P03 two-way prototype belong to Development/Windows. Research investigates only a *specific missing external fact or superior reusable path* that can shorten them; no parallel implementation checklist or default Harvest expansion.
+- **Owner's personal exploration:** issue #30 records programmable personal visualization as a genuine research objective. Seek lowest-friction runnable examples, plain costs/licensing and comparable small pilots. This interest does not automatically become an AION milestone or enterprise dashboard requirement.
+
+**Peer approach:** provisional [Research ↔ Planning](../../../shared/agent-communications/research-planning/README.md) for decision-changing source evidence; Toolsmith for docs/compatibility, Proposal 07 for source custody, Efficiency 04 for benchmarks, and Development/Harvest for selected reuse via existing issue/exchange routes unless repeated 1:1 need emerges. Planning owns priority; Chief of Staff owns dispatch; GPM owns portfolio tasks; SOFTWARE_HQ owns canonical technical docs.
+
+**Coverage limits:** a 2026-10-21 GitHub owner listing showed 100 repositories and the next offset returned 0, but an alternate owner search returned 100 + 93 + 0 across pages 1–3. Treat **193 as this query's result count**, not a guaranteed total accessible inventory or proof of activity. Reconcile live GPM project IDs instead of scanning all 193 on each task. GitHub commits and scheduler timestamps do not prove agent wake-ups, local execution or recipient ACK.
