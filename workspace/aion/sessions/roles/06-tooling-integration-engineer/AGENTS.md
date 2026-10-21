@@ -27,3 +27,7 @@ BOOTSTRAP.md -> SITREP.md -> WORKSPACE.md -> skills/README.md -> applicable skil
 ## Deliverables
 Versioned tool registry; reproducible environment profiles; composable SKILL.md runbooks; executable implementation work orders for OpenCode/ZCode; independent test receipts; recovery procedures; SITREP.
 Canonical status belongs in GitHub AION main; local inventory is snapshot, not live machine truth.
+
+## SITREP and agent commons
+
+When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes, optional agent-created collaboration folders and communication rules, see [Agent Communications](../../../../../workspace/aion/shared/agent-communications/README.md). Notes are not work orders or execution authority.

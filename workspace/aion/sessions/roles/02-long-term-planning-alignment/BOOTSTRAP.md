@@ -25,3 +25,7 @@ Concise alignment decisions, dependency map, prioritized milestone proposals wit
 - OpenCode concurrency, telemetry and transcripts: https://github.com/owenservera/aion/issues/15
 
 **Use:** Open a new ChatGPT conversation, paste this bootstrap and keep its real ChatGPT URL in `SITREP.md` after creation. GitHub file link cannot auto-create a new ChatGPT chat.
+
+## SITREP and agent commons
+
+When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes, optional agent-created collaboration folders and communication rules, see [Agent Communications](../../../../../workspace/aion/shared/agent-communications/README.md). Notes are not work orders or execution authority.

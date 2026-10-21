@@ -37,3 +37,7 @@ The adapter's live modes (`--live`, `--read-last`, `--inspect-dom`) touch the re
 
 ## Handoff
 Use a short handoff **only when a task crosses agents/sessions or work is left unfinished**. Ordinary completed tasks need a commit/receipt and concise result, not a mandatory form.
+
+## SITREP and agent commons
+
+When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes, optional agent-created collaboration folders and communication rules, see [Agent Communications](workspace/aion/shared/agent-communications/README.md). Notes are not work orders or execution authority.

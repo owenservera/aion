@@ -33,3 +33,7 @@ P0 AION-originated real chatgpt.com web-app round trip via BFF Linux (M0.5); P0 
 - Instant pings: https://github.com/owenservera/aion/issues/17
 - Dashboard: https://github.com/owenservera/aion/issues/16
 - OpenCode output tracking: https://github.com/owenservera/aion/issues/15
+
+## SITREP and agent commons
+
+When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes, optional agent-created collaboration folders and communication rules, see [Agent Communications](../../../../../workspace/aion/shared/agent-communications/README.md). Notes are not work orders or execution authority.

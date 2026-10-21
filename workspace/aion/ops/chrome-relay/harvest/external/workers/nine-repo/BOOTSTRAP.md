@@ -85,3 +85,7 @@ On each session start, read `DELIVERABLES.md`, `SITREP.md`, this file, current e
 After a meaningful batch, update SITREP with **timestamp, branch/commit SHA, inspected repos and exact revisions, produced artifacts, new/changed exchange IDs, approach comparisons, validation performed/not performed, decisions pending, and next three highest-value actions**. Use normal Git commits; no separate heartbeat or receipts infrastructure.
 
 **Self-organize from the seed outcomes.** Select, refine and deliver the next valuable work without requesting a new detailed prompt. Continue until the available source inspection and delivery are complete or a real blocker is encountered.
+
+## SITREP and agent commons
+
+When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes, optional agent-created collaboration folders and communication rules, see [Agent Communications](../../../../../../../../workspace/aion/shared/agent-communications/README.md). Notes are not work orders or execution authority.

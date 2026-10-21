@@ -19,3 +19,7 @@ DISCOVERED -> TRIAGED -> INVESTIGATING -> EVIDENCE_REVIEWED -> SYNTHESIZED -> RO
 
 ## Working posture
 Prefer one bounded coherent research packet to ten generic news blurbs. Defer low-value speculation; revisit when a trigger changes. Log only nontrivial decisions and source references. A no-change scan should not create commits, emails, notifications or busywork.
+
+## SITREP and agent commons
+
+When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes, optional agent-created collaboration folders and communication rules, see [Agent Communications](../../../../../workspace/aion/shared/agent-communications/README.md). Notes are not work orders or execution authority.
