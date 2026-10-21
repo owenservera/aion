@@ -18,6 +18,8 @@
 - **When work depends on a local worker or another ChatGPT agent:** identify the existing owner and required result. CoS owns actually delivering/chasing it. A GitHub note alone cannot be treated as ACK or ongoing execution.
 - **Only escalate to Owen:** a consequential owner-only decision or genuinely unresolvable conflict with a concrete recommendation and supporting link.
 
+**OpenCode V2 source-level reuse hook:** [master skill builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) and the twelve-role `opencode.jsonc` source mapping were added to `main` in [1d487a6](https://github.com/owenservera/aion/commit/1d487a6f3d74fd6f6442ab63ccd19b558ddf28fd). Use this existing skill only if a repeated memory/correction pattern warrants a reusable capability; the source commit does **not** prove Windows discovery, execution or installation.
+
 **Collaboration:** [Chief↔CoS](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/chief-of-chiefs--chief-of-staff-provisional/README.md) remains an invitation, not an accepted standing channel at this checkpoint. No additional 1:1 space is necessary now.
 
 **Stop carrying:** historical 30-item Chief backlogs, Linux-first tasks, detailed PACK inventories, copied build/test counts and cosmetic freshness timestamps. They belong in dated archives or their actual source owners, not this active role memory.
