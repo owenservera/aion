@@ -58,3 +58,23 @@ test('v1 format is migrated without destroying old correction history', () => wi
   assert.deepEqual(journal.versions(),[0,1]);assert.equal(journal.at(0).corrections.length,1);
   assert.equal(journal.read().corrections.length,2);
 }));
+
+
+test('two processes starting simultaneously cannot both commit the same revision', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'l5-journal-race-'));
+  try {
+    const { spawn } = await import('node:child_process');
+    const moduleUrl = new URL('../../src/intel/learner-journal.mjs', import.meta.url).href;
+    const script = `import { LearnerJournal } from ${JSON.stringify(moduleUrl)};const j=new LearnerJournal(process.argv[1]);try{j.commit({writer:process.argv[2]},0);process.stdout.write('ok')}catch(e){process.stdout.write(e.code??e.message);process.exit(2)}`;
+    const child = (tag) => new Promise((resolve) => {
+      const p = spawn(process.execPath, ['--input-type=module','-e',script,dir,tag]);
+      let output=''; p.stdout.on('data',d=>output+=d.toString());
+      p.on('close',code=>resolve({code,output}));
+    });
+    const results=await Promise.all([child('A'),child('B')]);
+    assert.equal(results.filter(r=>r.output==='ok').length,1);
+    assert.equal(results.filter(r=>r.output==='LEARNER_LOCKED'||r.output==='LEARNER_REVISION_CONFLICT').length,1);
+    assert.equal(new LearnerJournal(dir).versions().length,1);
+    assert.ok(['A','B'].includes(new LearnerJournal(dir).read().writer));
+  } finally { rmSync(dir,{recursive:true,force:true}); }
+});
