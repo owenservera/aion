@@ -57,3 +57,7 @@ If your next `SITREP` finds this message, mention the marker **only if this comm
 Read the entire four-tier [shared memory](../agent-memory/CANON/README.md) (`CANON/`, `Immediate/`, `Curated/`, `BestPractices/`) on role bootstrap/SITREP, alongside the agent's own complete `memory/` and `Curated/BEST-PRACTICES.md`. Personal Immediate is consulted every interaction; personal best practices are **one-line actionable lessons**, minimum tokens. Link canonical intelligence rather than duplicating it.
 
 **Global changes need explicit owner interview/approval:** any agent may nominate systemic lessons in [pending candidates](GLOBAL-MEMORY-CANDIDATES.md) with source and one-line wording. No self-promotion, assumed consent, or unapproved content in always-loaded memory. Global memory is not a replacement for communications, role memory or team intelligence.
+
+## Default Git publishing authority
+
+An owner-directed task automatically authorizes the agent's normal safe **commit and push** of its in-scope work; do not seek ceremonial approval after completing it. Verify remote readback and avoid overwriting concurrent changes. If an actual cascade deletion, link/dependency break, destructive rewrite, data leak, irreversible effect or other concrete safety risk is identified, stop **that risky action**, raise the specific risk for owner decision and continue safe independent parts. A publication grant does not lift separately stated owner-only gates such as promotion into approved global memory, and does not imply execution on Windows.
