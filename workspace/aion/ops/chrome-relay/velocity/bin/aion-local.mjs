@@ -108,7 +108,7 @@ export async function main(argv=process.argv.slice(2),{
     try{result=await accountRegisterImpl({link})({alias:parsed.role,url:role.ref});}
     finally{try{link.close();}catch{}}
     if(!result||result.ok!==true){
-      print(JSON.stringify({ok:false,code:result?.code??'REGISTRATION_FAILED',role:parsed.role}));
+      print(JSON.stringify({ok:false,code:result?.code??'REGISTRATION_FAILED',role:parsed.role,...(result?.diagnostic?{diagnostic:result.diagnostic}:{})}));
       exit(3);
       return 3;
     }
