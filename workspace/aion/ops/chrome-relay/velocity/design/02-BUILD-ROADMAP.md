@@ -138,3 +138,100 @@ Main risks in order:
 8. Experimental tooling Node24+ requirement/human browser ownership → optional experiments only.
 
 **Future optimization:** Once R3 works, run a real 30-iteration cold/warm port-broker-CDP/UIA benchmark; remove any protocol hop that does not materially contribute to control, evidence, authorization, or reuse.
+
+---
+
+## 9. Track B strategic architecture and Harvest integration (2026-10-20)
+
+**Status:** ACTIVE DESIGN / OPEN DECISIONS, not an implementation authorization or a claim that harvested source has been incorporated. **Tracking:** [strategic planning issue #38](https://github.com/owenservera/aion/issues/38), inside [Track B #32](https://github.com/owenservera/aion/issues/32). This section extends the current Chrome Extension Track B workstream; it does NOT start another Track B, pause the active Chrome vertical slice, or establish a second delivery organization. The existing B code, Bus, adapter owners, Chrome evidence contracts, negative tests and Track A isolation remain governing.
+
+**Why now:** Parallel workers are capturing broad technical intelligence from vivim-final and Vivim-omega under [Harvest landing](../../harvest/landing/README.md). Their inventories and crosswalk will reveal possible reusable taxonomies, provider types, capability definitions, provider-specific realizations, lifecycle schemas and technical patterns. They are prior work to examine, not requirements. The strategic workstream turns that evidence into a reasoned architectural disposition and a **broader product/development roadmap**.
+
+### 9.1 Reality anchors / non-negotiable distinction
+
+* **Current functioning/verified boundary (reported in velocity README):** local CLI/Bus and OpenCode correlated native operations have Windows receipts at specified commits. Chrome native host dev registration exists, but dev extension/worker/live Chrome send-and-reply are not verified. A final-head selftest receipt is still required for subsequent changes. Treat versioned older roadmap statements above as planning history where superseded.
+* **Active critical path:** complete the current [CENV Chrome Send/state repair](../../ARCHITECTURE.md), contracts [ENVELOPE](../../ENVELOPE-CONTRACT.md) and acceptance [FALLBACK](../../FALLBACK-AND-ACCEPTANCE.md), using [ordered repair tasks](../../OPENCODE-BUILD-ORDER.md). It owns diagnostics, precise snapshot/Send/Stop availability, one guarded activation, response budget, correlation and read-only recovery. **No speculative refactor ahead of actual real-Chrome evidence.**
+* **Strategic horizon:** decide whether/how to evolve existing capability taxonomy, provider families, realization composition, feature negotiation, observational availability, extensions and the longer-term roadmap. This may proceed in parallel as read-only analysis, source checks, contract sketches and offline compatibility tests. It does not authorize new sends, migrations or modification of Track A.
+* **Authority:** original source files are read-only donor artifacts; Harvest findings are evidence-qualified candidates. Current AION owner contracts outrank donor code. No new bus, ledger, registry or autonomous orchestration is assumed.
+
+### 9.2 Architecture choices — gates, not foregone conclusions
+
+| Decision | Live options | Evidence / test required | Default until decided |
+| --- | --- | --- | --- |
+| **D1 Taxonomy strategy** | (A) retain Track B taxonomy + alias donor terms; (B) one-time canonical taxonomy migration; (C) hybrid: frozen runtime identity, versioned semantic catalog/crosswalk, scoped migration later | Enumerate real current symbols/consumers, donor terms + versioned origins, semantic collisions, serialized persisted IDs, migration rollback, code churn, cross-provider coverage | **C as a design hypothesis**, no runtime migration |
+| **D2 Provider classification** | single provider-type enum; family inheritance; multi-axis family/profile composition | Can one model express chat webapp vs bespoke webapp vs native runtime without false shared semantics? Check at least two distinct realizations and negative feature cases | Multi-axis classification *hypothesis*; no framework yet |
+| **D3 Capability identity** | per-provider names; shared semantic ID + provider-specific realization; universal runtime registry | Demonstrate stable meaning without equating selectors, action authority or effect evidence. Check native OpenCode and existing ChatGPT adapter invariants | Keep existing registry/adapter authority; draft semantic mapping outside hot path |
+| **D4 Discovery and availability** | static catalog only; adapter-observed readiness; mixed static contract + live scoped observation | Distinguish supported/configured/bound/present/visible/enabled/unique/authorized/fresh/current effect. Verify UNKNOWN / STALE safety and read-only probes | Keep CENV three axes and explicit provider observations |
+| **D5 Persistence and upgrade** | rewrite durable operation records; additive versioned metadata + mapping; parallel stores | Test old journal/Bus records, tombstones, grants, active locks, identical text separate operation identities, unreadable data, rollback | Additive metadata; no ID rewrite or silent fallbacks |
+| **D6 Extensibility mechanism** | broad plugin platform; thin optional realization contracts attached to existing adapters; bespoke implementations | Measurable complexity/call-site reduction, false abstraction negatives, fault containment, test/rollback cost | Thin contracts; no plugin loader without repeated real demand |
+| **D7 Delivery sequencing** | taxonomy-first big bang; MVP-first/no architecture work; independent evidence preparation + small gated integrations | Real Chrome readiness, expected integration blast radius, Harvest source confidence, operator effort and test receipts | MVP critical path + independent strategic planning |
+
+No decision can become **ACCEPTED_FOR_IMPLEMENTATION** from a harvested summary alone. A decision receipt records status PROPOSED / DECIDED / EXPERIMENTAL / REJECTED, source revisions and alternatives; it must identify affected code and compatibility tests. For one-time migration, require a measured benefit that exceeds dual-support cost, complete persisted-state inventory, dry-run transformation on synthetic old fixtures and an explicit reversible rollback; never rewrite active Bus/journal IDs as a convenience.
+
+### 9.3 Candidate provider/capability mental model — to be stress tested, not installed
+
+Classify each target along **independent axes**, not one universal base class:
+
+1. **Surface / runtime:** authenticated AI chat webapp, provider-specific bespoke webapp, local/native agent/runtime, protocol-accessible endpoint (only when supported/authorized).
+2. **Interaction family:** conversational thread, structured tool/action workspace, IDE/code execution, canvas/document, mixed. A concrete app may expose more than one family.
+3. **Semantic capability:** meaningful operation (conversation.send, response.observe, generation.stop, attachment.add, model.select, session.resume, artifact.read, etc.); unsupported concepts remain absent, not guessed.
+4. **Provider realization:** actual adapter, bindings, per-provider UI affordances or native API mechanics, state projection, failure cases and evidence requirements.
+5. **Resolved context:** current provider/account/session/conversation identity and binding, observed capability/availability + timestamp/freshness, owner authority/grant and operation-specific evidence.
+
+Shared chat semantics are reusable **contracts**, not proof ChatGPT and Claude expose equivalent elements, selectors, response timing, authorization, or Stop behavior. Bespoke webapps can compose common conversation semantics with custom capabilities; native OpenCode can satisfy some semantics via its supported native interface without pretending to be a browser. If an implementation cannot meet a shared evidence requirement, that capability remains provider-specific or unavailable.
+
+Potential small logical interfaces to evaluate against current code (no mandate to add modules/services): semantic capability description; provider profile; realization mapping; context-scoped action observation; immutable operation evidence. Existing Bus identity and result contract remain authoritative. Prefer additive projections and adapter-local implementations to a new universal orchestrator.
+
+### 9.4 Strategic analysis outputs (within this roadmap/issue, not competing docs)
+
+**S0 — As-built baseline and contract map.** Inventory exact current-head source owners: CLI command parsing, roles/bindings, Bus/adapters, Chrome journal/worker/page, content/observer, OpenCode native roster, capabilities/status/readiness, immutable grant checks and result projection. Classify IMPLEMENTED+OFFLINE_TESTED, WINDOWS_VERIFIED, LIVE_CHROME_VERIFIED, PROPOSED, UNKNOWN. Compare source SHA and tests; do not promote documentation claims.
+
+**S1 — Harvest intake and fit map.** Consume the crosswalk worker's `landing/synthesis/` plus source index/card/excerpts as they arrive. Start with 16 existing FINAL/OMEGA leads but allow new candidates. Map each to existing AION owners, semantic overlap, state mutation, independence of evidence, security/authority hazards, dependencies and possible minimum transfer. Missing donor revision/canonical identity remains UNKNOWN. Harvest writes Harvest; strategic Track B writes only Track B planning decisions.
+
+**S2 — Decision packet D1–D7.** For each, give option, value, costs (files/complexity/latency), migration scope, data-compatibility consequences, sample provider/use-case counterexample, tests, reversible rollback and decision date/authority. Include a comparison of one-time taxonomy migration vs retain-and-extend vs hybrid with *actual* name/meaning collision counts before choosing.
+
+**S3 — Contract spike, not framework build.** Model two representative realizations against the proposed semantic/availability/evidence contract: (i) existing ChatGPT Send/readback; (ii) existing native OpenCode prompt/session; optionally a **design-only** bespoke webapp counterexample. Require identical caller-facing truths without flattening their different execution semantics. Build narrow deterministic offline fixtures when useful; never change dispatch to satisfy a taxonomy demonstration.
+
+**S4 — Approved execution proposals.** For each accepted candidate, nominate the existing owner file/function, smallest code/test increment, explicit negative cases, migration/no-migration choice, integration order and expected user benefit. Product changes proceed via the ordinary Track B implementation/verification owner, not via Harvest auto-promotion.
+
+### 9.5 Broader milestone roadmap, with independent streams
+
+| Milestone | Focus | Evidence/exit | Relationship to active Chrome work |
+| --- | --- | --- | --- |
+| **P0: Track B execution truth** | Current real Chrome Send, completion and command-to-result proof; faithful diagnostics | AC-CENV tests, exact current-head offline run, then independently authorized live Chrome/checked reply receipt | **Current critical path**, not blocked by Harvest |
+| **P1: Architecture baseline** | As-built topology, current taxonomy/adapter inventory and identity/persistence contract | Source-anchored map; discrepancy log vs old design | Parallel read-only strategic effort |
+| **P2: Harvest synthesis / disposition** | Full donor candidate crosswalk, deduplication, coverage and gap map; D1–D7 decisions | Traceable decision matrix with costs/alternatives/unknowns; one taxonomy decision | Depends on actual Harvest batches, not on P0 |
+| **P3: Minimal capability contracts** | Only approved shared capability/provider-family seams; versioned mapping if needed | Two-realization offline conformance + incompatibility/unknown tests; no regressions in existing adapters | Product edits after P0 stabilizes affected hot path |
+| **P4: First verified webapp expansion** | Prove shared family semantics with an independently authorized second realization, or record evidence it must stay bespoke | Real provider-specific availability/action/evidence and fail-closed negative matrix; no imagined webapp parity | Requires separate access/authority and acceptance |
+| **P5: Capability portfolio expansion** | Attachments, model selection, output/artifacts, richer observations, bespoke workflows as justified by evidence | Each capability with supported/unsupported/unknown state, owner, test and live evidence when necessary | Incremental, never all-or-nothing |
+| **P6: Operational maturity** | CLI and optional pane use same contract, capability age, diagnosability, compatibility and upgrades | Benchmark, per-provider truth table, rollback/recovery, measured owner-effort and complexity | Follows proven paths, not speculative infrastructure |
+
+**Parallel rule:** active implementation agent keeps one critical-path hot-path task; strategic worker can read sources, design candidate contracts and maintain decision matrix; Harvest A/B/C continue capture/crosswalk separately. Do not have strategic and implementation workers mutate the same runtime files in parallel. Repo issue/PR provide coordination and human-readable receipts, not agent wakeup.
+
+### 9.6 Quantitative decision lens and intake cadence
+
+For every proposed donor-derived adoption, record `new_providers_supported`, `new_semantic_capabilities`, `existing_duplicate_logic_removed`, `new_files/dependencies`, `owner_interactions_saved`, `regression_surface`, `migration_persisted_records_affected`, and `test/rollback_cost`. Numbers must be observed or explicitly UNKNOWN; no invented ROI. Prefer concept-only reuse if a donor module introduces its own session manager, browser action router, retry policy or second durable store.
+
+At each real Harvest batch arrival: **triage → link source IDs → compare with existing owner → mark pending/adopt/reject/defer → update D1–D7 evidence → propose the next smallest slice.** No GitHub polling or automatic researcher wake is implied. Keep the roadmap current as a living strategy while preserving source/history: update here and in #38 only when new decisions or proven gates justify it.
+
+### 9.7 Immediate first strategic actions (no Windows or browser gate)
+
+- [ ] Verify current Track B branch/head and classify implemented vs merely designed modules and their exact public contracts.
+- [ ] Build source-anchored map for existing capabilities and provider/adapter identities (including where `aion capabilities` gets its truth).
+- [ ] Prepare a taxonomy comparison template covering synonym, narrower/broader meaning, false equivalence, unmapped and incompatible operation evidence.
+- [ ] Consume first Harvest crosswalk batch when available, with source revision and duplicate ancestry flags. DO NOT assume crosswalk worker has finished because instruction files exist.
+- [ ] Write D1 taxonomy options and D2 provider-classification alternatives with explicit migration/compatibility and rollback consequences.
+- [ ] Sequence P0–P6 based on actual receipts and decision outcomes; keep short-path Chrome repair moving unchanged.
+
+**Strategic default pending evidence:** retain working Track B schemas and identities; use a non-authoritative semantic crosswalk to learn the donor taxonomy; selectively extract shared contracts only after confirming repeated use and safe evidence semantics. A one-time taxonomy migration remains a serious OPEN option, not prohibited or preselected by this default.
+
+### 9.8 Master seed and governed build-packet predesign (Harvest C-003)
+
+**Companion design artifacts committed for strategy review (NOT runtime authority):**
+- [AION Platform semantic seed JSON](platform-semantic-seed.json) — proposed multi-axis ontology, stable conceptual capability IDs, example providers and current actual mappings, evidence and failure-safe invariants; `executable:false`.
+- [Semantic master and governing command protocol](05-AION-PLATFORM-SEMANTIC-GOVERNANCE.md) — design directives vs existing runtime commands, authority/preference rules, provider-specific semantic obligations, adoption gates and migration criteria.
+- [Pre-designed implementation packets](06-AION-PLATFORM-IMPLEMENTATION-PACKETS.md) — AP-001 provider metadata, AP-002 evidence/readiness (same current CENV hot path, not a second implementer), AP-003 read-only unified command introspection, with future AP-004..007.
+
+These are reconciled with [Crosswalk C-003 / PR #41](https://github.com/owenservera/aion/pull/41), pinned at `7fcd334a`: **65 donor research records** (27 Final copied, 26 Omega copied, 12 Omega flagged-only). No donor runtime tests or live webapp proof. Crosswalk integration queue #01–03 becomes no-regression safety laws (malformed capability rule cannot fail open; unknown effects cannot resend; ambiguous ranked controls cannot actuate); #04–07 inform early additive models; #08–11 are held for later provider proof/source ownership; #12 direct unsafe transfer rejected.
+
+**Design/development separation:** The master seed is a semantic *design compiler input* only if AION someday builds and reviews such a compiler. Current Track B `aion.bus/1`, CLI parser, `aion.capability/1`, `aion.result/1` and provider-specific adapters remain the executable source of truth. No added Bus operation, migration, browser action, scheduled work or new registry follows from these documents. Review/accept packets independently before assigning source changes; keep current Chrome Send→reply acceptance moving.
