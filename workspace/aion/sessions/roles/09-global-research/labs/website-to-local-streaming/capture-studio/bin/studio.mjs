@@ -21,6 +21,7 @@ import './commands/replay.mjs';
 import './commands/mirror.mjs';
 import './commands/export.mjs';
 import './commands/knowledge.mjs';
+import './commands/platform.mjs';
 import './commands/learn.mjs';
 import './commands/profiles.mjs';
 

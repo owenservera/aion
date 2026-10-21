@@ -22,6 +22,7 @@ import { VERSION } from '../config.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
 import { buildSiteContinuity, siteFromSession, originFromSession, continuityTime } from '../intel/continuity.mjs';
 import { createIntegrationHub } from './integration-hub.mjs';
+import { handlePlatformX } from './platform-x.mjs';
 import { problem, storageName } from './http.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
@@ -83,6 +84,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         return res.end(readFileSync(new URL('./ui/live.mjs', import.meta.url)));
       }
       if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'not found' });
+      if (await handlePlatformX(req, res, { settings: rawOptions ?? {}, dataDir: paths.root, sessionsDir: paths.sessions }, url)) return;
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
       if (await hub.handle(req, res, url, body)) return;
       return await route(req, res, url, body);
