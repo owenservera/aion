@@ -6,6 +6,10 @@ received (raw bytes, decoded protocol events, rendered DOM, your actions) into a
 your own disk, and then derives datasets, a data model, a temporal evidence graph and a metadata
 receipt from that log.
 
+It can also drive an AI chat site for you — type one prompt, send it, read the reply back and record
+the exchange — but only when you ask for it (`studio drive`, `studio campaign --execute`). Capture
+alone never touches the page.
+
 Nothing is uploaded. There is no server, no account, no telemetry and no runtime dependency outside
 Node.js itself. Captured data is private and lives **outside the repository** by default.
 
@@ -13,6 +17,10 @@ Node.js itself. Captured data is private and lives **outside the repository** by
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (module map and data flow).
 - Review findings and worklog: [`ASSESSMENT-AND-WORKLOG.md`](ASSESSMENT-AND-WORKLOG.md).
 - Live-test runbook on Windows PowerShell: [`docs/LIVE-TEST.md`](docs/LIVE-TEST.md).
+- The interaction layer (pacing, measured CDP key-event rules, the typing harness):
+  [`docs/HUMAN-INTERACTION.md`](docs/HUMAN-INTERACTION.md).
+- CDP realism research (browser parameters and what a page can observe):
+  [`docs/research/CDP-REALISM.md`](docs/research/CDP-REALISM.md).
 
 ## What it is
 
@@ -26,8 +34,10 @@ Three capture layers, kept separate on disk and recomputable from each other:
 
 Design rules that are enforced in code:
 
-- **Read-only.** It uses `Network.*` plus an isolated-world DOM agent. It never intercepts with
-  `Fetch`, never reads typed form values, never automates the page.
+- **Read-only by default.** Capture uses CDP `Network.*` plus an isolated-world DOM agent. It never
+  intercepts with `Fetch` and never stores typed form values. Page interaction is a separate,
+  opt-in layer (`src/capture/actions.mjs`) that types with real key events and runs only for
+  `studio drive` and `campaign --execute`; a plain `record` or `capture` never touches the page.
 - **Honest coverage.** Gaps, pauses, masked spans, metadata-only streams and pre-attach blind spots
   are declared in the log and in the receipt, never hidden.
 - **Credentials never reach disk.** Cookie and auth headers are dropped, auth endpoints are
@@ -154,6 +164,14 @@ suffix, `latest`, `latest~2` (third newest), `latest:claude.ai` (newest for that
 | `knowledge schema <type>` | Observed schema for one type. |
 | `knowledge continuity` | Join safely keyed entities across sessions of the same origin. |
 
+### Driving a live site
+| Command | Purpose |
+| --- | --- |
+| `drive <site\|url> [--prompt TEXT] [--timeout S] [--no-record] [--dry-run]` | Send one prompt to a live site, record the exchange, read the reply back. |
+| `library build <host\|site> [--min N]` | Consolidate every derived session of a site into one family shape set and signature. |
+| `library show <host\|site\|id>` · `library list` | Inspect one consolidated family, or list every family. |
+| `campaign [ids...] [--execute] [--prompt TEXT] [--limit N] [--cooldown S] [--timeout S] [--no-resume]` | Walk the known sites in order, one at a time: plan only unless `--execute`, then drive, derive and build each family. |
+
 ### Learning
 | Command | Purpose |
 | --- | --- |
@@ -194,6 +212,57 @@ suffix, `latest`, `latest~2` (third newest), `latest:claude.ai` (newest for that
 | `config show` · `config get/set/unset` · `config path` | Persistent defaults in `<data-dir>/config.json`. |
 | `completion <bash\|zsh\|pwsh>` | Print a shell completion script. |
 | `commands` | List every command (machine-readable with `--json`). |
+
+## Driving live AI sites
+
+`drive` and `campaign` are the opt-in interaction layer. They use the same CDP connection and the
+same recorder as capture, so what they send and receive lands in the same session format.
+
+- **`drive <site|url>`** sends **one** prompt into a tab that is already open on that site (or opens
+  one), records the exchange unless `--no-record`, waits until the reply stops changing and prints
+  it. A plain `https://` URL works without a site adapter: the generic heuristics in
+  `src/capture/actions.mjs` find the composer, the send control and the reply. A login wall stops
+  the command before anything is typed. The default prompt is a fixed 12-word calibration sentence
+  (`alpha bravo charlie …`), so a captured transcript can be checked word for word. `--dry-run`
+  prints the resolved adapter and target and types nothing.
+- **`campaign`** walks the nine known sites in order — `chatgpt`, `claude`, `gemini`, `deepseek`,
+  `zai`, `qwen`, `lmarena`, `minimax`, `kimi` — one at a time, and for each one drives it, derives
+  the session and builds the site family. **The default is plan-only**: adapters and target URLs
+  are resolved and printed, and nothing is opened, typed into or sent. `--execute` is required to
+  interact. Progress is remembered in `<data-dir>/campaign-state.json`, so a second run skips sites
+  that already completed unless you pass `--no-resume`.
+
+```powershell
+node bin/studio.mjs drive chatgpt --dry-run
+node bin/studio.mjs drive claude --prompt "Summarize this page in one sentence" --timeout 90
+node bin/studio.mjs drive https://example.ai/ --no-record
+
+node bin/studio.mjs campaign                       # plan only, prints the order and targets
+node bin/studio.mjs campaign --limit 2 --json
+node bin/studio.mjs campaign chatgpt claude --execute --timeout 90 --cooldown 75
+
+node bin/studio.mjs library build chatgpt.com
+node bin/studio.mjs library build openai --min 3 --json
+node bin/studio.mjs library show chatgpt.com
+node bin/studio.mjs library list
+```
+
+**Human pacing.** Every character is a real `keyDown` + `char` + `keyUp` triple with 35–110 ms
+between keys, longer pauses at word and sentence boundaries, a periodic "thinking" pause, one
+deliberate typo that is noticed and corrected in longer texts, and a 0.7–1.9 s hold before sending.
+Between two sites the campaign waits 45–90 s by default. The exact parameters and the measured CDP
+rules behind them are in [`docs/HUMAN-INTERACTION.md`](docs/HUMAN-INTERACTION.md).
+
+**Honest limits.**
+
+- One browser, one site at a time. Sites are driven serially; there is no concurrency anywhere.
+- A site may block on quota or a captcha: that site times out and is recorded as failed, and the
+  campaign continues with the next one.
+- An account may be rate-limited. One prompt per site per run is deliberate — do not loop the
+  campaign to "get more data".
+- A blocked site (login wall, missing adapter) is recorded and skipped, not retried.
+- The interaction layer types and sends; it does not click through dialogs, accept cookie banners
+  you dismissed before, or solve a challenge.
 
 ## Studio web UI and the `/api/v1` API
 
@@ -274,6 +343,11 @@ Default location: `%LOCALAPPDATA%\AION\capture-studio` on Windows,
   exports/                 default output folder for `--export`
 ```
 
+`campaign` adds one file next to them: `campaign-state.json`, written atomically after every site,
+holding the site, status, session id, family id, signature and the first 2000 characters of the
+reply for each site that finished. Delete it to start a campaign from scratch, or use
+`--no-resume`.
+
 ### One session
 
 ```
@@ -306,6 +380,12 @@ The raw seek index and the stream locator are **derived data**: they can always 
 new immutable version — plus a `CURRENT` file naming the active one. Rollback just moves the
 pointer; history is kept.
 
+A family record built by `library build` (or by `campaign`) is the consolidated view of one site:
+`members` (the session ids that went into it), `hosts`, `coverage` (sessions, derived sessions,
+transports, stream count), a normalised `shapes` array and a `signature`. The signature hashes only
+the normalised shape set, and every collection is sorted, so rebuilding from the same sessions
+produces the same signature.
+
 ### Learner state
 
 `learner/learner.json` holds the current state with an integrity digest; `learner/history/rev-*.json`
@@ -316,9 +396,36 @@ rather than silently overwritten.
 ## Running the tests
 
 ```powershell
+node bin/studio.mjs selftest              # preflight: imports, data dir, Chrome, Studio API
 node --test "test/unit/**/*.test.mjs"     # unit tests (no browser)
-node --test "test/e2e/**/*.test.mjs"       # e2e tests (need Chrome)
-node eval/run.mjs                          # intelligence evaluation
+node --test "test/e2e/**/*.test.mjs"      # e2e tests (need Chrome)
+node scripts/live-e2e.mjs                 # full loop against a local fixture site
+node scripts/human-check.mjs              # typing harness against a local file:// fixture
+node eval/run.mjs                         # intelligence evaluation
 ```
 
 The e2e suite needs a Chrome binary; set `CHROME_PATH` if it is not auto-detected.
+
+`scripts/live-e2e.mjs` uses a local fixture site (`scripts/fixture-site.mjs`) and its own isolated
+data directory, so it never touches a real website. `scripts/human-check.mjs` opens a data-only
+`file://` fixture written to the OS temp directory, types a sentence into a plain input and into a
+`contenteditable`, and asserts nine properties of the typing; it needs a Chrome with DevTools on the
+port and touches no website either. How to read its receipt, and what a failure means, is in
+[`docs/HUMAN-INTERACTION.md`](docs/HUMAN-INTERACTION.md).
+
+### Probing a site read-only
+
+Before writing a site adapter, capture the DOM and transport facts of that site instead of guessing:
+
+```powershell
+node scripts/probe-site.mjs chatgpt
+node scripts/probe-site.mjs claude --reload --wait 8
+node scripts/probe-site.mjs https://example.ai/ --out docs/research/probe --keep-open
+```
+
+`scripts/probe-site.mjs <site|url>` never types, sends, clicks or dispatches input events. It reuses
+an existing tab for the host, writes exactly one JSON file per site (default
+`docs/research/probe/`), and closes only a tab it opened unless `--keep-open` is passed. Flags:
+`--port N`, `--out DIR`, `--wait S`, `--keep-open`, `--reload`. Exit `0` success, `3` unreachable or
+login-walled, `5` no CDP endpoint. The committed files under
+[`docs/research/probe/`](docs/research/probe) are the evidence the site adapters were written from.

@@ -1,6 +1,6 @@
 {
   "site": "kimi",
-  "probedAt": "2026-10-21T23:22:39.176Z",
+  "probedAt": "2026-10-21T23:26:32.858Z",
   "url": "https://www.kimi.com/",
   "title": "Kimi AI with K3 | Built for Agentic Coding & Knowledge Work",
   "loggedOut": false,
@@ -15,6 +15,7 @@
       "formAction": null,
       "disabled": false,
       "readOnly": false,
+      "searchLike": false,
       "rect": {
         "x": 458,
         "y": 408,
@@ -37,6 +38,7 @@
       "h": 48
     },
     "label": "",
+    "searchLike": false,
     "candidateCount": 2
   },
   "sendControls": [],
@@ -126,26 +128,25 @@
   "websockets": [],
   "errors": [],
   "tab": {
-    "id": "3D44101D649C2AD042A6F4F158A46150",
+    "id": "93C7B955642FEBD5744F4E27ADC001EF",
     "openedByProbe": true,
     "port": 9222
   },
   "loginEvidence": [
-    "usable composer present"
+    "chat composer present (1)"
   ],
   "network": {
     "windowSeconds": 8,
-    "totalRequests": 284,
+    "totalRequests": 280,
     "resourceTypes": {
       "Document": 1,
       "Script": 180,
       "Stylesheet": 62,
       "Manifest": 1,
       "Image": 3,
-      "Other": 7,
-      "XHR": 20,
-      "Fetch": 9,
-      "Ping": 1
+      "Other": 6,
+      "XHR": 18,
+      "Fetch": 9
     },
     "failures": 1,
     "websocketFrameEvents": 0,

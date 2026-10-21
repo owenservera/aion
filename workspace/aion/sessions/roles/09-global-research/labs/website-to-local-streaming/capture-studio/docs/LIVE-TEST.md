@@ -56,12 +56,32 @@ Layout: `sessions/` (one directory per recording), `profiles/`, `families/`, `le
 > ```powershell
 > node bin/studio.mjs selftest            # preflight: imports, data dir, Chrome, Studio API (add --json)
 > node scripts/live-e2e.mjs               # full loop against a local fixture site (add --no-browser to skip Chrome)
+> node scripts/human-check.mjs            # typing harness on a local file:// fixture (add --json)
 > ```
 >
 > `selftest` exits 0 when every required check passes; the `cdp-endpoint` check is informational and
 > fails when no capture browser is running on the CDP port. `live-e2e` isolates its data directory
 > (`CAPTURE_STUDIO_HOME` under the temp folder) and writes `live-e2e-result.json` there.
-> The steps below repeat the same flow by hand against a real site.
+>
+> `human-check` writes a data-only fixture page into the OS temp directory, opens it as a `file://`
+> tab, types a sentence into a plain input and into a `contenteditable`, and checks nine properties
+> of the typing: one insert per character, the exact text in both fields, one key sequence per
+> character, no key gap under 15 ms, `navigator.webdriver === false`, focus present, and a user
+> agent without `HeadlessChrome`. It touches no website. Exit 0 = all nine pass, 1 = a check failed,
+> 2 = no DevTools endpoint on the port or the module is missing. A failure means the interaction
+> layer changed behaviour — do not drive a real site until it passes again; see
+> [HUMAN-INTERACTION.md](HUMAN-INTERACTION.md).
+>
+> Then look at what the driver *would* do, before spending an account on it:
+>
+> ```powershell
+> node bin/studio.mjs drive chatgpt --dry-run     # resolved adapter, target URL, prompt, limits
+> node bin/studio.mjs campaign                    # plan only: the nine sites in order, no interaction
+> ```
+>
+> The steps below repeat the same flow by hand against a real site. `drive` and
+> `campaign --execute` are the automated equivalents (drive, derive, build the site family) and are
+> documented in [HUMAN-INTERACTION.md](HUMAN-INTERACTION.md).
 
 ### Step 0 — Environment pre-check
 

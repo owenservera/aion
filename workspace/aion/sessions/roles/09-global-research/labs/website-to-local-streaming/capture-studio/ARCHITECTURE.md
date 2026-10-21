@@ -16,7 +16,7 @@ Point the studio at a website you are authorized to use. It then:
 ## 2. Principles
 
 1. **Raw evidence is immutable and separate from inference.** Everything derived can be recomputed from the raw log.
-2. **Read-only observation.** It uses CDP `Network.*`, an isolated-world DOM agent and the accessibility tree. It never uses `Fetch` interception, never reads typed values, and never automates the page. Playwright and Puppeteer are excluded.
+2. **Read-only observation by default.** Capture uses CDP `Network.*`, an isolated-world DOM agent and the accessibility tree. It never uses `Fetch` interception and never stores typed form values. Page interaction is a separate, opt-in layer (`src/capture/actions.mjs` + `src/capture/human.mjs`) that types with real key events and runs only for `studio drive` or `campaign --execute`; a plain `record`/`capture` never touches the page. Playwright and Puppeteer are excluded.
 3. **Honest coverage.** Gaps, pauses, masking, metadata-only streams and pre-attach blind spots are declared, never hidden. "Unbounded" means no arbitrary truncation, not infinite storage.
 4. **Credentials never reach disk.** Cookie and auth headers are dropped, auth endpoints are metadata-only, and in-body tokens are masked in place with each mask recorded.
 5. **Inferences are hypotheses with evidence and confidence** until the user confirms them.
@@ -32,6 +32,9 @@ Point the studio at a website you are authorized to use. It then:
  CAPTURE        src/capture/   network.mjs (L1 raw chunks via streamResourceContent, WS, EventSource)
                                dom.mjs + page-agent.js (L3 DOM, turns, content blocks, actions, a11y)
                                redact.mjs (credential policy)   recorder.mjs (run lifecycle, pause, quota)
+                               actions.mjs (opt-in drive primitives: composer, send, reply, login wall)
+                               human.mjs (human pacing: key events, pauses, mouse, focus prep)
+                               campaign.mjs (sequential multi-site run: drive -> derive -> family)
    ▼
  STORAGE        src/store/     raw-log.mjs (append-only segments, sha256 manifest, bounded queue,
                                hysteretic overflow → declared gap ranges)   session.mjs (Dataset / KV /
@@ -45,12 +48,35 @@ Point the studio at a website you are authorized to use. It then:
                                breakdown, time travel, revision replay, search)
    ▼
  INTELLIGENCE   src/shapes/    infer.mjs (v1 suggestion engine: endpoints, collections, drift, quality)
-                src/families/  family registry, evidence-based detection, mapping proposals
+                src/families/  build.mjs (site consolidation: one normalised shape set + signature),
+                               family registry, evidence-based detection, mapping proposals
                 src/intel/     v2 engine (see §4)
    ▼
- SURFACES       bin/studio.mjs (CLI)   src/studio/server.mjs + ui/index.html (localhost UI, token +
-                Host/Origin checks)   exports: json, jsonl, csv, md, transcript
+ SURFACES       bin/studio.mjs (CLI, including drive, campaign, library)
+                src/studio/server.mjs + ui/index.html (localhost UI, token + Host/Origin checks)
+                exports: json, jsonl, csv, md, transcript
 ```
+
+### Capture -> derive -> family
+
+One pipeline, used by `campaign --execute` and reproducible by hand:
+
+1. **Drive.** `src/capture/actions.mjs` (`driveSite()`) finds the composer — adapter selectors
+   first, the generic heuristic second, so a site with no adapter still works — brings the tab to
+   the front, types the prompt with `src/capture/human.mjs`, sends it, waits until the reply stops
+   changing and reads it back. The exchange is recorded by the same `src/capture/recorder.mjs` the
+   `record` command uses, so it lands as an ordinary session.
+2. **Derive.** `src/replay/derive.mjs` produces datasets, `SHAPES` and `ASSEMBLED` (dialects) from
+   that session, exactly as for a captured one.
+3. **Consolidate.** `src/families/build.mjs` `buildFamily()` collects every derived session of the
+   host, groups streams by transport and endpoint path (ids normalised to `{id}`), unions the field
+   paths with occurrence counts, sorts everything and hashes the normalised shape set into a
+   deterministic signature. `writeFamily()` persists it through `FamilyStore`, so each build is a
+   new immutable `vNNNN.json` plus `CURRENT`.
+
+`library build` runs step 3 alone over whatever sessions already exist; `library show` and
+`library list` read the store. The pipeline is idempotent: two builds over the same sessions give
+the same objects and the same signature.
 
 ### Canonical data model (three strata)
 
