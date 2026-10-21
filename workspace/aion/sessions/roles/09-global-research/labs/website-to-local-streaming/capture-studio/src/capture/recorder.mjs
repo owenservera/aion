@@ -68,6 +68,9 @@ export class Recorder extends EventEmitter {
 
   async start({ target: selector, profile: profileName, label, tabs, follow } = {}) {
     if (this.state === 'recording') throw new Error('Already recording.');
+    this.paused = false;
+    this.pausedCounts = {};
+    this._quotaHit = false;
     if (tabs !== undefined) this.tabs = tabs === 'all' ? 'all' : 'one';
     if (follow !== undefined) { this.follow = follow !== false; this.pauseNewTargets = this.follow; }
     this._resetTargets();
@@ -134,7 +137,7 @@ export class Recorder extends EventEmitter {
   // Connection-level listeners. Re-wired on every (re)connection.
   _wireConnection() {
     const conn = this.conn;
-    conn.on('close', () => this._onLost('devtools_connection_closed'));
+    conn.on('close', () => { if (conn !== this.conn) return; this._onLost('devtools_connection_closed'); });
     conn.on('unhealthy', (e) => this._append({ k: 'lifecycle', event: 'devtools_heartbeat_failed', error: String(e?.message ?? e) }));
     this.childN ??= 0;
     // Child targets (out-of-process iframes, dedicated workers) carry their own network traffic.
@@ -308,8 +311,10 @@ export class Recorder extends EventEmitter {
     this.targets.set(id, entry);
     this.tagRoot.set(tag, tag);
     this._attachingIds.add(id);
+    let attachSession = null;
     try {
       const session = await conn.attach(id);
+      attachSession = session;
       if (conn !== this.conn || this.state !== 'recording') { conn.detach(session.sessionId).catch(() => {}); return null; }
       entry.session = session;
       this.sessionTags.set(session.sessionId, tag);
@@ -322,7 +327,6 @@ export class Recorder extends EventEmitter {
       else await this.net.attach(session, tag, targetInfo);
       if (info.type === 'page') await this._setupSecondaryPage(session, entry);
       else if (this.follow) await session.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: this.pauseNewTargets, flatten: true }).catch(() => {});
-      await session.send('Runtime.runIfWaitingForDebugger').catch(() => {});
       this._append({
         k: 'lifecycle', event: reattach ? 'target_reattached' : 'target_attached', tag, role, targetType: info.type, url: redactUrl(entry.url ?? ''),
         ...(entry.openerId && this.targets.get(entry.openerId) ? { openerTag: this.targets.get(entry.openerId).tag } : {}),
@@ -340,6 +344,9 @@ export class Recorder extends EventEmitter {
     } finally {
       entry.attaching = false;
       this._attachingIds.delete(id);
+      // A target may be paused waiting for the debugger (waitForDebuggerOnStart): always release
+      // it, even when attach or session setup failed, mirrors _onChildAttached's finally.
+      if (attachSession) { try { await attachSession.send('Runtime.runIfWaitingForDebugger'); } catch { /* ignore */ } }
     }
   }
 
@@ -364,7 +371,7 @@ export class Recorder extends EventEmitter {
     if (!e || e.role === 'primary' || e.role === 'child') return; // primary: _wirePage; children: own handler
     if (session && e.session && e.session !== session) return;
     this.targets.delete(targetId);
-    this._rejected.add(targetId);
+    if (reason !== 'gone_during_reconnect') this._rejected.add(targetId);
     if (e.session) this.sessionTags.delete(e.session.sessionId);
     if (this.state !== 'recording') return;
     if (e.session) this.net.detachSession(e.session.sessionId);
@@ -440,7 +447,7 @@ export class Recorder extends EventEmitter {
           if (this.heartbeatMs) conn.startHeartbeat({ intervalMs: this.heartbeatMs });
           this.sessionTags.clear(); // every old session died with the transport
           this._wireConnection();
-          this.page = await conn.attach(this.targetId);
+          this.page = await conn.attach(this.targetId).catch((e) => { try { conn.close(); } catch { /* ignore */ } throw e; });
           this._wirePage();
           await this._setupPage({ reconnected: true });
           // Re-discovers followed tabs/popups/workers and re-attaches them under their old tags.

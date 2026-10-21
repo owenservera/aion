@@ -162,14 +162,21 @@ export class LiveTap extends EventEmitter {
 
   _drop(rec) {
     this._s.dropped++;
+    let started = false;
     if (!this._lag) {
       this._lag = { droppedRecords: 0, sids: new Set(), since: Date.now(), fromSeq: rec.seq };
       this._s.lagEpisodes++;
-      this._safeEmit('lag', { state: 'dropping', since: this._lag.since, fromSeq: rec.seq, queued: this.queue.length - this.qHead, queueBytes: this.queueBytes });
+      started = true;
     }
     this._lag.droppedRecords++;
     this._lag.toSeq = rec.seq;
     if (rec.sid) { this._lag.sids.add(rec.sid); this._degradeLater(rec.sid, 'tap_queue_overflow'); }
+    if (started) {
+      this._safeEmit('lag', {
+        state: 'dropping', droppedRecords: this._lag.droppedRecords, sids: [...this._lag.sids].slice(0, 200),
+        since: this._lag.since, fromSeq: rec.seq, queued: this.queue.length - this.qHead, queueBytes: this.queueBytes,
+      });
+    }
   }
 
   _degradeLater(sid, reason) {
