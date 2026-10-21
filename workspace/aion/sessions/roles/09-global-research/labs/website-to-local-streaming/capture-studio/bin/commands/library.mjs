@@ -1,9 +1,11 @@
 // library build|show|list: consolidate every derived session of one site into a single family
 // shape set, persist it through the existing FamilyStore, and inspect what was consolidated.
+import path from 'node:path';
 import { EXIT } from '../../src/config.mjs';
 import { define, defineGroup } from '../lib/registry.mjs';
-import { usageError, notFound } from '../lib/ui.mjs';
+import { usageError, notFound, envError } from '../lib/ui.mjs';
 import { buildFamily, writeFamily } from '../../src/families/build.mjs';
+import { CORE_SITES, buildCoreLibrary, writeCoreLibrary, compareSites } from '../../src/families/core.mjs';
 
 const fieldPathCount = (shapes) => new Set((shapes ?? []).flatMap((s) => (s.fields ?? []).map((f) => f.path))).size;
 
@@ -148,5 +150,96 @@ define({
         ]);
       }
     });
+  },
+});
+
+// Environment failures (permissions, missing data dir, full disk) map to exit 5.
+const CORE_ENV_CODES = new Set(['EACCES', 'EPERM', 'ENOSPC', 'EROFS', 'ENOTDIR', 'ENOENT']);
+
+function renderCoreLibrary(o, library, written) {
+  o.result(`Core library ${library.id}: ${library.coverage.sitesWithData}/${library.coverage.sites} site(s) with data, ${library.coverage.withDerived}/${library.coverage.sessions} session(s) derived.`);
+  o.line('');
+  o.table(library.sites.map((s) => ({
+    site: s.id,
+    sessions: s.sessions,
+    derived: s.withDerived,
+    transports: s.transports.join(', ') || '—',
+    endpoints: s.endpoints.join(', ') || '—',
+    signature: s.signature,
+    gaps: library.gaps.filter((g) => g.startsWith(`${s.id}:`)).length,
+  })), [
+    { title: 'SITE', key: 'site', max: 12 },
+    { title: 'SESSIONS', key: 'sessions', align: 'right' },
+    { title: 'DERIVED', key: 'derived', align: 'right' },
+    { title: 'TRANSPORTS', key: 'transports', max: 22 },
+    { title: 'ENDPOINTS', key: 'endpoints', max: 44 },
+    { title: 'SIGNATURE', key: 'signature', max: 22 },
+    { title: 'GAPS', key: 'gaps', align: 'right' },
+  ]);
+  o.line('');
+  const c = library.core;
+  o.kv([
+    ['transports', c.transports.join(', ') || '(none)'],
+    ['frame kinds', c.frameKinds.join(', ') || '(none)'],
+    ['delta fields', c.deltaFields.map((d) => d.name).join(', ') || '(none)'],
+    ['terminal markers', c.terminalMarkers.map((t) => t.marker).join(', ') || '(none)'],
+    ['envelope fields', c.envelopeFields.map((f) => f.name).join(', ') || '(none)'],
+    ['coverage', `${library.coverage.sitesWithData}/${library.coverage.sites} site(s), ${library.coverage.withDerived}/${library.coverage.sessions} session(s), ${library.coverage.streams} stream(s)`],
+    ['signature', library.signature],
+  ]);
+  o.line('');
+  o.line(o.c.dim('differences'));
+  o.table(compareSites({ library }), [
+    { title: 'SITE', key: 'site', max: 12 },
+    { title: 'TRANSPORT', key: 'transport', max: 14 },
+    { title: 'FRAMING', key: 'framing', max: 14 },
+    { title: 'DELTA FIELD', key: 'deltaField', max: 26 },
+    { title: 'TERMINAL', key: 'terminalMarker', max: 28 },
+  ]);
+  if (written) {
+    o.line('');
+    o.line(o.c.dim(`saved ${written.store} v${written.version} -> ${written.dir}`));
+    for (const f of written.files) o.line(o.c.dim(`  ${f}`));
+  }
+  if (library.gaps.length) { o.line(''); for (const g of library.gaps) o.line(o.c.dim(`gap: ${g}`)); }
+}
+
+define({
+  name: 'library core', section: 'Knowledge', usage: '[--sites a,b,c] [--out DIR]',
+  summary: 'Build (and save) the cross-site core streaming library',
+  description: 'Reads the derived sessions of the nine AI chat sites and derives the shared streaming contract (transports, frame kinds, delta fields, terminal markers, envelope fields) from what the captures actually do, plus the per-site dialect that differs. Saves it as family "ai-chat-core" (versioned store + CURRENT) and a plain diffable core.json. Exits 0 on success, 3 when no site has a derived session, 5 on an environment failure.',
+  flags: {
+    sites: { type: 'string', valueName: 'IDS', desc: `Comma-separated site ids (default ${CORE_SITES.join(', ')})` },
+    out: { type: 'string', valueName: 'DIR', desc: 'Write the core library under this families directory instead of the data dir' },
+  },
+  examples: ['studio library core', 'studio library core --sites chatgpt,claude --json', 'studio library core --out ./families'],
+  async run(ctx) {
+    const known = new Set(CORE_SITES);
+    const wanted = ctx.flags.sites
+      ? String(ctx.flags.sites).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+      : [...CORE_SITES];
+    if (!wanted.length) throw usageError('No sites selected.', `Known sites: ${CORE_SITES.join(', ')}.`);
+    const unknown = wanted.filter((s) => !known.has(s));
+    if (unknown.length) throw usageError(`Unknown site(s): ${unknown.join(', ')}.`, `Known sites: ${CORE_SITES.join(', ')}.`);
+
+    const familiesDir = ctx.flags.out ? path.resolve(String(ctx.flags.out)) : ctx.paths.families;
+    let library, written;
+    try {
+      library = buildCoreLibrary({ sessionsDir: ctx.paths.sessions, familiesDir, sites: wanted });
+      if (!library.coverage.withDerived) {
+        ctx.out.emit(library, (o) => {
+          renderCoreLibrary(o, library, null);
+          o.line('');
+          o.line(`No derived sessions for any selected site. Run "studio derive <id> --full" first.`);
+        });
+        process.exitCode = EXIT.NOT_FOUND;
+        return;
+      }
+      written = writeCoreLibrary({ familiesDir, library });
+    } catch (err) {
+      if (CORE_ENV_CODES.has(err?.code)) throw envError(`Cannot build the core library: ${err.message}`, 'Check the data/families directory and free space (--data-dir, --out).');
+      throw err;
+    }
+    ctx.out.emit(library, (o) => renderCoreLibrary(o, library, written));
   },
 });
