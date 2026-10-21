@@ -18,8 +18,8 @@ Task IDs, last run, next run, delivery mode and tool errors belong here or linke
 
 | Task | Cadence | Status | Runtime result |
 |---|---|---|---|
-| AION Research Intake | Daily ~08:00 Europe/Madrid, flexible | ENABLED (created 2026-10-19) | Pending first verified run |
-| AION Research Frontier | Thursdays ~09:00 Europe/Madrid, flexible | ENABLED (created 2026-10-19) | Pending first verified run |
+| AION Research Intake | Daily ~08:00 Europe/Madrid, flexible | ENABLED (created 2026-10-19) | Scheduler reports last_run_time 2026-10-21T07:14:05Z; no GitHub write/recipient proof inferred |
+| AION Research Frontier | Thursdays ~09:00 Europe/Madrid, flexible | ENABLED (created 2026-10-19) | No recorded completed run at 2026-10-21 review |
 
 **Canonical intake source:** [AION RESEARCH issue #30](https://github.com/owenservera/aion/issues/30). Both scheduled tasks load the same Role 09 bootstrap and one research queue; neither creates a second agent.
 
