@@ -121,16 +121,20 @@ function reviewTypeDrift(records, stats) {
 // The default is intentionally complete for the selected site: any optional limit applies to
 // displayed entities only, not the scan. scan/report sizes are disclosed in stats.
 export async function buildSiteContinuity(sessionsDir, {
-  site, eid = null, asOf = null, limit = 50, includeHistory = false,
+  site, origin = null, eid = null, asOf = null, limit = 50, includeHistory = false,
 } = {}) {
   if (typeof site !== 'string' || !site.trim()) throw new Error('A verified site scope is required.');
   const requestedAt = asOf === null || asOf === undefined ? null : continuityTime(asOf);
   if (asOf !== null && asOf !== undefined && requestedAt === null) throw new Error('Invalid as-of timestamp.');
   const maxReturn = Number.isInteger(Number(limit)) && Number(limit) >= 1
     ? Math.min(Number(limit), 1000) : 50;
-  const sessions = listSessions(sessionsDir).filter((m) => siteFromSession(m) === site);
+  // Public read surfaces supply the chosen session origin: never expose a
+  // different hosted subdomain just because both share a registrable site.
+  // Omitting origin is an explicit internal site-wide analytical view only.
+  const sessions = listSessions(sessionsDir).filter((m) => siteFromSession(m) === site
+    && (origin === null || originFromSession(m) === origin));
   const stats = {
-    site, sessionsDiscovered: sessions.length, sessionsWithDerivedKnowledge: 0,
+    site, origin, sessionsDiscovered: sessions.length, sessionsWithDerivedKnowledge: 0,
     sessionsWithoutKnowledge: [], sessionsWithDerivationError: [],
     sourceEntities: 0, keylessOrUnsafeIsolated: 0, untimedRevisions: 0,
     missingRevisionValues: 0, joinedEntities: 0, entitiesTotal: 0, returned: 0, truncated: 0,
@@ -287,9 +291,10 @@ export async function buildSiteContinuity(sessionsDir, {
   stats.returned = returned.length;
   stats.truncated = matched.length - returned.length;
   return {
-    site, asOf: requestedAt, entities: returned, typeDriftHints, stats,
+    site, origin, asOf: requestedAt, entities: returned, typeDriftHints, stats,
     limitations: [
       'Automatic joins require an exact target origin, site, model key field, type, keyed value and eid; this does not prove tenant equality inside one origin.',
+      'User-facing continuity views are scoped to the selected recording origin; an omitted origin requests a broader internal site-wide audit.',
       'Possible type-drift hints are unconfirmed structural comparisons, not identity matches or calibrated probabilities; they never change joined entities.',
       'Keyless and missing/ambiguous keyed observations remain separate across sessions; missing observations are not deletions.',
       'Historical state uses saved revision values and explicit removed-field operations; an absent field without a removal event is not a deletion.',
