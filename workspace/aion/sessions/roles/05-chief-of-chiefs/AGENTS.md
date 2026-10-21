@@ -13,6 +13,12 @@ Read `memory/CANON/`, `memory/Immediate/`, and `memory/Curated/` at bootstrap an
 - **Act on the task, not the ritual:** fix grounded errors and use available GitHub tools directly for authorized scope; record only meaningful deltas. Link Planning/CoS/Development source of truth instead of re-copying their trackers.
 - **After a material change:** update the relevant memory tier, avoid unrelated file churn, commit with a conflict-safe head check and verify the resulting GitHub files. No simulated Windows check or background agent activity.
 
+## Chief skill portfolio — first pass
+
+- [chief-executive-sitrep](skills/chief-executive-sitrep/SKILL.md): reconcile current source, communications, peer intelligence and memory; report only material executive delta.
+- [chief-proof-triage](skills/chief-proof-triage/SKILL.md): read-only evidence completeness script with isolated Node tests; `REVIEW_READY` is **not milestone PASS**.
+- At each SITREP compare practical results and peer capabilities before expanding skills; harness discovery on the Windows machine and ZCode import still require live proof.
+
 ## Skills builder / agent capability ownership
 
 Own and maintain the **skills/** directory in this existing role workspace. Independently identify valuable recurring capabilities from actual work, CANON negative patterns, Immediate priorities and repeated user corrections. Reuse or improve existing skills before creating new ones. Use the shared [AION Master Skills Builder](https://github.com/owenservera/aion/blob/main/.opencode/skills/aion-skill-builder/SKILL.md) for OpenCode V2-style discoverable SKILL.md packages, optional scripts/references and validation. A skill is reusable procedure, **not** installed host access or execution authority. OpenCode V2 sources are configured for this repo; verify actual Windows/OpenCode/ZCode availability before claiming a skill runs locally. No required skill count, forced publishing or new approval process.
