@@ -6,7 +6,20 @@
 //             pairs when a keyed sibling type exists), blocking on the most discriminating
 //             field, union-find clustering above a data-derived threshold.
 // Works for updates, rerenders (new DOM node, same content), pagination overlaps and sessions.
+import { createHash } from 'node:crypto';
+
 const isScalar = (v) => v !== null && v !== undefined && typeof v !== 'object';
+const sha = (x) => createHash('sha1').update(x).digest('hex').slice(0, 12);
+
+// Order-independent instance signature (content + provenance, never array position).
+export function instanceSig(i) { return `${JSON.stringify(i.obj)}|${i.prov.session ?? ''}|${i.prov.sid ?? ''}|${i.prov.seq ?? ''}|${i.prov.domId ?? ''}|${i.prov.t ?? ''}`; }
+
+// Identity scope: keys only collide within one site (provenance site, else endpoint host).
+export function scopeOf(prov) {
+  if (prov.site) return String(prov.site);
+  const g = String(prov.group ?? '').split(' :: ')[0].replace(/^[A-Z]+ /, '');
+  return g ? g.split('/')[0] : '';
+}
 const norm = (v) => (typeof v === 'string' ? v.trim().toLowerCase().replace(/\s+/g, ' ') : v);
 
 export function shingles(text, k = 3) {
@@ -31,28 +44,33 @@ function agree(a, b) {
   return 0;
 }
 
-class UnionFind {
-  constructor(n) { this.p = Array.from({ length: n }, (_, i) => i); }
-  find(i) { while (this.p[i] !== i) { this.p[i] = this.p[this.p[i]]; i = this.p[i]; } return i; }
-  union(a, b) { const ra = this.find(a), rb = this.find(b); if (ra !== rb) this.p[rb] = ra; }
-}
-
 function diffFields(a, b) { const keys = new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})]); return [...keys].filter((k) => JSON.stringify(a?.[k]) !== JSON.stringify(b?.[k])); }
 
-function buildEntities(type, clusters, method, basis) {
+// clusters: Map<label, instanceIndex[]> (indices into type.instances). Entity ids are derived
+// from content (keyed: scope+key; keyless: smallest member signature), so they do not depend on
+// observation order. State is FOLDED across revisions so partial updates never lose fields,
+// and every revision carries the values it changed (enough to reconstruct past states).
+function buildEntities(type, clusters, method, basis, confidences = new Map()) {
   const entities = [];
-  for (const [cid, idxs] of clusters) {
-    const inst = idxs.map((i) => type.instances[i]).sort((x, y) => (x.prov.t ?? 0) - (y.prov.t ?? 0) || (x.prov.seq ?? 0) - (y.prov.seq ?? 0));
+  for (const [label, idxs] of clusters) {
+    const inst = idxs.map((i) => type.instances[i]).sort((x, y) => (x.prov.t ?? 0) - (y.prov.t ?? 0) || (x.prov.seq ?? 0) - (y.prov.seq ?? 0) || (instanceSig(x) < instanceSig(y) ? -1 : 1));
     const revisions = [];
-    let prev = null;
+    let state = {}, prev = null;
     for (const i of inst) {
-      const changed = prev ? diffFields(prev, i.obj) : Object.keys(i.obj);
-      if (prev && !changed.length) continue; // identical re-observation (duplicate) is not a revision
-      revisions.push({ t: i.prov.t ?? null, seq: i.prov.seq ?? null, sid: i.prov.sid, domId: i.prov.domId, changed });
-      prev = i.obj;
+      const changed = prev ? diffFields(prev, i.obj).filter((k) => k in i.obj) : Object.keys(i.obj);
+      if (prev && !changed.length) continue; // identical (or subset) re-observation: duplicate, not a revision
+      const values = Object.fromEntries(changed.map((k) => [k, i.obj[k]]));
+      state = { ...state, ...i.obj };
+      revisions.push({ t: i.prov.t ?? null, seq: i.prov.seq ?? null, sid: i.prov.sid, domId: i.prov.domId, session: i.prov.session, changed, values });
+      prev = { ...state };
     }
-    entities.push({ eid: `${type.id}:${cid}`, type: type.id, typeName: type.name, key: type.key && method === 'key' ? String(inst[0].obj[type.key.field]) : null, observations: inst.length, duplicates: inst.length - revisions.length, revisions, attrs: inst[inst.length - 1].obj, first: revisions[0]?.t ?? null, last: revisions[revisions.length - 1]?.t ?? null, method });
+    const keyVal = type.key && method === 'key' ? String(inst[0].obj[type.key.field]) : null;
+    const scope = scopeOf(inst[0].prov);
+    const eid = method === 'key' ? `${type.id}:k:${sha(`${scope}|${keyVal}`)}` : `${type.id}:e:${sha(inst.map(instanceSig).sort()[0])}`;
+    const conf = confidences.get(label) ?? (method === 'key' ? { value: +Math.min(1, type.key?.score ?? 0.5).toFixed(3), basis: 'identity key score' } : { value: null, basis: 'unscored' });
+    entities.push({ eid, type: type.id, typeName: type.name, key: keyVal, scope, observations: inst.length, duplicates: inst.length - revisions.length, revisions, attrs: state, first: revisions[0]?.t ?? null, last: revisions[revisions.length - 1]?.t ?? null, method, confidence: conf.value, confidenceBasis: conf.basis });
   }
+  entities.sort((a, b) => (a.eid < b.eid ? -1 : 1));
   return { type: type.id, typeName: type.name, method, basis, entities };
 }
 
@@ -60,8 +78,8 @@ export function resolveType(type, opts = {}) {
   const inst = type.instances;
   if (type.key && !type.key.weak) {
     const by = new Map();
-    inst.forEach((i, n) => { const v = i.obj[type.key.field]; const k = v === undefined || v === null ? `__missing_${n}` : String(v); if (!by.has(k)) by.set(k, []); by.get(k).push(n); });
-    return buildEntities(type, by, 'key', { field: type.key.field, keyScore: type.key.score });
+    inst.forEach((i, n) => { const v = i.obj[type.key.field]; const k = v === undefined || v === null ? `__missing_${sha(instanceSig(i))}` : `${scopeOf(i.prov)}\u0000${String(v)}`; if (!by.has(k)) by.set(k, []); by.get(k).push(n); });
+    return buildEntities(type, by, 'key', { field: type.key.field, keyScore: type.key.score, scopedBy: 'site' });
   }
   return linkage(type, opts);
 }
@@ -96,70 +114,91 @@ function minhashKeys(text, k = 3) { return [...shingles(norm(text))].map((sh) =>
 export function snapshotKey(prov) {
   if (prov.snapshot !== undefined) return String(prov.snapshot);
   if (prov.seq !== undefined && prov.seq !== null) return `${prov.session ?? ''}|${prov.sid ?? ''}|${prov.seq}`;
-  if (prov.t !== undefined && prov.t !== null) return `${prov.session ?? ''}|t${Math.floor(prov.t / 50)}`;
-  return null;
+  return null; // never infer a snapshot from timing: rerenders can be arbitrarily close in time
+
 }
 
-export function linkage(type, { sample = 4000, maxBlock = 400, emIters = 25 } = {}) {
-  const inst = type.instances;
+export function linkage(type, { sample = 4000, maxBlock = 400, window = 25, emIters = 25 } = {}) {
+  // Canonical order: work on instances sorted by content signature so every estimate, block and
+  // tie-break is independent of observation order. Results map back to original indices.
+  const perm = type.instances.map((_, i) => i).sort((a, b) => (instanceSig(type.instances[a]) < instanceSig(type.instances[b]) ? -1 : 1));
+  const inst = perm.map((i) => type.instances[i]);
   const n = inst.length;
+  const back = (localIdxs) => localIdxs.map((j) => perm[j]);
   const fields = type.fields.filter((f) => ['string', 'integer', 'number', 'boolean'].includes(f.type) && (f.presence ?? 1) >= 0.5).map((f) => f.name);
-  if (n < 2 || !fields.length) return buildEntities(type, new Map(inst.map((_, i) => [String(i), [i]])), 'singleton', {});
+  if (n < 2 || !fields.length) return buildEntities(type, new Map(inst.map((_, j) => [String(j), back([j])])), 'singleton', {}, new Map(inst.map((_, j) => [String(j), { value: 1, basis: 'single observation' }])));
   const L = Object.fromEntries(fields.map((f) => [f, levelsOf(f, inst)]));
+  // Term frequencies for exact-equality adjustment (common values carry little evidence).
+  const tf = Object.fromEntries(fields.map((f) => { const c = new Map(); let tot = 0; for (const i of inst) { const v = i.obj[f]; if (v === undefined || v === null) continue; const k = String(norm(v)); c.set(k, (c.get(k) ?? 0) + 1); tot++; } return [f, { c, tot }]; }));
+  const tfOf = (f, v) => { const t = tf[f]; return t.tot ? (t.c.get(String(norm(v))) ?? 0) / t.tot : 0; };
   // u: level distribution under non-match, from deterministic pseudo-random pairs.
   const rnd = mulberry(1234);
   const u = {};
   for (const f of fields) {
-    const cnt = Array(L[f]).fill(1); // Laplace smoothing
-    for (let s = 0; s < Math.min(sample, n * (n - 1)); s++) { const a = Math.floor(rnd() * n), b = Math.floor(rnd() * n); if (a === b) continue; const l = level(inst[a].obj[f], inst[b].obj[f]); if (l !== null) cnt[l]++; }
+    const cnt = Array(L[f]).fill(1);
+    for (let s2 = 0; s2 < Math.min(sample, n * (n - 1)); s2++) { const a = Math.floor(rnd() * n), b = Math.floor(rnd() * n); if (a === b) continue; const l = level(inst[a].obj[f], inst[b].obj[f]); if (l !== null) cnt[l]++; }
     const tot = cnt.reduce((x, y) => x + y, 0);
     u[f] = cnt.map((c) => c / tot);
   }
-  // Multi-pass blocking on the 3 most discriminating fields (lowest chance agreement).
-  const discr = [...fields].sort((a, b) => u[a][u[a].length - 1] - u[b][u[b].length - 1]).slice(0, 3);
-  const pairs = new Map();
+  // Multi-pass blocking on the 3 most discriminating fields. Long text: MinHash keys plus a
+  // leading-words key (streaming text grows at the end). Oversized blocks use a sorted
+  // neighbourhood window instead of being skipped.
+  const discr = [...fields].sort((a, b) => u[a][u[a].length - 1] - u[b][u[b].length - 1] || (a < b ? -1 : 1)).slice(0, 3);
+  const pairs = new Set();
+  const addPair = (a, b) => { if (a !== b) pairs.add(a < b ? `${a}|${b}` : `${b}|${a}`); };
   for (const f of discr) {
     const blocks = new Map();
     inst.forEach((i, idx) => {
       const v = i.obj[f];
       if (v === undefined || v === null) return;
-      const keys = isLong(v) ? minhashKeys(v) : [String(norm(v)).slice(0, 16)];
+      const keys = isLong(v) ? [...minhashKeys(v, 4), `pre:${String(norm(v)).split(' ').slice(0, 5).join(' ')}`] : [String(norm(v)).slice(0, 16)];
       for (const k of keys) { const bk = `${f}:${k}`; if (!blocks.has(bk)) blocks.set(bk, []); blocks.get(bk).push(idx); }
     });
     for (const idxs of blocks.values()) {
-      if (idxs.length > maxBlock) continue;
-      for (let x = 0; x < idxs.length; x++) for (let y = x + 1; y < idxs.length; y++) { const a = idxs[x], b = idxs[y]; const k = a < b ? `${a}|${b}` : `${b}|${a}`; if (!pairs.has(k)) pairs.set(k, null); }
+      if (idxs.length <= maxBlock) { for (let x = 0; x < idxs.length; x++) for (let y = x + 1; y < idxs.length; y++) addPair(idxs[x], idxs[y]); continue; }
+      const other = fields.find((g) => g !== f) ?? f;
+      const sorted = idxs.slice().sort((a, b) => { const va = String(norm(inst[a].obj[other] ?? '')), vb = String(norm(inst[b].obj[other] ?? '')); return va < vb ? -1 : va > vb ? 1 : a - b; });
+      for (let x = 0; x < sorted.length; x++) for (let y = x + 1; y < Math.min(sorted.length, x + 1 + window); y++) addPair(sorted[x], sorted[y]);
     }
   }
-  const cand = [...pairs.keys()].map((k) => { const [a, b] = k.split('|').map(Number); return { a, b, g: Object.fromEntries(fields.map((f) => [f, level(inst[a].obj[f], inst[b].obj[f])])) }; });
-  // EM for m (per field, per level) and the match prior p, with u held fixed.
+  const cand = [...pairs].sort().map((k) => { const [a, b] = k.split('|').map(Number); return { a, b, g: Object.fromEntries(fields.map((f) => [f, level(inst[a].obj[f], inst[b].obj[f])])) }; });
+  // EM for m (per field, per level) and the match prior p, u fixed; exact matches TF-adjusted.
   const m = Object.fromEntries(fields.map((f) => [f, L[f] === 4 ? [0.05, 0.1, 0.25, 0.6] : [0.1, 0.9]]));
   let p = 0.2;
-  const logBF = (c) => fields.reduce((s, f) => (c.g[f] === null ? s : s + Math.log2(m[f][c.g[f]] / u[f][c.g[f]])), 0);
+  const top = (f) => L[f] - 1;
+  const logBF = (c) => fields.reduce((acc, f) => {
+    const l = c.g[f];
+    if (l === null) return acc;
+    let uu = u[f][l];
+    if (l === top(f)) uu = Math.max(uu, Math.min(0.5, tfOf(f, inst[c.a].obj[f])));
+    return acc + Math.log2(m[f][l] / uu);
+  }, 0);
   for (let it = 0; it < emIters && cand.length; it++) {
     const acc = Object.fromEntries(fields.map((f) => [f, Array(L[f]).fill(0.01)]));
     let gs = 0;
     for (const c of cand) {
-      const lp = Math.log2(p / (1 - p)) + logBF(c);
-      const g = 1 / (1 + Math.pow(2, -lp));
-      c.post = g; gs += g;
+      const g = 1 / (1 + Math.pow(2, -(Math.log2(p / (1 - p)) + logBF(c))));
+      gs += g;
       for (const f of fields) if (c.g[f] !== null) acc[f][c.g[f]] += g;
     }
     for (const f of fields) { const t = acc[f].reduce((x, y) => x + y, 0); m[f] = acc[f].map((x) => Math.min(0.999, Math.max(0.001, x / t))); }
     p = Math.min(0.95, Math.max(0.001, gs / cand.length));
   }
-  for (const c of cand) c.w = Math.log2(p / (1 - p)) + logBF(c);
-  // Constrained best-first clustering.
+  for (const c of cand) { c.w = Math.log2(p / (1 - p)) + logBF(c); c.post = 1 / (1 + Math.pow(2, -c.w)); }
+  // Constrained best-first clustering (deterministic: canonical indices are content-ordered).
   const snap = inst.map((i) => snapshotKey(i.prov));
   const node = inst.map((i) => i.prov.domId ?? null);
+  const sess = inst.map((i) => i.prov.session ?? null);
   const cluster = inst.map((_, i) => i);
   const members = new Map(inst.map((_, i) => [i, [i]]));
+  const weakest = new Map(inst.map((_, i) => [i, 1]));
   const pairW = new Map(cand.map((c) => [`${c.a}|${c.b}`, c.w]));
   const cannotLink = (A, B) => {
     for (const x of A) for (const y of B) {
       if (snap[x] !== null && snap[x] === snap[y] && (node[x] === null || node[x] !== node[y])) return true;
+      if (sess[x] !== null && sess[y] !== null && sess[x] !== sess[y]) return true; // keyless identity is per session
       const w = pairW.get(x < y ? `${x}|${y}` : `${y}|${x}`);
-      if (w !== undefined && w < 0) return true; // compared and judged different: no chaining
+      if (w !== undefined && w < 0) return true;
     }
     return false;
   };
@@ -171,16 +210,21 @@ export function linkage(type, { sample = 4000, maxBlock = 400, emIters = 25 } = 
     if (cannotLink(A, B)) { blocked++; continue; }
     for (const x of B) cluster[x] = ra;
     members.set(ra, A.concat(B)); members.delete(rb);
+    weakest.set(ra, Math.min(weakest.get(ra), weakest.get(rb), c.post));
     linked++;
   }
-  const clusters = new Map([...members].map(([r, idxs]) => [String(r), idxs]));
-  const res = buildEntities(type, clusters, 'linkage', { fields, blockingFields: discr, candidatePairs: cand.length, linked, blockedByConstraints: blocked, matchPrior: +p.toFixed(4), u: Object.fromEntries(fields.map((f) => [f, u[f].map((x) => +x.toFixed(3))])), m: Object.fromEntries(fields.map((f) => [f, m[f].map((x) => +x.toFixed(3))])) });
-  // Ambiguity: entities whose members were linked by weak evidence are flagged, not hidden.
-  for (const e of res.entities) e.linkConfidence = null;
-  return res;
+  // Confidence: merged clusters -> posterior of their weakest link; singletons -> probability
+  // they are NOT a missed match (1 - best posterior to any compared candidate).
+  const bestPost = new Map();
+  for (const c of cand) { bestPost.set(c.a, Math.max(bestPost.get(c.a) ?? 0, c.post)); bestPost.set(c.b, Math.max(bestPost.get(c.b) ?? 0, c.post)); }
+  const clusters = new Map(), confs = new Map();
+  for (const [r, idxs] of members) {
+    clusters.set(String(r), back(idxs));
+    confs.set(String(r), idxs.length > 1 ? { value: +weakest.get(r).toFixed(3), basis: 'posterior of the weakest link in the cluster' } : { value: +(1 - (bestPost.get(r) ?? 0) * (cluster[r] === r ? 1 : 0)).toFixed(3), basis: 'probability of being distinct (1 - best candidate posterior)' });
+  }
+  return buildEntities(type, clusters, 'linkage', { fields, blockingFields: discr, candidatePairs: cand.length, linked, blockedByConstraints: blocked, matchPrior: +p.toFixed(4), termFrequencyAdjusted: true, u: Object.fromEntries(fields.map((f) => [f, u[f].map((x) => +x.toFixed(3))])), m: Object.fromEntries(fields.map((f) => [f, m[f].map((x) => +x.toFixed(3))])) }, confs);
 }
 
-const round = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, +v.toFixed(3)]));
 function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 export function resolveModel(model, opts) { return model.types.map((t) => resolveType(t, opts)); }

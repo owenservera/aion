@@ -18,7 +18,7 @@ export class TemporalGraph {
     const before = n.attrs;
     n.attrs = { ...n.attrs, ...attrs };
     n.lastT = Math.max(n.lastT ?? t, t ?? 0);
-    const rev = { t, changed: changed ?? Object.keys(attrs).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(attrs[k])), evidence };
+    const rev = { t, changed: changed ?? Object.keys(attrs).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(attrs[k])), values: attrs, evidence };
     n.history.push(rev);
     this.changes.push({ t, eid, revision: n.history.length, changed: rev.changed });
     return n;
@@ -40,7 +40,9 @@ export class TemporalGraph {
     for (const n of this.nodes.values()) {
       if ((n.firstT ?? 0) > t) continue;
       const revs = n.history.filter((r) => (r.t ?? 0) <= t);
-      nodes.push({ eid: n.eid, typeName: n.typeName, key: n.key, revision: revs.length, latestChange: revs.at(-1)?.t ?? null });
+      // Materialise the attribute state as of t by folding revision values in order.
+      const attrs = revs.reduce((acc, r) => Object.assign(acc, r.values ?? {}), {});
+      nodes.push({ eid: n.eid, typeName: n.typeName, key: n.key, revision: revs.length, latestChange: revs.at(-1)?.t ?? null, attrs });
     }
     const edges = [...this.edges.values()].filter((e) => (e.t ?? 0) <= t && e.status !== 'rejected');
     return { t, nodes, edges };
@@ -63,12 +65,13 @@ export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps =
   for (const r of resolutions) for (const e of r.entities) {
     let first = true;
     for (const rev of e.revisions) {
-      g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key, attrs: first ? e.attrs : {}, t: rev.t, changed: rev.changed, evidence: { session: session?.id, seq: rev.seq, sid: rev.sid, domId: rev.domId } });
+      g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key, attrs: rev.values ?? (first ? e.attrs : {}), t: rev.t, changed: rev.changed, evidence: { session: rev.session ?? session?.id, seq: rev.seq, sid: rev.sid, domId: rev.domId } });
       first = false;
     }
     if (!e.revisions.length) g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key, attrs: e.attrs, t: e.first });
-    // Latest attrs as the current state.
-    g.nodes.get(e.eid).attrs = e.attrs;
+    // Current state = folded state; also carry the entity's identity confidence.
+    const node = g.nodes.get(e.eid);
+    node.attrs = e.attrs; node.confidence = e.confidence; node.confidenceBasis = e.confidenceBasis;
     if (e.key !== null) keyIndex.set(`${e.type}|${e.key}`, e.eid);
   }
   // Instance-level reference edges from type-level inclusion dependencies.

@@ -12,7 +12,7 @@ export function discriminatorOf(ev) {
   return Array.isArray(j) ? '[array]' : '(object)';
 }
 
-export function buildCorpus(reducer, { domTurns = [], domItems = [], session } = {}) {
+export function buildCorpus(reducer, { domTurns = [], domItems = [], session, site } = {}) {
   const samples = [];
   const patchGroups = new Set();
   for (const s of reducer.streams.values()) {
@@ -23,18 +23,19 @@ export function buildCorpus(reducer, { domTurns = [], domItems = [], session } =
       if (e.json === undefined || e.json === null || typeof e.json !== 'object') continue;
       const group = `${endpoint} :: ${discriminatorOf(e)}`;
       if (isPatch) patchGroups.add(group);
-      samples.push({ value: e.json, source: { kind: 'event', group, endpoint, sid: s.sid, seq: e.seq, t: e.t, session: session?.id } });
+      samples.push({ value: e.json, source: { kind: 'event', group, endpoint, sid: s.sid, seq: e.seq, t: e.t, session: session?.id, site } });
     }
     if (s._delta?.revisions > 0 && s._delta.doc && typeof s._delta.doc === 'object' && isPatch) {
-      samples.push({ value: s._delta.doc, source: { kind: 'assembled', group: `${endpoint} :: (assembled)`, endpoint, sid: s.sid, seq: null, t: s.endT ?? s.lastChunkT, session: session?.id, revisions: s._delta.revisions, final: s.status === 'complete' } });
+      samples.push({ value: s._delta.doc, source: { kind: 'assembled', group: `${endpoint} :: (assembled)`, endpoint, sid: s.sid, seq: null, t: s.endT ?? s.lastChunkT, session: session?.id, site, revisions: s._delta.revisions, final: s.status === 'complete' } });
     }
   }
   for (const t of domTurns) {
     // DOM node handles, positions and capture flags are provenance, not entity data.
     const { blocks, domId, index, roleAttribute, truncated, redactions, ...rest } = t;
     if (rest.id === domId) delete rest.id;
-    samples.push({ value: { ...rest, blockTypes: [...new Set((blocks ?? []).map((b) => b.type))] }, source: { kind: 'dom', group: 'page :: turns', domId, index, session: session?.id } });
+    // One DOM_TURNS capture is a single snapshot: distinct nodes in it are distinct entities.
+    samples.push({ value: { ...rest, blockTypes: [...new Set((blocks ?? []).map((b) => b.type))] }, source: { kind: 'dom', group: 'page :: turns', domId, index, session: session?.id, site, snapshot: `${session?.id ?? ''}|dom-turns|${t.capturedAt ?? 'final'}` } });
   }
-  for (const it of domItems) samples.push({ value: it.value, source: { kind: 'dom', group: `page :: ${it.group}`, domId: it.domId, session: session?.id } });
+  for (const it of domItems) samples.push({ value: it.value, source: { kind: 'dom', group: `page :: ${it.group}`, domId: it.domId, session: session?.id, site, snapshot: it.snapshot } });
   return { samples, patchGroups };
 }
