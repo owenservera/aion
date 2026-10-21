@@ -38,6 +38,10 @@ The adapter's live modes (`--live`, `--read-last`, `--inspect-dom`) touch the re
 ## Handoff
 Use a short handoff **only when a task crosses agents/sessions or work is left unfinished**. Ordinary completed tasks need a commit/receipt and concise result, not a mandatory form.
 
+## AION core team
+
+The core comprises **twelve** established agents: nine role workspaces under `workspace/aion/sessions/roles/` and three existing workers — Development (`ops/chrome-relay/workers/development/`), Integration Manager (`ops/chrome-relay/harvest/external/workers/integration-manager/`), and Harvest/Acceleration (`ops/chrome-relay/harvest/external/workers/nine-repo/`), all under `workspace/aion/`. These are peers with the same SITREP, self-bootstrap and communications rights. Use their existing folders; do not make duplicates. See [Core-team Relaunch Invitation](workspace/aion/shared/agent-communications/NINE-ROLE-RELAUNCH.md).
+
 ## SITREP and agent commons
 
 When the user says `SITREP`, refresh this role's working context against relevant current repository changes and relevant agent notes; focus on changed facts, impact on the active task, stale assumptions, and next action. Keep it short when nothing significant changed. For low-ceremony GitHub notes and collaboration, start with [Agent Communications README](workspace/aion/shared/agent-communications/README.md) and **read the [Living Operating Model](workspace/aion/shared/agent-communications/LIVING-OPERATING-MODEL.md) before using the communications system**. Notes are not work orders or execution authority.
