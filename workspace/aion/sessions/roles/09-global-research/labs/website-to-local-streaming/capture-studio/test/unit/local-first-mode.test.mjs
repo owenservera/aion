@@ -12,6 +12,7 @@ const domSource = read('src/capture/dom.mjs');
 const tap = read('src/capture/live-tap.mjs');
 const network = read('src/capture/network.mjs');
 const server = read('src/studio/server.mjs');
+const hub = read('src/studio/integration-hub.mjs');
 const chat = read('src/studio/ui/chat.mjs');
 const chatHtml = read('src/studio/ui/chat.html');
 const drive = read('src/studio/ui/drive.mjs');
@@ -101,4 +102,10 @@ test('local raw DOM snapshot and turns do not hide source content',async()=>{
   const turns=await obs.turns();
   assert.equal(turns[0].text,'{"access_token":"local-fixture-token"}');
   assert.equal(turns[0].blocks[0].text,'secret local');
+});
+
+test('OpenAPI declares no token requirement for localhost default mode',()=>{
+  assert.match(server,/getAccessMode: \(\) => accessMode/);
+  assert.match(hub,/security: getAccessMode\(\) === 'local' \? \[\]/);
+  assert.match(hub,/getAccessMode = \(\) => 'local'/);
 });
