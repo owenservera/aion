@@ -69,7 +69,7 @@ test('page is a module-only, CSP-safe document with every referenced element pre
 test('controls are labelled, placeholder is the plain composer text, and hit areas are 44px', () => {
   assert.match(html, /<label for="prompt"[^>]*>Message<\/label>/);
   assert.match(html, /placeholder="Write a message to this website"/);
-  assert.match(html, /maxlength="2000"/);
+  assert.match(html, /maxlength="250000"/);
   assert.match(html, /<label for="site"[^>]*>Site<\/label>/);
   assert.match(html, /role="radiogroup" aria-labelledby="tabsLabel"/);
   assert.match(html, /button, select, input\[type=text\], textarea, summary, a\.hit \{ min-height: 44px; \}/);
