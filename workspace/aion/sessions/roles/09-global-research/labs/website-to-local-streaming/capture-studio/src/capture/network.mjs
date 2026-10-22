@@ -11,7 +11,7 @@
 //      profile allows, Network.getResponseBody is attempted at loadingFinished (marked retrospective).
 //   3. WebSocket frames and browser-parsed EventSource messages are recorded as separate views.
 import { EventEmitter } from 'node:events';
-import { redactHeaders, redactUrl, isSensitiveUrl, scrubText } from './redact.mjs';
+import { redactHeaders, redactUrl, isSensitiveUrl, scrubSecrets, scrubText } from './redact.mjs';
 import { ChunkCredentialGuard, FrameCredentialGuard } from './stream-guard.mjs';
 import { inScope } from '../profiles/profiles.mjs';
 
@@ -76,7 +76,13 @@ export class NetworkRecorder extends EventEmitter {
     on('Network.webSocketFrameReceived', (p) => this._onWsFrame(tag, p, 'in', targetInfo));
     on('Network.webSocketFrameSent', (p) => this._onWsFrame(tag, p, 'out', targetInfo));
     on('Network.webSocketFrameError', (p) => { const st = this.reqs.get(this._sid(tag, p.requestId)); if (st) this.append({ k: 'ws.error', sid: st.sid, error: p.errorMessage }); });
-    on('Network.webSocketClosed', (p) => { const st = this.reqs.get(this._sid(tag, p.requestId)); if (!st) return; if (!st.ignored) this.append({ k: 'ws.close', sid: st.sid, ct: p.timestamp }); this.reqs.delete(st.sid); });
+    on('Network.webSocketClosed', (p) => { const st = this.reqs.get(this._sid(tag, p.requestId)); if (!st) return;
+      if (!st.ignored) {
+        for (const frame of st.frameGuard?.finish().frames ?? []) this._appendSafeWsFrame(frame);
+        this.append({ k: 'ws.close', sid: st.sid, ct: p.timestamp });
+      }
+      this.reqs.delete(st.sid);
+    });
     await session.send('Network.enable', { maxTotalBufferSize: 256 * 1024 * 1024, maxResourceBufferSize: 64 * 1024 * 1024, maxPostDataSize: 1024 * 1024 });
     // Keep the browser cache from hiding traffic? No: altering cache behaviour changes the page.
   }
@@ -92,6 +98,7 @@ export class NetworkRecorder extends EventEmitter {
       if (!st.sid.startsWith(`${tag}:`)) continue;
       st.armed = false; st.reattachOrphan = true;
       if (st.guard?.discard()) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_tail_devtools_reconnect' });
+      if (st.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_frames_devtools_reconnect' });
       orphaned.push(st.sid);
       this.append({ k: 'body.excluded', sid: st.sid, reason: 'devtools_reconnect_stream_not_resumable' });
     }
@@ -114,6 +121,7 @@ export class NetworkRecorder extends EventEmitter {
     for (const [sid, st] of [...this.reqs]) {
       if (!sid.startsWith(`${entry.tag}:`)) continue;
       if (st.guard?.discard()) this.append({ k: 'body.excluded', sid, reason: 'security_tail_target_detached' });
+      if (st.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid, reason: 'security_frames_target_detached' });
       if (!st.ignored) this.append({ k: 'fail', sid, errorText: 'target detached', canceled: false, chunks: st.chunks ?? 0, bytes: st.bytes ?? 0 });
       this.reqs.delete(sid);
       n++;
@@ -128,6 +136,7 @@ export class NetworkRecorder extends EventEmitter {
     const prev = this.reqs.get(sid);
     if (prev && p.redirectResponse) {
       if (prev.guard?.discard()) this.append({ k: 'body.excluded', sid, reason: 'security_tail_unfinished_redirect' });
+      if (prev.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid, reason: 'security_frames_unfinished_redirect' });
       this.append({ k: 'res', sid, status: p.redirectResponse.status, mime: p.redirectResponse.mimeType, headers: redactHeaders(p.redirectResponse.headers), redirect: true });
       this.append({ k: 'done', sid, redirectedTo: redactUrl(url) });
     }
@@ -301,6 +310,7 @@ export class NetworkRecorder extends EventEmitter {
     if (!st) return;
     if (st.ignored) { this.reqs.delete(st.sid); return; }
     if (st.guard?.discard()) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_tail_unfinished_failure' });
+    if (st.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_frames_unfinished_failure' });
     this.append({ k: 'fail', sid: st.sid, ct: p.timestamp, errorText: p.errorText, canceled: !!p.canceled, blockedReason: p.blockedReason, chunks: st.chunks, bytes: st.bytes });
     this.reqs.delete(st.sid);
   }
@@ -318,7 +328,8 @@ export class NetworkRecorder extends EventEmitter {
     if (!this.profile.capture?.websockets) { this.reqs.set(sid, { sid, ignored: true }); return; }
     const pol = this._policy(p.url, null, tag); // WebSockets are governed by capture.websockets, not resource types
     if (!pol.capture || !pol.body) { this.reqs.set(sid, { sid, ignored: !pol.capture, body: false }); if (pol.capture) this.append({ k: 'ws.open', sid, url: redactUrl(p.url), policy: `metadata_only:${pol.reason}` }); return; }
-    this.reqs.set(sid, { sid, url: p.url, ws: true, body: true, frames: 0, bytes: 0, chunks: 0 });
+    this.reqs.set(sid, { sid, url: p.url, ws: true, body: true, frames: 0, bytes: 0, chunks: 0,
+      frameGuard: new FrameCredentialGuard() });
     this.append({ k: 'ws.open', sid, url: redactUrl(p.url), initiator: p.initiator?.type, target: targetInfo.type ?? 'page' });
   }
 
@@ -350,7 +361,8 @@ export class NetworkRecorder extends EventEmitter {
     const pageInScope = !!pageUrl && inScope(this.profile, pageUrl, pageUrl);
     if (!pageInScope && !this.options.allBodies) { this.reqs.set(sid, { sid, ignored: true }); return null; }
     const body = mode === 'body';
-    const st = { sid, url: null, ws: true, body, frames: 0, bytes: 0, chunks: 0, lateJoin: true };
+    const st = { sid, url: null, ws: true, body, frames: 0, bytes: 0, chunks: 0, lateJoin: true,
+      frameGuard: body ? new FrameCredentialGuard() : null };
     this.reqs.set(sid, st);
     this.stats.wsLateJoined++;
     this.append({
@@ -361,37 +373,61 @@ export class NetworkRecorder extends EventEmitter {
     return st;
   }
 
+  _appendSafeWsFrame(frame) {
+    this.stats.redactions += frame.redactions?.length ?? 0;
+    this.append(frame);
+  }
+
   _onWsFrame(tag, p, dir, targetInfo = {}) {
     let st = this.reqs.get(this._sid(tag, p.requestId));
     if (!st) st = this._lateJoinWs(tag, p.requestId, targetInfo);
     if (!st || st.ignored) return;
     const f = p.response ?? {};
-    if (!st.body) {
-      // Metadata-only socket: keep the frame cadence and sizes so the transport is still visible.
+    const data = f.payloadData ?? '';
+    const size = f.opcode === 2 ? Buffer.from(data, 'base64').length : Buffer.byteLength(data);
+    const metadata = { k: 'ws.frame_meta', sid: st.sid, dir, opcode: f.opcode, size, ct: p.timestamp };
+    if (!st.body || st.credentialExcluded) {
       this.stats.wsMetadataFrames++;
-      this.append({ k: 'ws.frame_meta', sid: st.sid, dir, opcode: f.opcode, size: (f.payloadData ?? '').length, ct: p.timestamp, policy: 'metadata_only' });
+      this.append({ ...metadata, policy: st.credentialExcluded ? 'metadata_only:credential_guard' : 'metadata_only' });
       return;
     }
     if (dir === 'out' && !this.profile.capture?.wsSentFrames) {
-      this.append({ k: 'ws.frame_meta', sid: st.sid, dir, opcode: f.opcode, size: (f.payloadData ?? '').length, ct: p.timestamp });
+      this.stats.wsMetadataFrames++;
+      this.append({ ...metadata, policy: 'metadata_only:sent_frame_policy' });
       return;
     }
     this.stats.wsFrames++;
-    if (f.opcode === 8 || f.opcode === 9 || f.opcode === 10 || f.opcode === 0) this.stats.wsControlFrames++;
+    if ([0, 8, 9, 10].includes(f.opcode)) this.stats.wsControlFrames++;
     st.frames = (st.frames ?? 0) + 1;
     if (this.maxStreamBytes && (st.bytes ?? 0) >= this.maxStreamBytes) {
-      if (!st.truncated) { st.truncated = true; this.stats.truncatedStreams++; this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes ?? 0, cap: this.maxStreamBytes, reason: 'max_stream_bytes' }); }
-      this.append({ k: 'ws.frame_meta', sid: st.sid, dir, opcode: f.opcode, size: (f.payloadData ?? '').length, ct: p.timestamp, droppedByCap: true });
+      if (!st.truncated) { st.truncated = true; this.stats.truncatedStreams++;
+        this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes ?? 0, cap: this.maxStreamBytes, reason: 'max_stream_bytes' }); }
+      for (const dropped of st.frameGuard?.discard() ?? [])
+        this.append({ k: 'ws.frame_meta', sid: st.sid, dir: dropped.frame.dir, opcode: dropped.frame.opcode,
+          ct: dropped.frame.ct, size: dropped.bytes, policy: 'metadata_only:security_tail_truncated' });
+      this.append({ ...metadata, droppedByCap: true });
       return;
     }
-    let payload = f.payloadData ?? '';
-    let redactions = [];
-    if (f.opcode === 2) { const r = scrubSecrets(Buffer.from(payload, 'base64')); payload = r.bytes.toString('base64'); redactions = r.redactions; }
-    else { const r = scrubText(payload); payload = r.text; redactions = r.redactions; }
-    st.bytes = (st.bytes ?? 0) + (f.opcode === 2 ? Buffer.from(payload, 'base64').length : Buffer.byteLength(payload));
-    const rec = { k: 'ws.frame', sid: st.sid, dir, opcode: f.opcode, payload, ct: p.timestamp };
-    if (redactions.length) { rec.redactions = redactions; this.stats.redactions += redactions.length; }
-    this.append(rec);
+    // Observe raw bytes only in memory, before appending anything to raw JSONL.
+    // Each delayed safe frame keeps its original opcode/direction and arrival ct.
+    const bytes = f.opcode === 2 ? Buffer.from(data, 'base64') : Buffer.from(data, 'utf8');
+    let payload, redactions;
+    if (f.opcode === 2) { const r = scrubSecrets(bytes); payload = r.bytes.toString('base64'); redactions = r.redactions; }
+    else { const r = scrubText(data); payload = r.text; redactions = r.redactions; }
+    const rec = { k: 'ws.frame', sid: st.sid, dir, opcode: f.opcode, payload, ct: p.timestamp, securityDelayed: true };
+    if (redactions.length) rec.redactions = redactions;
+    st.bytes = (st.bytes ?? 0) + size;
+    const gated = (st.frameGuard ??= new FrameCredentialGuard()).push(rec, bytes);
+    for (const ready of gated.frames) this._appendSafeWsFrame(ready);
+    if (gated.excluded) {
+      st.credentialExcluded = true;
+      this.stats.sensitiveExcluded++;
+      this.append({ k: 'body.excluded', sid: st.sid, reason: gated.reason, securityGuard: 'ws-frames-v1',
+        coverage: 'Pending and later WebSocket frames are metadata-only to prevent cross-frame credential exposure.' });
+      for (const dropped of gated.dropped)
+        this.append({ k: 'ws.frame_meta', sid: st.sid, dir: dropped.frame.dir, opcode: dropped.frame.opcode,
+          ct: dropped.frame.ct, size: dropped.bytes, policy: 'metadata_only:credential_guard' });
+    }
   }
 
   openStreams() { return [...this.reqs.values()].filter((s) => !s.ignored).map((s) => s.sid); }
