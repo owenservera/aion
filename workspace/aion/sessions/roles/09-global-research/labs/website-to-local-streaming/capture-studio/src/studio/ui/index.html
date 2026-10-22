@@ -1204,6 +1204,7 @@ async function openSessionDeepLink(hash) {
   const notice = $('#deepLinkNotice');
   notice.hidden = false;
   if (!request) {
+    selectSessionContext(null);
     notice.textContent = 'Invalid recording link. Choose a saved recording below; no linked evidence was loaded.';
     return false;
   }
@@ -1211,6 +1212,7 @@ async function openSessionDeepLink(hash) {
   const loaded = await openSession(request.id);
   if (epoch !== deepLinkEpoch) return false;
   if (!loaded) {
+    if (S.sessionId === request.id) selectSessionContext(null);
     notice.textContent = 'Could not open the linked recording. It may be missing or access may have expired. Choose a saved recording below.';
     return false;
   }
