@@ -151,7 +151,7 @@ test('Home, Chat and Drive use explicit authorization recovery and no automatic 
 
 function driveLeaseFixture(data) {
   const S={mode:'drive',busy:false,job:null,jobs:[]},calls=[],dom=new Map();
-  const $=id=>{if(!dom.has(id))dom.set(id,{checked:id==='#confirmLive',value:id==='#prompt'?'hello':'',textContent:'',
+  const $=id=>{if(!dom.has(id))dom.set(id,{checked:false,value:id==='#prompt'?'hello':'',textContent:'',
     replaceChildren(...children){this.children=children;this.textContent=children.map(x=>typeof x==='string'?x:x.text??'').join('');}});
     return dom.get(id);};
   const ctx={S,$,currentTargets:()=>({sites:['chatgpt']}),activeJobId:()=>null,updateControls:()=>{},numberField:()=>undefined,
@@ -171,7 +171,7 @@ test('Drive 409 Chat lease names its holder and links to Chat without retrying',
   const error=h.$('#formError');
   assert.match(error.textContent,/Chat conversation holds the browser/);
   assert.equal(error.children[1].href,'/chat');
-  assert.equal(h.$('#confirmLive').checked,false);
+  assert.doesNotMatch(drive,/confirmLive/,'Live Drive uses only its explicit click, not a separate checkbox');
 });
 test('Drive 409 unknown lease holder does not claim another Drive job or auto-queue',async()=>{
   const h=driveLeaseFixture({holder:{kind:'unknown'}});
@@ -179,7 +179,7 @@ test('Drive 409 unknown lease holder does not claim another Drive job or auto-qu
   assert.match(h.$('#formError').textContent,/owner could not be confirmed/);
   assert.doesNotMatch(h.$('#formError').textContent,/Another Drive job/);
   assert.equal(h.calls.filter(x=>x.path).length,1);
-  assert.equal(h.$('#confirmLive').checked,false);
+  assert.doesNotMatch(drive,/confirmLive/,'Live Drive uses only its explicit click, not a separate checkbox');
 });
 test('Home selected-recording change clears old Knowledge before any replacement is loaded',()=>{
   const script=studio.split('<script>')[1]?.split('</script>')[0]??'';
