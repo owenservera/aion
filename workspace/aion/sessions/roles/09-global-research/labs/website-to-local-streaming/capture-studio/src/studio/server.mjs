@@ -29,8 +29,9 @@ import { createConversationApi, defaultConversationRuntime } from './conversatio
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
-export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token = randomBytes(18).toString('base64url'), accessMode = process.env.CAPTURE_STUDIO_ACCESS_MODE ?? 'local', rawOptions, drive, campaign, conversationRuntime, conversationRuntimeFactory = defaultConversationRuntime } = {}) {
+export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token, accessMode = process.env.CAPTURE_STUDIO_ACCESS_MODE ?? (token === undefined ? 'local' : 'token'), rawOptions, drive, campaign, conversationRuntime, conversationRuntimeFactory = defaultConversationRuntime } = {}) {
   if (!['local', 'token'].includes(accessMode)) throw new Error('CAPTURE_STUDIO_ACCESS_MODE must be local or token');
+  token ??= randomBytes(18).toString('base64url');
   conversationRuntime ??= await conversationRuntimeFactory({ paths, profileStore, familyStore, port: cdpPort });
   const conversationApi = createConversationApi({ runtime: conversationRuntime });
   // Persistent learning state (role models, corrections, calibration) lives in the data dir.
