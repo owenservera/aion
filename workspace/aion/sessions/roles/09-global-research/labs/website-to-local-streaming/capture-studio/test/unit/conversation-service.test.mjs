@@ -221,6 +221,19 @@ test('lost ack stays uncertain, duplicate never retries, finish preserves Studio
   assert.equal(fs.readFileSync(f.service.file, 'utf8').includes('SECRET'), false);
 });
 
+test('uncertain send blocks fresh keys even after a read-only check finds no confirmation', async (t) => {
+  let sends = 0;
+  const f = fixture(t, { async submit() { sends++; return null; }, async reconcile() { return null; } });
+  await f.connect();
+  const uncertain = await f.submit();
+  assert.equal(uncertain.send.state, 'uncertain');
+  await rejects(f.submit({ key: 'deliberate-new-key' }), 'ONE_TURN_LIMIT');
+  const observed = await f.service.reconcile({ expectedRevision: f.service.read().revision });
+  assert.equal(observed.attempts[0].send.state, 'uncertain');
+  await rejects(f.submit({ key: 'another-key' }), 'ONE_TURN_LIMIT');
+  assert.equal(sends, 1, 'no second external dispatch');
+});
+
 test('partial typing failure requires reconciliation and never sends or closes', async (t) => {
   const f = fixture(t, { async type() { throw new Error('partial'); } });
   await f.connect(); await rejects(f.submit(), 'TYPING_INTERRUPTED');
