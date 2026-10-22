@@ -93,10 +93,18 @@ export class StreamReducer {
       Object.defineProperty(s, '_ws', { value: null, writable: true, enumerable: false });
       Object.defineProperty(s, '_delta', { value: new DeltaAssembler({ dialect: this.deltaDialect, opsLog: this.deltaOpsLog, snapshotEvery: this.deltaSnapshotEvery }), writable: true, enumerable: false });
       Object.defineProperty(s, '_events', { value: [], writable: true, enumerable: false });
+      // Memoised per-stream summary body (see summary()); null = needs rebuilding.
+      Object.defineProperty(s, '_sum', { value: { base: null }, writable: true, enumerable: false });
       this.streams.set(sid, s);
     }
+    // Every ingest path that mutates a stream goes through here (or marks it explicitly), so the
+    // memoised summary is invalidated exactly when the stream can have changed.
+    s._sum.base = null;
     return s;
   }
+
+  _touchAll() { for (const s of this.streams.values()) s._sum.base = null; }
+  _touch(sid) { const s = this.streams.get(sid); if (s) s._sum.base = null; return s; }
 
   _emitEvents(s, evs, rec, out) {
     for (const ev of evs) {
@@ -120,7 +128,8 @@ export class StreamReducer {
       if (ev.frameType !== undefined) (s.frameTypes ??= new Set()).add(String(ev.frameType));
       const j = ev.json;
       if (j && typeof j === 'object' && !Array.isArray(j)) {
-        const k = SEQ_FIELDS.find((x) => typeof j[x] === 'number');
+        let k;
+        for (let fi = 0; fi < SEQ_FIELDS.length; fi++) if (typeof j[SEQ_FIELDS[fi]] === 'number') { k = SEQ_FIELDS[fi]; break; }
         if (k) {
           const key = `${k}|${j.type ?? ''}`;
           s._lastNum ??= {};
@@ -174,7 +183,7 @@ export class StreamReducer {
     const out = [];
     switch (rec.k) {
       case 'run.start': this.run = { ...rec }; break;
-      case 'run.end': this.run.end = rec; for (const s of this.streams.values()) if (s.status === 'open') { s.status = 'incomplete_at_stop'; this._finish(s, rec, out); } break;
+      case 'run.end': this.run.end = rec; this._touchAll(); for (const s of this.streams.values()) if (s.status === 'open') { s.status = 'incomplete_at_stop'; this._finish(s, rec, out); } break;
       case 'req': {
         const s = this._stream(rec.sid, { url: rec.url, method: rec.method, resourceType: rec.type, startedT: rec.t, frameId: rec.frameId, initiator: rec.initiator, target: rec.target });
         s.url = rec.url; s.method = rec.method; s.resourceType = rec.type;
@@ -238,7 +247,12 @@ export class StreamReducer {
         this._emitEvents(s, [ev], rec, out);
         break;
       }
-      case 'ws.open': { this._stream(rec.sid, { kind: 'ws', url: rec.url, startedT: rec.t, target: rec.target }); break; }
+      case 'ws.open': {
+        // A late-joined socket was opened before observation: URL, handshake and earlier frames are
+        // UNKNOWN, so it must never claim to have been observed from the request start.
+        this._stream(rec.sid, { kind: 'ws', url: rec.url, startedT: rec.t, target: rec.target, ...(rec.lateJoin ? { lateJoin: true, urlUnknown: true, coverage: 'joined_late_earlier_frames_unknown' } : {}) });
+        break;
+      }
       case 'ws.handshake': { const s = this._stream(rec.sid, { kind: 'ws' }); s.status_code = rec.status; if (rec.headers) { const sp = rec.headers['sec-websocket-protocol'] ?? rec.headers['Sec-WebSocket-Protocol']; if (sp) s.wsSubprotocol = sp; } break; }
       case 'ws.handshake_request': { const s = this._stream(rec.sid, { kind: 'ws' }); if (rec.requestedProtocols) s.wsRequestedProtocols = rec.requestedProtocols; break; }
       case 'ws.frame': {
@@ -260,7 +274,7 @@ export class StreamReducer {
       case 'ws.close': { const s = this._stream(rec.sid, { kind: 'ws' }); s.status = 'closed'; s.endT = rec.t; this._finish(s, rec, out); break; }
       case 'gap': {
         this.gaps.push(rec);
-        for (const sid of rec.sids ?? []) { const s = this.streams.get(sid); if (s) { s.gaps++; s.coverage = 'gap_in_stream'; } }
+        for (const sid of rec.sids ?? []) { const s = this._touch(sid); if (s) { s.gaps++; s.coverage = 'gap_in_stream'; } }
         break;
       }
       case 'nav': this.nav.push(rec); break;
@@ -279,12 +293,12 @@ export class StreamReducer {
       case 'reconnect.ok':
       case 'reconnect.failed': {
         this.connectionEvents.push({ seq: rec.seq, t: rec.t, k: rec.k, reason: rec.reason, attempt: rec.attempt, error: rec.error });
-        for (const sid of rec.openStreams ?? []) { const s = this.streams.get(sid); if (s) { s.coverage = 'devtools_connection_lost_during_stream'; s.connectionLosses = (s.connectionLosses ?? 0) + 1; } }
+        for (const sid of rec.openStreams ?? []) { const s = this._touch(sid); if (s) { s.coverage = 'devtools_connection_lost_during_stream'; s.connectionLosses = (s.connectionLosses ?? 0) + 1; } }
         this.lifecycle.push(rec);
         break;
       }
       case 'lifecycle': this.lifecycle.push(rec); break;
-      case 'pause': for (const sid of rec.openStreams ?? []) { const s = this.streams.get(sid); if (s) { s.coverage = 'paused_during_stream'; s.pausedGaps = (s.pausedGaps ?? 0) + 1; } } this.lifecycle.push(rec); break;
+      case 'pause': for (const sid of rec.openStreams ?? []) { const s = this._touch(sid); if (s) { s.coverage = 'paused_during_stream'; s.pausedGaps = (s.pausedGaps ?? 0) + 1; } } this.lifecycle.push(rec); break;
       case 'resume': this.lifecycle.push(rec); this.paused = (this.paused ?? []).concat([{ ms: rec.pausedMs, notCaptured: rec.notCaptured }]); break;
       default: break;
     }
@@ -316,33 +330,54 @@ export class StreamReducer {
     s.transportDetail = transportDetailOf(s);
   }
 
+  // Stream-local summary body (everything that depends only on this stream's own state).
+  // Key order matches the historical output; idleMs keeps its slot with a placeholder that
+  // summary() overwrites with the clock-dependent value.
+  _streamSummary(s) {
+    const d = s._delta;
+    const o = {
+      ...s,
+      transport: s.transport ?? transportOf(s),
+      transportDetail: s.transportDetail ?? transportDetailOf(s),
+      deltaRevisions: d.revisions,
+      deltaDialects: [...d.detected],
+      deltaUnapplied: d.unapplied,
+      deltaOps: { ...d.ops },
+      streaming: STREAMING_SET.has(s.transport ?? transportOf(s)),
+    };
+    if (d.errors.length) o.deltaErrors = d.errors.slice(0, 3);
+    if (s.channels) o.channels = [...s.channels].slice(0, 50);
+    if (s.frameTypes) o.frameTypes = [...s.frameTypes].slice(0, 50);
+    if (s.interarrivalN) o.avgChunkGapMs = Math.round(s.interarrivalSum / s.interarrivalN);
+    if (s.status === 'open' && s.lastChunkT) o.idleMs = 0;
+    if (s.firstChunkT && (s.endT ?? s.lastChunkT)) {
+      const dur = (s.endT ?? s.lastChunkT) - s.firstChunkT;
+      o.durationMs = dur;
+      if (dur > 0) o.bytesPerSec = Math.round((s.bytes / dur) * 1000);
+    }
+    delete o.interarrivalSum; delete o.interarrivalN;
+    return o;
+  }
+
   // Summary for UI / receipts (no payload content).
   summary({ now = Date.now() } = {}) {
-    const streams = [...this.streams.values()].map((s) => {
-      const d = s._delta;
-      const o = {
-        ...s,
-        transport: s.transport ?? transportOf(s),
-        transportDetail: s.transportDetail ?? transportDetailOf(s),
-        deltaRevisions: d.revisions,
-        deltaDialects: [...d.detected],
-        deltaUnapplied: d.unapplied,
-        deltaOps: { ...d.ops },
-        streaming: STREAMING_SET.has(s.transport ?? transportOf(s)),
-      };
-      if (d.errors.length) o.deltaErrors = d.errors.slice(0, 3);
-      if (s.channels) o.channels = [...s.channels].slice(0, 50);
-      if (s.frameTypes) o.frameTypes = [...s.frameTypes].slice(0, 50);
-      if (s.interarrivalN) o.avgChunkGapMs = Math.round(s.interarrivalSum / s.interarrivalN);
+    // The 1 s status tick used to rebuild every stream's summary from scratch. The stream-local part
+    // is now memoised per stream (invalidated whenever ingest touches it); only the clock-dependent
+    // idleMs and the cross-stream reconnect annotations below are computed per call, on a fresh copy
+    // (so callers can never mutate the memo).
+    const streams = [];
+    for (const s of this.streams.values()) {
+      let base = s._sum.base;
+      if (!base) base = s._sum.base = this._streamSummary(s);
+      const o = { ...base };
+      o.deltaDialects = [...base.deltaDialects];
+      o.deltaOps = { ...base.deltaOps };
+      if (base.deltaErrors) o.deltaErrors = base.deltaErrors.slice();
+      if (base.channels) o.channels = base.channels.slice();
+      if (base.frameTypes) o.frameTypes = base.frameTypes.slice();
       if (s.status === 'open' && s.lastChunkT) o.idleMs = now - s.lastChunkT;
-      if (s.firstChunkT && (s.endT ?? s.lastChunkT)) {
-        const dur = (s.endT ?? s.lastChunkT) - s.firstChunkT;
-        o.durationMs = dur;
-        if (dur > 0) o.bytesPerSec = Math.round((s.bytes / dur) * 1000);
-      }
-      delete o.interarrivalSum; delete o.interarrivalN;
-      return o;
-    });
+      streams.push(o);
+    }
     // Reconnects: a stream to the same endpoint that starts soon after another one failed/closed.
     const ep = (s) => { try { const u = new URL(s.url); return `${s.method ?? s.kind}|${u.host}${u.pathname}`; } catch { return s.url; } };
     const byEndpoint = new Map();

@@ -37,18 +37,55 @@ export class KeyValueStore {
   keys() { return readdirSync(this.dir).filter((f) => !f.endsWith('.tmp')); }
 }
 
+// Datasets with a chunked writer ({ buffered: true }) accumulate pushed JSONL in memory and append
+// it in one write when FLUSH_BYTES is reached, FLUSH_MS elapsed (unref'd timer), or anything could
+// observe the file: every Dataset method that touches the file, constructing another Dataset for
+// the same file (session.dataset() builds a fresh instance per call), Session.verify / saveMeta /
+// bytes / datasets, and process exit. Bytes on disk are identical to unbuffered appends, in order.
+const DATASET_FLUSH_BYTES = 256 * 1024;
+const DATASET_FLUSH_MS = 250;
+const pendingDatasets = new Set();
+let exitHookInstalled = false;
+
+export function flushPendingDatasets(match = null) {
+  for (const ds of [...pendingDatasets]) if (!match || match(ds.file)) ds.flush();
+}
+
 export class Dataset {
-  constructor(file) { this.file = file; mkdirSync(path.dirname(file), { recursive: true }); this.count = 0; }
+  constructor(file, { buffered = false, flushBytes = DATASET_FLUSH_BYTES, flushMs = DATASET_FLUSH_MS } = {}) {
+    // Another instance may hold unwritten lines for this very file; make them visible first.
+    if (pendingDatasets.size) flushPendingDatasets((f) => f === file);
+    this.file = file; mkdirSync(path.dirname(file), { recursive: true }); this.count = 0;
+    this.buffered = !!buffered; this.flushBytes = flushBytes; this.flushMs = flushMs;
+    this._buf = []; this._bufBytes = 0; this._timer = null;
+  }
   push(items) {
     const arr = Array.isArray(items) ? items : [items];
     if (!arr.length) return;
-    appendFileSync(this.file, arr.map((i) => JSON.stringify(i)).join('\n') + '\n');
+    const text = arr.map((i) => JSON.stringify(i)).join('\n') + '\n';
     this.count += arr.length;
+    if (!this.buffered) { appendFileSync(this.file, text); return; }
+    this._buf.push(text); this._bufBytes += text.length;
+    if (this._bufBytes >= this.flushBytes) { this.flush(); return; }
+    pendingDatasets.add(this);
+    if (!exitHookInstalled) { exitHookInstalled = true; process.once('exit', () => { try { flushPendingDatasets(); } catch { /* best effort at exit */ } }); }
+    if (!this._timer) { this._timer = setTimeout(() => { this._timer = null; try { this.flush(); } catch { /* retried on the next push / read / exit */ } }, this.flushMs); this._timer.unref?.(); }
   }
-  reset() { if (existsSync(this.file)) rmSync(this.file); this.count = 0; }
-  exists() { return existsSync(this.file); }
-  bytes() { return existsSync(this.file) ? statSync(this.file).size : 0; }
+  // Writes every buffered line now. Safe to call at any time; a no-op when nothing is pending.
+  flush() {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    if (!this._buf.length) { pendingDatasets.delete(this); return; }
+    const text = this._buf.length === 1 ? this._buf[0] : this._buf.join('');
+    this._buf = []; this._bufBytes = 0; pendingDatasets.delete(this);
+    try { appendFileSync(this.file, text); }
+    catch (e) { this._buf = [text]; this._bufBytes = text.length; pendingDatasets.add(this); throw e; } // never drop lines on a failed write
+  }
+  close() { this.flush(); }
+  reset() { this._buf = []; this._bufBytes = 0; pendingDatasets.delete(this); if (this._timer) { clearTimeout(this._timer); this._timer = null; } if (existsSync(this.file)) rmSync(this.file); this.count = 0; }
+  exists() { this.flush(); return existsSync(this.file); }
+  bytes() { this.flush(); return existsSync(this.file) ? statSync(this.file).size : 0; }
   async *iterate({ from = 0, limit = Infinity, filter = null } = {}) {
+    this.flush();
     if (!existsSync(this.file)) return;
     const rl = readline.createInterface({ input: createReadStream(this.file), crlfDelay: Infinity });
     let i = 0, yielded = 0;
@@ -106,13 +143,17 @@ export class Session {
 
   get id() { return this.meta.id; }
   get rawDir() { return path.join(this.dir, 'raw'); }
-  dataset(name) { return new Dataset(path.join(this.dir, 'datasets', `${name}.jsonl`)); }
+  // Only the per-event dataset sits on the capture hot path, so only it gets the chunked writer.
+  dataset(name) { return new Dataset(path.join(this.dir, 'datasets', `${name}.jsonl`), { buffered: name === 'events' }); }
+  // Make buffered dataset lines visible to anything that reads this session's files directly.
+  flushDatasets() { const prefix = path.join(this.dir, 'datasets'); flushPendingDatasets((f) => f.startsWith(prefix)); }
   datasets() {
+    this.flushDatasets();
     const d = path.join(this.dir, 'datasets');
     if (!existsSync(d)) return [];
     return readdirSync(d).filter((f) => f.endsWith('.jsonl')).map((f) => ({ name: f.slice(0, -6), bytes: statSync(path.join(d, f)).size }));
   }
-  saveMeta() { const p = path.join(this.dir, 'session.json'); writeFileSync(p + '.tmp', JSON.stringify(this.meta, null, 2)); renameSync(p + '.tmp', p); }
+  saveMeta() { this.flushDatasets(); const p = path.join(this.dir, 'session.json'); writeFileSync(p + '.tmp', JSON.stringify(this.meta, null, 2)); renameSync(p + '.tmp', p); }
 
   // Iterate raw records in seq order across all segments (including an unclosed one after a crash).
   // Accepts the original { fromSeq } plus optional toSeq / time window / kind and stream filters.
@@ -146,6 +187,7 @@ export class Session {
   async compactionEstimate(opts = {}) { return estimateCompaction(this, opts); }
 
   bytes() {
+    this.flushDatasets();
     return {
       raw: dirBytes(this.rawDir),
       datasets: dirBytes(path.join(this.dir, 'datasets')),
@@ -157,6 +199,7 @@ export class Session {
   // Merged (compacted) records declare the range they stand for via seqTo, and gap records declare
   // dropped ranges; any other hole is reported as unexplained.
   async verify() {
+    this.flushDatasets();
     const rawDir = this.rawDir;
     const manifestPath = path.join(rawDir, 'manifest.json');
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : { segments: [] };

@@ -2,7 +2,7 @@
 // Real headless Chromium + synthetic fixtures. Run: CHROME_PATH=... npm run test:e2e
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { startSite } from '../fixtures/site.mjs';
@@ -29,7 +29,10 @@ before(async () => {
   for (const n of ['fixture-chat-a', 'fixture-chat-b', 'fixture-dash', 'fixture-feed', 'fixture-form', 'fixture-article']) profiles.save(n, { ...profiles.load('generic'), name: n, match: { hosts: [] } }, 'test profile');
   user = await userDriver(PORT, '127.0.0.1');
 });
-after(() => { user?.close(); chrome?.kill(); site?.server.close(); });
+after(() => {
+  user?.close(); chrome?.kill(); site?.server.close();
+  if (dataDir) rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+});
 
 async function goto(p) {
   await user.eval(`location.href = ${JSON.stringify(site.url.slice(0, -1) + p)}`);
@@ -133,13 +136,23 @@ test('two providers, one model: canonical messages from both sites in the same f
 });
 
 test('dashboard: data-table family, numeric updates, duplicate and out-of-order frames flagged', { skip }, async () => {
-  // The socket opens at page load, before attach: it must NOT appear (honest coverage)...
+  // The socket opens at page load, before attach. The recorder may join it late from its later frames,
+  // but it must never be claimed as observed from the start: URL unknown, flagged late, coverage downgraded.
   const before = await capture('/dashboard', 'fixture-dash', async () => { await sleep(600); });
-  assert.equal(before.d.summary.streams.filter((s) => s.kind === 'ws').length, 0, 'pre-existing socket is not fabricated');
+  const pre = before.d.summary.streams.filter((s) => s.kind === 'ws');
+  assert.equal(pre.filter((s) => !s.lateJoin).length, 0, `pre-existing socket is not claimed as captured from its start: ${JSON.stringify(pre.map((s) => [s.sid, s.lateJoin, s.coverage]))}`);
+  for (const s of pre) {
+    assert.equal(s.urlUnknown, true, 'late-joined socket has no fabricated URL');
+    assert.equal(s.url, undefined, 'late-joined socket has no fabricated URL');
+    assert.notEqual(s.coverage, 'observed_from_request_start', 'late-joined socket does not claim full coverage');
+  }
   // ...and the user-requested reload captures it from the start.
   const { d } = await capture('/dashboard', 'fixture-dash', async (rec) => { await rec.reloadPage(); await sleep(1900); });
   assert.equal(d.report.families[0].family, 'data-table', JSON.stringify(d.report.families.slice(0, 2)));
-  const ws = d.summary.streams.find((s) => s.kind === 'ws');
+  const ws = d.summary.streams.find((s) => s.kind === 'ws' && !s.lateJoin);
+  assert.ok(ws, 'socket opened after attach is captured from its start');
+  assert.equal(ws.coverage, 'observed_from_request_start');
+  assert.match(ws.url, /\/ws-ticks$/);
   assert.ok(ws.duplicates >= 1, `duplicates ${ws.duplicates}`);
   assert.ok(ws.outOfOrder >= 1, `outOfOrder ${ws.outOfOrder}`);
   assert.ok(d.report.families[0].evidence.some((e) => e.signal === 'numeric_updates'));

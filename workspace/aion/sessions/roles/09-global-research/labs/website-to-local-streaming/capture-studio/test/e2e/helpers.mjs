@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, existsSync } from 'node:fs';
+import { mkdtempSync, existsSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CdpConnection } from '../../src/cdp/client.mjs';
@@ -18,7 +18,10 @@ export async function launchHeadless(url, port) {
     await new Promise((r) => setTimeout(r, 100));
   }
   if (!(await isReachable({ port }))) throw new Error(`Chromium did not expose DevTools on 127.0.0.1:${port} within 15 s`);
-  return { child, kill: () => { try { child.kill('SIGKILL'); } catch { /* */ } } };
+  // kill() also removes the throwaway user-data-dir once the browser has actually exited.
+  const rmProf = () => { try { rmSync(prof, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); } catch { /* best effort */ } };
+  child.once('exit', rmProf);
+  return { child, kill: () => { try { child.kill('SIGKILL'); } catch { /* */ } if (exited !== null) rmProf(); } };
 }
 
 // A separate DevTools client that plays the role of the human using the page.

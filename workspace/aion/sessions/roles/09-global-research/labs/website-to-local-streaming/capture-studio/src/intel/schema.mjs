@@ -26,6 +26,68 @@ export const FORMAT_TESTS = {
   multiline: (s) => s.includes('\n'),
 };
 
+// Format detection is a pure function of the string, and the same strings recur constantly
+// (enum values, repeated keys, the cumulative + window double observation). Bounded memo.
+const FORMAT_MEMO_MAX = 8192;
+const FORMAT_MEMO_STR_MAX = 256;
+const formatMemo = new Map();
+// Cheap necessary conditions, checked before the regex. A guard may only ever say "cannot match";
+// it never decides a match, so results equal running every test (test/unit/capture-perf.test.mjs
+// checks this against the raw FORMAT_TESTS on a corpus). Applies only to the stock tests.
+const FORMAT_TEST_SNAPSHOT = { ...FORMAT_TESTS };
+const isDigitCode = (c) => c >= 48 && c <= 57;
+const FORMAT_GUARDS = {
+  uuid: (s) => s.length === 36,
+  iso_time: (s) => s.length >= 10 && isDigitCode(s.charCodeAt(0)),
+  url: (s) => { const c = s.charCodeAt(0); return c === 104 /* h */ || c === 47 /* / */; },
+  email: (s) => s.includes('@'),
+  pointer: (s) => s.charCodeAt(0) === 47,
+  token_id: (s) => s.length >= 8,
+  hex_id: (s) => s.length >= 12,
+  numeric_string: (s) => { const c = s.charCodeAt(0); return isDigitCode(c) || c === 45 /* - */; },
+};
+// [name, test, guard] triples built once (the entries array used to be re-allocated per string).
+const FORMAT_PLAN = Object.entries(FORMAT_TESTS).map(([f, test]) => [f, test, test === FORMAT_TEST_SNAPSHOT[f] ? FORMAT_GUARDS[f] : undefined]);
+export function computeFormats(s) {
+  const out = [];
+  for (let i = 0; i < FORMAT_PLAN.length; i++) {
+    const plan = FORMAT_PLAN[i];
+    if (plan[2] !== undefined && !plan[2](s)) continue;
+    if (plan[1](s)) out.push(plan[0]);
+  }
+  return out;
+}
+function formatsOf(s) {
+  if (s.length > FORMAT_MEMO_STR_MAX) return computeFormats(s);
+  let r = formatMemo.get(s);
+  if (r === undefined) {
+    r = computeFormats(s);
+    if (formatMemo.size >= FORMAT_MEMO_MAX) formatMemo.clear();
+    formatMemo.set(s, r);
+  }
+  return r;
+}
+
+// Sorted key signature of an object. Objects of one shape arrive in the same key order, so the
+// sort + join is memoised on the unsorted key sequence (bounded). Result is identical.
+const SIG_MEMO_MAX = 1024;
+const sigMemo = new Map();
+function sortedSignature(keys) {
+  const n = keys.length;
+  if (n < 2) return n ? keys[0] : '';
+  const raw = keys.join('\u0000');
+  const hit = sigMemo.get(raw);
+  if (hit !== undefined && hit.keys.length === n) {
+    let same = true;
+    for (let i = 0; i < n; i++) if (hit.keys[i] !== keys[i]) { same = false; break; } // exact, even if a key contains the separator
+    if (same) return hit.sig;
+  }
+  const sig = keys.slice().sort().join('|');
+  if (sigMemo.size >= SIG_MEMO_MAX) sigMemo.clear();
+  sigMemo.set(raw, { keys: keys.slice(), sig });
+  return sig;
+}
+
 // Shape-aware sampling for large arrays: head + deterministic stride over the rest + the first
 // occurrences of every distinct shape (sorted key set / kind), so rare variants are never lost.
 export function sampleIndices(len, shapeOf, { head = 150, stride = 150, perShape = 3, maxShapes = 64 } = {}) {
@@ -81,7 +143,7 @@ export class SchemaNode {
     st.n++; st.lenSum += s.length; st.lenMin = Math.min(st.lenMin, s.length); st.lenMax = Math.max(st.lenMax, s.length);
     (st.sketch ??= new CardinalitySketch()).add(s);
     if (!st.overflow) { st.distinct.set(s, (st.distinct.get(s) ?? 0) + 1); if (st.distinct.size > DISTINCT_CAP) { st.overflow = true; st.distinct = new Map(); } }
-    for (const [f, test] of Object.entries(FORMAT_TESTS)) if (test(s)) st.formats[f] = (st.formats[f] ?? 0) + 1;
+    for (const f of formatsOf(s)) st.formats[f] = (st.formats[f] ?? 0) + 1;
     if (st.examples.length < 3 && !st.examples.includes(s)) st.examples.push(s.length > 120 ? s.slice(0, 117) + '…' : s);
   }
 
@@ -117,10 +179,12 @@ export class SchemaNode {
       st.fields.get(k).observe(o[k], depth + 1);
     }
     // Tagged-union evidence: for each low-cardinality string field, which field sets co-occur.
-    const sig = keys.slice().sort().join('|');
+    const sig = sortedSignature(keys);
     st.fieldSets.set(sig, (st.fieldSets.get(sig) ?? 0) + 1);
     if (st.fieldSets.size > 500) st.fieldSets = new Map([...st.fieldSets].sort((a, b) => b[1] - a[1]).slice(0, 200));
-    for (const k of keys.filter((key) => st.fields.has(key))) {
+    for (let ki = 0; ki < keys.length; ki++) {
+      const k = keys[ki];
+      if (!st.fields.has(k)) continue;
       const v = o[k];
       if (typeof v !== 'string' || v.length > 48) continue;
       let t = st.tags.get(k);

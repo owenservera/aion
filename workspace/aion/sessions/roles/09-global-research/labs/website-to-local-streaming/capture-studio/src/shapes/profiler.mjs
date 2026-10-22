@@ -1,5 +1,64 @@
 import { SchemaNode, schemaDiff } from '../intel/schema.mjs';
 
+// Window nodes are lazy. A completed window is only ever read as `previous` (and each rollover
+// overwrites the one before it), so observing every value into a second SchemaNode is wasted work
+// for all but the last two windows. Values of a window are buffered and replayed into a real
+// SchemaNode only when something reads `current`/`previous` (describe, toState) - same values,
+// same order, so every statistic is identical. Buffering is bounded by an approximate byte budget;
+// a window that exceeds it simply switches to an eager node (the previous behaviour).
+const WINDOW_BUFFER_BUDGET = 32 * 1024;
+
+function approxSize(source) {
+  if (!source || typeof source !== 'object') return 1024;
+  if (Array.isArray(source.span) && source.span.length === 2) return Math.max(1, source.span[1] - source.span[0]);
+  if (typeof source.data === 'string') return source.data.length;
+  if (typeof source.text === 'string') return source.text.length;
+  if (Number.isFinite(source.size)) return source.size;
+  return 1024;
+}
+
+class ProfileEntry {
+  constructor(group) {
+    this.group = group; this.total = new SchemaNode(); this.windows = 0; this.lastSource = null;
+    this._curNode = null; this._curVals = []; this._curBytes = 0; this.curCount = 0;
+    this._prev = null; this._prevVals = null;
+  }
+  observeCurrent(value, source) {
+    this.curCount++;
+    if (this._curNode) { this._curNode.observe(value); return; }
+    this._curBytes += approxSize(source);
+    if (this._curBytes > WINDOW_BUFFER_BUDGET) { this._materializeCurrent().observe(value); return; }
+    this._curVals.push(value);
+  }
+  _materializeCurrent() {
+    if (!this._curNode) {
+      const node = new SchemaNode();
+      for (const v of this._curVals) node.observe(v);
+      this._curNode = node; this._curVals = [];
+    }
+    return this._curNode;
+  }
+  rollWindow() {
+    // Equivalent to: previous = current.describe(); current = new SchemaNode(); windows++
+    if (this._curNode) { this._prev = this._curNode.describe(); this._prevVals = null; }
+    else { this._prevVals = this._curVals; this._prev = null; } // an older unread window is simply dropped
+    this._curNode = null; this._curVals = []; this._curBytes = 0; this.curCount = 0;
+    this.windows++;
+  }
+  get current() { return this._materializeCurrent(); }
+  set current(node) { this._curNode = node; this._curVals = []; this._curBytes = 0; this.curCount = node.count; }
+  get previous() {
+    if (this._prevVals) {
+      const node = new SchemaNode();
+      for (const v of this._prevVals) node.observe(v);
+      this._prev = node.describe(); this._prevVals = null;
+    }
+    return this._prev;
+  }
+  set previous(v) { this._prev = v ?? null; this._prevVals = null; }
+  get hasPrevious() { return !!(this._prevVals || this._prev); }
+}
+
 // Cumulative sufficient statistics plus independent fixed-size windows for drift detection.
 // Missing fields in a window mean observed schema drift, never deletion of entity state.
 export class OnlineSchemaProfiler {
@@ -13,13 +72,11 @@ export class OnlineSchemaProfiler {
     let entry = this.groups.get(group);
     if (!entry) {
       if (this.groups.size >= this.maxGroups) { this.groups.delete(this.groups.keys().next().value); this.evictedGroups++; }
-      entry = { group, total: new SchemaNode(), current: new SchemaNode(), previous: null, windows: 0, lastSource: null };
+      entry = new ProfileEntry(group);
     } else this.groups.delete(group);
     this.groups.set(group, entry);
-    if (entry.current.count >= this.windowSize) {
-      entry.previous = entry.current.describe(); entry.current = new SchemaNode(); entry.windows++;
-    }
-    entry.total.observe(value); entry.current.observe(value);
+    if (entry.curCount >= this.windowSize) entry.rollWindow();
+    entry.total.observe(value); entry.observeCurrent(value, source);
     entry.lastSource = { session: source.session, sid: source.sid, seq: source.seq, t: source.t };
     return this;
   }
@@ -28,8 +85,8 @@ export class OnlineSchemaProfiler {
     const current = e.current.describe();
     return { group: e.group, observations: e.total.count, completedWindows: e.windows, windowObservations: e.current.count,
       schema: e.total.describe(), currentSchema: current, source: e.lastSource,
-      drift: e.previous && e.current.count >= this.minWindow ? schemaDiff(e.previous, current) : null,
-      driftBasis: e.previous ? 'adjacent independent observation windows' : 'insufficient windows' };
+      drift: e.hasPrevious && e.current.count >= this.minWindow ? schemaDiff(e.previous, current) : null,
+      driftBasis: e.hasPrevious ? 'adjacent independent observation windows' : 'insufficient windows' };
   }
   report() { return { groups: [...this.groups.keys()].map((key) => this.describe(key)), evictedGroups: this.evictedGroups,
     maxGroups: this.maxGroups, windowSize: this.windowSize, minWindow: this.minWindow }; }
@@ -48,8 +105,10 @@ export class OnlineSchemaProfiler {
     p.evictedGroups = state.evictedGroups ?? 0;
     for (const g of state.groups) {
       const group = String(g.group);
-      p.groups.set(group, { group, total: SchemaNode.fromState(g.total), current: SchemaNode.fromState(g.current),
-        previous: g.previous ?? null, windows: g.windows ?? 0, lastSource: g.lastSource ?? null });
+      const entry = new ProfileEntry(group);
+      entry.total = SchemaNode.fromState(g.total); entry.current = SchemaNode.fromState(g.current);
+      entry.previous = g.previous ?? null; entry.windows = g.windows ?? 0; entry.lastSource = g.lastSource ?? null;
+      p.groups.set(group, entry);
     }
     return p;
   }

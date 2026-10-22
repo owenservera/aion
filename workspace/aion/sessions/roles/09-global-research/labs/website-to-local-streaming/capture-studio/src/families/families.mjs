@@ -392,6 +392,7 @@ export function signalNames() { return Object.keys(SIGNALS).sort(); }
 
 export function detectFamilies(families, evidence) {
   const out = [];
+  const rawOf = new WeakMap();
   for (const f of families) {
     const hits = [];
     const missing = [];
@@ -423,8 +424,12 @@ export function detectFamilies(families, evidence) {
     if (anyUnmet) rec.unmetRequiresAny = anyList;
     if (f.minScore !== undefined && final < f.minScore) rec.belowMinScore = f.minScore;
     out.push(rec);
+    rawOf.set(rec, final > 0 ? raw : 0);
   }
-  return out.sort((a, b) => b.score - a.score);
+  // The score is capped at 1, so several families can saturate. Break such ties by the uncapped
+  // evidence weight (a feed with pagination + scroll + items outweighs a page that merely has long text),
+  // then by declaration order (Array.sort is stable).
+  return out.sort((a, b) => b.score - a.score || rawOf.get(b) - rawOf.get(a));
 }
 
 // ---------------------------------------------------------------------------------------------

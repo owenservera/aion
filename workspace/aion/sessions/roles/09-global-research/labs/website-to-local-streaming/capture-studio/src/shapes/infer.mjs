@@ -12,7 +12,23 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 const URLISH = /^(https?:\/\/|\/[\w-])/;
 
+// templateUrl is a pure function of the url string and is called once per decoded event (and per
+// stream per status/report pass); `new URL` + 4 regexes per segment dominated. Bounded memo.
+const TEMPLATE_MEMO_MAX = 2048;
+const templateMemo = new Map();
+
 export function templateUrl(url) {
+  if (typeof url !== 'string') return templateUrlUncached(url);
+  let r = templateMemo.get(url);
+  if (r === undefined) {
+    r = templateUrlUncached(url);
+    if (templateMemo.size >= TEMPLATE_MEMO_MAX) templateMemo.clear();
+    templateMemo.set(url, r);
+  }
+  return r;
+}
+
+function templateUrlUncached(url) {
   try {
     const u = new URL(url);
     const segs = u.pathname.split('/').map((s) => {
@@ -29,6 +45,35 @@ const short = (v) => { const s = typeof v === 'string' ? v : JSON.stringify(v); 
 const typeOf = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
 const fieldPath = (name) => /^[A-Za-z_$][\w$]*$/.test(name) ? `$.${name}` : `$[${JSON.stringify(name)}]`;
 
+// Pure per-string flag detection, memoised (same strings recur constantly; bounded).
+const FLAG_MEMO_MAX = 8192;
+const FLAG_MEMO_STR_MAX = 256;
+const flagMemo = new Map();
+// Each regex is preceded by a necessary-condition check (length / first character) so the common
+// non-matching strings never run it. The checks only ever exclude; results are unchanged.
+const POINTER = /^\/[\w/-]*$/;
+const MARKDOWN = /(^|\n)(#{1,6} |\* |- |\d+\. |```|\|.*\|)/;
+export function computeStringFlags(v) {
+  const out = [];
+  const c0 = v.charCodeAt(0);
+  if (v.length === 36 && UUID.test(v)) out.push('uuid');
+  if (v.length >= 10 && c0 >= 48 && c0 <= 57 && ISO.test(v)) out.push('isoTime');
+  if ((c0 === 104 || c0 === 47) && URLISH.test(v)) out.push('url');
+  if (c0 === 47 && v.length < 80 && POINTER.test(v)) out.push('pointer');
+  if (MARKDOWN.test(v)) out.push('markdown');
+  return out;
+}
+function stringFlags(v) {
+  if (v.length > FLAG_MEMO_STR_MAX) return computeStringFlags(v);
+  let r = flagMemo.get(v);
+  if (r === undefined) {
+    r = computeStringFlags(v);
+    if (flagMemo.size >= FLAG_MEMO_MAX) flagMemo.clear();
+    flagMemo.set(v, r);
+  }
+  return r;
+}
+
 class FieldStats {
   constructor() { this.count = 0; this.types = {}; this.distinct = new Set(); this.distinctOverflow = false; this.examples = []; this.strLenMax = 0; this.strLenSum = 0; this.strN = 0; this.numMin = Infinity; this.numMax = -Infinity; this.flags = {}; }
   add(v) {
@@ -41,11 +86,7 @@ class FieldStats {
     }
     if (t === 'string') {
       this.strN++; this.strLenSum += v.length; if (v.length > this.strLenMax) this.strLenMax = v.length;
-      if (UUID.test(v)) this.flags.uuid = (this.flags.uuid ?? 0) + 1;
-      if (ISO.test(v)) this.flags.isoTime = (this.flags.isoTime ?? 0) + 1;
-      if (URLISH.test(v)) this.flags.url = (this.flags.url ?? 0) + 1;
-      if (/^\/[\w/-]*$/.test(v) && v.length < 80) this.flags.pointer = (this.flags.pointer ?? 0) + 1;
-      if (/(^|\n)(#{1,6} |\* |- |\d+\. |```|\|.*\|)/.test(v)) this.flags.markdown = (this.flags.markdown ?? 0) + 1;
+      for (const f of stringFlags(v)) this.flags[f] = (this.flags[f] ?? 0) + 1;
     }
     if (t === 'number') {
       if (v < this.numMin) this.numMin = v; if (v > this.numMax) this.numMax = v;
@@ -104,21 +145,94 @@ function discriminatorOf(ev) {
 }
 
 export class ShapeInferencer {
-  constructor(options = {}) { this.groups = new Map(); this.assembled = new Map(); this.profiler = new OnlineSchemaProfiler(options); }
+  // Observation (field statistics + schema profiler) is deferred off the CDP callback: observeEvent
+  // only resolves the group and enqueues; the heavy walk runs in time-sliced setImmediate batches
+  // (sliceMs per turn) so a 64 KB chunk that decodes into ~1000 events no longer blocks the loop for
+  // the whole walk. FIFO order is preserved, so every statistic is identical to inline observation.
+  // Every read path (groups/assembled/profiler getters, report) drains first. The queue is bounded:
+  // above maxPending each new event processes one old event inline (backpressure, nothing dropped).
+  // `deferred: false` restores fully inline behaviour.
+  constructor(options = {}) {
+    this._groups = new Map(); this._assembled = new Map(); this._profiler = new OnlineSchemaProfiler(options); this._epCache = new WeakMap();
+    this.deferred = options.deferred !== false;
+    this.maxPending = options.maxPending ?? 4096;
+    this.sliceMs = options.sliceMs ?? 4;
+    this._q = []; this._qi = 0; this._scheduled = false; this.deferredErrors = 0;
+  }
+
+  get groups() { this.flush(); return this._groups; }
+  set groups(v) { this.flush(); this._groups = v; }
+  get assembled() { this.flush(); return this._assembled; }
+  set assembled(v) { this.flush(); this._assembled = v; }
+  get profiler() { this.flush(); return this._profiler; }
+  set profiler(v) { this.flush(); this._profiler = v; }
+  get pendingObservations() { return (this._q.length - this._qi) / 3; }
+
+  _applyOne() {
+    const q = this._q, i = this._qi;
+    const g = q[i], key = q[i + 1], ev = q[i + 2];
+    q[i] = q[i + 1] = q[i + 2] = undefined;
+    this._qi = i + 3;
+    try {
+      g.observe(ev.json, ev.t, ev.sid);
+      this._profiler.observe(key, ev.json, ev);
+    } catch { this.deferredErrors++; }
+  }
+
+  _compact() { if (this._qi >= this._q.length) { this._q = []; this._qi = 0; } else if (this._qi > 30000) { this._q = this._q.slice(this._qi); this._qi = 0; } }
+
+  flush() {
+    while (this._qi < this._q.length) this._applyOne();
+    this._q = []; this._qi = 0;
+  }
+
+  _schedule() {
+    if (this._scheduled) return;
+    this._scheduled = true;
+    // Deliberately ref'd: an unref'd immediate would not wake an otherwise idle poll phase, so the
+    // backlog would crawl at one slice per loop wake. The work is bounded (maxPending) and ends.
+    setImmediate(() => this._drainSlice());
+  }
+
+  _drainSlice() {
+    this._scheduled = false;
+    const deadline = performance.now() + this.sliceMs;
+    let n = 0;
+    while (this._qi < this._q.length) {
+      this._applyOne();
+      if ((++n & 15) === 0 && performance.now() >= deadline) break;
+    }
+    this._compact();
+    if (this._qi < this._q.length) this._schedule();
+  }
+
+  // Endpoint label per stream, cached against the inputs that define it (url/method/kind), so a
+  // stream with thousands of events builds the string once. Re-derived whenever an input changes.
+  _endpointOf(stream) {
+    const method = stream.method, url = stream.url, kind = stream.kind;
+    const c = this._epCache.get(stream);
+    if (c && c.method === method && c.url === url && c.kind === kind) return c.endpoint;
+    const endpoint = `${method ?? (kind === 'ws' ? 'WS' : 'GET')} ${templateUrl(url)}`;
+    this._epCache.set(stream, { method, url, kind, endpoint });
+    return endpoint;
+  }
 
   observeEvent(ev, stream) {
     if (ev.json === undefined) return;
-    const endpoint = stream ? `${stream.method ?? (stream.kind === 'ws' ? 'WS' : 'GET')} ${templateUrl(stream.url)}` : '(unknown)';
+    const endpoint = stream ? this._endpointOf(stream) : '(unknown)';
     const d = discriminatorOf(ev);
     const key = `${endpoint} :: ${d.value}`;
-    let g = this.groups.get(key);
-    if (!g) { g = new Group(key, { endpoint, discriminatorPath: d.path, discriminator: d.value, source: ev.type, dir: ev.dir }); this.groups.set(key, g); }
-    g.observe(ev.json, ev.t, ev.sid);
-    this.profiler.observe(key, ev.json, ev);
+    let g = this._groups.get(key);
+    if (!g) { g = new Group(key, { endpoint, discriminatorPath: d.path, discriminator: d.value, source: ev.type, dir: ev.dir }); this._groups.set(key, g); }
+    if (!this.deferred) { g.observe(ev.json, ev.t, ev.sid); this._profiler.observe(key, ev.json, ev); return; }
+    this._q.push(g, key, ev);
+    if (this._q.length - this._qi > this.maxPending * 3) { this._applyOne(); this._compact(); }
+    this._schedule();
   }
 
   observeAssembled(stream, doc) {
     if (!doc || typeof doc !== 'object') return;
+    this.flush();
     const endpoint = `${stream.method ?? 'GET'} ${templateUrl(stream.url)}`;
     const key = `${endpoint} :: (assembled)`;
     let g = this.assembled.get(key);
