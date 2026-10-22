@@ -196,6 +196,10 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (c === 'shapes') return send(res, 200, s.kv.get('SHAPES') ?? null);
       if (c === 'model') return send(res, 200, s.kv.get('MODEL') ?? null);
       if (c === 'graph') return send(res, 200, s.kv.get('GRAPH') ?? null);
+      if (c === 'join') {
+        if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
+        return send(res, 200, s.kv.get('STREAM_DOM_JOIN', null) ?? { status: 'not_derived' });
+      }
       if (c === 'continuity') {
         if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
         const site = siteFromSession(s.meta);

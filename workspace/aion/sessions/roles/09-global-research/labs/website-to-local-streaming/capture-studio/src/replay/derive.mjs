@@ -14,8 +14,12 @@ import { correlateRendered, correlateActions } from '../intel/correlate.mjs';
 import { buildGraph } from '../intel/graph.mjs';
 import { InvariantViolation, NSP_SCHEMA } from '../core/invariants.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
+import { joinStreamToDom } from '../intel/join.mjs';
+import { buildStreamMessages } from './stream-messages.mjs';
 
-export async function derive(session, profile, { onProgress, families, learner } = {}) {
+export const STREAM_DOM_JOIN_SCHEMA = 'capture-studio.stream-dom-join/1';
+
+export async function derive(session, profile, { onProgress, families, learner, joinImpl = joinStreamToDom } = {}) {
   // Fail closed during rebuild: old MODEL/entities must not appear to be current.
   const knowledgeRun = { schema: 'capture-studio.knowledge-status/1',
     status: 'deriving', startedAt: new Date().toISOString(), dataset: 'entities' };
@@ -34,6 +38,7 @@ export async function derive(session, profile, { onProgress, families, learner }
   const finals = new Map(rules.filter((r) => r.revisions === 'final' && r.key).map((r) => [r.name, new Map()]));
   const emit = (rule, recs) => { const f = finals.get(rule.name); if (!f) return recordSets.get(rule.name).push(recs); for (const r of recs) { const prev = f.get(r._key); f.set(r._key, { ...r, _revision: (prev?._revision ?? 0) + 1 }); } };
   let n = 0, batch = [];
+  const firstSeqBySid = new Map(); // stream -> first raw seq (orders stream messages for the join)
   const flush = () => { if (batch.length) { ds.events.push(batch); batch = []; } };
   // Complete-evidence collectors: fed with EVERY decoded event (not the bounded in-memory window).
   let siteName = '';
@@ -41,6 +46,7 @@ export async function derive(session, profile, { onProgress, families, learner }
   const corpus = new CorpusCollector({ session, site: siteName });
   const famEvents = {};
   for await (const rec of session.records()) {
+    if (rec.sid !== undefined && !firstSeqBySid.has(rec.sid)) firstSeqBySid.set(rec.sid, rec.seq);
     const evs = reducer.ingest(rec);
     for (const ev of evs) {
       batch.push(ev);
@@ -138,12 +144,43 @@ export async function derive(session, profile, { onProgress, families, learner }
       completedAt: new Date().toISOString(), stage, error: knowledge.error,
       ...(knowledge.invariant ? { invariant: knowledge.invariant } : {}) });
   }
+  // ---- Stream-to-DOM join: which rendered turn each assembled response stream became. ----
+  // Isolated: a failure is recorded in STREAM_DOM_JOIN and never fails derive. Deterministic: no
+  // wall-clock fields, so re-deriving the same raw log writes identical content.
+  receipt.stream_dom_join = streamDomJoin(session, reducer, domTurns, { firstSeqBySid, joinImpl });
   receipt.knowledge = knowledge;
   receipt.nsp = { schema: NSP_SCHEMA, graphInvariantViolations: knowledge.graphInvariantViolations ?? 0,
     graphQuarantinedEntities: knowledge.graphQuarantinedEntities ?? 0,
     ...(knowledge.invariant ? { invariant: knowledge.invariant } : {}) };
   session.kv.set('RECEIPT', receipt);
   return { records: n, summary, report, receipt, knowledge, familyCounts, recordCounts: Object.fromEntries([...recordSets].map(([k, d]) => [k, d.count])) };
+}
+
+// Writes kv STREAM_DOM_JOIN and returns the one-line receipt entry. Never throws.
+function streamDomJoin(session, reducer, domTurnsRaw, { firstSeqBySid, joinImpl }) {
+  const turns = Array.isArray(domTurnsRaw) ? domTurnsRaw : [];
+  let value;
+  try {
+    if (!turns.length) value = { schema: STREAM_DOM_JOIN_SCHEMA, status: 'no_dom_turns' };
+    else {
+      const messages = buildStreamMessages(reducer, { firstSeqBySid });
+      if (!messages.length) value = { schema: STREAM_DOM_JOIN_SCHEMA, status: 'no_stream_messages' };
+      else {
+        const { links, summary } = joinImpl({ messages, turns });
+        value = { schema: STREAM_DOM_JOIN_SCHEMA, summary, links,
+          sources: { streams: messages.map((m) => m.sid), domTurns: turns.length } };
+      }
+    }
+    session.kv.set('STREAM_DOM_JOIN', value);
+  } catch (e) {
+    value = { schema: STREAM_DOM_JOIN_SCHEMA, error: String(e?.message ?? e) };
+    try { session.kv.set('STREAM_DOM_JOIN', value); } catch { /* kv not writable: derive continues */ }
+  }
+  if (value.summary) {
+    const ms = value.summary.messageStatus;
+    return `${ms.verified} verified, ${ms.partial} partial, ${ms.ambiguous} ambiguous, ${ms.unlinked_stream} unlinked stream, ${ms.unlinked_dom} unlinked DOM`;
+  }
+  return value.status ?? 'error';
 }
 
 // Metadata-only lab receipt in the format of EXPERIMENTS.md. Safe to paste into an issue:
