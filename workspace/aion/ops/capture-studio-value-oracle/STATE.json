@@ -152,9 +152,9 @@
     "observed_manual_user_work_saved": null,
     "current_node_suite_executed": false,
     "isolated_source_checks": {
-      "passed": 13,
+      "passed": 19,
       "failed": 0,
-      "environment": "GitHub-fetched server syntactically compiled as transformed JS; source/policy structural checks, NOT live HTTP and NOT Node runtime test"
+      "environment": "V8 JS isolate on current GitHub-fetched Studio server/integration-hub/capture-privacy/webhooks source; module syntax and policy plus capturePrivacy stub invocation; NOT Node/full HTTP"
     },
     "product_local_pc_live_verified": false,
     "unknowns": [
@@ -169,6 +169,9 @@
       "Improve Chrome existing-tab reuse; reduce duplicate login",
       "Review Velocity ACL startup latency on actual PC",
       "Update stale auth/capture documentation and tool readouts if present"
-    ]
+    ],
+    "api_schema_commit": "4489e2d7fa9982eff460b2ea778ec068c0456475",
+    "node_tests_committed": 5,
+    "native_tests_run": 0
   }
 }
