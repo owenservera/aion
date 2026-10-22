@@ -1,4 +1,5 @@
-// Credential safety. These rules are NOT optional and are applied before anything reaches disk.
+// Optional filtered-mode masking helpers. Local-raw capture deliberately bypasses these helpers
+// to preserve full on-PC evidence; see capturePrivacy() in privacy.mjs.
 //  1. Headers: only an allowlist keeps values; every other header keeps its name, value -> "[redacted]".
 //     Cookie / Set-Cookie / Authorization are dropped entirely.
 //  2. URLs: query parameters with credential-like names are masked.
