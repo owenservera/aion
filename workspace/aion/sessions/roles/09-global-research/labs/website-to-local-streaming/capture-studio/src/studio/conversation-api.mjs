@@ -16,7 +16,7 @@ export function validateConversationBody(kind, body) {
     if (body.freshTab !== undefined && typeof body.freshTab !== 'boolean') throw problem(400, 'freshTab must be boolean');
   }
   if (kind === 'submit') {
-    text(body.key, 'key', 200); text(body.prompt, 'prompt', 2000);
+    text(body.key, 'key', 200); text(body.prompt, 'prompt', 250000);
     if (body.confirm !== true) throw problem(400, 'Explicit confirm:true required');
   }
   if (kind === 'submit' || kind === 'reconcile') {
