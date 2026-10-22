@@ -2,7 +2,7 @@
   "schema": "aion.capture-studio.knowledge-learning.worker.v1",
   "created": "2026-10-21",
   "baseline_sha": "1990a5243c07e125f40c76669c0b12a1f58cc437",
-  "status": "TT1_BUILDER_IMPLEMENTED_NATIVE_NODE_TESTED_QA_PENDING",
+  "status": "TT1_DELIVERED_KH01_TO_KH04_HANDOFF_SOURCE_VERIFIED_LOCAL_NODE_PENDING",
   "mission": "Drive L4 Knowledge & Relationships and L5 Learning & Adaptation toward criterion-based independently accepted 100%",
   "acceptance": {
     "knowledge": {
@@ -18,7 +18,7 @@
     },
     "note": "zero means no independently accepted criterion in this worker record yet, not zero existing capability"
   },
-  "next": "TT3 specialist-owned acceptance/learning eligibility negative fixtures, plus detached learner snapshot integration tests when safe; Core owns raw/replay/derive/API, UI owns temporal picker; no cross-owner edits or agent wakeup.",
+  "next": "Pause broad L4/L5 builds for first local L0/L1 evidence; run four synthetic L4 handoff cases on pinned Windows checkout when QA schedules L4, classify failures and implement only their targeted owning fixes.",
   "owner": "Knowledge & Learning worker",
   "steering": "QA",
   "avoid_concurrent_core_writes": true,
@@ -217,5 +217,44 @@
         "total": 7
       }
     }
+  },
+  "local_integration_handoff": {
+    "date": "2026-10-22",
+    "qa_contract": "workspace/aion/qa/capture-studio/LOCAL-INTEGRATION-ROUNDS-2026-10-22.md",
+    "document": "workspace/aion/ops/capture-studio-knowledge-learning/LOCAL-HANDOFF-2026-10-22.md",
+    "fixture_ids": [
+      "KH-01",
+      "KH-02",
+      "KH-03",
+      "KH-04"
+    ],
+    "paths": [
+      "test/fixtures/knowledge-handoff/01-as-of-truth.json",
+      "test/fixtures/knowledge-handoff/02-identity-exclusion.json",
+      "test/fixtures/knowledge-handoff/03-correction-version.json",
+      "test/fixtures/knowledge-handoff/04-evidence-eligibility.json",
+      "test/unit/knowledge-handoff.test.mjs"
+    ],
+    "source_baseline_sha": "75032dc868b806ba47e4720e52cf857c818040e2",
+    "synthetic_source_checks": {
+      "passed": 9,
+      "failed": 0,
+      "source_syntax": true
+    },
+    "native_node_test_result": null,
+    "native_test_execution": "pending on local Windows or full checkout",
+    "expected_executable_tests": 4,
+    "expected_todo": 1,
+    "todo": "Core G1-G7 verified capture acceptance family promotion; KH04 validates matrix but not builder integration",
+    "browser_sends": 0,
+    "user_private_data_uploaded": false,
+    "other_lane_sources_edited": false,
+    "qa_acceptance": {
+      "knowledge_verified": 0,
+      "knowledge_total": 7,
+      "learning_verified": 0,
+      "learning_total": 7
+    },
+    "committed_source_only": true
   }
 }
