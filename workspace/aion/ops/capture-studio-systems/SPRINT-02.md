@@ -124,3 +124,7 @@ The above distinguishes **raw-loss** (queue overflow / upstream missing data), *
 
 ### Completion statement
 **Systems Sprint 2 source assessment is COMPLETE.** Report includes source-observed coverage matrix, five ranked risks with scenarios/counterevidence/owners/test ideas, synthetic-vs-live performance reconciliation and explicit cross-lane deduplication. **No product fixes or independent QA results claimed.** Sprint 3 is next (accepted capture → knowledge/learning lineage); it was not started by this work. No background job implied.
+
+## Late QA reconciliation (post-baseline, source-only)
+
+After the assessed source SHA, independent QA committed [`47d4c999`](https://github.com/owenservera/aion/commit/47d4c999b5759dfdb67258bcac85fdf47492adee) adding `workspace/aion/qa/capture-studio/tests/sprint02-capture-safety.test.mjs`. It contains offline source tests for three synthetic split-credential patterns, uncertain-send fresh-key refusal, and metadata-corruption lease ownership. **The commit only proves tests were authored, not that the expected-negative cases were executed or passed; the test file itself describes the split-secret and corrupt-lease negatives as expected to expose current issues.** This supports deduplication with QA Sprint 2 rather than an additional Systems test suite. Our Systems conclusions remain an advisory source analysis; independently observed failures require explicit QA receipts.
