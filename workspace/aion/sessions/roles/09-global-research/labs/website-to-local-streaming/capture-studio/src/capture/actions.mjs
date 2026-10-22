@@ -352,7 +352,10 @@ export async function sendState(page, adapter = null, before = null) {
 // ---------------------------------------------------------------------------------------------
 // Transcript + streaming state
 // ---------------------------------------------------------------------------------------------
-export async function readTranscript(page, adapter = null) {
+export async function readTranscript(page, adapter = null, { exclude = [] } = {}) {
+  const excluded = (Array.isArray(exclude) ? exclude : [exclude])
+    .map((x) => String(x ?? '').replace(/\s+/g, ' ').trim())
+    .filter((x) => x.length >= 8);
   const r = await tryEval(page, String.raw`(() => { ${IN_PAGE}
     const turns = [];
     const seen = new Set();
@@ -446,7 +449,10 @@ export async function readTranscript(page, adapter = null) {
     const CHROME = 'nav,aside,header,footer,[role="navigation"],[role="banner"],[role="complementary"],[class*="sidebar"],[class*="side-bar"],[class*="navigation"],[class*="menu"],[class*="header"],[class*="toolbar"],[class*="breadcrumb"]';
     // A status placeholder is not an answer: Qwen shows "Thinking" while it works.
     const STATUS = /^(thinking|thinking\.{0,3}|generating|generating\.{0,3}|loading|loading\.{0,3}|working|stop|stopping|cancel|思考中|正在思考|思考\.{0,3}|生成中|正在生成|加载中|\.{0,3})$/i;
+    // The prompt we sent is not an answer. Its own text must not count as new content.
+    const EXCLUDED = ${JSON.stringify(excluded)};
     const blocks = [];
+    const seenText = new Set();
     const BLOCK_SEL = 'p,li,pre,blockquote,h1,h2,h3,h4,td';
     for (const el of root.querySelectorAll(BLOCK_SEL + ',div')) {
       if (composer && (el === composer || el.contains(composer))) continue;
@@ -462,7 +468,14 @@ export async function readTranscript(page, adapter = null) {
       if (el.tagName === 'DIV' && el.querySelector(BLOCK_SEL)) continue;
       const t = txt(el);
       if (t.length < 8) continue;
-      if (STATUS.test(t.replace(/\\s+/g, ' ').trim())) continue;
+      const flat = t.replace(/\s+/g, ' ').trim();
+      if (STATUS.test(flat)) continue;
+      // The prompt we sent is not an answer: its own text must not count as new content.
+      if (EXCLUDED.some((x) => flat === x || flat.includes(x) || x.includes(flat))) continue;
+      // The same text can appear in nested wrappers (z.ai renders the prompt seven times);
+      // that is one piece of content, not seven.
+      if (seenText.has(flat)) continue;
+      seenText.add(flat);
       blocks.push({ t: t, top: el.getBoundingClientRect().top + window.scrollY });
     }
     blocks.sort((a, b) => a.top - b.top);
@@ -527,7 +540,7 @@ export async function isStreaming(page, adapter = null) {
   return { streaming: !!r.value?.streaming, evidence: r.value?.evidence ?? 'none' };
 }
 
-export async function waitForCompletion(page, adapter = null, { timeoutMs = 120000, stableMs = 2500, pollMs = 400, baseline = null, baseCount = null } = {}) {
+export async function waitForCompletion(page, adapter = null, { timeoutMs = 120000, stableMs = 2500, pollMs = 400, baseline = null, baseCount = null, exclude = [] } = {}) {
   const startedAt = Date.now();
   let lastText = '';
   let lastChangeAt = startedAt;
@@ -540,7 +553,7 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     const now = Date.now();
     const stream = await isStreaming(page, adapter);
     evidence = stream.evidence;
-    const tr = await readTranscript(page, adapter);
+    const tr = await readTranscript(page, adapter, { exclude });
     const last = [...(tr.turns ?? [])].reverse().find((t) => t.role === 'assistant');
     // `last` is the newest content block; `text` is the joined tail. The answer is the newest
     // block, and it is what must change: a page that still shows its greeting has not answered.
@@ -632,7 +645,10 @@ export async function detectAuthWall(page, adapter = null) {
     const url = location.href;
     let pathname = '';
     try { pathname = new URL(url).pathname.toLowerCase(); } catch (e) { pathname = ''; }
-    const urlWall = /(^|\/)(login|log-in|signin|sign-in|auth|authorize|signup|register)(\/|$)/.test(pathname);
+    // A login page reached by redirect (MiniMax sends the browser to account.minimax.cn/unified-login)
+    // is a wall even though the path is not exactly /login.
+    const urlWall = /(^|\/)(login|log-in|signin|sign-in|auth|authorize|signup|register)(\/|$)/.test(pathname)
+      || /unified-login|login_redirect|\/sign-?in|\/log-?in|\/auth\/|\/account\/login/.test(String(url).toLowerCase());
     const body = String((document.body && document.body.innerText) || '').slice(0, 4000);
     const wall = /(sign in to continue|log in to continue|you need to sign in|please sign in|you must be signed in|continue with google|continue with email|enter your email|verify you are human|create an account or sign in)/i;
     const m = body.match(wall);
@@ -790,9 +806,30 @@ async function waitForTargetId(port, id, { timeoutMs = 20000, intervalMs = 300 }
   }
 }
 
+// Make a target the active tab of its window. A tab that is not active is hidden, and Chrome
+// does not deliver synthetic key input to a hidden tab.
+async function page_bringToFront(port, targetId) {
+  const conn = await CdpConnection.connect(await browserWsUrl({ port }), { requestTimeoutMs: 15000 });
+  try {
+    const page = await conn.attach(targetId);
+    await page.send('Page.bringToFront', {});
+  } finally {
+    try { conn.close(); } catch { /* already closed */ }
+  }
+}
+
+// Close a tab the drive opened, so the owner's browser is left as it was found.
+async function closeTab(port, targetId) {
+  if (!targetId) return false;
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/json/close/${targetId}`);
+    return res.ok;
+  } catch { return false; }
+}
+
 // Drive one live site: resolve the tab, check the login wall, record, type, send, wait, read back.
 // Site-level problems are returned, never thrown.
-export async function driveSite({ adapter, prompt, port = 9222, dataDir, record = true, timeoutMs = 120000, humanPace = true, onEvent = null } = {}) {
+export async function driveSite({ adapter, prompt, port = 9222, dataDir, record = true, timeoutMs = 120000, humanPace = true, freshTab = true, onEvent = null } = {}) {
   const startedAt = Date.now();
   const errors = [];
   const result = {
@@ -804,6 +841,7 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
   let recorder = null;
   let conn = null;
   let page = null;
+  let openedTabId = null;
 
   const cleanup = async () => {
     if (recorder) {
@@ -812,6 +850,11 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
       recorder = null;
     }
     if (conn) { try { conn.close(); } catch { /* already closed */ } conn = null; }
+    // The tab this drive opened is closed again: the owner's browser keeps only its own tabs.
+    if (openedTabId && result.openedTab) {
+      const closed = await closeTab(port, openedTabId);
+      result.tabClosed = closed;
+    }
     result.ms = Date.now() - startedAt;
   };
 
@@ -839,18 +882,39 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     try { targets = await listTargets({ port }); }
     catch (e) { result.reason = 'no-browser'; errors.push(`DevTools endpoint unreachable on 127.0.0.1:${port}: ${String(e?.message ?? e)}`); return; }
 
-    let target = targets.find((t) => hostMatches(adapter, t.url)) ?? null;
-    if (target) emit({ type: 'target', reused: true, id: target.id, url: target.url });
-    else {
+    // A drive happens in its OWN tab. Measured on this machine: a tab that is not the active one
+    // reports document.visibilityState === "hidden", and Chrome then drops synthetic key input
+    // for it (the composer accepted Input.insertText but no keystroke reached it). A freshly
+    // created tab is always visible, so every drive opens one and closes it afterwards.
+    let target = null;
+    if (freshTab) {
       const openUrl = adapter?.url ?? (adapter?.hosts?.[0] ? `https://${adapter.hosts[0]}/` : null);
       if (!openUrl) { errors.push('adapter has no url or hosts to open'); return; }
-      emit({ type: 'tab', opening: openUrl });
+      emit({ type: 'tab', opening: openUrl, fresh: true });
       try {
         const created = await openTab(port, openUrl);
-        target = await waitForTargetId(port, created?.id);
+        openedTabId = created?.id ?? null;
+        target = await waitForTargetId(port, openedTabId, { timeoutMs: 30000 });
         if (!target) { errors.push(`opened ${openUrl} but no page target appeared`); return; }
+        try { await page_bringToFront(port, target.id); } catch { /* the tab is already active */ }
       } catch (e) { errors.push(`could not open ${openUrl}: ${String(e?.message ?? e)}`); return; }
       emit({ type: 'target', reused: false, id: target.id, url: target.url });
+      result.openedTab = true;
+    } else {
+      target = targets.find((t) => hostMatches(adapter, t.url)) ?? null;
+      if (target) emit({ type: 'target', reused: true, id: target.id, url: target.url });
+      else {
+        const openUrl = adapter?.url ?? (adapter?.hosts?.[0] ? `https://${adapter.hosts[0]}/` : null);
+        if (!openUrl) { errors.push('adapter has no url or hosts to open'); return; }
+        emit({ type: 'tab', opening: openUrl });
+        try {
+          const created = await openTab(port, openUrl);
+          openedTabId = created?.id ?? null;
+          target = await waitForTargetId(port, openedTabId);
+          if (!target) { errors.push(`opened ${openUrl} but no page target appeared`); return; }
+        } catch (e) { errors.push(`could not open ${openUrl}: ${String(e?.message ?? e)}`); return; }
+        emit({ type: 'target', reused: false, id: target.id, url: target.url });
+      }
     }
     result.target = { id: target.id, url: target.url, title: target.title ?? null };
 
@@ -909,7 +973,7 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
 
     // What the page says BEFORE the prompt is sent. The reply is only accepted when new content
     // has appeared since then, so a static greeting is never mistaken for an answer.
-    const pre = await readTranscript(page, adapter);
+    const pre = await readTranscript(page, adapter, { exclude: [result.prompt] });
     const baseline = pre.last || [...(pre.turns ?? [])].reverse().find((t) => t.role === 'assistant')?.text || '';
     const baseCount = pre.count ?? 0;
     result.baseline = baseline ? baseline.slice(0, 200) : '';
@@ -927,7 +991,7 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     emit({ type: 'sent', ...sent });
     if (!sent.ok) { errors.push(`send did not take (${sent.method})`); result.reason = 'send-failed'; return; }
 
-    const wait = await waitForCompletion(page, adapter, { timeoutMs, baseline, baseCount });
+    const wait = await waitForCompletion(page, adapter, { timeoutMs, baseline, baseCount, exclude: [result.prompt] });
     emit({ type: 'completion', done: wait.done, failed: !!wait.failed, ms: wait.ms, reason: wait.reason });
     result.reply = wait.text ?? '';
     result.done = wait.done;
