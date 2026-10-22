@@ -350,7 +350,7 @@ async function api(path, opts = {}) {
   if (!r.ok) {
     if (r.status === 401 || r.status === 403) {
       S.authExpired = true;
-      $('#connectionNote').textContent = 'Studio authorization expired — reopen the original tokenized Studio URL from the local terminal.';
+      $('#connectionNote').textContent = 'Studio request rejected. Local mode needs no token; check address/Origin or reopen the startup URL if token mode is enabled.';
     }
     const err = new Error(j.error || r.statusText || 'Request failed');
     err.status = r.status; throw err;
@@ -684,7 +684,7 @@ async function openSession(id) {
       selectSessionContext(null);
       $('#sessionDetail').innerHTML = '<div class="feedback-error" role="alert">' +
         (e.status === 404 ? 'This recording is no longer available. It may have been deleted.' :
-          (e.status === 401 || e.status === 403 ? 'Authorization expired. Reopen the tokenized local Studio URL before opening this recording.' :
+          (e.status === 401 || e.status === 403 ? 'Studio request rejected. Check local address/Origin; if token mode is enabled, reopen its startup URL.' :
             'Could not open recording: ' + esc(e.message) + '. Selection cleared; no previous evidence is shown as current.')) + '</div>';
     }
     return false;
