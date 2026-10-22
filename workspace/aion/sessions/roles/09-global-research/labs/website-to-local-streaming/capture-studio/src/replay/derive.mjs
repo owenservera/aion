@@ -16,10 +16,15 @@ import { InvariantViolation, NSP_SCHEMA } from '../core/invariants.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
 import { joinStreamToDom } from '../intel/join.mjs';
 import { buildStreamMessages } from './stream-messages.mjs';
+import { applyStreamMap } from '../profiles/stream-map.mjs';
+import { buildStreamComponents, STREAM_COMPONENTS_SCHEMA } from './stream-components.mjs';
 
 export const STREAM_DOM_JOIN_SCHEMA = 'capture-studio.stream-dom-join/1';
+// Per-stream event window for the component pass: larger than the reducer's 400 so long answers
+// are not cut short; any eviction is still reported as eventsOmitted.
+const STREAM_COMPONENTS_EVENT_CAP = 20000;
 
-export async function derive(session, profile, { onProgress, families, learner, joinImpl = joinStreamToDom } = {}) {
+export async function derive(session, profile, { onProgress, families, learner, joinImpl = joinStreamToDom, componentsImpl = applyStreamMap } = {}) {
   // Fail closed during rebuild: old MODEL/entities must not appear to be current.
   const knowledgeRun = { schema: 'capture-studio.knowledge-status/1',
     status: 'deriving', startedAt: new Date().toISOString(), dataset: 'entities' };
@@ -148,6 +153,9 @@ export async function derive(session, profile, { onProgress, families, learner, 
   // Isolated: a failure is recorded in STREAM_DOM_JOIN and never fails derive. Deterministic: no
   // wall-clock fields, so re-deriving the same raw log writes identical content.
   receipt.stream_dom_join = streamDomJoin(session, reducer, domTurns, { firstSeqBySid, joinImpl });
+  // ---- Stream-to-component map: which UI component parts each response stream built. ----
+  // Isolated like the join step: a failure is recorded in STREAM_COMPONENTS and never fails derive.
+  receipt.stream_components = await streamComponents(session, profile, { componentsImpl });
   receipt.knowledge = knowledge;
   receipt.nsp = { schema: NSP_SCHEMA, graphInvariantViolations: knowledge.graphInvariantViolations ?? 0,
     graphQuarantinedEntities: knowledge.graphQuarantinedEntities ?? 0,
@@ -179,6 +187,35 @@ function streamDomJoin(session, reducer, domTurnsRaw, { firstSeqBySid, joinImpl 
   if (value.summary) {
     const ms = value.summary.messageStatus;
     return `${ms.verified} verified, ${ms.partial} partial, ${ms.ambiguous} ambiguous, ${ms.unlinked_stream} unlinked stream, ${ms.unlinked_dom} unlinked DOM`;
+  }
+  return value.status ?? 'error';
+}
+
+// Re-reads the session's raw records through a dedicated reducer (same decoding as the reducer
+// pass, larger per-stream event window), runs the stream-map engine on each response stream and
+// writes kv STREAM_COMPONENTS. Returns the one-line receipt entry. Never throws.
+async function streamComponents(session, profile, { componentsImpl }) {
+  let value;
+  try {
+    const reducer = new StreamReducer({ deltaDialect: profile?.decode?.delta ?? 'auto', keepEvents: true, maxEventsPerStream: STREAM_COMPONENTS_EVENT_CAP });
+    for await (const rec of session.records()) reducer.ingest(rec);
+    const eventsBySid = new Map();
+    for (const s of reducer.streams.values()) {
+      if (s.kind === 'ws') continue;
+      const events = reducer.eventsOf(s.sid);
+      if (events.length) eventsBySid.set(s.sid, { events, omitted: s.eventsOnlyOnDisk ?? 0 });
+    }
+    value = eventsBySid.size
+      ? buildStreamComponents(eventsBySid, { componentsImpl })
+      : { schema: STREAM_COMPONENTS_SCHEMA, status: 'no_events' };
+    session.kv.set('STREAM_COMPONENTS', value);
+  } catch (e) {
+    value = { schema: STREAM_COMPONENTS_SCHEMA, error: String(e?.message ?? e) };
+    try { session.kv.set('STREAM_COMPONENTS', value); } catch { /* kv not writable: derive continues */ }
+  }
+  if (value.totals) {
+    const t = value.totals;
+    return `${t.mapped} mapped, ${t.noMap} no map, ${t.components} components, ${t.unmappedCount} unmapped events`;
   }
   return value.status ?? 'error';
 }
