@@ -172,3 +172,16 @@ test('NSP-004: graph never creates a relation from quarantined identity', () => 
   assert.equal(g.nodes.has(post.eid), true);
   assert.equal(g.edges.size, 0);
 });
+
+test('NSP-004: direct graph upsert rejects incompatible typed key without partial mutation', () => {
+  const g = new TemporalGraph();
+  g.upsertEntity({ eid: 'shared', type: 'thing', key: 42,
+    attrs: { value: 'observed' }, t: 100 });
+  assert.throws(() => g.upsertEntity({ eid: 'shared', type: 'thing', key: '42',
+    attrs: { value: 'wrong' }, t: 200, evidence: { session: 'session1', seq: 42 } }),
+    (error) => error.code === 'NSP-004' && error.receipt.source.seq === 42);
+  assert.equal(g.nodes.get('shared').key, 42);
+  assert.equal(g.nodes.get('shared').attrs.value, 'observed');
+  assert.equal(g.nodes.get('shared').history.length, 1);
+  assert.equal(g.changes.length, 1);
+});
