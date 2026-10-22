@@ -19,9 +19,16 @@ if (!['l0', 'l1'].includes(round) || (flag >= 0 && !process.argv[flag + 1])) {
 const runId = 'core-' + new Date().toISOString().replace(/\W/g, '').slice(0, 15) + '-' + randomUUID().slice(0, 8);
 const out = path.resolve(flag >= 0 ? process.argv[flag + 1]
   : path.join(defaultDataDir(), 'integration-runs', runId, 'round-' + round.toUpperCase()));
-const rel = path.relative(root, out);
+function repositoryRoot(start) {
+  for (let dir = start; ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    if (path.dirname(dir) === dir) return start;
+  }
+}
+const repoRoot = repositoryRoot(root);
+const rel = path.relative(repoRoot, out);
 if (rel === '' || !(rel === '..' || rel.startsWith('..' + path.sep))) {
-  console.error('Use an integration evidence directory outside the Studio source checkout.');
+  console.error('Use an evidence directory outside the Git repository (not just outside Capture Studio).');
   process.exit(2);
 }
 const priv = path.join(out, 'private'), shareable = path.join(out, 'shareable');
@@ -31,7 +38,8 @@ const env = { ...process.env, CAPTURE_STUDIO_HOME: path.join(priv, 'diagnostic-h
   CAPTURE_STUDIO_ACCESS_MODE: 'local', CAPTURE_STUDIO_CAPTURE_MODE: 'local-raw', NO_COLOR: '1' };
 const begun = new Date().toISOString(), steps = [], failures = [];
 const metrics = { passed: 0, failed: 0, skipped: 0, partial: 0, uiHttpStatus: null, apiHttpStatus: null,
-  synthetic: null, externalSendAttempts: 0, cpuMs: null, peakRssBytes: null };
+  synthetic: null, externalSendAttempts: 0, provenExternalSends: 0,
+  cpuMs: null, peakRssBytes: null };
 let sha = null, dirtyCount = null, collectorSha = null;
 const now = () => new Date().toISOString();
 const maybeJson = (s) => { try { return JSON.parse(s.trim()); } catch { return null; } };
