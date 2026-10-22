@@ -131,9 +131,12 @@ export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps =
   for (const r of resolutions) for (const e of r.entities) {
     const signature = JSON.stringify([e.type, e.scope, e.method, e.keyType ?? null, e.key]);
     const prior = signatures.get(e.eid);
-    if (prior && (prior.signature !== signature || e.method !== 'key')) {
-      const set = collisions.get(e.eid) ?? new Set([prior.entity]);
-      set.add(e); collisions.set(e.eid, set);
+    if (collisions.has(e.eid)) {
+      // Once ambiguous, all subsequent observations of that EID are excluded,
+      // even if a later signature happens to match the first one.
+      collisions.get(e.eid).add(e);
+    } else if (prior && (prior.signature !== signature || e.method !== 'key')) {
+      collisions.set(e.eid, new Set([prior.entity, e]));
     } else if (!prior) signatures.set(e.eid, { signature, entity: e });
   }
   for (const [eid, entities] of [...collisions].sort(([a], [b]) => String(a).localeCompare(String(b)))) {
