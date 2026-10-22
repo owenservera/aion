@@ -74,7 +74,11 @@ export function createDriveApi({ dataDir, port = 9222, drive = driveSite, campai
       if (siteOrder.includes(site)) { targets.push({ site, adapter: await getAdapter(site) }); continue; }
       let url;
       try { url = new URL(site); } catch { throw problem(400, 'Unknown site'); }
-      if (body.mode !== 'drive' || url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw problem(400, 'Use a known site or one HTTPS URL without credentials, query or fragment');
+      if (body.mode !== 'drive' ||
+          !(['https:', 'http:'].includes(url.protocol)) ||
+          (url.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) ||
+          url.username || url.password)
+        throw problem(400, 'Use a known site, HTTPS URL, or local HTTP testing URL');
       const adapter = await getAdapter(url.href);
       targets.push({ site: url.href, adapter: { ...(adapter ?? { id: 'generic', hosts: [url.hostname] }), url: url.href } });
     }
