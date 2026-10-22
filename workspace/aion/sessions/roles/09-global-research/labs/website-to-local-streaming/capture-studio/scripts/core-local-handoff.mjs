@@ -61,18 +61,28 @@ function run(program, args, id, timeoutMs = 60000) {
   const start = Date.now();
   return new Promise((resolve) => {
     let stdout = '', stderr = '', complete = false, child, timer;
+    // Full byte streams land locally; only the parser's in-memory tail is
+    // bounded. Never silently truncate diagnostic evidence on disk.
+    const stdoutFd = fs.openSync(path.join(priv, id + '.stdout.txt'), 'w');
+    const stderrFd = fs.openSync(path.join(priv, id + '.stderr.txt'), 'w');
+    const capture = (fd, chunk, channel) => {
+      fs.writeSync(fd, chunk);
+      const value = chunk.toString('utf8');
+      if (channel === 'stdout') stdout = (stdout + value).slice(-1048576);
+      else stderr = (stderr + value).slice(-1048576);
+    };
     const finish = (exitCode, reason = null) => {
       if (complete) return;
       complete = true;
       clearTimeout(timer);
-      fs.writeFileSync(path.join(priv, id + '.stdout.txt'), stdout);
-      fs.writeFileSync(path.join(priv, id + '.stderr.txt'), stderr);
+      fs.closeSync(stdoutFd);
+      fs.closeSync(stderrFd);
       resolve({ code: exitCode, stdout, stderr, reason, durationMs: Date.now() - start });
     };
     try {
       child = spawn(program, args, { cwd: root, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-      child.stdout.on('data', (d) => { stdout += d.toString('utf8').slice(0, Math.max(0, 1048576 - stdout.length)); });
-      child.stderr.on('data', (d) => { stderr += d.toString('utf8').slice(0, Math.max(0, 1048576 - stderr.length)); });
+      child.stdout.on('data', (chunk) => capture(stdoutFd, chunk, 'stdout'));
+      child.stderr.on('data', (chunk) => capture(stderrFd, chunk, 'stderr'));
       child.on('error', (e) => { stderr += String(e); finish(-1, 'SPAWN_FAILED'); });
       child.on('close', (code) => finish(code ?? -1));
       timer = setTimeout(() => { try { child.kill(); } catch {} finish(-1, 'TIMEOUT'); }, timeoutMs);
