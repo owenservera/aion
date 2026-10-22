@@ -44,7 +44,8 @@ test('Sessions remain keyboard-operable with filtering and feedback', () => {
   assert.match(script, /function renderSessions\(\)/);
   assert.match(script, /button\[data-id\]/);
   assert.match(script, /b\.setAttribute\('aria-current', 'page'\)/);
-  assert.match(script, /Could not open session:/);
+  assert.match(script, /Could not open recording:/);
+  assert.match(script, /Selection cleared; no previous evidence is shown as current/);
   assert.match(script, /const requestSeq = \+\+S\.sessionRequestSeq/);
 });
 
