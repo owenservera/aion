@@ -65,7 +65,7 @@ const ERROR_TEXT = {
   ONE_TURN_LIMIT: 'This release sends one message per conversation.',
   NOT_READY: 'Studio isn’t ready to send. Use Check again (read-only) first.',
   CONFIRM_REQUIRED: 'Sending needs your explicit confirmation.',
-  INVALID_SUBMISSION: 'The message is empty or longer than 2000 characters.',
+  INVALID_SUBMISSION: 'The message is empty or longer than 250000 characters.',
   IDEMPOTENCY_CONFLICT: 'That request ID was already used for a different message.',
   CONVERSATION_FINISHED: 'This conversation has been finished.',
   CONVERSATION_NOT_WRITABLE: 'This conversation can’t send: it was recovered after a restart, or another Studio process owns it.',

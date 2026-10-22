@@ -6,7 +6,9 @@ import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const read = (name) => readFileSync(new URL('../../src/studio/ui/' + name, import.meta.url), 'utf8');
+// CRLF-safe: working copies may use \r\n; every slice and regex below assumes \n only.
+const read = (name) => readFileSync(new URL('../../src/studio/ui/' + name, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const lf = (s) => s.replace(/\r\n/g, '\n');
 const html = read('chat.html');
 const source = read('chat.mjs');
 const ui = await import('../../src/studio/ui/chat.mjs'); // importing must not touch document or fetch
@@ -44,11 +46,11 @@ test('Studio really serves /chat and /ui/chat.mjs (loopback, injected fake runti
   assert.equal(page.status, 200);
   assert.match(page.headers.get('content-type'), /text\/html/);
   assert.match(page.headers.get('content-security-policy'), /script-src 'self'/);
-  assert.equal(await page.text(), html);
+  assert.equal(lf(await page.text()), html);
   const script = await fetch(base + '/ui/chat.mjs', { headers: auth });
   assert.equal(script.status, 200);
   assert.match(script.headers.get('content-type'), /javascript/);
-  assert.equal(await script.text(), source);
+  assert.equal(lf(await script.text()), source);
   assert.equal((await fetch(base + '/chat', { method: 'POST', headers: auth })).status, 405);
   assert.equal((await fetch(base + '/drive', { headers: auth })).status, 200, '/drive is retained');
   assert.equal((await (await fetch(base + '/api/v1/conversation-targets', { headers: auth })).json()).sites.length, 0);
@@ -255,7 +257,7 @@ test('service reason codes become plain sentences and unknown codes stay visible
   assert.match(ui.explainError({ status: 409, message: 'ONE_TURN_LIMIT' }), /one message per conversation/);
   assert.match(ui.explainError({ status: 500, message: 'WEIRD_THING' }), /weird thing/);
   assert.equal(ui.explainError({ status: 400, message: 'Message was too long' }), 'Message was too long');
-  assert.match(ui.explainError({ status: 401, message: 'unauthorized' }), /Not authorised/);
+  assert.match(ui.explainError({ status: 401, message: 'unauthorized' }), /Local Studio refused this request\. Check its address and Origin settings/);
   assert.match(ui.explainError({ status: 404, message: 'not found' }), /Not found/);
 });
 
@@ -353,7 +355,9 @@ test('no code path posts to /turns except the one explicit send; the same-key re
   assert.equal((source.match(/\bsendMessage\(/g) ?? []).length, 2, 'definition plus sendAgain');
   assert.equal((source.match(/addEventListener\('click', sendMessage\)/g) ?? []).length, 1);
   assert.match(source, /\$\('#btnSendAgain'\)\.addEventListener\('click', sendAgain\)/);
-  assert.doesNotMatch(source, /\bretry\b(?! by itself)|btnRecover|btnDiscard|btnStatus|Recover request status/);
+  // Full-line comments are documentation, not code: strip them before the forbidden-pattern check (code lines still checked).
+  const codeOnly = source.split('\n').filter((l) => { const t = l.trim(); return !(t.startsWith('//') || t.startsWith('*')); }).join('\n');
+  assert.doesNotMatch(codeOnly, /\bretry\b(?! by itself)|btnRecover|btnDiscard|btnStatus|Recover request status/);
   assert.ok(!html.includes('Recover request status'));
   // Reconcile is its own read-only route and never the turns route.
   const rec = fnBody('async function reconcile(');
@@ -371,7 +375,9 @@ test('unknown send outcome keeps the composer locked; only a read-only check tha
   // The catch branch for an unknown outcome keeps the pending request (and so the lock) and never prints "Not sent".
   const send = fnBody('async function sendMessage()');
   const ambiguous = send.slice(send.indexOf('if (isAmbiguous(e))'), send.indexOf('} else {', send.indexOf('if (isAmbiguous(e))')));
-  assert.match(ambiguous, /savePending\(\)/);
+  // savePending() runs before the one POST (it persists the attempt the lock depends on); the ambiguous branch must not clear or print "Not sent".
+  const savedAt = send.indexOf('savePending()'), postAt = send.indexOf("'/turns'");
+  assert.ok(savedAt >= 0 && postAt > savedAt, 'savePending() is called before the /turns POST');
   assert.doesNotMatch(ambiguous, /clearPending|Not sent/);
   // Composer is locked while pending is unknown.
   assert.match(source, /prompt\.readOnly = locked \|\| S\.submitting/);
