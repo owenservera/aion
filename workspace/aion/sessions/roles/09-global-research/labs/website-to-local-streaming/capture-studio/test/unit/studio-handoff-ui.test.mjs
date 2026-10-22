@@ -12,22 +12,30 @@ const chat = src('chat.mjs');
 const drive = src('drive.mjs');
 const start = script.indexOf('function parseSessionDeepLink(hash)');
 const end = script.indexOf("if (location.hash.startsWith('#session='))", start);
+const helperStart = script.indexOf('function recordedEvidenceHref(source)');
+const helperEnd = script.indexOf('function knowledgeSourceLinks(history)', helperStart);
 const navigation = start > 0 && end > start ? script.slice(start, end) : '';
+const sourceHref = helperStart > 0 && helperEnd > helperStart ? script.slice(helperStart, helperEnd) : '';
 
 function harness() {
   const states = [], reads = [], selection = {sessionId:null};
   let read = async () => true;
+  let streamRows = [{sid:'stream-42'}], openError = null;
+  const streamOpens = [], notifications = [];
   const nodes = new Map();
   const $ = (s) => {
-    if (!nodes.has(s)) nodes.set(s, {hidden:true,textContent:''});
+    if (!nodes.has(s)) nodes.set(s, {hidden:true,textContent:'',querySelectorAll:()=>[]});
     return nodes.get(s);
   };
   const show = (v) => states.push(v);
   const apiRead = (id) => {reads.push(id);selection.sessionId=id;return read(id);};
   const selectSessionContext = (id) => {selection.sessionId=id || null;};
-  const functions = runInNewContext(navigation + '\n({parseSessionDeepLink,openSessionDeepLink})',
-    { URLSearchParams, show, $, openSession:apiRead, selectSessionContext, S:selection }, { timeout:1000 });
-  return {...functions,$,states,reads,selected:()=>selection.sessionId,setRead:(fn)=>{read=fn;}};
+  const loadStreams = async () => streamRows;
+  const openStream = async (sid) => { streamOpens.push(sid); if (openError) throw openError; return true; };
+  const functions = runInNewContext(sourceHref + navigation + '\n({parseSessionDeepLink,openSessionDeepLink,recordedEvidenceHref})',
+    { URLSearchParams, show, $, openSession:apiRead, selectSessionContext, S:selection, loadStreams, openStream, toast:(message)=>notifications.push(message) }, { timeout:1000 });
+  return {...functions,$,states,reads,notifications,streamOpens,selected:()=>selection.sessionId,
+    setRead:(fn)=>{read=fn;},setStreams:(rows)=>{streamRows=rows;},setStreamError:(err)=>{openError=err;}};
 }
 
 test('the Studio script compiles and provides the session handoff', () => {
@@ -109,4 +117,55 @@ test('the handoff has no send, mutation or auto-derive operations', () => {
   assert.doesNotMatch(navigation,/\b(?:api|fetch|sendAgain|derive)\s*\(/);
   assert.doesNotMatch(navigation,/method:\s*['\"]POST/);
   assert.match(script,/const loaded = await openSession\(request\.id\)/);
+});
+
+
+test('exact source link encodes session, SID and numeric sequence without inventing absent locators',()=>{
+  const h=harness();
+  const url=h.recordedEvidenceHref({session:'site / recording',sid:'ws/stream &1',seq:17});
+  assert.equal(url,'/#session=site%20%2F%20recording&view=streams&sid=ws%2Fstream%20%261&seq=17');
+  assert.equal(h.parseSessionDeepLink(url.slice(1)).seq,17);
+  assert.equal(h.recordedEvidenceHref({session:'s1'}),null);
+  assert.equal(h.recordedEvidenceHref({session:'s1',sid:'x',seq:'invalid'}),'/#session=s1&view=streams&sid=x');
+  assert.equal(h.recordedEvidenceHref({session:'s1',sid:'\u0000'}),null);
+  assert.match(script,/href="' \+ esc\(recordedEvidenceHref\(r\)\)/);
+  assert.match(script,/Open exact stream/);
+});
+
+test('exact SID permalink verifies saved recording and stream membership before opening evidence',async()=>{
+  const h=harness();
+  const ok=await h.openSessionDeepLink('#session=s1&view=streams&sid=stream-42&seq=17');
+  assert.equal(ok,true);
+  assert.deepEqual(h.reads,['s1']);
+  assert.deepEqual(h.streamOpens,['stream-42']);
+  assert.deepEqual(h.states,['sessions','streams']);
+  assert.match(h.$('#evMeta').textContent,/sequence #17 not present in this bounded preview/);
+  assert.match(h.notifications[0],/exact sequence is unavailable/);
+});
+test('missing exact stream never substitutes an unrelated stream or marks link success',async()=>{
+  const h=harness();h.setStreams([{sid:'other-stream'}]);
+  const ok=await h.openSessionDeepLink('#session=s1&view=streams&sid=unavailable&seq=3');
+  assert.equal(ok,false);
+  assert.deepEqual(h.streamOpens,[]);
+  assert.deepEqual(h.states,['sessions']);
+  assert.match(h.$('#deepLinkNotice').textContent,/stream is missing/);
+});
+test('unavailable stream bodies return to saved-recording view with explicit diagnostics',async()=>{
+  const h=harness();h.setStreamError(new Error('saved stream read failed'));
+  const ok=await h.openSessionDeepLink('#session=s1&view=streams&sid=stream-42');
+  assert.equal(ok,false);
+  assert.deepEqual(h.states,['sessions','streams','sessions']);
+  assert.match(h.$('#deepLinkNotice').textContent,/could not be loaded/);
+});
+test('malformed deep stream/sequence locators do not fetch or send',async()=>{
+  for(const bad of ['#session=a&sid=x','#session=a&view=knowledge&sid=x',
+    '#session=a&view=streams&seq=2','#session=a&view=streams&sid=x&seq=NaN',
+    '#session=a&view=streams&sid=x&seq=-1','#session=a&view=streams&sid=x&seq=9007199254740992',
+    '#session=a&view=streams&sid=x&sid=y','#session=a&view=streams&sid=x&seq=1&seq=2',
+    '#session=a&view=streams&sid=']) {
+    const h=harness();
+    assert.equal(h.parseSessionDeepLink(bad),null,bad);
+    assert.equal(await h.openSessionDeepLink(bad),false,bad);
+    assert.equal(h.reads.length,0,bad);
+  }
 });
