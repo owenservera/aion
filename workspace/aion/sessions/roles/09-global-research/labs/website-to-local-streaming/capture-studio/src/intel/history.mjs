@@ -1,5 +1,25 @@
 // Temporal operations are explicit; absence never implies a removal.
+import { assertInvariant } from '../core/invariants.mjs';
+
+// Validate BEFORE applying any mutations: a single revision cannot both set
+// and retract the same attribute. This rejects only that contradictory input;
+// observations missing a field are normal and remain completely unrestricted.
+export function validateRevision(revision = {}) {
+  const values = revision.values ?? {};
+  const removed = Array.isArray(revision.removed) ? revision.removed : [];
+  const contradiction = removed.some((field) => typeof field === 'string'
+    && Object.prototype.hasOwnProperty.call(values, field));
+  assertInvariant(!contradiction, 'NSP-003', {
+    boundary: 'temporal-revision', disposition: 'rejected', reason: 'write-and-remove',
+    source: { session: revision.session ?? revision.evidence?.session,
+      sid: revision.sid ?? revision.evidence?.sid,
+      seq: revision.seq ?? revision.evidence?.seq },
+  });
+  return revision;
+}
+
 export function foldRevision(state, revision = {}) {
+  validateRevision(revision);
   for (const [field, value] of Object.entries(revision.values ?? {})) {
     Object.defineProperty(state, field, { value, enumerable: true, writable: true, configurable: true });
   }
@@ -44,6 +64,7 @@ export class RevisionAccumulator {
   constructor() { this.revisions = []; this.state = {}; this.latestT = null; }
   append(revision) {
     const row = structuredClone(revision);
+    validateRevision(row); // Cannot poison the journal with an invalid revision.
     this.revisions.push(row);
     if (Number.isFinite(row.t) && this.latestT !== null && row.t < this.latestT) {
       this.revisions.sort((a, b) => (a.t ?? Infinity) - (b.t ?? Infinity) || (a.seq ?? 0) - (b.seq ?? 0));
