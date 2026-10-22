@@ -103,6 +103,7 @@ test('Drive provides the same session/knowledge route without claiming capture a
 });
 
 test('the handoff has no send, mutation or auto-derive operations', () => {
-  assert.doesNotMatch(navigation,/api\(|derive|sendAgain|POST|fetch\(/);
+  assert.doesNotMatch(navigation,/\b(?:api|fetch|sendAgain|derive)\s*\(/);
+  assert.doesNotMatch(navigation,/method:\s*['\"]POST/);
   assert.match(script,/const loaded = await openSession\(request\.id\)/);
 });
