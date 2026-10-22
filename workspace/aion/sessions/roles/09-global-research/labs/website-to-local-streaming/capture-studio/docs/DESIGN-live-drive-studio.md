@@ -121,7 +121,7 @@ Known limit, stated not hidden: connections opened before attach are invisible t
 For drives this is mitigated by arming the recorder on the fresh tab before navigating to the site
 (hypothesis: needs `Target.setAutoAttach` + `waitForDebuggerOnStart`; to be checked in `recorder.mjs`).
 
-## 6. API contract (final)
+## 6. API contract (initial drive proposal)
 
 Unchanged from the lane brief, plus:
 
@@ -175,3 +175,279 @@ Parallelism: phase 1 is one writer (it all touches `actions.mjs`/`campaign.mjs`)
 2. May the repair button auto-run `derive` on dead `recording` sessions, or only offer it?
 3. Should accepted/rejected be stored in session meta (touches the session format) or in a sidecar
    `acceptance.json` (no format change)? Recommendation: sidecar.
+
+## 12. Unified conversation architecture — 2026-10-22 revision
+
+**Status: proposed architecture, not implemented or live-verified.** This section supersedes the
+one-shot-only product direction in sections 1, 4 and 10, not their safety constraints. The owner wants
+the same Studio to interact with a website and read the result. Campaigns become a calibration tool,
+not the primary interaction model. Current live testing remains one prompt per site; designing a
+multi-turn interface does not authorize unattended conversations or additional live sends.
+
+### 12.1 Product boundary
+
+One logical conversation owns an exact Chrome target binding, its capture segments, and ordered
+turns. The UI, CLI and agent clients call the same conversation service. They do not independently
+drive the browser or infer success. No iframe embedding of logged-in sites, copied credentials,
+provider HTTP impersonation, new daemon, or second raw-evidence store is needed.
+
+The routine flow is connect -> inspect readiness -> submit one turn -> observe reply -> inspect
+evidence -> finish. A later explicitly authorized turn uses the same binding, not another fresh tab.
+Existing-tab attachment is non-destructive: never clear an existing draft, navigate, reload, or close
+an owner tab implicitly. A fresh tab is Studio-owned and can be closed after capture finalization.
+
+### 12.2 Reuse confirmed in source
+
+- `recorder.mjs:69-137` already creates an exact-target recording and mirrors persisted records through
+  `StreamReducer`. It records that pre-attach requests/history are unknown.
+- `live-tap.mjs:8-43` already provides decoded events, text revisions/replacements and explicit lag;
+  its bounded preview queue can drop payloads without dropping the durable raw log.
+- `capabilities.mjs:246-249` already exposes a resumable SSE live feed. Reuse this transport pattern;
+  stream text events alone are not proof that text belongs to the submitted turn.
+- `integration-hub.mjs:81-136` already provides session metadata, receipts, derive, replay and stream
+  reconstruction. Full derive/replay is deliberately saved-session-only. Do not weaken that guard
+  to make a persistent conversation appear finalized.
+- `actions.mjs:923-1109` is currently a one-shot lifecycle, not a persistent conversation driver:
+  it probes before recording, clears the composer, sends, reads DOM text, stops recording, and closes
+  its own tab. Extract reusable actions beneath a new lifecycle owner rather than keeping this
+  function running forever or duplicating its logic in HTTP handlers.
+
+### 12.3 Components and authority
+
+**Conversation service:** sole owner of target lease, action serialization, turn journal and cleanup.
+One global foreground-driving lease covers Studio conversation turns AND legacy campaign jobs.
+Passive recording does not acquire permission to type. If an existing recorder already owns the
+target, reuse its evidence stream only through an explicit compatible ownership interface, otherwise
+return a conflict; never stop or replace an unknown recorder.
+
+**Capture binding:** associates conversation ID, exact target ID, exact origin and capture session ID.
+Target disappearance or cross-origin navigation invalidates the writable binding. A site redirect
+needs an explicit adapter allowance and revalidation. Browser restart requires explicit reattachment;
+never select the first same-host tab. A conversation can reference multiple finalized capture segments
+without copying their raw data. Initial release uses one segment, finalized on Finish.
+
+**Turn correlator:** snapshots transcript identity/count and durable sequence boundary before send.
+Correlates outgoing request, conversation/message IDs and response stream IDs where available.
+Timing alone is insufficient. Unrelated telemetry, history fetches and background answers are excluded.
+One turn may span multiple streams; one persistent stream may carry multiple turns.
+
+**Reply assembler:** consumes the existing decoder/reducer/tap, with a pinned site extraction recipe.
+Shape families describe structure; they are NOT automatically trusted semantic answer extractors.
+Each recipe must identify assistant content, patch/replacement semantics, message correlation and
+exchange completion. Preserve separate content blocks (answer, reasoning if browser-exposed, tool
+activity, citations); never concatenate every string field into an answer. Unknown recipes expose
+candidate text as unverified, with an explicit DOM fallback source.
+
+**Acceptance evaluator:** evaluates saved evidence after stop/flush/verify/derive, separately from
+interactive reply readiness. Store a versioned local `acceptance.json` sidecar referencing raw-log
+identity, capture segment, turn, recipe version, evaluated sequence range and individual gates. A
+changed artifact or recipe invalidates the previous evaluation rather than silently inheriting it.
+This sidecar choice is a manager recommendation, not recorded owner approval.
+
+### 12.4 Independent states, not one green success flag
+
+- Conversation: disconnected, attaching, ready, busy, blocked, needs-reconciliation, finalizing, closed.
+- Send: not-attempted, submitting, observed, uncertain. Persist the attempt BEFORE the side effect.
+- Reply: waiting, streaming, ready, interrupted, unknown.
+- Evidence: recording, finalizing, accepted, rejected, incomplete.
+
+A reply can be ready while evidence is still recording. Never mark the whole capture accepted before
+finalization. A transport close is not necessarily an exchange terminal marker, and a WebSocket may
+remain open across replies. Unknown terminal semantics remain unknown; DOM stability may establish
+an interactive fallback, not full network-completion evidence.
+
+G1 applies to the new submitted turn, not the whole pre-existing transcript. Expected-word checks
+are calibration-only; normal conversations instead require observed submission, attributable new
+assistant output, completion evidence and reconciliation. Compare content blocks with explicit
+formatting normalization; preserve both originals and report differences rather than forcing equality.
+Judge coverage against the relevant turn/streams, while still exposing all session-wide exclusions.
+
+### 12.5 Send and cancellation protocol
+
+Each submit carries a client-generated idempotency key and expected conversation revision. Persist
+its intent, payload digest and attempt state atomically before issuing a browser action. A duplicate
+key with the same payload returns the original turn; a changed payload conflicts. This prevents
+Studio-side duplicate attempts, NOT exactly-once delivery by a third-party website.
+
+If acknowledgement is lost, transition to uncertain and block further sends. Read-only reconciliation
+looks for the exact submitted turn and response; never click Send again as a fallback. On process
+restart, any submitting turn becomes needs-reconciliation and is never automatically resumed.
+
+Cancellation before submission stops typing and leaves any resulting draft visible for inspection.
+After submission it cancels local driving/waiting, not the provider's generation. Continue collecting
+evidence until explicitly finalized or a bounded capture limit is reached. A remote Stop-generation
+button is a separate explicit operation, outside the first release. Release the driving lease only
+after local action cleanup; do not claim the provider stopped because a local wait was cancelled.
+
+### 12.6 Proposed API and agent contract
+
+Register routes through the existing integration surface and protections; all names below are proposed:
+
+- `GET /api/v1/conversation-targets`: sanitized target choices and ownership/readiness hints.
+- `POST /api/v1/conversations`: explicit existing target or known-site fresh-tab mode; attach/capture
+  only, no implied send. Return binding identity and limitations.
+- `GET /api/v1/conversations/{id}`: revision, binding, states and capture references.
+- `POST /api/v1/conversations/{id}/turns`: explicit execute confirmation, prompt, idempotency key,
+  expected revision; return 202 with a turn ID, never hold an HTTP request open until generation ends.
+- `GET /api/v1/conversations/{id}/turns/{turn}`: send/reply/evidence state, structured content blocks,
+  source and evidence references. Bounded paging/chunk references preserve long replies without
+  silently truncating them or putting raw text into job summaries.
+- `GET /api/v1/conversations/{id}/events`: ordered state and text events using existing SSE machinery.
+  Text replacements carry revision semantics; reconnect never appends a full replacement as a delta.
+  Event-history overflow returns an explicit resync requirement, not a fictional complete replay.
+- `POST /api/v1/conversations/{id}/cancel`: cancel local activity with the semantics above.
+- `POST /api/v1/conversations/{id}/finish`: stop/flush, evaluate saved evidence, release binding;
+  close only Studio-owned tabs when requested. Repeat calls return the same finalization outcome.
+
+CLI/tool wrappers call this same service. The first implementation exposes connect, submit, read,
+events and finish; convenience `converse` is a wrapper, not another automation engine. Read calls
+never send or mutate the website. Browser output is untrusted data, never executable tool authority.
+Prompts/replies stay in protected local capture storage, not Git, campaign summaries or shared receipts.
+
+### 12.7 Delivery slices and executable proof
+
+1. **Lifecycle foundation:** shared driving lease, signal-aware actions, explicit tab ownership,
+   durable attempt journal and uncertain-send recovery. Test concurrent campaign/conversation attempts,
+   cancellation around submission and crash recovery with fakes.
+2. **One-site vertical slice:** connect -> one submit -> correlated live reply -> finish -> acceptance,
+   using one known adapter and recorded/synthetic fixtures. Prove unrelated streams and old DOM text
+   cannot become the answer; test patches, duplicates, long replies and preview lag/replay recovery.
+3. **Unified interface and agent client:** both exercise the same service. Test stale revisions,
+   duplicate idempotency keys, auth/origin denials, target loss and existing-draft protection.
+4. **Serial site expansion:** one authorized calibration prompt per site, no retry on uncertain send.
+   Unknown sites remain visibly unsupported/unverified; do not generalize from one site's success.
+5. **Later scope:** explicitly authorized multi-turn execution, bounded capture rotation, and reviewed
+   extraction-recipe improvements. Accepted captures propose versioned recipes; fixture replay and
+   regression checks are required before promotion. No automatic live self-modification.
+
+No implementation, additional live sends, repair of old recordings, or runtime restart is performed
+by this design revision. The earlier machine/session counts are historical observations, not refreshed
+telemetry. Sonnet 5.5 reviewed the proposed architecture against the source; the following decisions
+resolve its builder questions. This is ready for owner design review, not implementation acceptance.
+
+## 13. Reconciled UX and builder decisions
+
+Design review: retained designer session `ses_e9d3e14b3ffeWWcCmq1N1lvery`, Sonnet 5.5.
+These are manager decisions where not explicitly owner-directed. This section takes precedence over
+conflicting earlier proposed gate behavior, UI wording and open questions.
+
+### 13.1 Unified Chat workspace
+
+Add **Chat** to the existing navigation without changing the default landing view or removing `/drive`.
+Chat contains a target bar, transcript, composer and progressively disclosed Details. **Calibrate sites**
+links to the existing drive page; both share the same global driving lease.
+
+Primary flow and exact action labels:
+
+1. Choose **Open a new tab** or **Use a tab I already have open**, then **Connect and start recording**.
+   Connection starts observation, not a send. Existing messages are allowed and marked earlier history;
+   pre-attach traffic is explicitly not captured. The fresh-tab path may navigate only its own tab
+   after capture is armed, using an explicit site profile rather than guessing from `about:blank`.
+2. Show readiness, exact tab identity, recording state and draft presence. Existing drafts block send.
+   Initial release offers **Resolve draft in Chrome** and **Check again** only: no replaceDraft API,
+   destructive confirmation flow, or automatic clearing. Recheck the composer immediately before
+   typing; a newly detected draft or changed binding blocks submission.
+3. **Send message…** opens an explicit account/quota/history confirmation; **Send now** submits one
+   turn. Placeholder: **Write a message to this website**. Calibration text belongs on `/drive`, not
+   in the normal conversation composer. The initial composer locks after this one turn.
+4. Show **Submitting**, **Send observed** or **Send not confirmed**, followed by the separate reply
+   state. An observed send followed by a slow reply is not automatically an uncertain send.
+5. **Reply ready. Still recording.** Content identifies its actual source: network, page fallback,
+   disagreement or unverified candidate. Answer is expanded; exposed reasoning, tool activity and
+   citations are separate collapsible blocks. Unknown completion remains visible.
+6. **Finish capture** finalizes saved evidence. An optional **Also close the tab Studio opened** is
+   permitted only for a non-uncertain Studio-owned tab. Owner tabs always remain open. Show **Capture
+   accepted**, **Capture rejected** or **Capture incomplete**, with **Open session** for existing views.
+
+Uncertain-send banner: **We can't confirm your message was sent. Studio will not send it again.**
+Offer **Check again (read-only)** and **Switch to Chrome**. Preserve the tab. User statements about
+whether a message was sent are recorded as assertions, not proof, and never silently authorize a retry.
+Initial release has no resend shortcut. Read-only reconciliation can continue after local waiting stops.
+
+Cancellation labels distinguish **Cancel send** before submission from **Stop waiting** afterward.
+Neither label promises that the website stopped generation. Recording continues until Finish or the
+declared capture limit. Partial local typing remains visible and requires manual draft resolution.
+
+### 13.2 Acceptance and recovery decisions
+
+- **Unknown required completion => Capture incomplete, never accepted with unknowns.** This supersedes
+  the optional-terminal proposal in sections 5 and 11. A versioned recipe can establish completion by
+  proven exchange semantics without a literal end token; stable DOM alone is fallback readiness.
+- Gate values are `passed`, `failed`, `not-checked`, `unknown`. Missing evidence is unknown, not passed.
+  Gate rows use plain labels, not success glyphs. Word matching remains calibration-only.
+- Acceptance sidecar is the proposed initial format. It is derived, versioned local evidence, not a
+  replacement for session metadata or raw receipts. Legacy sessions without it remain unassessed,
+  not silently rejected or rewritten. Library builds exclude unassessed captures by default and
+  report exclusion counts.
+- Repair of historical recordings is separate deferred work. No age-only automatic repair; neither
+  this design nor a dead-looking timestamp establishes recorder ownership or permission to overwrite.
+- Capture default budget proposed for the first release: 15 minutes or 256 MiB raw bytes, whichever
+  comes first. Expose the actual configured limits and usage, warn at 80%, and finalize as incomplete
+  if the limit interrupts a turn. This is a product limit, not a claim that the current recorder
+  enforces it or that the stream itself is intrinsically bounded.
+
+### 13.3 API details closing builder gaps
+
+Extend the proposed section 12 routes with:
+
+- `GET /api/v1/conversations`: paged persisted summaries for recovery after refresh/restart; no prompt
+  or reply bodies. Include conversations needing reconciliation.
+- `POST /api/v1/conversations/{id}/reconcile`: read-only website inspection, with expected revision;
+  persist observations and update state without typing, clicking Send, navigation or reload.
+  Optional user assertions have provenance `user-asserted` and cannot pass evidence gates alone.
+- `GET /api/v1/conversations/{id}/readiness`: read-only current binding/composer checks; return
+  `draft:{present,chars}` rather than copying a private existing draft into summaries.
+- Target choices include `ownedByStudio`, `recorderOwner` and tri-state `visibility` (visible, hidden,
+  unknown). Until explicitly implemented, tab-switch guidance is manual; no implied focus API.
+- Shared lease conflicts return `holder:{kind:'conversation'|'drive-job',id}`; preserve `activeJobId`
+  for existing drive clients when applicable. Registration and lease acquisition must be atomic
+  across all exposed entrypoints. Direct legacy CLI driving must participate or be blocked while
+  the service owns the browser; an in-process flag alone is insufficient for separate CLI processes.
+
+Turn snapshots have stable fields:
+
+```json
+{
+  "id": "turn-id",
+  "revision": 1,
+  "send": { "state": "observed", "observationSource": "page" },
+  "reply": {
+    "state": "ready",
+    "source": "network",
+    "completion": "unknown",
+    "blocks": [],
+    "contentPage": { "nextCursor": null, "hasMore": false }
+  },
+  "evidence": {
+    "state": "recording",
+    "sessionIds": [],
+    "gates": [],
+    "unknowns": ["exchange-completion"]
+  }
+}
+```
+
+The example is a snapshot, not acceptance: `reply.ready` with unknown completion is only interactive
+readiness. `blocks` contain kind, source, revision, text or paged content reference, and evidence
+references to session/stream/sequence ranges. `reply.source` is `network|page|differ|candidate`.
+Conversation snapshots expose `capture:{endsAt,maxBytes,bytesWritten,limitReason}`. Sensitive content
+and content digests stay local under the same access protections; no raw content in history summaries.
+
+### 13.4 Responsive and accessible interaction contract
+
+Sonnet's layout: at 1100 px and above, transcript plus a 340 px Details drawer; below that, inline
+Details; below 700 px, collapsed target selector and stacked confirmation controls. All Chat controls
+have at least 44 px hit areas through scoped styles, without globally restyling existing views.
+
+Enter inserts a newline. Ctrl/Cmd+Enter opens confirmation but never sends. Escape dismisses only
+confirmation; it never cancels a submitted turn. Use visible focus and labelled radio groups. Do not
+announce every streaming token: a single polite live region announces phase changes. The uncertain
+banner receives accessible focus without repeatedly stealing it on subsequent events. Text is rendered
+as plain text by default, not injected site HTML. Long content has explicit paging and no silent loss.
+
+### 13.5 Review outcome
+
+The designer identified concrete lifecycle/API gaps, now specified above. No claim is made that current
+code satisfies them. First implementation remains the bounded one-site vertical slice, followed by
+offline negative-case proof and only then an authorized single live turn. Broad multi-site rollout,
+multi-turn automation, automatic draft replacement and historical repair are not bundled into it.
