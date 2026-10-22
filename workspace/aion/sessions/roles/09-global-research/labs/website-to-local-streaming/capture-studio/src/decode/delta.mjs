@@ -174,7 +174,7 @@ export class DeltaAssembler {
       this.detected.add(d);
       // A path-op with an object value at the root and no op is a full document.
       if ((json.p === undefined || json.p === '') && json.o === undefined && json.v && typeof json.v === 'object' && !Array.isArray(json.v)) {
-        this.doc = structuredClone(json.v); this.lastPath = null; this._note('document', ''); this.replacements++; return this._commit();
+        this.doc = structuredClone(json.v); this.lastPath = null; this._note('document', ''); this.replacements++; this._idFromSnapshot(); return this._commit();
       }
       this._pathOp(json); return this._commit();
     }
@@ -182,7 +182,7 @@ export class DeltaAssembler {
       // Plain object: keep as the latest full snapshot only if nothing patch-like has been seen
       // or it clearly carries a document (heuristic: many keys).
       if (!this.detected.size || Object.keys(json).length >= 3) {
-        this.doc = structuredClone(json); this._note('document', ''); this.replacements++; return this._commit();
+        this.doc = structuredClone(json); this._note('document', ''); this.replacements++; this._idFromSnapshot(); return this._commit();
       }
     }
     return this._fail('no_dialect_match');
@@ -320,6 +320,16 @@ export class DeltaAssembler {
     this.messageIdSource = source;
     this._meta = { ...(this._meta ?? {}), messageId: id };
     this.doc.meta = this._meta;
+  }
+
+  // ChatGPT-style streams carry the message id inside the first full-document frame
+  // (`{ message: { id, ... } }`) rather than in a message_start event. Take it from there only when
+  // nothing else has supplied an id, and do NOT write it into doc.meta: the snapshot is the site's
+  // own document and a top-level `meta` key there could be real content.
+  _idFromSnapshot() {
+    if (this.messageIdSource != null) return;
+    const id = this.doc?.message?.id;
+    if (usableId(id)) { this.messageId = String(id); this.messageIdSource = 'snapshot'; }
   }
 
   _typed(ev) {

@@ -311,3 +311,23 @@ test('dom.mjs turns() passes ord through unchanged and does not drop it', async 
   assert.equal(turns[0].blocks[1].items[0].blocks[0].ord, 0);
   assert.equal(turns[0].blocks[0].text, 'Intro');
 });
+
+// ---- ChatGPT-style snapshot id (found by QA native-shape fidelity) ----
+test('snapshot frame with message.id gives the assembler a message id without touching doc.meta', () => {
+  const a = new DeltaAssembler();
+  a.apply({ message: { id: 'msg-snap-1', author: { role: 'assistant' }, content: { parts: [''] } }, conversation_id: 'c1' });
+  assert.equal(a.messageId, 'msg-snap-1');
+  assert.equal(a.messageIdSource, 'snapshot');
+  assert.equal(a.doc.meta, undefined, 'snapshot documents are the site content: no meta key is injected');
+});
+
+test('snapshot id never overrides an id from message_start, and absent ids stay null', () => {
+  const b = new DeltaAssembler();
+  b.apply({ type: 'message_start', message: { id: 'msg-start-1' } });
+  b.apply({ message: { id: 'msg-snap-2' }, a: 1, b: 2, c: 3 });
+  assert.equal(b.messageId, 'msg-start-1');
+  const c = new DeltaAssembler();
+  c.apply({ message: { author: 'x' }, other: 1 });
+  assert.equal(c.messageId, null);
+  assert.equal(c.messageIdSource, null);
+});
