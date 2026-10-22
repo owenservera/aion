@@ -189,7 +189,7 @@ test('Home selected-recording change clears old Knowledge before any replacement
   const S={sessionId:'old',sid:'sid',knowledge:{entities:[1]},sessions:[],sessionRequestSeq:0,continuityRequestSeq:0,
     knowledgeRequestSeq:0,knowledgeDetailSeq:0,searchRequestSeq:0};
   const {selectSessionContext}=runInNewContext(code+'\n({selectSessionContext})',
-    {S,$,updateSrcNote:()=>{},renderSessions:()=>{}},{timeout:1000});
+    {S,$,updateSrcNote:()=>{},renderSessions:()=>{},knowledgeFallback:x=>'<div>'+x+'</div>'},{timeout:1000});
   selectSessionContext('new');
   assert.equal(S.sessionId,'new');
   assert.equal(S.knowledge,null);
