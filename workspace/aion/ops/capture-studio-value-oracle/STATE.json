@@ -10,6 +10,7 @@
   "workspace": "workspace/aion/ops/capture-studio-value-oracle/",
   "documents": [
     "README.md",
+    "AGENTS.md",
     "BOOTSTRAP.md",
     "VALUE-MAP.md",
     "QUEUE.md",
@@ -104,5 +105,17 @@
     "SCAFFOLDED_NOT_LAUNCHED is deliberate: GitHub folders do not start conversations/agents.",
     "GitHub issue proposals are not acknowledged work until a real receiving agent confirms.",
     "Current user adoption, usability improvement and savings are UNKNOWN; no numeric ROI invented."
-  ]
+  ],
+  "scaffold": {
+    "readme": true,
+    "agent_instructions": true,
+    "bootstrap": true,
+    "value_audit": true,
+    "queue": true,
+    "state": true,
+    "launch_prompt": true,
+    "source_edits_outside_role": 0,
+    "first_working_outcome_packet": false,
+    "source_execution_claimed": false
+  }
 }
