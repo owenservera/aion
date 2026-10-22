@@ -132,16 +132,11 @@ function hostnameOf(url) {
   try { return new URL(String(url)).hostname.toLowerCase(); } catch { return ''; }
 }
 
-// Pacing between two sites. An explicit cooldownMs overrides the 45-90 s default and is itself
-// randomised down to 60 % of its value, so a scripted pause still looks human.
+// No artificial inter-site wait for the single-PC owner. A requested cooldown
+// remains deterministic and explicit; operational/provider limits are separate.
 function cooldownFor(cooldownMs, override) {
-  if (typeof cooldownMs === 'number' && Number.isFinite(cooldownMs) && cooldownMs >= 0) {
-    if (cooldownMs === 0) return 0;
-    return Math.round(cooldownMs * (0.6 + Math.random() * 0.4));
-  }
-  const min = override?.minMs ?? DEFAULT_COOLDOWN_MIN_MS;
-  const max = Math.max(min, override?.maxMs ?? DEFAULT_COOLDOWN_MAX_MS);
-  return min + Math.round(Math.random() * (max - min));
+  if (typeof cooldownMs === 'number' && Number.isFinite(cooldownMs) && cooldownMs >= 0) return cooldownMs;
+  return 0;
 }
 
 // src/families/build.mjs is loaded lazily so a missing module degrades to "derive only" instead of
