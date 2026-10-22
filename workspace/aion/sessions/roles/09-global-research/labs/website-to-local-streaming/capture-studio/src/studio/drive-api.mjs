@@ -67,7 +67,7 @@ export function createDriveApi({ dataDir, port = 9222, drive = driveSite, campai
     for (const key of ['dryRun', 'confirm']) if (body[key] !== undefined && typeof body[key] !== 'boolean') throw problem(400, `${key} must be boolean`);
     const dryRun = body.dryRun ?? true;
     if (!dryRun && body.confirm !== true) throw problem(400, 'confirm=true is required for a live send');
-    if (body.prompt !== undefined && (typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 2000)) throw problem(400, 'prompt must contain 1–2000 characters');
+    if (body.prompt !== undefined && (typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 250000)) throw problem(400, 'prompt must contain 1–250000 characters');
     for (const key of ['timeout', 'cooldown']) if (body[key] !== undefined && (!Number.isSafeInteger(body[key]) || body[key] < (key === 'timeout' ? 1 : 0) || body[key] > 86400)) throw problem(400, `${key} must be an integer in seconds (maximum 86400)`);
     const targets = [];
     for (const site of [...new Set(body.sites)]) {
