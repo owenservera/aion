@@ -63,6 +63,6 @@ The source repo and the evidence directory serve different purposes. Do **not** 
 - **62 / 62** preexisting Studio client contract tests passed in the same harness after compatibility updates.
 - This **72 / 72** total is not native `node --test`, actual Windows Chrome, network capture or independent QA acceptance. Run those separately on a complete local checkout.
 
-See `test/unit/local-first-mode.test.mjs`, `test/unit/studio-recovery-ui.test.mjs` and the UI agent's [five-sprint plan](../../../../../../ops/capture-studio-ui/FIVE-SPRINT-WORKPLAN.md).
+See `test/unit/local-first-mode.test.mjs`, `test/unit/studio-recovery-ui.test.mjs` and the UI agent's [five-sprint plan](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/capture-studio-ui/FIVE-SPRINT-WORKPLAN.md).
 
 **Rule for future agents:** Before adding a "security" gate, identify whether it prevents a concrete local data-loss/duplicate-action failure, or merely adds friction. Default to operator control and correct provenance. If a lower-fidelity capture mode is needed, make it a named opt-in, not an invisible default.
