@@ -329,14 +329,25 @@ export class NdjsonDecoder {
 // Framing-free JSON stream (concatenated values, progressive arrays) and RFC 7464 json-seq.
 // ---------------------------------------------------------------------------------------------
 export class ChunkedJsonDecoder {
-  constructor({ kind = 'chunked-json', unwrapArray = 'auto' } = {}) {
+  // maxBytes (0 = unlimited): a value whose span is larger is emitted as an oversize marker with
+  // no text and no parsed json. Only the live recorder sets it (see reducer jsonMaxBytes).
+  constructor({ kind = 'chunked-json', unwrapArray = 'auto', maxBytes = 0 } = {}) {
     this.kind = kind;
     this.scanner = new JsonStreamScanner({ unwrapArray });
+    this.maxBytes = maxBytes;
     this.count = 0;
-    this.stats = { events: 0, unparsed: 0, heartbeats: 0 };
+    this.stats = { events: 0, unparsed: 0, heartbeats: 0, oversize: 0 };
   }
   _mk(v, extra = {}) {
-    const ev = { type: this.kind === 'jsonseq' ? 'jsonseq' : 'json.value', text: v.text, span: [v.start, v.end], index: this.count++, ...extra };
+    const type = this.kind === 'jsonseq' ? 'jsonseq' : 'json.value';
+    if (this.maxBytes && v.end - v.start > this.maxBytes) {
+      const over = { type, oversize: true, bytes: v.end - v.start, span: [v.start, v.end], index: this.count++, ...extra };
+      if (v.truncated) over.truncated = true;
+      if (v.incomplete) over.incomplete = true;
+      this.stats.oversize++; this.stats.events++;
+      return over;
+    }
+    const ev = { type, text: v.text, span: [v.start, v.end], index: this.count++, ...extra };
     const json = parseJsonSafe(v.text);
     if (json !== undefined) ev.json = json; else { ev.unparsed = true; this.stats.unparsed++; }
     if (v.truncated) ev.truncated = true;
@@ -357,7 +368,7 @@ export class ChunkedJsonDecoder {
 }
 
 export class JsonSeqDecoder extends ChunkedJsonDecoder {
-  constructor() { super({ kind: 'jsonseq', unwrapArray: false }); }
+  constructor(opts = {}) { super({ kind: 'jsonseq', unwrapArray: false, ...opts }); }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -497,11 +508,20 @@ export function extractStrings(buf, min = 4) {
 // ---------------------------------------------------------------------------------------------
 // Whole-body decoders
 // ---------------------------------------------------------------------------------------------
+// maxBytes (0 = unlimited) applies to kind 'json' only: a body larger than the cap is emitted as an
+// oversize marker with NO parsed json (its raw bytes stay in the raw log). Past the cap the bytes
+// are not retained here, so memory is bounded too. Only the live recorder sets maxBytes.
 export class WholeBodyDecoder {
-  constructor(kind = 'json') { this.kind = kind; this.parts = []; this.size = 0; }
-  push(chunk) { this.parts.push(chunk); this.size += chunk.length; return []; }
-  bytes() { return Buffer.concat(this.parts); }
+  constructor(kind = 'json', { maxBytes = 0 } = {}) { this.kind = kind; this.parts = []; this.size = 0; this.maxBytes = maxBytes; }
+  push(chunk) {
+    this.size += chunk.length;
+    if (this.maxBytes && this.kind === 'json' && this.size > this.maxBytes) this.parts = null;
+    else if (this.parts) this.parts.push(chunk);
+    return [];
+  }
+  bytes() { return this.parts ? Buffer.concat(this.parts) : Buffer.alloc(0); }
   end() {
+    if (this.parts === null) return [{ type: 'json', oversize: true, bytes: this.size, size: this.size, span: [0, this.size], index: 0 }];
     const buf = Buffer.concat(this.parts);
     if (!buf.length) return [];
     if (this.kind === 'binary') return [{ type: 'binary', size: buf.length, span: [0, buf.length], index: 0 }];
@@ -520,11 +540,12 @@ export class WholeBodyDecoder {
 // arrived. Switching is only ever done while no event has been emitted yet, and the buffered
 // prefix is replayed into the new decoder, so no byte is decoded twice or lost.
 export class AutoDecoder {
-  constructor({ mime, forced, resniffBytes = 4096, maxResniffChunks = 8 } = {}) {
+  constructor({ mime, forced, resniffBytes = 4096, maxResniffChunks = 8, jsonMaxBytes = 0 } = {}) {
     this.mime = mime;
     this.forced = forced;
     this.resniffBytes = resniffBytes;
     this.maxResniffChunks = maxResniffChunks;
+    this.jsonMaxBytes = jsonMaxBytes;
     this.head = [];
     this.headBytes = 0;
     this.chunkCount = 0;
@@ -534,7 +555,7 @@ export class AutoDecoder {
     this.kind = forced ?? classifyMime(mime);
   }
   _init(firstBytes) {
-    this.inner = decoderForKind(sniff(this.mime, firstBytes), { forced: this.forced });
+    this.inner = decoderForKind(sniff(this.mime, firstBytes), { forced: this.forced, jsonMaxBytes: this.jsonMaxBytes });
     this.kind = this.inner.kind;
     return this.inner;
   }
@@ -549,7 +570,7 @@ export class AutoDecoder {
         const better = sniff(this.mime, head);
         if (better !== this.inner.kind && ['sse', 'ndjson', 'jsonseq', 'chunked-json', 'grpc', 'length-prefixed', 'csv'].includes(better)) {
           this.switched = { from: this.inner.kind, to: better, atChunk: this.chunkCount };
-          this.inner = decoderForKind(better, { forced: this.forced });
+          this.inner = decoderForKind(better, { forced: this.forced, jsonMaxBytes: this.jsonMaxBytes });
           this.kind = this.inner.kind;
           const evs = this.inner.push(head);
           this.emitted += evs.length;
@@ -604,16 +625,16 @@ class CsvRowDecoder extends CsvDecoder {
   }
 }
 
-export function decoderForKind(kind, { forced } = {}) {
+export function decoderForKind(kind, { forced, jsonMaxBytes = 0 } = {}) {
   switch (kind) {
     case 'csv': return new CsvRowDecoder();
     case 'sse': return new SseDecoder();
     case 'ndjson': return new NdjsonDecoder();
-    case 'jsonseq': return new JsonSeqDecoder();
-    case 'chunked-json': return new ChunkedJsonDecoder();
+    case 'jsonseq': return new JsonSeqDecoder({ maxBytes: jsonMaxBytes });
+    case 'chunked-json': return new ChunkedJsonDecoder({ maxBytes: jsonMaxBytes });
     case 'length-prefixed': return new LengthPrefixedDecoder();
     case 'grpc': return new GrpcFrameDecoder();
-    case 'json': case 'html': case 'text': return new WholeBodyDecoder(kind);
+    case 'json': case 'html': case 'text': return new WholeBodyDecoder(kind, { maxBytes: jsonMaxBytes });
     default: return new WholeBodyDecoder(forced === 'binary' ? 'binary' : 'binary');
   }
 }

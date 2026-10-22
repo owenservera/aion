@@ -62,7 +62,11 @@ export function isStreaming(stream) {
 const SEQ_FIELDS = ['seq', 'sequence', 'sequence_number', 'sequenceNumber', 'offset', 'event_seq', 'revision', 'version', 'frame'];
 
 export class StreamReducer {
-  constructor({ deltaDialect = 'auto', keepEvents = true, maxEventsPerStream = Infinity, stallMs = 5000, deltaOpsLog = 0, deltaSnapshotEvery = 0 } = {}) {
+  // jsonMaxBytes (0 = unlimited, the default for every reader: derive, mirror, export, eval). Only a
+  // live recorder sets it: a JSON value larger than the cap is emitted as an oversize marker with
+  // no parsed json. Read when a stream's decoder is created, so set it before the first chunk.
+  constructor({ deltaDialect = 'auto', keepEvents = true, maxEventsPerStream = Infinity, stallMs = 5000, deltaOpsLog = 0, deltaSnapshotEvery = 0, jsonMaxBytes = 0 } = {}) {
+    this.jsonMaxBytes = jsonMaxBytes;
     this.maxEventsPerStream = maxEventsPerStream; // live view is bounded; disk keeps everything
     this.streams = new Map();
     this.deltaDialect = deltaDialect;
@@ -165,7 +169,7 @@ export class StreamReducer {
   // The decoder is created lazily on the first byte so content sniffing can see real bytes;
   // s.decoder is only written once a decoder has actually consumed something.
   _ensureDecoder(s) {
-    if (!s._dec) s._dec = pickAutoDecoder(s.mime, s.forcedDecoder);
+    if (!s._dec) s._dec = pickAutoDecoder(s.mime, s.forcedDecoder, { jsonMaxBytes: this.jsonMaxBytes });
     return s._dec;
   }
 

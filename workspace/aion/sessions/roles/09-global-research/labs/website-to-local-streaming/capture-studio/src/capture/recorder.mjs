@@ -28,6 +28,13 @@ import { followDecision, hostOf } from './targets.mjs';
 const SHAPE_FORCE_PER_SID = 50; // the first events of every sid are always observed (endpoint coverage)
 const SHAPE_MAX_STRIDE = 64;    // at the queue cap, one event in this many is observed
 
+// Synchronous section timings, exposed as status().stats.timing. Each section costs two
+// performance.now() calls per execution. finalize* cover only terminal records (done/fail/ws.close).
+const TIMING_SECTIONS = ['statusTick', 'persistTick', 'shapeReport', 'shapeFlush', 'shapeDrain', 'finalize', 'finalizeIngest'];
+const TERMINAL_KINDS = new Set(['done', 'fail', 'ws.close']);
+const round3 = (n) => Math.round(n * 1000) / 1000;
+function newTiming() { return Object.fromEntries(TIMING_SECTIONS.map((k) => [k, { count: 0, lastMs: 0, maxMs: 0, totalMs: 0 }])); }
+
 export class Recorder extends EventEmitter {
   constructor({
     sessionsDir, profileStore, familyStore = null, port = 9222, rawOptions = {}, allBodies = false,
@@ -35,6 +42,7 @@ export class Recorder extends EventEmitter {
     reconnect = true, maxReconnectAttempts = 6, reconnectBaseDelayMs = 400, heartbeatMs = 15_000,
     tabs = 'one', follow = true, maxTargets = 32, pauseNewTargets = null, ignoreTargetUrls = [],
     deferShapes = true, maxShapeQueue = 5000, shapeSliceMs = 4,
+    liveJsonMaxBytes = 2 * 1024 * 1024,
   }) {
     super();
     // tabs: 'one' = the selected tab only; 'all' = every web tab in the browser.
@@ -71,6 +79,9 @@ export class Recorder extends EventEmitter {
     this.deferShapes = deferShapes !== false;
     this.maxShapeQueue = Math.max(1, maxShapeQueue);
     this.shapeSliceMs = shapeSliceMs;
+    this.timing = newTiming();
+    // Live-only JSON size cap (see StreamReducer jsonMaxBytes). 0 = no cap.
+    this.liveJsonMaxBytes = Math.max(0, Number(liveJsonMaxBytes) || 0);
     this._resetShapeQueue();
     this.paused = false;
     this.state = 'idle';
@@ -125,7 +136,7 @@ export class Recorder extends EventEmitter {
     this.session.kv.set('INPUT', { target: selector ?? null, profile: profile.name, profileVersion: profile.version, port: this.port, allBodies: this.allBodies, tabs: this.tabs, follow: this.follow });
     this.session.kv.set('PROFILE_SNAPSHOT', profile);
 
-    this.reducer = new StreamReducer({ deltaDialect: profile.decode?.delta ?? 'auto', maxEventsPerStream: this.liveEventsPerStream });
+    this.reducer = new StreamReducer({ deltaDialect: profile.decode?.delta ?? 'auto', maxEventsPerStream: this.liveEventsPerStream, jsonMaxBytes: this.liveJsonMaxBytes });
     this.shapes = new ShapeInferencer();
     this._resetShapeQueue();
     this.eventsDs = this.session.dataset('events');
@@ -562,7 +573,8 @@ export class Recorder extends EventEmitter {
   }
 
   _drainShapes(budgetMs) {
-    const deadline = budgetMs === Infinity ? Infinity : performance.now() + budgetMs;
+    const t0 = performance.now();
+    const deadline = budgetMs === Infinity ? Infinity : t0 + budgetMs;
     const q = this._shapeQ;
     let n = 0;
     while (this._shapeQi < q.length) {
@@ -575,13 +587,32 @@ export class Recorder extends EventEmitter {
     if (this._shapeQi >= q.length) { this._shapeQ = []; this._shapeQi = 0; }
     else if (this._shapeQi > 4096) { this._shapeQ = q.slice(this._shapeQi); this._shapeQi = 0; }
     if (this._shapeQi < this._shapeQ.length && this._shapeImmediate === null) this._scheduleShapeDrain();
+    this._mark('shapeDrain', t0);
   }
 
   // Brings shape observation fully up to date, synchronously. Every reader of shapes calls this.
   flushShapes() {
+    const t0 = performance.now();
     if (this._shapeImmediate !== null) { clearImmediate(this._shapeImmediate); this._shapeImmediate = null; }
     this._drainShapes(Infinity);
     this.shapes?.flush?.();
+    this._mark('shapeFlush', t0);
+  }
+
+  _mark(section, t0) {
+    const ms = performance.now() - t0;
+    const s = this.timing[section];
+    s.count++; s.lastMs = ms; s.totalMs += ms;
+    if (ms > s.maxMs) s.maxMs = ms;
+  }
+
+  _timingSnapshot() {
+    const out = {};
+    for (const k of TIMING_SECTIONS) {
+      const s = this.timing[k];
+      out[k] = { count: s.count, lastMs: round3(s.lastMs), maxMs: round3(s.maxMs), totalMs: round3(s.totalMs) };
+    }
+    return out;
   }
 
   _append(rec) {
@@ -590,15 +621,23 @@ export class Recorder extends EventEmitter {
     if (this.maxSessionBytes && this.session.raw.stats.bytes + this.session.raw.queueBytes > this.maxSessionBytes && this.state === 'recording' && !this._quotaHit) {
       this._quotaHit = true; setImmediate(() => this.stop({ reason: 'quota_reached' }));
     }
+    const terminal = TERMINAL_KINDS.has(rec.k);
+    const tFin = terminal ? performance.now() : 0;
     const seq = this.session.raw.append(rec);
     if (seq === null) return null;
     const full = { seq, t: Date.now(), ...rec };
-    const derived = this.reducer.ingest(full);
+    // A recorder's reducer is always live: keep its cap in step with the option, even when a caller
+    // built the reducer itself. Derive and every other reader build their own reducer (cap 0).
+    if (this.reducer && this.reducer.jsonMaxBytes !== this.liveJsonMaxBytes) this.reducer.jsonMaxBytes = this.liveJsonMaxBytes;
+    let derived;
+    if (terminal) { const ti = performance.now(); derived = this.reducer.ingest(full); this._mark('finalizeIngest', ti); }
+    else derived = this.reducer.ingest(full);
     if (derived.length) {
       this.eventsDs.push(derived.map(stripForDataset));
       if (this.deferShapes) for (const ev of derived) this._offerShape(ev, this.reducer.streams.get(ev.sid));
       else for (const ev of derived) this.shapes.observeEvent(ev, this.reducer.streams.get(ev.sid));
     }
+    if (terminal) this._mark('finalize', tFin);
     this.emit('record', full);
     for (const ev of derived) this.emit('event', ev);
     return seq;
@@ -606,22 +645,28 @@ export class Recorder extends EventEmitter {
 
   _persist() {
     if (!this.session) return;
+    const t0 = performance.now();
     const st = this.status();
     this.session.kv.set('STATE', st);
     this.session.kv.set('SHAPES', this.liveReport());
     this.session.meta.stats = st.stats;
     this.session.saveMeta();
+    this._mark('persistTick', t0);
   }
 
   liveReport() {
     this.flushShapes();
     const families = this.familyStore ? this.familyStore.names().map((n) => this.familyStore.load(n)) : [];
-    return this.shapes.report(this.reducer, { families, profile: this.profile, domInspect: this.lastInspect, domTurns: this.lastTurns, calibrator: this.learner?.calibrator });
+    const t0 = performance.now();
+    const rep = this.shapes.report(this.reducer, { families, profile: this.profile, domInspect: this.lastInspect, domTurns: this.lastTurns, calibrator: this.learner?.calibrator });
+    this._mark('shapeReport', t0);
+    return rep;
   }
 
   status() {
     if (!this.session) return { state: this.state };
-    return {
+    const t0 = performance.now();
+    const out = {
       state: this.state,
       paused: this.paused,
       id: this.session.id,
@@ -640,6 +685,9 @@ export class Recorder extends EventEmitter {
       },
       summary: (() => { const s = this.reducer.summary(); return { transportCounts: s.transportCounts, transportDetailCounts: s.transportDetailCounts, appProtocols: s.appProtocols, gaps: this.reducer.gaps.length, stalledStreams: s.stalledStreams, totals: s.totals }; })(),
     };
+    this._mark('statusTick', t0);
+    out.stats.timing = this._timingSnapshot();
+    return out;
   }
 
   async _onLost(reason) {
