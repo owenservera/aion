@@ -68,7 +68,7 @@ test('Chat latest requested conversation wins out-of-order load responses',async
   const a=h.openConversation('a'),b=h.openConversation('b');
   second.resolve({id:'b'});await b;
   first.resolve({id:'a'});await a;
-  assert.deepEqual(h.events.filter(x=>x[0]==='applied'),[['applied','b']]);
+  assert.equal(JSON.stringify(h.events.filter(x=>x[0]==='applied')),JSON.stringify([['applied','b']]));
   assert.equal(h.S.snap.id,'b');
 });
 test('Chat missing other conversation retains the actual current selection and warns',async()=>{
@@ -146,4 +146,66 @@ test('Home, Chat and Drive use explicit authorization recovery and no automatic 
   assert.match(drive,/authorization expired — reopen the original tokenized Studio URL/);
   assert.match(chat,/const stillOn = \(id\) => S\.snap\?\.id === id/);
   assert.match(drive,/The last displayed state is stale/);
+});
+
+
+function driveLeaseFixture(data) {
+  const S={mode:'drive',busy:false,job:null,jobs:[]},calls=[],dom=new Map();
+  const $=id=>{if(!dom.has(id))dom.set(id,{checked:id==='#confirmLive',value:id==='#prompt'?'hello':'',textContent:'',
+    replaceChildren(...children){this.children=children;this.textContent=children.map(x=>typeof x==='string'?x:x.text??'').join('');}});
+    return dom.get(id);};
+  const ctx={S,$,currentTargets:()=>({sites:['chatgpt']}),activeJobId:()=>null,updateControls:()=>{},numberField:()=>undefined,
+    api:async(path,opts)=>{calls.push({path,opts});throw Object.assign(new Error('busy'),{status:409,data});},
+    el:(tag,props)=>({tag,...props}),showJob:()=>{throw Error('Must never show unconfirmed job')},
+    openJob:async(id)=>{calls.push({openJob:id});},describe:e=>e.message};
+  const code=between(drive,'async function launch(dryRun) {','/* ---------------- job panel ---------------- */');
+  const {launch}=runInNewContext(code+'\n({launch})',ctx,{timeout:1000});
+  return {S,$,calls,launch};
+}
+
+test('Drive 409 Chat lease names its holder and links to Chat without retrying',async()=>{
+  const h=driveLeaseFixture({holder:{kind:'conversation',id:'c1'}});
+  await h.launch(false);
+  assert.equal(h.calls.filter(x=>x.path).length,1);
+  assert.equal(h.calls.some(x=>x.openJob),false);
+  const error=h.$('#formError');
+  assert.match(error.textContent,/Chat conversation holds the browser/);
+  assert.equal(error.children[1].href,'/chat');
+  assert.equal(h.$('#confirmLive').checked,false);
+});
+test('Drive 409 unknown lease holder does not claim another Drive job or auto-queue',async()=>{
+  const h=driveLeaseFixture({holder:{kind:'unknown'}});
+  await h.launch(false);
+  assert.match(h.$('#formError').textContent,/owner could not be confirmed/);
+  assert.doesNotMatch(h.$('#formError').textContent,/Another Drive job/);
+  assert.equal(h.calls.filter(x=>x.path).length,1);
+  assert.equal(h.$('#confirmLive').checked,false);
+});
+test('Home selected-recording change clears old Knowledge before any replacement is loaded',()=>{
+  const script=studio.split('<script>')[1]?.split('</script>')[0]??'';
+  const code=between(script,'function selectSessionContext(id) {','function updateHistoricalContext(value) {');
+  const dom=new Map();
+  const $=id=>{if(!dom.has(id))dom.set(id,{value:'',textContent:'old derived evidence',innerHTML:'<b>old derived evidence</b>'});return dom.get(id)};
+  const S={sessionId:'old',sid:'sid',knowledge:{entities:[1]},sessions:[],sessionRequestSeq:0,continuityRequestSeq:0,
+    knowledgeRequestSeq:0,knowledgeDetailSeq:0,searchRequestSeq:0};
+  const {selectSessionContext}=runInNewContext(code+'\n({selectSessionContext})',
+    {S,$,updateSrcNote:()=>{},renderSessions:()=>{}},{timeout:1000});
+  selectSessionContext('new');
+  assert.equal(S.sessionId,'new');
+  assert.equal(S.knowledge,null);
+  for(const id of ['#knowledgeEntities','#knowledgeDetail','#knowledgeGraph','#knowledgeModel','#knowledgeDrift']) {
+    assert.doesNotMatch($(id).innerHTML,/old derived evidence/);
+    assert.match($(id).innerHTML,/Select a saved recording/);
+  }
+  assert.match($('#knowledgeState').textContent,/Recording changed/);
+});
+test('Home network failure distinguishes unreachable Studio from failed or accepted evidence',async()=>{
+  const script=studio.split('<script>')[1]?.split('</script>')[0]??'';
+  const code=between(script,'async function api(path, opts = {}) {','function toast(');
+  const note={textContent:''},S={authExpired:false};
+  const {api}=runInNewContext(code+'\n({api})',
+    {S,$:()=>note,fetch:async()=>{throw new Error('offline')}},{timeout:1000});
+  await assert.rejects(api('sessions'),e=>e.status===0&&/no request was automatically retried/.test(e.message));
+  assert.match(note.textContent,/Previously loaded details may be stale/);
+  assert.doesNotMatch(note.textContent,/Capture accepted|Verified/);
 });
