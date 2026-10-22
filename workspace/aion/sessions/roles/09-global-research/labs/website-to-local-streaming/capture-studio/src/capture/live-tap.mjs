@@ -127,7 +127,7 @@ export class LiveTap extends EventEmitter {
         if (this.closed) return;
         for (const e of source.targets.values()) {
           if (e.attaching) continue;
-          this._safeEmit('target', { targetId: e.targetId, type: e.type, url: redactUrl(e.url ?? ''), tag: e.tag, role: e.role, state: 'attached', snapshot: true });
+          this._safeEmit('target', { targetId: e.targetId, type: e.type, url: this.source?.privacy?.url(e.url ?? '') ?? redactUrl(e.url ?? ''), tag: e.tag, role: e.role, state: 'attached', snapshot: true });
         }
       });
     }
