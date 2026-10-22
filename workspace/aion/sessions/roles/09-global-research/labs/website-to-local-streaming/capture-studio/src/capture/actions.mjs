@@ -364,28 +364,43 @@ export async function readTranscript(page, adapter = null) {
       seen.add(key);
       turns.push({ role: role, text: t });
     };
+    // The COUNT is how many elements matched, NOT how many distinct texts they had: the
+    // calibration prompt always produces the same words, so a new answer can be byte-identical
+    // to the previous one and must still be counted as new content.
+    const collect = (els) => {
+      const shown = els.filter((el) => vis(el));
+      for (const el of shown) push('assistant', txt(el));
+      const lastEl = shown[shown.length - 1];
+      return { count: shown.length, last: lastEl ? txt(lastEl) : '' };
+    };
 
     const authored = [...document.querySelectorAll('[data-message-author-role]')];
     if (authored.length) {
-      for (const el of authored) {
+      const asstEls = authored.filter((el) => {
         const role = el.getAttribute('data-message-author-role');
-        if (role !== 'user' && role !== 'assistant') continue;
-        if (!vis(el)) continue;
-        push(role, txt(el));
+        return (role === 'user' || role === 'assistant') && vis(el);
+      });
+      for (const el of asstEls) push(el.getAttribute('data-message-author-role'), txt(el));
+      const asstOnly = asstEls.filter((el) => el.getAttribute('data-message-author-role') === 'assistant');
+      if (asstOnly.length) {
+        const lastEl = asstOnly[asstOnly.length - 1];
+        return { turns: turns, last: txt(lastEl), count: asstOnly.length, reason: 'data-message-author-role' };
       }
-      if (turns.some((t) => t.role === 'assistant')) return { turns: turns, reason: 'data-message-author-role' };
     }
     turns.length = 0; seen.clear();
 
     for (const sel of ${JSON.stringify(Array.isArray(adapter?.assistant?.containerSelectors) ? adapter.assistant.containerSelectors : [])}) {
       let els = [];
       try { els = [...document.querySelectorAll(sel)]; } catch (e) { continue; }
-      for (const el of els) { if (vis(el)) push('assistant', txt(el)); }
-      if (turns.length) return { turns: turns, reason: 'adapter containers: ' + sel };
+      const c = collect(els);
+      if (c.count) return { turns: turns, last: c.last, count: c.count, reason: 'adapter containers: ' + sel };
     }
 
-    for (const el of document.querySelectorAll('[data-testid*="assistant" i]')) { if (vis(el)) push('assistant', txt(el)); }
-    if (turns.length) return { turns: turns, reason: 'data-testid assistant' };
+    {
+      const els = [...document.querySelectorAll('[data-testid*="assistant" i]')];
+      const c = collect(els);
+      if (c.count) return { turns: turns, last: c.last, count: c.count, reason: 'data-testid assistant' };
+    }
 
     // Modern chat UIs no longer use data-message-author-role. ChatGPT (2026) marks a rendered
     // answer with data-markdown-text-style="assistant-message" and wraps the turn in
@@ -403,8 +418,8 @@ export async function readTranscript(page, adapter = null) {
     for (const sel of assistantSels) {
       let els = [];
       try { els = [...document.querySelectorAll(sel)]; } catch (e) { continue; }
-      for (const el of els) { if (vis(el)) push('assistant', txt(el)); }
-      if (turns.length) return { turns: turns, reason: 'assistant container: ' + sel };
+      const c = collect(els);
+      if (c.count) return { turns: turns, last: c.last, count: c.count, reason: 'assistant container: ' + sel };
     }
 
     const userSels = [
@@ -418,14 +433,19 @@ export async function readTranscript(page, adapter = null) {
       try { els = [...document.querySelectorAll(sel)]; } catch (e) { continue; }
       for (const el of els) { if (vis(el)) push('user', txt(el)); }
     }
-    if (turns.length) return { turns: turns, reason: 'turn-scoped containers' };
+    if (turns.length) {
+      const lastA = [...turns].reverse().find((t) => t.role === 'assistant');
+      return { turns: turns, last: lastA?.text ?? '', count: turns.length, reason: 'turn-scoped containers' };
+    }
 
     const composer = live();
     const root = document.querySelector('main') || document.body;
-    if (!root) return { turns: [], reason: 'no document body' };
+    if (!root) return { turns: [], last: '', reason: 'no document body' };
     // Chrome is not the answer: a sidebar or a header (Kimi's "New chat / My Kimi / Plugins" menu)
     // is navigation, not the reply.
     const CHROME = 'nav,aside,header,footer,[role="navigation"],[role="banner"],[role="complementary"],[class*="sidebar"],[class*="side-bar"],[class*="navigation"],[class*="menu"],[class*="header"],[class*="toolbar"],[class*="breadcrumb"]';
+    // A status placeholder is not an answer: Qwen shows "Thinking" while it works.
+    const STATUS = /^(thinking|thinking\.{0,3}|generating|generating\.{0,3}|loading|loading\.{0,3}|working|stop|stopping|cancel|思考中|正在思考|思考\.{0,3}|生成中|正在生成|加载中|\.{0,3})$/i;
     const blocks = [];
     const BLOCK_SEL = 'p,li,pre,blockquote,h1,h2,h3,h4,td';
     for (const el of root.querySelectorAll(BLOCK_SEL + ',div')) {
@@ -442,16 +462,18 @@ export async function readTranscript(page, adapter = null) {
       if (el.tagName === 'DIV' && el.querySelector(BLOCK_SEL)) continue;
       const t = txt(el);
       if (t.length < 8) continue;
+      if (STATUS.test(t.replace(/\\s+/g, ' ').trim())) continue;
       blocks.push({ t: t, top: el.getBoundingClientRect().top + window.scrollY });
     }
     blocks.sort((a, b) => a.top - b.top);
     // The answer is the last thing said: keep the tail of the transcript, not the whole page.
     const tail = blocks.slice(-8).map((b) => b.t).join('\n').slice(-12000);
-    if (tail) return { turns: [{ role: 'assistant', text: tail }], reason: 'generic text blocks (no assistant container matched)' };
-    return { turns: [], reason: 'no assistant text found' };
+    const last = blocks.length ? blocks[blocks.length - 1].t : '';
+    if (tail) return { turns: [{ role: 'assistant', text: tail }], last: last, count: blocks.length, reason: 'generic text blocks (no assistant container matched)' };
+    return { turns: [], last: '', count: 0, reason: 'no assistant text found' };
   })()`);
-  if (!r.ok) return { turns: [], reason: `transcript read failed: ${r.error}` };
-  return { turns: r.value?.turns ?? [], reason: r.value?.reason ?? 'unknown' };
+  if (!r.ok) return { turns: [], last: '', count: 0, reason: `transcript read failed: ${r.error}` };
+  return { turns: r.value?.turns ?? [], last: r.value?.last ?? '', count: r.value?.count ?? 0, reason: r.value?.reason ?? 'unknown' };
 }
 
 export async function isStreaming(page, adapter = null) {
@@ -505,7 +527,7 @@ export async function isStreaming(page, adapter = null) {
   return { streaming: !!r.value?.streaming, evidence: r.value?.evidence ?? 'none' };
 }
 
-export async function waitForCompletion(page, adapter = null, { timeoutMs = 120000, stableMs = 2500, pollMs = 400, baseline = null } = {}) {
+export async function waitForCompletion(page, adapter = null, { timeoutMs = 120000, stableMs = 2500, pollMs = 400, baseline = null, baseCount = null } = {}) {
   const startedAt = Date.now();
   let lastText = '';
   let lastChangeAt = startedAt;
@@ -520,7 +542,10 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     evidence = stream.evidence;
     const tr = await readTranscript(page, adapter);
     const last = [...(tr.turns ?? [])].reverse().find((t) => t.role === 'assistant');
-    text = last?.text ?? '';
+    // `last` is the newest content block; `text` is the joined tail. The answer is the newest
+    // block, and it is what must change: a page that still shows its greeting has not answered.
+    const newest = tr.last || last?.text || '';
+    text = newest || last?.text || '';
 
     if (text && text !== lastText) { lastText = text; lastChangeAt = now; }
     if (stream.streaming) lastStreamingAt = now;
@@ -533,14 +558,16 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     }
 
     const quietFor = now - Math.max(lastChangeAt, lastStreamingAt);
-    // The text must have CHANGED since the send. A page that still shows its greeting ("How can
-    // I help you?") is not an answer, and treating it as one reported a reply that never came.
-    const changed = base === null || norm(text) !== base;
+    // A NEW answer means new content on the page. Text equality is not enough: the calibration
+    // prompt always produces the same 12 words, so a fresh answer can be byte-identical to the
+    // previous one. The count of content blocks is what proves something arrived.
+    const grew = baseCount === null || (tr.count ?? 0) > baseCount;
+    const changed = grew || (base === null || norm(text) !== base);
     if (!stream.streaming && text && changed && quietFor >= stableMs) {
       return { done: true, ms: Date.now() - startedAt, text, reason: `settled: no change for ${quietFor} ms` };
     }
     if (now - startedAt >= timeoutMs) {
-      return { done: false, ms: Date.now() - startedAt, text, reason: `timeout after ${timeoutMs} ms (${evidence}${stream.streaming ? ', still streaming' : ''}${changed ? '' : '; the visible text is unchanged since the send'})` };
+      return { done: false, ms: Date.now() - startedAt, text, reason: `timeout after ${timeoutMs} ms (${evidence}${stream.streaming ? ', still streaming' : ''}${changed ? '' : '; no new content since the send'})` };
     }
     await sleep(pollMs);
   }
@@ -865,11 +892,13 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     emit({ type: 'clear', ...cleared });
     if (!cleared.ok) errors.push('composer still holds a draft after select-all + Backspace');
 
-    // What the page says BEFORE the prompt is sent. The reply is only accepted when the visible
-    // text has changed since then, so a static greeting is never mistaken for an answer.
+    // What the page says BEFORE the prompt is sent. The reply is only accepted when new content
+    // has appeared since then, so a static greeting is never mistaken for an answer.
     const pre = await readTranscript(page, adapter);
-    const baseline = [...(pre.turns ?? [])].reverse().find((t) => t.role === 'assistant')?.text ?? '';
+    const baseline = pre.last || [...(pre.turns ?? [])].reverse().find((t) => t.role === 'assistant')?.text || '';
+    const baseCount = pre.count ?? 0;
     result.baseline = baseline ? baseline.slice(0, 200) : '';
+    result.baselineCount = baseCount;
 
     const typed = await typeText(page, result.prompt, { human: humanPace });
     emit({ type: 'typed', ok: typed.ok, method: typed.method, chars: String(typed.typed ?? '').length, grewBy: typed.grewBy });
@@ -883,7 +912,7 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     emit({ type: 'sent', ...sent });
     if (!sent.ok) { errors.push(`send did not take (${sent.method})`); result.reason = 'send-failed'; return; }
 
-    const wait = await waitForCompletion(page, adapter, { timeoutMs, baseline });
+    const wait = await waitForCompletion(page, adapter, { timeoutMs, baseline, baseCount });
     emit({ type: 'completion', done: wait.done, failed: !!wait.failed, ms: wait.ms, reason: wait.reason });
     result.reply = wait.text ?? '';
     result.done = wait.done;
