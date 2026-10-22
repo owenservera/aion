@@ -1,3 +1,5 @@
+> **2026-10-22 LOCAL-PC DESecuritization SWEEP — SOURCE DELIVERED, NOT WINDOWS VERIFIED:** [Full first-party friction audit](LOCAL-FIRST-SWEEP-2026-10-22.md). Direct localhost mode, local-raw fidelity, one-click Drive, long prompts, loopback integrations and local testing URLs shipped via multiple active lanes. The workspace's actual user-value prototype remains **0 shipped / 0 used**, so **V1 Outcome Packet is still the next highest-leverage product task**. Do not grow a new hardening or permissions program; preserve one-dispatch correctness and raw provenance. Windows smoke/local CLI real run still required.
+
 # @VALUE-ORACLE — Outcome Delivery Queue
 **Origin:** 2026-10-22 value audit. **This is the single local product-value queue**, not a new PM/agent-dispatch system. **Status:** Agent workspace bootstrapped; execution not started. Product source is under the existing Global Research 09 Capture Studio project.
 
