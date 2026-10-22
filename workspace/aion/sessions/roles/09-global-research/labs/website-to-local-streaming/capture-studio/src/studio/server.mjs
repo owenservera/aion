@@ -63,7 +63,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       return result;
     } finally { deriving.delete(session.id); }
   }
-  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id) });
+  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id) });
   const driveApi = createDriveApi({ dataDir: paths.root, port: cdpPort, drive, campaign });
 
   const tokenBuf = Buffer.from(token);
