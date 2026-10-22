@@ -229,7 +229,14 @@ function blockCompatible(s, d) {
   return TEXT_LIKE.has(st) && DOM_TEXT.has(dt);
 }
 
-function linkBlocks(sbs, dbs) {
+// Stream block indexes are not DOM ordinals: they can be strings ("0"), composite ("0.0" for an
+// OpenAI Responses output_index.content_index) or non-contiguous (a tool block with no text). So
+// blocks are paired by RANK ORDER (naturally sorted stream index <-> ascending DOM ord), only when
+// the counts agree. A wrong pairing cannot produce a false `verified`: each pair still has to pass
+// the type check and the text check, and it inherits the message's finality.
+const byNaturalIndex = (a, b) => String(a.index).localeCompare(String(b.index), undefined, { numeric: true });
+
+function linkBlocks(sbs, dbs, final) {
   const out = [];
   if (sbs.length !== dbs.length) {
     const reason = `block counts differ (stream ${sbs.length}, dom ${dbs.length}): no ordinal link`;
@@ -237,23 +244,20 @@ function linkBlocks(sbs, dbs) {
     for (const d of dbs) out.push({ blockKey: null, ord: d.ord, status: 'unlinked_dom', textMatch: 'none', evidence: { rule: null, reason } });
     return out;
   }
-  const usedOrd = new Set();
-  for (const s of sbs) {
-    const d = dbs.find((x) => x.ord === s.index);
-    if (!d) {
-      out.push({ blockKey: s.key, ord: null, status: 'unlinked_stream', textMatch: 'none', evidence: { rule: null, reason: 'no DOM block with this ordinal' } });
-      continue;
-    }
+  const ss = [...sbs].sort(byNaturalIndex);
+  // DOM blocks are already in document order; sort by ord only when every ord is present.
+  const ds = dbs.every((d) => Number.isFinite(d.ord)) ? [...dbs].sort((a, b) => a.ord - b.ord) : dbs;
+  for (let i = 0; i < ss.length; i++) {
+    const s = ss[i], d = ds[i];
     if (!blockCompatible(s, d)) {
       out.push({ blockKey: s.key, ord: null, status: 'unlinked_stream', textMatch: 'none', evidence: { rule: null, reason: `type ${s.type} incompatible with dom ${d.type}` } });
+      out.push({ blockKey: null, ord: d.ord, status: 'unlinked_dom', textMatch: 'none', evidence: { rule: null, reason: `dom type ${d.type} incompatible with stream ${s.type}` } });
       continue;
     }
-    usedOrd.add(d.ord);
-    const notes = [];
+    const notes = [`paired by rank ${i}: stream index ${JSON.stringify(s.index)} <-> dom ord ${d.ord}`];
     const rel = relate(s.nt, d.nt);
-    out.push({ blockKey: s.key, ord: d.ord, status: decide(rel, undefined, notes), textMatch: textMatchOf(rel), evidence: { rule: 'order+text', ordering: 'ordinal', notes } });
+    out.push({ blockKey: s.key, ord: d.ord, status: decide(rel, final, notes), textMatch: textMatchOf(rel), evidence: { rule: 'order+text', ordering: 'rank', notes } });
   }
-  for (const d of dbs) if (!usedOrd.has(d.ord)) out.push({ blockKey: null, ord: d.ord, status: 'unlinked_dom', textMatch: 'none', evidence: { rule: null, reason: 'no stream block linked to this ordinal' } });
   return out;
 }
 
@@ -360,7 +364,7 @@ export function joinStreamToDom({ messages = [], turns = [] } = {}) {
   for (const m of ms) {
     const r = res[m.pos];
     const t = r.turnPos === null ? null : ts[r.turnPos];
-    const blockLinks = t && (r.status === 'verified' || r.status === 'partial') ? linkBlocks(m.blocks, t.blocks) : [];
+    const blockLinks = t && (r.status === 'verified' || r.status === 'partial') ? linkBlocks(m.blocks, t.blocks, m.final) : [];
     links.push({
       messageKey: m.key, messageIndex: m.pos, messageId: m.messageId, role: m.role,
       turnIndex: t ? t.index : null, turnId: t ? t.id : null, domId: t ? t.domId : null,

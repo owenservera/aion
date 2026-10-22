@@ -509,3 +509,49 @@ test('determinism: near-match, role and normalization output is identical across
   assert.equal(normalizeForJoin('See [x](https://a.b) *y* &amp; z'), normalizeForJoin('See [x](https://a.b) *y* &amp; z'));
   assert.equal(linkAt(joinStreamToDom(input()), 1).status, 'near_match');
 });
+
+// ---- block pairing by rank, and block finality (found by QA native-shape fidelity) ----
+const oneBlockJoin = (index, final = true, text = 'Hello world') => joinStreamToDom({
+  messages: [{ key: 'm1', messageId: 'm1', role: 'assistant', text, final,
+    blocks: [{ key: 'm1:' + index, index, type: 'paragraph', text }] }],
+  turns: [{ index: 0, id: 't0', domId: 'd0', role: 'assistant', text,
+    blocks: [{ ord: 0, type: 'paragraph', text }] }],
+}).links.find((l) => l.messageKey === 'm1');
+
+test('block pairing is by rank: composite and string stream indexes link to DOM ordinals', () => {
+  for (const index of ['0', '0.0', 0, '3']) {
+    const l = oneBlockJoin(index);
+    assert.equal(l.status, 'verified', 'message index ' + index);
+    assert.deepEqual(l.blockLinks.map((b) => [b.ord, b.status]), [[0, 'verified']], 'block index ' + index);
+    assert.equal(l.blockLinks[0].evidence.ordering, 'rank');
+  }
+});
+
+test('non-contiguous stream block indexes pair by rank with ascending DOM ords', () => {
+  const r = joinStreamToDom({
+    messages: [{ key: 'm1', messageId: 'm1', role: 'assistant', text: 'one two', final: true,
+      blocks: [{ key: 'm1:0', index: '0', type: 'paragraph', text: 'one' }, { key: 'm1:2', index: '2', type: 'paragraph', text: 'two' }] }],
+    turns: [{ index: 0, id: 't0', domId: 'd0', role: 'assistant', text: 'one two',
+      blocks: [{ ord: 0, type: 'paragraph', text: 'one' }, { ord: 1, type: 'paragraph', text: 'two' }] }],
+  });
+  const l = r.links.find((x) => x.messageKey === 'm1');
+  assert.deepEqual(l.blockLinks.map((b) => [b.blockKey, b.ord, b.status]), [['m1:0', 0, 'verified'], ['m1:2', 1, 'verified']]);
+});
+
+test('a mispaired block is text_mismatch, never verified', () => {
+  const r = joinStreamToDom({
+    messages: [{ key: 'm1', messageId: 'm1', role: 'assistant', text: 'one two', final: true,
+      blocks: [{ key: 'm1:0', index: '0', type: 'paragraph', text: 'one' }, { key: 'm1:1', index: '1', type: 'paragraph', text: 'two' }] }],
+    turns: [{ index: 0, id: 't0', domId: 'd0', role: 'assistant', text: 'one two',
+      blocks: [{ ord: 0, type: 'paragraph', text: 'two' }, { ord: 1, type: 'paragraph', text: 'one' }] }],
+  });
+  const l = r.links.find((x) => x.messageKey === 'm1');
+  assert.ok(l.blockLinks.every((b) => b.status !== 'verified'));
+});
+
+test('blocks inherit message finality: a non-final stream never yields a verified block', () => {
+  const l = oneBlockJoin('0', false);
+  assert.equal(l.status, 'partial');
+  assert.equal(l.blockLinks[0].status, 'partial');
+  assert.ok(l.blockLinks[0].evidence.notes.includes('stream_not_final'));
+});
