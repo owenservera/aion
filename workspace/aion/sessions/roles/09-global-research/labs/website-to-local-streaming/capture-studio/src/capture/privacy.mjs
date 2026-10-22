@@ -26,11 +26,3 @@ export function capturePrivacy(profile = null, env = process.env) {
   };
 }
 
-// Authentication to the local Studio UI can be restored without altering the
-// capture fidelity. In local-PC mode there is no one-time token login step.
-// Host/Origin validation and 127.0.0.1-only binding are separate invariants.
-export function requireLocalUiToken(env = process.env) {
-  const mode = env.CAPTURE_STUDIO_UI_AUTH ?? 'off';
-  if (!['off', 'token'].includes(mode)) throw new Error('Invalid CAPTURE_STUDIO_UI_AUTH: expected off or token');
-  return mode === 'token';
-}
