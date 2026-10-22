@@ -339,7 +339,13 @@ const fmtB = (n) => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' 
 const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, searchRequestSeq: 0, workflowStep: '', historicalAsOfLocal: '', trail: [], authExpired: false, knowledge: null };
 
 async function api(path, opts = {}) {
-  const r = await fetch('/api/' + path, { method: opts.body ? 'POST' : 'GET', headers: opts.body ? { 'content-type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  let r;
+  try {
+    r = await fetch('/api/' + path, { method: opts.body ? 'POST' : 'GET', headers: opts.body ? { 'content-type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  } catch {
+    if (!S.authExpired) $('#connectionNote').textContent = 'Studio is unreachable. Previously loaded details may be stale. Reopen or refresh after local Studio recovers; no action was automatically retried.';
+    const e = new Error('Cannot reach the local Studio; no request was automatically retried.'); e.status = 0; throw e;
+  }
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     if (r.status === 401 || r.status === 403) {
@@ -395,6 +401,13 @@ function selectSessionContext(id) {
   S.sessionId = selected; S.sid = null;
   ++S.sessionRequestSeq; ++S.continuityRequestSeq; ++S.knowledgeRequestSeq; ++S.knowledgeDetailSeq; ++S.searchRequestSeq;
   S.knowledge = null;
+  const state = $('#knowledgeState');
+  if (state) state.textContent = selected ? 'Recording changed. Explore knowledge to read its own derived evidence.' : 'No saved recording selected. Prior derived evidence is no longer displayed.';
+  const metrics = $('#knowledgeMetrics'); if (metrics) metrics.textContent = '';
+  for (const id of ['#knowledgeEntities','#knowledgeDetail','#knowledgeGraph','#knowledgeModel','#knowledgeDrift']) {
+    const host = $(id);
+    if (host) host.innerHTML = '<div class="empty">Select a saved recording and load its knowledge.</div>';
+  }
   updateSrcNote();
   const picker = $('#knowledgeSession');
   if (picker && picker.value !== (selected || '')) picker.value = selected || '';
@@ -667,9 +680,12 @@ async function openSession(id) {
     d = await api('sessions/' + encodeURIComponent(id));
   } catch (e) {
     if (requestSeq === S.sessionRequestSeq) {
-      if (e.status === 404) { S.sessionId = null; S.sid = null; S.knowledge = null; updateSrcNote(); renderSessions(); }
+      // Do not leave an unverified recording selected in Streams, Knowledge, or scoped Search.
+      selectSessionContext(null);
       $('#sessionDetail').innerHTML = '<div class="feedback-error" role="alert">' +
-        (e.status === 404 ? 'This recording is no longer available. It may have been deleted.' : 'Could not open session: ' + esc(e.message)) + '</div>';
+        (e.status === 404 ? 'This recording is no longer available. It may have been deleted.' :
+          (e.status === 401 || e.status === 403 ? 'Authorization expired. Reopen the tokenized local Studio URL before opening this recording.' :
+            'Could not open recording: ' + esc(e.message) + '. Selection cleared; no previous evidence is shown as current.')) + '</div>';
     }
     return false;
   }
