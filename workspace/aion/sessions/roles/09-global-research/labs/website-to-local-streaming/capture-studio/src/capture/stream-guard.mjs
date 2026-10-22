@@ -5,7 +5,8 @@
 // refuse to persist ANY pending payload when one appears. This deliberately
 // over-excludes content, rather than claiming arbitrary bytes are credential-free.
 // It is not universal secret detection. Rules match the scrubber's supported
-// credential family plus common API-token prefixes. See W4 risk notes.
+// credential family plus common API-token prefixes. This guard is used only in
+// optional filtered mode; local-raw mode preserves the original stream. See W4 notes.
 import { scrubSecrets } from './redact.mjs';
 
 export const STREAM_GUARD_HOLDBACK = 128;
