@@ -11,13 +11,15 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { median, percentile, summarize } from '../../scripts/loadlab.mjs';
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'loadlab.mjs');
 
 // Tiny payload: 50 KB over 4 streams, 16 KB per CDP frame, 50 rendered-DOM rows. Small
 // enough to stay well under the 3 s budget, large enough that every stream shape is emitted
-// at least once and the raw log really is written and read back.
-const TINY = ['--mb', '0.05', '--chunk', '16', '--streams', '4', '--dom-rows', '50', '--json'];
+// at least once and the raw log really is written and read back. --repeats 1 keeps it to one
+// run per mode (the default is 5).
+const TINY = ['--mb', '0.05', '--chunk', '16', '--streams', '4', '--dom-rows', '50', '--repeats', '1', '--json'];
 
 // The lab is run once and shared: every worker is a separate process, so running it per test
 // would triple the cost without testing anything new.
@@ -86,6 +88,9 @@ test('load lab reproduces the emitted bytes exactly from the raw log', () => {
   assert.equal(capture.counters.rawDroppedRecords, 0);
   assert.ok(capture.counters.reducerEvents > 0, 'the reducer must have decoded events');
   assert.ok(capture.counters.domBatches > 0, 'the DOM batch path must have run');
+  // The recorder's 1 s status and 5 s persist timers run inside the capture scenario. A throw
+  // inside them is caught and recorded as a warning, so it would not fail the run by itself.
+  assert.deepEqual(capture.warnings, [], 'the capture scenario must run its timers without errors');
 
   const baseline = report.scenarios.find((s) => s.mode === 'baseline');
   assert.equal(baseline.bytes.equal, null, 'the baseline writes nothing, so there is nothing to compare');
@@ -99,4 +104,86 @@ test('load lab refuses an oversized payload and prints its usage', () => {
   assert.match(tooBig.stderr, /capped at 512 MB/);
   assert.match(tooBig.stderr, /--mb N/);
   assert.match(tooBig.stderr, /--streams N/);
+});
+
+// ---- repeat statistics (fixed inputs, exact expected values) --------------------------------
+
+test('percentile uses linear interpolation between order statistics', () => {
+  // n = 5: h = (n-1) * p/100. p50 -> index 2, p95 -> h = 3.8 -> 4 + 0.8 * (5 - 4) = 4.8.
+  assert.equal(percentile([1, 2, 3, 4, 5], 50), 3);
+  assert.ok(Math.abs(percentile([1, 2, 3, 4, 5], 95) - 4.8) < 1e-12);
+  // Input order must not matter.
+  assert.equal(percentile([5, 1, 4, 2, 3], 50), 3);
+  // Even count: p50 is the mean of the two middle values.
+  assert.equal(median([1, 2, 3, 4]), 2.5);
+  // Single value and empty input.
+  assert.equal(percentile([7], 95), 7);
+  assert.equal(percentile([], 50), null);
+});
+
+test('summarize reports median, p95, min, max, mean and sample CV on fixed arrays', () => {
+  const s = summarize([1, 2, 3, 4, 5]);
+  assert.equal(s.n, 5);
+  assert.equal(s.median, 3);
+  assert.equal(s.p95, 4.8);
+  assert.equal(s.min, 1);
+  assert.equal(s.max, 5);
+  assert.equal(s.mean, 3);
+  // Sample variance = (4 + 1 + 0 + 1 + 4) / 4 = 2.5, sd = 1.5811, CV = sd / mean = 0.5270.
+  assert.ok(Math.abs(s.cv - 0.5270) < 1e-4, `cv was ${s.cv}`);
+
+  // Constant input has zero spread.
+  const flat = summarize([10, 10, 10]);
+  assert.equal(flat.cv, 0);
+  assert.equal(flat.median, 10);
+
+  // Unsorted input and non-finite entries are handled: only 2 and 8 count.
+  const odd = summarize([8, NaN, 2, null]);
+  assert.equal(odd.n, 2);
+  assert.equal(odd.median, 5);
+  assert.equal(odd.min, 2);
+  assert.equal(odd.max, 8);
+
+  // One sample has no sample standard deviation, so CV is null rather than 0.
+  assert.equal(summarize([4]).cv, null);
+  assert.equal(summarize([]).n, 0);
+  assert.equal(summarize([]).median, null);
+  // Zero mean: CV is undefined.
+  assert.equal(summarize([-1, 1]).cv, null);
+});
+
+// ---- repeat mode and queue-age sanity on a tiny run -----------------------------------------
+
+test('repeat mode runs every mode N times and queue age is non-negative and sane', () => {
+  const res = spawnSync(process.execPath, [SCRIPT, '--mb', '0.05', '--chunk', '16', '--streams', '4', '--dom-rows', '50', '--repeats', '2', '--json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 240_000 });
+  assert.equal(res.status, 0, `loadlab exited ${res.status}\n${res.stderr}`);
+  const report = JSON.parse(res.stdout);
+
+  assert.equal(report.scenarios.length, 4, 'two repeats of capture and baseline');
+  assert.equal(report.repeats.count, 2);
+  assert.equal(report.repeats.runs.capture, 2);
+  assert.equal(report.repeats.runs.baseline, 2);
+  assert.deepEqual(report.scenarios.map((s) => `${s.mode}#${s.repeat}`).sort(), ['baseline#1', 'baseline#2', 'capture#1', 'capture#2']);
+
+  const cStats = report.repeats.stats.capture;
+  for (const k of ['eventLoopP99Ms', 'throughputMBs', 'wallMs', 'queueAgeP50Ms', 'queueAgeP99Ms', 'peakQueueBytes']) {
+    assert.ok(cStats[k] && cStats[k].n === 2, `capture ${k} must summarise both repeats`);
+  }
+  assert.ok(report.repeats.stats.baseline.eventLoopP99Ms.n === 2);
+  assert.equal(typeof report.repeats.comparison.captureWithinPlus5msOfBaseline, 'boolean');
+
+  for (const s of report.scenarios.filter((x) => x.mode === 'capture')) {
+    const q = s.queue;
+    assert.ok(q, 'capture runs must report queue age');
+    assert.ok(q.ageSamples > 0, 'every queued record in the window must be sampled');
+    assert.ok(q.flushSamples > 0);
+    assert.equal(q.agesNonNegative, true, 'queue age can never be negative');
+    assert.ok(q.ageMinMs >= 0);
+    assert.ok(q.ageP50Ms >= q.ageMinMs && q.ageP99Ms >= q.ageP50Ms && q.ageMaxMs >= q.ageP99Ms, 'p50 <= p99 <= max, min <= p50');
+    assert.ok(q.ageMaxMs <= s.wallMs + 5, 'a record cannot wait longer than the run itself');
+    assert.ok(q.peakQueueBytes >= 0 && q.peakQueueBytes >= q.peakQueueBytesAtFlush, 'peak queue bytes covers what the probe saw');
+  }
+  for (const s of report.scenarios.filter((x) => x.mode === 'baseline')) {
+    assert.equal(s.queue, null, 'baseline has no queue');
+  }
 });

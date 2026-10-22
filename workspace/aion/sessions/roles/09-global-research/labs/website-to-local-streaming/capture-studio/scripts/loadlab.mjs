@@ -35,8 +35,12 @@
 //
 // USAGE
 //   node scripts/loadlab.mjs [--mb N] [--chunk KB] [--streams N] [--dom-rows N]
-//                             [--seed N] [--json] [--out FILE] [--keep] [--help]
+//                             [--seed N] [--repeats N] [--json] [--out FILE] [--keep] [--help]
 //
+//   --repeats N   run each mode (capture ON, baseline OFF) N times, alternating the order per
+//                 repeat (default 5). The report then carries median / p95 / min / max / CV over
+//                 the repeats for event-loop p99, throughput MB/s and wall time, plus queue age
+//                 p50/p99 and peak queue bytes for capture. Synthetic in-process numbers only.
 //   --mb N        total synthetic payload bytes across all streams (default 64, hard cap 512)
 //   --chunk KB    bytes per Network.dataReceived frame (default 64)
 //   --streams N   parallel HTTP streams (default 4)
@@ -58,10 +62,20 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { fileURLToPath } = require('node:url');
 
 const SELF = path.resolve(process.argv[1] ?? '');
+const SCRIPT_PATH = path.resolve(fileURLToPath(import.meta.url));
+// main() only runs when this file is the entry point. Importing it (the unit test does, to check
+// the repeat statistics) must not start a load run. Workers are spawned with this file as argv[1],
+// so they still run main().
+const IS_MAIN = SCRIPT_PATH.toLowerCase() === SELF.toLowerCase();
 const SCHEMA = 'aion-capture-studio.loadlab/1';
 const MAX_MB = 512;
+const MAX_REPEATS = 50;
+// Mirrors the batch cap in RawLog.flush() (src/store/raw-log.mjs) for writeDelayMs = 0. Used only
+// by the queue-age probe below; the lab never changes the cap.
+const RAW_FLUSH_BATCH_BYTES = 4 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------------------------
 // Which real code this lab drives, and what it cannot reach.
@@ -122,7 +136,7 @@ function installFsProbe() {
 // ---------------------------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------------------------
-const DEFAULTS = { mb: 64, chunkKb: 64, streams: 4, domRows: 2000, seed: 1337 };
+const DEFAULTS = { mb: 64, chunkKb: 64, streams: 4, domRows: 2000, seed: 1337, repeats: 5 };
 
 function usage() {
   return [
@@ -135,6 +149,7 @@ function usage() {
     `  --streams N    parallel HTTP streams (default ${DEFAULTS.streams})`,
     `  --dom-rows N   total rendered-DOM rows across batches (default ${DEFAULTS.domRows})`,
     `  --seed N       deterministic seed (default ${DEFAULTS.seed})`,
+    `  --repeats N    runs per mode, order alternates per repeat (default ${DEFAULTS.repeats}, max ${MAX_REPEATS})`,
     '  --json         print the JSON report on stdout (table goes to stderr)',
     '  --profile      attach a V8 CPU profile summary to each scenario (slower)',
     '  --out FILE     also write the JSON report to FILE',
@@ -165,6 +180,7 @@ function parseArgs(argv) {
       case '--streams': cfg.streams = Math.round(num(next(), 'streams')); break;
       case '--dom-rows': cfg.domRows = Math.round(num(next(), 'dom-rows')); break;
       case '--seed': cfg.seed = Math.round(Number(next())); break;
+      case '--repeats': cfg.repeats = Math.round(num(next(), 'repeats')); break;
       case '--json': cfg.json = true; break;
       case '--profile': cfg.profile = true; break;
       case '--out': cfg.out = next(); break;
@@ -185,6 +201,7 @@ function parseArgs(argv) {
   }
   if (cfg.mb > MAX_MB) throw new Error(`--mb is capped at ${MAX_MB} MB (got ${cfg.mb})`);
   if (cfg.streams < 1 || cfg.streams > 64) throw new Error('--streams must be between 1 and 64');
+  if (cfg.repeats < 1 || cfg.repeats > MAX_REPEATS) throw new Error(`--repeats must be between 1 and ${MAX_REPEATS}`);
   if (cfg.chunkKb > 8192) throw new Error('--chunk is capped at 8192 KB');
   return cfg;
 }
@@ -394,6 +411,7 @@ async function runScenario({ mode, cfg }) {
   const { ShapeInferencer } = capture ? await import('../src/shapes/infer.mjs') : { ShapeInferencer: null };
   const { Session } = capture ? await import('../src/store/session.mjs') : { Session: null };
   const { streamBytes } = capture ? await import('../src/replay/derive.mjs') : { streamBytes: null };
+  const { capturePrivacy } = capture ? await import('../src/capture/privacy.mjs') : { capturePrivacy: null };
 
   const esmFs = await import('node:fs');
   probe.measured = Object.keys(probe.patched).every((n) => esmFs[n] === probe.patched[n]);
@@ -460,6 +478,10 @@ async function runScenario({ mode, cfg }) {
       allBodies: true,
     });
     recorder.profile = profile;
+    // start() sets this at recorder.mjs:91. status() (the 1 s timer) and _persist() (the 5 s
+    // timer) call privacy.url(). Without it both timers throw on every tick and the capture-on
+    // run would silently leave that work out. Wiring it here makes the lab run the same code.
+    recorder.privacy = capturePrivacy(profile);
     recorder.pageUrl = pageUrl;
     recorder.state = 'recording';
     recorder.startedAt = Date.now();
@@ -528,6 +550,36 @@ async function runScenario({ mode, cfg }) {
   }
   let rawFlushBatches = 0;
   if (capture) session.raw.on('written', () => { rawFlushBatches++; });
+
+  // QUEUE AGE PROBE (no change to src/store/raw-log.mjs). The RawLog instance's flush() is wrapped.
+  // Before the real flush runs, the wrapper reads the head of raw.queue exactly as flush() will
+  // batch it (same cap, RAW_FLUSH_BATCH_BYTES) and records now - record.t for each record about to
+  // be written. Then it calls the original flush with the same arguments. The probe only reads
+  // fields; it never writes, reorders or retimes anything. It is armed only during the workload
+  // window, so the final drain in close() is not counted.
+  const queueAgesMs = [];
+  let queueAgeArmed = false;
+  let queueFlushSamples = 0;
+  let queuePeakBytesSeen = 0;
+  if (capture) {
+    const raw = session.raw;
+    const origFlush = raw.flush.bind(raw);
+    raw.flush = (...args) => {
+      if (queueAgeArmed && raw.fd !== undefined) {
+        const now = Date.now();
+        let batchBytes = 0;
+        for (let i = 0; i < raw.queue.length && batchBytes < RAW_FLUSH_BATCH_BYTES; i++) {
+          const r = raw.queue[i];
+          batchBytes += r.bytes;
+          queueAgesMs.push(now - r.t);
+        }
+        if (raw.queueBytes > queuePeakBytesSeen) queuePeakBytesSeen = raw.queueBytes;
+        queueFlushSamples++;
+      }
+      return origFlush(...args);
+    };
+  }
+  queueAgeArmed = capture; // armed for the workload window; disarmed right after hist.disable()
 
   const maxFrame = { ms: 0, method: null, kind: null, frame: null };
   const slowestFrames = [];
@@ -680,6 +732,7 @@ async function runScenario({ mode, cfg }) {
 
   const wallMs = Number(process.hrtime.bigint() - t0) / 1e6;
   hist.disable();
+  queueAgeArmed = false;
 
   rssPeak = Math.max(rssPeak, process.memoryUsage().rss);
 
@@ -774,6 +827,21 @@ async function runScenario({ mode, cfg }) {
       processMaxRssMb: round3((process.resourceUsage().maxRSS * 1024) / (1024 * 1024)),
     },
     syncFs,
+    queue: capture
+      ? {
+        // Queue age = flush-time minus record.t, per record, over the workload window (ms).
+        ageSamples: queueAgesMs.length,
+        flushSamples: queueFlushSamples,
+        ageP50Ms: round3(percentile(queueAgesMs, 50)),
+        ageP99Ms: round3(percentile(queueAgesMs, 99)),
+        ageMinMs: queueAgesMs.length ? queueAgesMs.reduce((a, b) => (b < a ? b : a)) : null,
+        ageMaxMs: queueAgesMs.length ? queueAgesMs.reduce((a, b) => (b > a ? b : a)) : null,
+        agesNonNegative: queueAgesMs.every((a) => a >= 0),
+        // Peak queue.bytes from RawLog's own stats (updated in append()), and the peak the probe saw.
+        peakQueueBytes: session.raw.stats.maxQueueBytesSeen,
+        peakQueueBytesAtFlush: queuePeakBytesSeen,
+      }
+      : null,
     counters,
     bytes: {
       equal: bytesEqual,
@@ -798,6 +866,51 @@ async function runScenario({ mode, cfg }) {
 function round3(n) {
   if (!Number.isFinite(n)) return null;
   return Math.round(n * 1000) / 1000;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Repeat statistics. Exported for the unit test.
+//
+//   percentile(values, p)  linear interpolation between order statistics (R type 7, the numpy
+//                          default): h = (n-1) * p/100. Returns null for an empty list.
+//   median(values)         percentile 50.
+//   summarize(values)      { n, median, p95, min, max, mean, cv }. cv is the coefficient of
+//                          variation = SAMPLE standard deviation (n-1) / |mean|, as a fraction
+//                          (0.05 = 5 %). cv is null when n < 2 or the mean is 0.
+// Non-finite entries are ignored.
+// ---------------------------------------------------------------------------------------------
+export function percentile(values, p) {
+  const xs = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!xs.length) return null;
+  const h = (xs.length - 1) * (p / 100);
+  const lo = Math.floor(h);
+  const hi = Math.ceil(h);
+  return xs[lo] + (h - lo) * (xs[hi] - xs[lo]);
+}
+
+export function median(values) {
+  return percentile(values, 50);
+}
+
+export function summarize(values) {
+  const xs = values.filter(Number.isFinite);
+  const n = xs.length;
+  if (!n) return { n: 0, median: null, p95: null, min: null, max: null, mean: null, cv: null };
+  const mean = xs.reduce((a, b) => a + b, 0) / n;
+  let cv = null;
+  if (n > 1 && mean !== 0) {
+    const variance = xs.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1);
+    cv = Math.sqrt(variance) / Math.abs(mean);
+  }
+  return {
+    n,
+    median: round3(percentile(xs, 50)),
+    p95: round3(percentile(xs, 95)),
+    min: round3(Math.min(...xs)),
+    max: round3(Math.max(...xs)),
+    mean: round3(mean),
+    cv: cv === null ? null : Math.round(cv * 10000) / 10000,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -869,9 +982,36 @@ function summarizeProfile(dir) {
   };
 }
 
+// The run whose event-loop p99 is the median of its mode (lower median for an even count). The
+// delta and verdict blocks use it, so repeats = 1 gives exactly the single-run numbers.
+function representativeRun(list) {
+  if (!list.length) return undefined;
+  const sorted = [...list].sort((a, b) => (a.eventLoopDelayMs.p99 ?? 0) - (b.eventLoopDelayMs.p99 ?? 0));
+  return sorted[Math.floor((sorted.length - 1) / 2)];
+}
+
+function repeatStats(list) {
+  const out = {
+    eventLoopP99Ms: summarize(list.map((s) => s.eventLoopDelayMs.p99)),
+    throughputMBs: summarize(list.map((s) => s.bytesPerSec / 1048576)),
+    wallMs: summarize(list.map((s) => s.wallMs)),
+  };
+  if (list.some((s) => s.queue)) {
+    out.queueAgeP50Ms = summarize(list.map((s) => s.queue?.ageP50Ms));
+    out.queueAgeP99Ms = summarize(list.map((s) => s.queue?.ageP99Ms));
+    out.peakQueueBytes = summarize(list.map((s) => s.queue?.peakQueueBytes));
+  }
+  return out;
+}
+
 function buildReport(cfg, scenarios) {
-  const capture = scenarios.find((s) => s.mode === 'capture');
-  const baseline = scenarios.find((s) => s.mode === 'baseline');
+  const captureRuns = scenarios.filter((s) => s.mode === 'capture');
+  const baselineRuns = scenarios.filter((s) => s.mode === 'baseline');
+  const capture = representativeRun(captureRuns);
+  const baseline = representativeRun(baselineRuns);
+  const cP99 = summarize(captureRuns.map((s) => s.eventLoopDelayMs.p99));
+  const bP99 = summarize(baselineRuns.map((s) => s.eventLoopDelayMs.p99));
+  const p99Delta = cP99.median === null || bP99.median === null ? null : round3(cP99.median - bP99.median);
   const d = (a, b) => (a === null || a === undefined || b === null || b === undefined ? null : round3(a - b));
   const threshold = 50;
   const over = (s) => !!s && s.eventLoopDelayMs.p99 !== null && s.eventLoopDelayMs.p99 > threshold;
@@ -886,11 +1026,25 @@ function buildReport(cfg, scenarios) {
       streams: cfg.streams,
       domRows: cfg.domRows,
       seed: cfg.seed,
+      repeats: cfg.repeats,
       eventLoopDelayResolutionMs: 10,
       p99ThresholdMs: threshold,
     },
     layers: LAYERS,
     scenarios,
+    repeats: {
+      count: cfg.repeats,
+      order: 'repeat r runs capture then baseline when r is odd, baseline then capture when r is even',
+      runs: { capture: captureRuns.length, baseline: baselineRuns.length },
+      stats: { capture: repeatStats(captureRuns), baseline: repeatStats(baselineRuns) },
+      comparison: {
+        captureP99MedianMs: cP99.median,
+        baselineP99MedianMs: bP99.median,
+        eventLoopP99MedianDeltaMs: p99Delta,
+        captureWithinPlus5msOfBaseline: p99Delta === null ? null : p99Delta <= 5,
+        rule: 'median(capture event-loop p99) - median(baseline event-loop p99) <= 5 ms',
+      },
+    },
     hotPath: capture?.cpuProfile
       ? { note: 'V8 CPU profile self time of the capture scenario (worker process, whole run).', totalMs: capture.cpuProfile.totalMs, top: capture.cpuProfile.top.slice(0, 12) }
       : null,
@@ -926,7 +1080,7 @@ function table(report) {
   rows.push('-'.repeat(head.length));
   for (const s of report.scenarios) {
     rows.push([
-      pad(s.mode, 22, false),
+      pad(`${s.mode} #${s.repeat ?? 1}`, 22, false),
       pad(s.mode === 'capture' ? 'ON' : 'OFF', 6),
       pad(s.wallMs.toFixed(0), 10),
       pad((s.bytesEmitted / 1048576).toFixed(1), 12),
@@ -945,6 +1099,27 @@ function table(report) {
     pad('lag delta (capture - baseline)', 22, false), pad('', 6), pad(d.wallMs?.toFixed(0), 10), pad('', 12), pad('', 9),
     pad(d.p50Ms?.toFixed(2), 9), pad(d.p99Ms?.toFixed(2), 9), pad(d.maxMs?.toFixed(2), 10), pad(d.peakRssMb?.toFixed(0), 13), pad('', 10), pad('', 12),
   ].join(' '));
+  const fmt = (v, d = 2) => (v === null || v === undefined ? 'n/a' : Number(v).toFixed(d));
+  const line = (label, s, unit, d = 2) => `  ${label.padEnd(30)} median ${fmt(s.median, d)}  p95 ${fmt(s.p95, d)}  min ${fmt(s.min, d)}  max ${fmt(s.max, d)}  CV ${s.cv === null ? 'n/a' : (s.cv * 100).toFixed(1) + '%'}  ${unit}`;
+  const rs = report.repeats;
+  if (rs) {
+    rows.push('');
+    rows.push(`repeat statistics over ${rs.count} run(s) per mode (synthetic, in-process; CV = sample stddev / mean):`);
+    for (const mode of ['capture', 'baseline']) {
+      const st = rs.stats[mode];
+      const tag = mode === 'capture' ? 'capture ON ' : 'baseline OFF';
+      rows.push(line(`${tag} event-loop p99`, st.eventLoopP99Ms, 'ms', 3));
+      rows.push(line(`${tag} throughput`, st.throughputMBs, 'MB/s', 3));
+      rows.push(line(`${tag} wall time`, st.wallMs, 'ms', 0));
+      if (mode === 'capture' && st.queueAgeP50Ms) {
+        rows.push(line('capture queue age p50 (per run)', st.queueAgeP50Ms, 'ms', 3));
+        rows.push(line('capture queue age p99 (per run)', st.queueAgeP99Ms, 'ms', 3));
+        rows.push(line('capture peak queue.bytes', st.peakQueueBytes, 'bytes', 0));
+      }
+    }
+    const c = rs.comparison;
+    rows.push(`  capture p99 median - baseline p99 median = ${fmt(c.eventLoopP99MedianDeltaMs, 3)} ms; capture within +5 ms of baseline: ${c.captureWithinPlus5msOfBaseline}`);
+  }
   rows.push('');
   rows.push(`p99 > ${report.config.p99ThresholdMs} ms: capture=${report.verdict.p99Over50ms.capture} baseline=${report.verdict.p99Over50ms.baseline}`);
   rows.push(`raw byte equality (capture): ${report.verdict.bytesEqual}`);
@@ -982,10 +1157,17 @@ async function main() {
     return;
   }
 
+  // One child process per run. Order alternates per repeat so a drifting machine does not always
+  // favour one mode. With --repeats 1 this is capture then baseline, as before.
   const scenarios = [];
-  for (const mode of ['capture', 'baseline']) {
-    process.stderr.write(`loadlab: running ${mode}...\n`);
-    scenarios.push(runWorker(mode, cfg));
+  for (let r = 1; r <= cfg.repeats; r++) {
+    const order = r % 2 === 1 ? ['capture', 'baseline'] : ['baseline', 'capture'];
+    for (const mode of order) {
+      process.stderr.write(`loadlab: repeat ${r}/${cfg.repeats} ${mode}...\n`);
+      const scenario = runWorker(mode, cfg);
+      scenario.repeat = r;
+      scenarios.push(scenario);
+    }
   }
   const report = buildReport(cfg, scenarios);
   const text = table(report);
@@ -1002,4 +1184,4 @@ async function main() {
   }
 }
 
-await main();
+if (IS_MAIN) await main();
