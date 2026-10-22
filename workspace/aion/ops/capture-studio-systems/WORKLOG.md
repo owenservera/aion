@@ -56,3 +56,12 @@ On a subsequent explicit sprint instruction: refresh GitHub main and relevant te
 - **Execution:** GitHub static source/docs/test inspection; **0 new tests, 0 benchmark runs, 0 browser actions, 0 product changes**. Source changes from unrelated agents continued concurrently.
 - **Metrics:** prior QA independent inventory 165 executable JS/MJS/HTML files / 40,510 physical LOC at `34e1a913`; no current-head checked-out counter or Sprint 2 product LOC delta measured.
 - **Next:** Sprint 3 = eligibility of raw captures for families, L4 knowledge and L5 learning; **queued, not begun**. Review latest source first.
+
+## Pre-local Windows observability handoff — 2026-10-22
+
+- **Trigger:** QA/Steering supplied the pre-local integration review and assigned Systems a minimal observable map in its existing lane. QA's canonical [L0–L5 integration runbook](../../qa/capture-studio/LOCAL-INTEGRATION-ROUNDS-2026-10-22.md) and issue #65's local-PC simplicity directive are the authority.
+- **Deliverable:** [LOCAL-OBSERVABILITY-HANDOFF-2026-10-22.md](LOCAL-OBSERVABILITY-HANDOFF-2026-10-22.md) at original commit `d9f5f16a4e249311b915a8849eddbec34e375a27` (source starting SHA `75032dc868b806ba47e4720e52cf857c818040e2`).
+- **What it contains:** exact source-backed signal map for time/latency; raw queue/drop/gap/truncation and stream omissions; CDP reconnect/target; leases/ownership and ambiguous sends; CPU/RSS/disk local sampling; minimal `metrics.json.systems` schema with null for unmeasured signals; safe read-only CLI/API/fixture commands; targeted failure signatures and Core/UI/L5 owner routes.
+- **Reconciliation:** current source contains local-raw versus guarded privacy modes and partially source-measurable limits. Do not replay stale 2026-10-22 early-Sprint-2 assertions that credential guards are still unwired; use pinned current code and record real local effective capture mode. Exact registered local run SHA supersedes all remote estimates.
+- **No extra product / test:** zero Windows execution, zero new tests, zero extra agent/daemon/dashboards, no Core/UI/QA file mutation, no live-site sends or tracked raw-data export. The Systems deliverable is advisory and does **not** create a QA gate.
+- **Scheduling:** Sprints 1–2 remain source-complete; Sprint 3 (intelligence lineage) stays queued while the user local team begins L0/L1 and directs the next evidence-driven iteration. No background work implied.
