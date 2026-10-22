@@ -174,3 +174,27 @@ test('user-facing origin filter does not expose unrelated hosted subdomains', as
   const audit = await buildSiteContinuity(dir, { site: 'github.io' });
   assert.equal(audit.stats.sessionsDiscovered, 2);
 });
+
+test('number and string key identities remain separate in continuity and drift review', async (t) => {
+  const { dir, add } = fixture(t);
+  for (const [id, keyType, eid, label, ts] of [
+    ['num-a', 'number', 'thing:k:n:42', 'Number A', 100],
+    ['num-b', 'number', 'thing:k:n:42', 'Number B', 200],
+    ['text-a', 'string', 'thing:k:text42', 'Text A', 100],
+    ['text-b', 'string', 'thing:k:text42', 'Text B', 200],
+    ['legacy', null, 'thing:k:legacy42', 'Old ambiguous', 150],
+  ]) {
+    add(id, 'app.example.com', [entity(eid, '42', label, ts, {
+      ...(keyType ? { keyType } : {}),
+    })]);
+  }
+  const result = await buildSiteContinuity(dir, {
+    site: 'example.com', origin: 'https://app.example.com',
+  });
+  assert.equal(result.entities.length, 3);
+  assert.equal(result.stats.joinedEntities, 2);
+  const types = result.entities.map((item) => item.keyType).sort();
+  assert.deepEqual(types, ['legacy-untyped', 'number', 'string']);
+  assert.equal(result.entities.filter((item) => item.sessionCount === 2).length, 2);
+  assert.equal(result.typeDriftHints.length, 0, 'typed key groups must not generate cross-type drift');
+});
