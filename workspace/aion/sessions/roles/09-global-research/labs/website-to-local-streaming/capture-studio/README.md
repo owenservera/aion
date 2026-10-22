@@ -24,6 +24,34 @@ Node.js itself. Captured data is private and lives **outside the repository** by
 
 ## What it is
 
+### Chat: one explicit turn
+
+Open **Chat** at `/chat` after authenticating through the Studio tokenized URL. Connect a known
+site/tab, confirm a single send, poll its source-labelled reply, then **Finish capture**. A ready
+page-fallback reply retains network completion **unknown**, and capture remains **incomplete**,
+not verified or accepted. Uncertain sends are never
+automatically retried; preserve the tab and use read-only reconciliation.
+
+The CLI uses the same conversation runtime without requiring a running Studio server:
+
+```powershell
+bun bin/studio.mjs chat chatgpt --prompt 'Hello'                 # offline preview; no browser access
+bun bin/studio.mjs chat chatgpt --prompt 'Hello' --execute --json # one actual send
+```
+
+`--execute` explicitly authorizes a website send that may consume account quota/history.
+Prompts must be nonempty and at most 2000 characters. `--target ID` binds an existing tab;
+`--fresh` requests a Studio-owned tab. `--timeout 120` bounds local polling (1–900 seconds),
+not website generation. The one-shot CLI always finishes recording and leaves tabs open;
+it prints structured conversation/reply/capture evidence, not an unsupported acceptance claim.
+It does not offer a persistent CLI recorder or resend command. Use Studio history and read-only
+reconciliation for recovery; do not rerun an uncertain prompt to repair missing evidence.
+
+Authenticated JSON endpoints: `GET /api/v1/conversation-targets`, `GET|POST /api/v1/conversations`,
+`GET /api/v1/conversations/{id}`, and `POST` to `{id}/turns`, `{id}/reconcile`, `{id}/finish`.
+Turns require `{key,prompt,confirm:true,expectedRevision}`; reconcile requires `{expectedRevision}`.
+Finish accepts `{closeTab?:boolean}`; the runtime refuses unsafe tab closure. Private content remains local.
+
 Three capture layers, kept separate on disk and recomputable from each other:
 
 | Layer | What it is | Where it lands |

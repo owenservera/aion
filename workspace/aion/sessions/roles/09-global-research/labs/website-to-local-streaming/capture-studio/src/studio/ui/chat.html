@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capture Studio — Chat</title>
+<script type="module" src="/ui/chat.mjs"></script>
+<style>
+:root {
+  --paper: #EEF1F4; --panel: #FFFFFF; --ink: #1D2733; --muted: #5D6B7A; --line: #D3DAE2; --hover: #E4E9EF;
+  --l1: #2F6FB3; --l2: #7A4FB5; --l3: #2E8C6E; --act: #C2721B; --gap: #C23B3B; --ok: #2E8C6E;
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #141A21; --panel: #1B232C; --ink: #DCE3EA; --muted: #8C9AA8; --line: #2C3742; --hover: #233039;
+    --l1: #6EA6E6; --l2: #B08CE8; --l3: #5CC4A2; --act: #E9A55A; --gap: #EF6B6B; --ok: #5CC4A2; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 14px/1.45 var(--sans); }
+button, select, input, textarea { font: inherit; color: inherit; }
+button { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 14px; cursor: pointer; }
+button:hover:not(:disabled) { background: var(--hover); }
+button.primary { background: var(--l1); border-color: var(--l1); color: #fff; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--l1); filter: brightness(1.08); }
+button.live { background: transparent; border-color: var(--act); color: var(--act); font-weight: 600; }
+button.live:hover:not(:disabled) { background: var(--act); color: var(--panel); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--l1); outline-offset: 2px; }
+input, select, textarea { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+textarea { width: 100%; resize: vertical; }
+a { color: var(--l1); }
+code, .mono { font-family: var(--mono); font-size: 12.5px; }
+.muted { color: var(--muted); }
+.note { color: var(--muted); font-size: 12.5px; }
+.note:empty, .err:empty { display: none; }
+.err { color: var(--gap); overflow-wrap: anywhere; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* every Chat control has at least a 44px hit area */
+button, select, input[type=text], textarea, summary, a.hit { min-height: 44px; }
+a.hit { display: inline-flex; align-items: center; }
+.pick { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 10px; cursor: pointer; border-radius: 8px; }
+.pick input { width: 22px; height: 22px; min-height: 0; margin: 0; padding: 0; flex: none; accent-color: var(--l1); }
+.pick:hover { background: var(--hover); }
+.pick:focus-within { outline: 2px solid var(--l1); outline-offset: 2px; }
+
+header { display: flex; align-items: center; gap: 4px 18px; padding: 4px 18px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+header h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+header .crumb b { font-weight: 600; }
+header a { display: inline-flex; align-items: center; min-height: 44px; }
+
+h2 { font-size: 17px; margin: 0 0 4px; font-weight: 650; letter-spacing: -.01em; }
+h3 { font-size: 14px; margin: 14px 0 6px; font-weight: 650; }
+p.lede { color: var(--muted); margin: 0 0 14px; max-width: 70ch; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.pad { padding: 12px 14px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.empty { color: var(--muted); padding: 22px; text-align: center; }
+
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px 22px 24px; max-width: 1320px; margin: 0 auto; align-items: start; }
+.wrap > * { min-width: 0; }
+@media (min-width: 1100px) {
+  .wrap { grid-template-columns: minmax(0, 1fr) 340px; }
+  aside { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+  #detailsBox > summary { display: none; }
+}
+@media (max-width: 700px) { .wrap { padding: 12px; } header { padding: 4px 12px; } }
+
+details.panel > summary { cursor: pointer; font-weight: 650; padding: 0 14px; display: flex; align-items: center; }
+details.panel[open] > summary { border-bottom: 1px solid var(--line); }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { font-weight: 650; padding: 0; margin-bottom: 4px; }
+.field { display: block; margin-top: 10px; }
+.field > .lab { display: block; font-weight: 600; margin-bottom: 4px; }
+select { width: 100%; max-width: 420px; }
+
+.targets { border: 1px solid var(--line); border-radius: 8px; padding: 4px; margin-top: 6px; }
+.target .t-title { font-weight: 600; overflow-wrap: anywhere; }
+.target .t-sub { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.target.off { opacity: .55; cursor: not-allowed; }
+
+/* chips */
+.chips { display: flex; gap: 6px 8px; flex-wrap: wrap; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor; border-radius: 99px; padding: 0 10px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.7; }
+.t-ok { color: var(--ok); } .t-info { color: var(--l1); } .t-warn { color: var(--act); } .t-bad { color: var(--gap); } .t-mute { color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.t-rec .dot, .t-live .dot { animation: pulse 1.2s ease-in-out infinite; }
+.t-rec { color: var(--gap); } .t-live { color: var(--l1); }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .t-rec .dot, .t-live .dot { animation: none; } }
+
+/* transcript */
+#transcript { margin-top: 14px; padding: 12px 14px; min-height: 120px; }
+.msg { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.msg h3 { margin: 0 0 4px; font-size: 12.5px; color: var(--muted); font-weight: 650; }
+.msg.you { background: color-mix(in srgb, var(--l1) 8%, var(--panel)); margin-left: min(12%, 80px); }
+.body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.blk { border-top: 1px solid var(--line); margin-top: 8px; }
+.blk > summary { cursor: pointer; font-weight: 600; display: flex; align-items: center; }
+.srcline { margin: 8px 0 0; }
+
+.banner { border: 1px solid var(--act); border-left-width: 4px; background: color-mix(in srgb, var(--act) 7%, var(--panel)); border-radius: 8px; padding: 10px 14px; margin-top: 14px; }
+.banner b { font-weight: 650; }
+.banner p { margin: 4px 0 8px; }
+.banner.bad { border-color: var(--gap); background: color-mix(in srgb, var(--gap) 6%, var(--panel)); }
+
+/* composer */
+.composer { position: sticky; bottom: 0; margin-top: 14px; padding: 10px 14px 12px; box-shadow: 0 -6px 14px -10px rgba(0, 0, 0, .35); z-index: 2; }
+/* Keep the connection action visible while choosing a tab; pin the composer only after setup is collapsed. */
+main:has(#connectBox[open]) .composer { position: static; box-shadow: none; }
+/* Keep this after the base composer rule so short-screen scrolling actually wins the cascade. */
+@media (max-height: 640px) { .composer { position: static; box-shadow: none; } }
+.composer label.lab { font-weight: 650; display: block; margin-bottom: 4px; }
+.confirm { border: 1px solid var(--act); border-left-width: 4px; background: color-mix(in srgb, var(--act) 6%, var(--panel)); border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+.confirm p { margin: 0 0 6px; }
+.finish { margin-top: 14px; padding: 10px 14px 12px; }
+
+dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; overflow-wrap: anywhere; }
+ul.plain { list-style: none; margin: 0; padding: 0; }
+ul.plain li { padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; overflow-wrap: anywhere; }
+ul.plain li:last-child { border-bottom: 0; }
+ul.convs button { width: 100%; text-align: left; border: 0; border-radius: 0; background: none; display: flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
+ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 600; }
+@media (max-width: 700px) {
+  .msg.you { margin-left: 0; }
+  .composer button, .finish button { width: 100%; }
+  .confirm .row button { flex: 1 1 100%; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Capture Studio</h1>
+  <span class="crumb"><b>Chat</b></span>
+  <a href="/">← Back to Studio</a>
+  <a href="/drive">Calibrate sites</a>
+  <span id="connectionNote" class="note" role="status"></span>
+</header>
+
+<div class="wrap" id="chatApp">
+  <main>
+    <h2>Chat</h2>
+    <p class="lede">Connect to a website you’re logged in to, send one message, and read the reply while Studio records it. Connecting only watches. Nothing is sent until you confirm.</p>
+
+    <details class="panel" id="connectBox" open>
+      <summary id="connectSummary">Connection</summary>
+      <div class="pad">
+        <fieldset aria-describedby="connectHelp">
+          <legend>Where to chat</legend>
+          <label class="pick" for="modeNew"><input type="radio" name="mode" id="modeNew" value="new" checked><span><b>Open a new tab</b><br><span class="note">Studio opens its own tab with your logged-in session.</span></span></label>
+          <label class="pick" for="modeExisting"><input type="radio" name="mode" id="modeExisting" value="existing"><span><b>Use a tab I already have open</b><br><span class="note">Studio never reloads, navigates or closes it.</span></span></label>
+        </fieldset>
+        <div class="field" id="siteField">
+          <label for="site" class="lab">Site</label>
+          <select id="site" aria-describedby="siteNote"><option value="">Loading sites…</option></select>
+          <div class="note" id="siteNote"></div>
+        </div>
+        <div class="field" id="existingField" hidden>
+          <div class="row" style="justify-content:space-between">
+            <span class="lab" id="tabsLabel" style="margin:0">Open tabs</span>
+            <button type="button" id="btnTabs">Refresh tabs</button>
+          </div>
+          <div class="targets" id="targetList" role="radiogroup" aria-labelledby="tabsLabel"></div>
+        </div>
+        <p class="note" id="connectHelp">Connect starts recording that tab. It doesn’t type, send, clear or reload anything. Traffic from before you connected isn’t captured.</p>
+        <div class="row">
+          <button type="button" class="primary" id="btnConnect" aria-describedby="connectHint connectHelp" disabled>Connect and start recording</button>
+        </div>
+        <div class="note" id="connectHint" role="status" style="margin-top:6px"></div>
+        <div class="err" id="connectError" role="alert" style="margin-top:6px"></div>
+      </div>
+    </details>
+
+    <section aria-labelledby="convHeading">
+      <h3 id="convHeading" class="sr">Conversation</h3>
+      <div class="chips" id="chips" style="margin-top:14px"></div>
+
+      <div class="banner" id="uncertain" role="alert" tabindex="-1" hidden>
+        <p><b id="uncertainHead">We can’t confirm your message was sent. Studio will not send it again.</b></p>
+        <ul class="plain" id="uncertainLines"></ul>
+        <p class="note">Check the chat in Chrome first. The tab stays open. Checking again only reads the page; it never types or presses Send.</p>
+        <div class="row">
+          <button type="button" class="primary" id="btnReconcile">Check again (read-only)</button>
+          <button type="button" id="btnSwitch" aria-expanded="false" aria-controls="switchNote">Switch to Chrome</button>
+        </div>
+        <p class="note" id="switchNote" hidden></p>
+        <div class="err" id="reconcileError" role="alert"></div>
+      </div>
+
+      <div class="banner" id="pending" role="alert" hidden>
+        <p><b>We couldn’t confirm that Studio received your message.</b></p>
+        <p class="note">Studio will not send it again by itself. Start with Check status, which only reads.</p>
+        <div class="row">
+          <button type="button" class="primary" id="btnStatus">Check status</button>
+          <button type="button" id="btnRecover" aria-describedby="recoverNote">Recover request status</button>
+          <button type="button" id="btnDiscard" aria-describedby="discardNote">Discard this request</button>
+        </div>
+        <p class="note" id="recoverNote" style="margin:6px 0 0">Recover request status posts the same request ID again. It uses the same request ID and does not repeat an already registered send. If Studio never received the first request, this submits it now.</p>
+        <p class="note" id="discardNote" style="margin:6px 0 0">Discard only after Check status shows your message isn’t in the conversation. Studio can’t prove it wasn’t delivered.</p>
+        <div class="err" id="pendingError" role="alert"></div>
+      </div>
+
+      <div class="banner" id="readyPanel" hidden>
+        <p><b id="readyHead">Resolve draft in Chrome</b></p>
+        <p class="note" id="readyNote"></p>
+        <ul class="plain" id="readyReasons"></ul>
+        <div class="row" style="margin-top:8px"><button type="button" class="primary" id="btnCheck">Check again (read-only)</button></div>
+        <p class="note" style="margin:6px 0 0">Checking only reads the page. It never types, clears or sends.</p>
+        <div class="note" id="readyChecked" role="status"></div>
+        <div class="err" id="readyError" role="alert"></div>
+      </div>
+
+      <div class="banner bad" id="problem" role="status" hidden></div>
+
+      <div class="panel" id="transcript" role="log" aria-live="off" aria-label="Conversation" tabindex="0">
+        <p class="empty" id="emptyState">No conversation yet. Connect to a site above.</p>
+        <article class="msg you" id="youMsg" hidden>
+          <h3>You</h3>
+          <p class="body" id="youText"></p>
+          <p class="note" id="youNote"></p>
+        </article>
+        <div class="chips" id="phaseLine" style="margin:0 0 12px" hidden></div>
+        <article class="msg" id="replyMsg" hidden>
+          <h3 id="replyHead">Reply</h3>
+          <div id="replyBlocks"></div>
+          <p class="note srcline" id="replyMeta"></p>
+          <p class="note" id="replyTrunc"></p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel finish" id="finishBar" aria-labelledby="finishHeading" hidden>
+      <h3 id="finishHeading" style="margin-top:0">Capture</h3>
+      <div class="note" id="finishNote"></div>
+      <label class="pick" for="closeTab" id="closeTabField" hidden><input type="checkbox" id="closeTab"><span>Also close the tab Studio opened</span></label>
+      <div class="row" style="margin-top:6px">
+        <button type="button" id="btnFinish">Finish capture</button>
+        <button type="button" id="btnNew" hidden>Start a new conversation</button>
+      </div>
+      <div class="err" id="finishError" role="alert" style="margin-top:6px"></div>
+    </section>
+
+    <form class="panel composer" id="composer" novalidate aria-label="Message composer">
+      <label for="prompt" class="lab">Message</label>
+      <textarea id="prompt" rows="3" maxlength="2000" placeholder="Write a message to this website" aria-describedby="sendHint keysHint"></textarea>
+      <div class="note" id="sendHint" role="status" style="margin-top:4px"></div>
+      <div class="confirm" id="confirmPanel" role="group" aria-labelledby="confirmTitle" hidden>
+        <p><b id="confirmTitle">Send this message?</b></p>
+        <p id="confirmText"></p>
+        <label class="pick" for="confirmBox"><input type="checkbox" id="confirmBox"><span>I’m logged in and want to send this message.</span></label>
+        <div class="row" style="margin-top:6px">
+          <button type="button" class="live" id="btnSendNow" disabled>Send now</button>
+          <button type="button" id="btnDont">Don’t send</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button type="button" class="primary" id="btnSend" disabled>Send message…</button>
+      </div>
+      <p class="note" id="keysHint" style="margin:6px 0 0">Up to 2000 characters. Enter adds a new line. Ctrl+Enter (⌘+Enter on Mac) opens the confirmation; it never sends. Esc closes the confirmation.</p>
+      <div class="err" id="sendError" role="alert" style="margin-top:6px"></div>
+    </form>
+  </main>
+
+  <aside aria-label="Conversation details">
+    <details class="panel" id="detailsBox">
+      <summary>Details</summary>
+      <div class="pad" id="detailsBody">
+        <dl class="kv" id="detailsKv"></dl>
+        <h3>Evidence checks</h3>
+        <ul class="plain" id="gates"></ul>
+        <p class="note" id="unknowns"></p>
+        <h3>Recording limits</h3>
+        <div class="note" id="limits"></div>
+        <h3>What Studio could not see</h3>
+        <ul class="plain" id="limitations"></ul>
+        <div class="row" id="sessionLinks" style="margin-top:8px"></div>
+      </div>
+    </details>
+    <details class="panel" id="listBox" style="margin-top:14px">
+      <summary>Earlier conversations</summary>
+      <div class="pad">
+        <div class="note" id="listState" role="status">Loading…</div>
+        <ul class="plain convs" id="convList"></ul>
+      </div>
+    </details>
+  </aside>
+</div>
+<div class="sr" id="announce" role="status" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

@@ -26,6 +26,7 @@ import './commands/selftest.mjs';
 import './commands/learn.mjs';
 import './commands/profiles.mjs';
 import './commands/drive.mjs';
+import './commands/chat.mjs';
 import './commands/library.mjs';
 import './commands/campaign.mjs';
 

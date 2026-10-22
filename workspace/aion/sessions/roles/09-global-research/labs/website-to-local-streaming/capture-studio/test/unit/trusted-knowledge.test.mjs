@@ -132,6 +132,18 @@ test('corrupt derived JSONL is excluded and counted as incomplete', async (t) =>
   assert.ok(x.stats.sessionsWithoutKnowledge.includes('corrupt'));
 });
 
+test('valid rows surrounding corrupt JSONL never leak partial continuity, including legacy datasets', async (t) => {
+  const { dir, add } = fixture(t);
+  const row = JSON.stringify(entity('thing:k:partial', 'p', 'Partial', 100));
+  const rawEntities = row + '\n{broken\n' + row + '\n';
+  add('marked', 'app.example.com', [], { outcome: { status: 'complete', entityCount: 2 }, rawEntities });
+  add('legacy', 'app.example.com', [], { outcome: null, rawEntities });
+  const x = await buildSiteContinuity(dir, { site: 'example.com' });
+  assert.equal(x.entities.length, 0); assert.equal(x.stats.sessionsWithDerivedKnowledge, 0);
+  assert.equal(x.stats.sessionsIncompleteKnowledge.length, 2);
+  assert.ok(x.stats.sessionsIncompleteKnowledge.every((r) => r.reason === 'unreadable-entities-dataset'));
+});
+
 test('type drift is review-only and does not invent an identity merge', async (t) => {
   const { dir, add } = fixture(t);
   add('first', 'app.example.com', [entity('thing:k:x', 'x', 'Earlier', 100)]);

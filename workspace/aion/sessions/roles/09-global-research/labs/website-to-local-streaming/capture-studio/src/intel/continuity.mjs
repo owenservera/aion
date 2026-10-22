@@ -3,7 +3,8 @@
 // Only explicitly keyed identities within the same proven site/type scope are joined.
 // Keyless and scope-unknown entities remain session-local to avoid false merges.
 import { Session, listSessions } from '../store/session.mjs';
-import { existsSync } from 'node:fs';
+import { existsSync, createReadStream } from 'node:fs';
+import { createInterface } from 'node:readline';
 import { siteOf } from '../profiles/profiles.mjs';
 import { foldRevision, summarizeRevisions } from './history.mjs';
 
@@ -179,9 +180,19 @@ export async function buildSiteContinuity(sessionsDir, {
     // truncated dataset must not leak a misleading partial identity/history.
     const sessionEntities = [];
     try {
-      for await (const entity of dataset.iterate()) {
-        if (!entity || typeof entity.eid !== 'string' || !entity.eid) throw new Error('invalid-entity-row');
-        sessionEntities.push(entity);
+      // The generic dataset iterator skips invalid JSON. Continuity must instead reject
+      // the entire session, including valid rows preceding a torn/corrupt write.
+      if (present) {
+        const input = createReadStream(dataset.file, { encoding: 'utf8' });
+        const lines = createInterface({ input, crlfDelay: Infinity });
+        try {
+          for await (const line of lines) {
+            if (!line.trim()) continue;
+            const entity = JSON.parse(line);
+            if (!entity || typeof entity.eid !== 'string' || !entity.eid) throw new Error('invalid-entity-row');
+            sessionEntities.push(entity);
+          }
+        } finally { lines.close(); input.destroy(); }
       }
     } catch {
       incomplete('unreadable-entities-dataset');

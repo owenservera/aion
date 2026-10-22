@@ -451,3 +451,160 @@ The designer identified concrete lifecycle/API gaps, now specified above. No cla
 code satisfies them. First implementation remains the bounded one-site vertical slice, followed by
 offline negative-case proof and only then an authorized single live turn. Broad multi-site rollout,
 multi-turn automation, automatic draft replacement and historical repair are not bundled into it.
+
+## 14. Pressure-tested development plan — owner continuation
+
+Owner directed continued pressure testing, development and command centralization after section 13.
+Sol pressure review (`ses_e9d4e30aeffe2TMeQYCvfwEWmt`) narrowed the first build further:
+
+1. **Unexposed lifecycle core:** one `conversation-service.mjs`, named methods, injected adapter and
+   local versioned snapshot. No generic dispatch bus, new server, routes, UI edits or real browser
+   actions. Implement preparation/dispatch boundaries, idempotency, restart reconciliation and safe
+   finalization. Existing DOM actions are adapter integration work, not reimplemented in this module.
+2. **Source integration map, read-only in parallel:** locate every CLI/API/campaign driving path,
+   active-recorder guards and no-retry submission seam. No live probing needed for these questions.
+3. **Reconcile and verify core:** manager inspects artifacts and runs targeted/full tests, with failures
+   explicitly separated from claimed baseline issues. Review malformed journal, persistence failure,
+   duplicate concurrent submission, stale binding/draft, uncertain delivery and finalization failures.
+4. **Only after core review:** refactor the existing submission primitive to select one action before
+   dispatch, implement shared cross-process ownership and active-session guard, then wrap the service
+   through existing integration/CLI facilities. HTTP/UI exposure is blocked until legacy paths cannot
+   bypass ownership. Cancellation is deferred in the first offline slice rather than implemented as
+   an unsafe interruption inside compound input actions.
+
+Verification ownership: retained Sol fixer owns core implementation and fixture tests; retained
+MiniMax probe owns the read-only entrypoint map; manager owns reconciliation and final verification.
+An in-process lock in the initial unexposed core proves only single-process serialization, not host-wide
+exclusivity. Atomic rename without explicit file sync is insufficient for the pre-side-effect boundary.
+Unknown or corrupt persisted state fails closed. Recovery never repeats preparation or dispatch.
+
+Additional reviewed integration risks: `integration-hub.mjs:savedOnly` currently recognizes only its
+injected recorder, not future conversation-owned sessions; `actions.mjs:sendMessage` may fall back to
+a click after an uncertain Enter attempt. Neither hazard is solved merely by adding the new service.
+Finish must retain send uncertainty even after capture resources are released. Duplicate keys are
+resolved before revision rejection, but changed payloads conflict and finished conversations never
+accept a fresh turn.
+
+### 14.1 Free-model planning reconciliation
+
+MiniMax 3.1, DeepSeek 4.1 and MiMo 2.6 completed read-only insight lanes. Manager decisions:
+
+- Prefer shared-library CLI/API integration plus one small local process lease over requiring the CLI
+  to discover a running Studio server and exchange credentials. Preserve CLI operation when Studio
+  is stopped. Lease implementation must handle crashed owners without silently stealing live work.
+- Reuse the existing recorder/tap/reducer. Network request bodies are conditional on
+  `profile.capture.requestBodies` (`network.mjs:143`); DOM action metadata alone does not prove the
+  exact prompt. First adapter must supply attributable evidence, not synthesize a digest from timing.
+- Before adapter exposure, test attach-success/journal-save failure recovery: recorder ownership may
+  exist before sessionId is durably saved. A future adapter needs recoverable ownership identity.
+- Add positive evaluated-DOM transition coverage; current positive tests use canned evaluation values.
+  Decide and test same-key replay after Finish. Reconciliation may legitimately observe a send after
+  capture is finalized while capture remains incomplete; these independent states are not a bug.
+- MiniMax cited old Enter/click fallback lines after the repair; disregard those stale citations.
+  Existing one-dispatch code is reviewed separately. Do not implement its alternative method naming
+  or create another service. No free-model finding is live verification.
+
+## 15. Approved execution slice: usable Chat, not another framework
+
+Owner instruction: design and implement. Implement in three non-overlapping lanes, manager validates.
+No new dependencies; Bun runs existing Node test scripts. Keep all private content in local data.
+
+- Core owns `conversation-runtime.mjs`, `drive-lease.mjs`, existing lifecycle/driver fixes and core
+  tests. `createConversationRuntime({paths,profileStore,familyStore,port})` exposes async `targets()`,
+  `list()`, `connect(body)`, `get(id)`, `submit(id,body)`, `reconcile(id,body)`, `finish(id,body)`, `close()`
+  and synchronous `isSessionActive(id)`. `targets` returns `{sites,targets}`; `list` returns an array;
+  other resource methods return a conversation snapshot. Injectable dependencies enable offline tests.
+- Snapshot contract: `{id,revision,state,site,binding,sessionId,turn,reply,capture,limitations}`;
+  `turn` is null or `{id,send:{state},phase}`; `reply` is `{state,source,text,chars,completion}`;
+  `capture` is `{state,integrity}`. Page-read replies explicitly retain unknown network completion.
+  Do not claim accepted capture without the unimplemented full evaluator. No new shape-learning loop.
+- Connect body: `{site,targetId?,freshTab?}`; initially known adapters only. Submit body:
+  `{key,prompt,confirm:true,expectedRevision}`. Reconcile body `{expectedRevision}`. Finish body:
+  `{closeTab?:boolean}`. Submit returns after registering work; background observation updates local
+  snapshots. GET never drives the website. Poll snapshots rather than adding another SSE layer now.
+- Surface lane owns `conversation-api.mjs`, server/hub wiring, CLI command registration, README and
+  HTTP/CLI tests. GET targets `/api/v1/conversation-targets`; list/create `/api/v1/conversations`;
+  GET resource `/api/v1/conversations/{id}`; POST `turns`, `reconcile`, `finish`. Responses wrap
+  `{conversation}`, `{conversations}` or target result; submit status 202. Existing auth/origin applies.
+- UI lane owns `ui/chat.html`, `ui/chat.mjs` and additive nav in existing index/live/drive HTML only.
+  Site/tab -> connect -> confirm single send -> poll actual source-labelled reply -> finish. No draft
+  clearing, auto-resend, default-page replacement or capture-accepted claim. Designer owns visuals.
+- Offline proof: core crash/duplicate/ownership tests; cross-process lease exclusion and release;
+  HTTP auth/method/body/409 tests using injected runtime; UI syntax/state tests. Manager reruns all.
+- Live proof follows artifact reconciliation and full offline checks. Existing unrelated suite failure
+  must be diagnosed rather than silently waived. No repeated send to repair an uncertain result.
+
+## 16. Broader upgrade: raw-first, responsive, intelligently assisted
+
+Owner requested continued system design, streamlining, automation and Claude/ChatGPT steering.
+Scope is Capture Studio plus its existing CLI/API and retained research-agent workflow, not a new
+AION-wide orchestration platform. These are next design decisions, not completed implementations.
+
+### First resolve the live evidence gap
+
+- Current development passed 238 unit tests. Real installed-Chrome fixtures passed 11/13; both
+  failing universality assertions also failed in an isolated archive of committed `f02db9f`.
+- A real fresh-tab ChatGPT connection was blocked at readiness and Studio became unresponsive.
+  The saved conversation has zero attempts: no typing or send occurred. The manager stopped only
+  its own Studio Node process, leaving Chrome/tabs and interrupted evidence intact. This test did
+  NOT establish that the new conversation path works against ChatGPT.
+- The owner separately observed established ChatGPT conversations failing to fully load responses
+  during scrolling. Browser interference and incomplete Studio extraction are distinct hypotheses;
+  neither is explained merely by passing synthetic tests. No new authenticated experiment until
+  the relevant non-interference test and responsive shutdown path are established.
+
+### The simpler target architecture
+
+1. **Capture stays small and responsive.** Retain L1 raw bytes/sequence/provenance as the durable
+   source. Move expensive reconstruction, shape inference and full reports out of the CDP event
+   callback if profiling confirms that path is starving the loop. Reuse existing reducers and
+   derive; bounded preview lag must not become silent raw loss. A worker/cursor is a mechanism,
+   not another server or truth store. Record processing backlog separately from capture coverage.
+2. **Read is a first-class task, not a failed Send.** Observe an exact existing conversation without
+   typing, clearing, navigating or restarting it. Distinguish newly received history from pre-attach
+   unknown history and currently rendered text. A snapshot is not proof that virtualized older
+   messages were fully loaded. Preserve source-labelled answer/history blocks and omission markers.
+3. **One command vocabulary.** Connect, Read, Send, Check and Finish map to the same runtime from
+   UI/API/CLI. Calibration is a batch client, not a second lifecycle/verdict authority. Remove
+   duplicated status derivation as interfaces converge; retain compatibility wrappers where needed.
+4. **Finish performs safe local work automatically.** Once recording is truly stopped, run existing
+   integrity verification and derive in the background. Show separate capture, analysis and
+   acceptance outcomes; partial analysis must not erase raw evidence or pass unknown gates.
+   Do not require additional user clicks merely to run deterministic offline checks.
+5. **Recover observation, never replay effects.** Health/backlog state tells the user whether the
+   browser, capture, analysis or agent lane is stalled. Automatic read-only reconnect/replay can
+   resume from evidence cursors; send, draft replacement and target switching never auto-replay.
+   Explicit dead-owner recovery uses the existing local lease mechanism, not approval documents.
+6. **Research is on demand and reusable.** Keep one retained librarian session for primary sources
+   and the native Nine-Repo Harvest agent for pinned existing knowledge. Brief by question/scope/
+   output, return source-linked findings, and integrate only those eliminating concrete work.
+   Availability is not continuous background compute. Use existing session inboxes rather than a
+   second research queue or hidden authenticated website automation.
+
+### Model and task steering
+
+- Sol/ChatGPT: system decisions, measured failure diagnosis, integration and evidence reconciliation.
+- Claude Sonnet: interaction design, automation control flow and scoped implementation where assigned.
+- MiniMax/DeepSeek/MiMo and other free options: bounded discovery/negative-test intelligence when the
+  exact route actually works. Catalog listings are not capability proof; do not silently substitute
+  paid models or change credentials after a routing failure. No need to spawn every listed model.
+- Queue guidance at a safe boundary; read existing final text/artifacts without interrupting active
+  work. Preserve native agent context. Idle or failed lanes may resume in their existing session,
+  not as duplicates; lifecycle-control failures are transport failures, not successful delegation.
+
+### Dependency-aware execution and proof
+
+Phase A: isolate browser rendering vs Studio CPU stall using generated, unauthenticated large JSON,
+SSE and virtualized-history fixtures. Measure response completeness, paint/scroll responsiveness,
+event-loop lag and raw byte equality with capture off/on. Test paused-target behavior separately;
+do not conflate an official CDP deadlock caveat with the current measured cause.
+
+Phase B: implement only the proven capture-path correction; independently test that HTTP health and
+Finish remain responsive while processing a large history response. Preserve complete raw replay.
+
+Phase C: unify command/state presentation, read-only history workflow and automatic offline
+finalization. Reuse native Harvest findings after pin/license/seam checks; do not transplant an
+unverified donor runtime. Phase D: bounded owner-directed live proof, then expand site coverage.
+
+Each change has one writer and one validation owner. No code lane starts against an unresolved shared
+interface, and no live success is inferred from a queued agent message or a source-only finding.

@@ -55,6 +55,8 @@ main { display: grid; grid-template-columns: 172px 1fr; min-height: 0; }
 nav { border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
 nav button { text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 6px; }
 nav button[aria-current="page"] { background: var(--hover); font-weight: 600; }
+nav a.navlink { padding: 7px 10px; border-radius: 6px; color: inherit; text-decoration: none; white-space: nowrap; }
+nav a.navlink:hover { background: var(--hover); }
 nav .src { margin-top: auto; font-size: 12px; color: var(--muted); padding: 10px; border-top: 1px solid var(--line); }
 section.view { display: none; padding: 18px 22px; overflow: auto; min-height: 0; }
 section.view.on { display: block; }
@@ -185,6 +187,8 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
     <button data-view="knowledge">Knowledge</button>
     <button data-view="profiles">Profiles</button>
     <button data-view="search">Search</button>
+    <a class="navlink" href="/chat">Chat</a>
+    <a class="navlink" href="/drive">Live drive</a>
     <div class="src" id="srcNote">Showing the live recording</div>
   </nav>
 
@@ -1176,6 +1180,11 @@ $('#searchForm').onsubmit = guard(async (e) => {
 
 connectLive();
 loadTargets();
+/* Deep link from Live drive: /#session=<id> opens that saved session. */
+{
+  const m = /^#session=(.+)$/.exec(location.hash);
+  if (m) { try { const id = decodeURIComponent(m[1]); show('sessions'); guard(openSession)(id); } catch { /* malformed link: ignore */ } }
+}
 setInterval(() => { if (S.recording && S.view === 'streams') loadStreams().catch(() => {}); }, 2000);
 </script>
 </body>

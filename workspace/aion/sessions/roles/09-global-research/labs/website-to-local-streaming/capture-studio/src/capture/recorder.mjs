@@ -11,9 +11,10 @@
 // live decoded-event tap (see live-tap.mjs).
 import { EventEmitter } from 'node:events';
 import os from 'node:os';
+import { fsyncSync, openSync, closeSync } from 'node:fs';
 import { CdpConnection, sleep } from '../cdp/client.mjs';
 import { browserVersion, listTargets, pickTarget, browserWsUrl, targetStillPresent } from '../cdp/discovery.mjs';
-import { Session } from '../store/session.mjs';
+import { Session, listSessions } from '../store/session.mjs';
 import { NetworkRecorder } from './network.mjs';
 import { DomObserver } from './dom.mjs';
 import { StreamReducer } from '../replay/reducer.mjs';
@@ -66,10 +67,11 @@ export class Recorder extends EventEmitter {
     this._resetTargets();
   }
 
-  async start({ target: selector, profile: profileName, label, tabs, follow } = {}) {
+  async start({ target: selector, profile: profileName, label, tabs, follow, owner, onSessionCreated, exactTarget = false } = {}) {
     if (this.state === 'recording') throw new Error('Already recording.');
     this.paused = false;
     this.pausedCounts = {};
+    this._stopPromise = null;
     this._quotaHit = false;
     if (tabs !== undefined) this.tabs = tabs === 'all' ? 'all' : 'one';
     if (follow !== undefined) { this.follow = follow !== false; this.pauseNewTargets = this.follow; }
@@ -79,7 +81,11 @@ export class Recorder extends EventEmitter {
     // tabs:'all' records every web tab, so a missing --target must not fail: pick a deterministic
     // primary (index 0) and let target discovery attach the rest. A single tab already resolves.
     const fallbackSelector = this.tabs === 'all' && targets.length > 1 ? '0' : undefined;
-    const target = pickTarget(targets, selector || fallbackSelector);
+    const target = exactTarget ? targets.find((t) => t.id === selector) : pickTarget(targets, selector || fallbackSelector);
+    if (!target) throw new Error('Exact capture target disappeared; no substitute target was selected');
+    if (listSessions(this.sessionsDir).some((s) => s.target?.id === target.id && ['recording', 'stopping'].includes(s.status))) {
+      throw Object.assign(new Error('Exact target already has an active or unreconciled recorder'), { status: 409, code: 'TARGET_RECORDER_BUSY' });
+    }
     const profile = profileName ? this.profileStore.load(profileName) : this.profileStore.selectFor(target.url);
     this.profile = profile;
     this.pageUrl = target.url;
@@ -95,8 +101,16 @@ export class Recorder extends EventEmitter {
         collector: { name: 'aion-capture-studio', version: VERSION, sourceSha: collectorSourceSha() },
         profile: { name: profile.name, version: profile.version },
         options: { allBodies: this.allBodies, tabs: this.tabs, follow: this.follow },
+        ...(owner ? { conversationOwner: owner } : {}),
       },
     });
+    if (owner) {
+      const fd = openSync(`${this.session.dir}/session.json`, 'r+');
+      try { fsyncSync(fd); } finally { closeSync(fd); }
+    }
+    // Owner identity is in session meta before any attachment. The lifecycle journal can bind the
+    // created session now, so a later attach/save failure remains recoverable by conversation ID.
+    onSessionCreated?.(this.session);
     this.session.kv.set('INPUT', { target: selector ?? null, profile: profile.name, profileVersion: profile.version, port: this.port, allBodies: this.allBodies, tabs: this.tabs, follow: this.follow });
     this.session.kv.set('PROFILE_SNAPSHOT', profile);
 
@@ -563,7 +577,14 @@ export class Recorder extends EventEmitter {
     await this.stop({ reason });
   }
 
-  async stop({ reason = 'user_stop' } = {}) {
+  stop(options = {}) {
+    if (this._stopPromise) return this._stopPromise;
+    if (this.state !== 'recording') return Promise.resolve(null);
+    this._stopPromise = this._stop(options);
+    return this._stopPromise;
+  }
+
+  async _stop({ reason = 'user_stop' } = {}) {
     if (this.state !== 'recording') return null;
     this.state = 'stopping';
     clearInterval(this.persistTimer); clearInterval(this.statusTimer);
@@ -604,6 +625,19 @@ export class Recorder extends EventEmitter {
     const result = { id: this.session.id, dir: this.session.dir, reason, verify, summary: this.reducer.summary() };
     this.emit('stopped', result);
     return result;
+  }
+
+  recordConversationObservation(record) {
+    if (this.state !== 'recording') throw new Error('Capture is not recording');
+    const seq = this._append({ ...record, k: 'conversation.observation' });
+    if (seq === null) throw new Error('Observation was not recorded');
+    const raw = this.session.raw;
+    while (raw.queue.length || raw.dropped) {
+      const count = raw.queue.length; raw.flush();
+      if (raw.queue.length === count && raw.queue.length) throw new Error('Raw log did not drain');
+    }
+    fsyncSync(raw.fd); // Do not swallow persistence errors before claiming an observation.
+    return seq;
   }
 
   // Studio helpers (only while recording).

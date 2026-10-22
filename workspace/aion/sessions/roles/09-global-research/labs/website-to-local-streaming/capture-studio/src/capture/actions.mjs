@@ -14,6 +14,7 @@ import { dataPaths, defaultDataDir, ensureDataDirs } from '../config.mjs';
 import { ProfileStore } from '../profiles/profiles.mjs';
 import { Recorder } from './recorder.mjs';
 import { humanType, humanPressEnter, humanClick, humanIdle, prepareHumanEnvironment, DEFAULT_PACE } from './human.mjs';
+import { acquireDriveLease } from './drive-lease.mjs';
 
 // ---------------------------------------------------------------------------------------------
 // Shared in-page helpers. Kept free of template-literal syntax so it can be embedded verbatim.
@@ -214,17 +215,31 @@ export async function typeText(page, text, { human = true, pace = DEFAULT_PACE }
   };
 }
 
-async function clickStored(page, globalName) {
+// One click attempt. `dispatched` is true as soon as an input event was handed to the page, so a
+// later error means "attempted, outcome unknown" rather than "nothing happened".
+async function clickStoredOnce(page, globalName, { canDispatch } = {}) {
   const box = await tryEval(page, String.raw`(() => { const el = globalThis.${globalName}; if (!el || !el.isConnected) return null;
     el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect();
     return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), w: r.width }; })()`);
   const b = box.ok ? box.value : null;
-  if (!b || !(b.w > 1)) return false;
+  if (!b || !(b.w > 1)) return { dispatched: false, error: box.ok ? 'control has no visible box' : box.error };
+  let dispatched = false;
+  let dispatchError = null;
+  if (canDispatch && !canDispatch()) return { dispatched: false, error: 'SUBMISSION_STOPPED' };
   try {
+    dispatched = true;
     await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: b.x, y: b.y, button: 'left', clickCount: 1 });
+  } catch (e) { dispatchError = e; }
+  // Release once even when the press acknowledgement was lost. Never press again.
+  try {
     await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: b.x, y: b.y, button: 'left', clickCount: 1 });
-    return true;
-  } catch { return false; }
+  } catch (e) { dispatchError ??= e; }
+  return { dispatched, ...(dispatchError ? { error: String(dispatchError?.message ?? dispatchError) } : {}) };
+}
+
+async function clickStored(page, globalName) {
+  const r = await clickStoredOnce(page, globalName);
+  return r.dispatched && !r.error;
 }
 
 async function pressEnter(page) {
@@ -232,13 +247,22 @@ async function pressEnter(page) {
   // composer. The keyDown{text}+char{text} shape submits twice (ChatGPT received the prompt
   // twice); keyDown{text} alone loses the payload on some editors.
   const base = { windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, key: 'Enter', code: 'Enter' };
-  await page.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base });
-  await page.send('Input.dispatchKeyEvent', { type: 'char', ...base, text: '\r', unmodifiedText: '\r' });
-  await page.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
+  let dispatchError = null;
+  try {
+    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base });
+    await page.send('Input.dispatchKeyEvent', { type: 'char', ...base, text: '\r', unmodifiedText: '\r' });
+  } catch (e) { dispatchError = e; }
+  // A release carries no text and is cleanup, not another submit attempt. Try it only once.
+  try { await page.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base }); }
+  catch (e) { dispatchError ??= e; }
+  if (dispatchError) throw dispatchError;
 }
 
-export async function sendMessage(page, adapter = null) {
-  const strategy = adapter?.send?.strategy ?? 'both';
+// Read-only waits (ms) after the single dispatch. They only OBSERVE; nothing is ever sent again.
+const SEND_OBSERVE_WAITS = Object.freeze([900, 1200, 1500]);
+
+// Finds a visible, enabled send button from the adapter's selectors and remembers it in page state.
+export async function findSendButton(page, adapter = null) {
   const btn = await tryEval(page, String.raw`(() => { ${IN_PAGE}
     const sels = ${JSON.stringify(Array.isArray(adapter?.send?.buttonSelectors) ? adapter.send.buttonSelectors : [])};
     for (const sel of sels) {
@@ -256,56 +280,94 @@ export async function sendMessage(page, adapter = null) {
     globalThis.__aionSendBtn = null;
     return { found: false };
   })()`);
-  const button = btn.ok ? btn.value : null;
-
-  if (strategy === 'button' && button?.found && await clickStored(page, '__aionSendBtn')) {
-    await sleep(700);
-    const after = await sendState(page, adapter);
-    return { ok: after.sent, method: 'button', ...after };
-  }
-
-  // The state BEFORE the send, so the outcome can be judged by what changed on the page rather
-  // than by whether the composer happens to be empty: Qwen keeps the text in the textarea after
-  // sending, which used to look like a failed send and triggered a second click (a double send).
-  const before = await sendState(page, adapter);
-
-  try {
-    await pressEnter(page);
-  } catch (e) {
-    if (button?.found && await clickStored(page, '__aionSendBtn')) {
-      await sleep(700);
-      const after = await sendState(page, adapter);
-      return { ok: after.sent, method: 'button-after-enter-error', ...after };
-    }
-    return { ok: false, method: 'enter-failed', reason: String(e?.message ?? e) };
-  }
-
-  await sleep(900);
-  let after = await sendState(page, adapter);
-  if (!after.sent && button?.found) {
-    // Nothing moved: the Enter did not submit. Only now is a click on the send button safe.
-    if (await clickStored(page, '__aionSendBtn')) {
-      await sleep(900);
-      after = await sendState(page, adapter);
-      return { ok: after.sent, method: 'button-fallback', ...after };
-    }
-  }
-  return { ok: after.sent, method: 'enter', ...after };
+  return btn.ok ? btn.value : { found: false, error: btn.error };
 }
 
-// What the page looks like right after a send attempt, and whether the send clearly took:
-// the composer emptied, a new turn appeared, the page started streaming, or a site-side error
-// appeared. Any of these is proof the message left the composer.
+// Submit once. Policy (no retry, no second method):
+//   1. PREFLIGHT, read-only: the composer must be readable and hold text. Otherwise nothing is dispatched.
+//   2. Choose exactly ONE method: strategy "button" needs a valid, enabled button (no silent Enter);
+//      every other strategy ("enter", "both") presses Enter.
+//   3. Dispatch it once. An error from the dispatch is NOT proof that nothing was sent (the key or
+//      mouse events may have reached the page), so it never triggers another method.
+//   4. OBSERVE read-only against the preflight baseline. Lack of attributable evidence is
+//      `uncertain`, not "not sent". This reports what was observed, not exactly-once delivery.
+// `deps` is an optional seam for deterministic tests; production uses the defaults.
+export async function sendMessage(page, adapter = null, deps = {}) {
+  const d = {
+    sendState, findSendButton, pressEnter, sleep,
+    clickSendButton: (p) => clickStoredOnce(p, '__aionSendBtn', { canDispatch: deps.canDispatch }),
+    observeWaits: SEND_OBSERVE_WAITS,
+    ...deps,
+  };
+  const strategy = adapter?.send?.strategy ?? 'both';
+  const notAttempted = (method, reason) => ({ ok: false, sent: false, method, dispatched: false, sendStatus: 'not-attempted', uncertain: false, reason });
+
+  let before;
+  try { before = await d.sendState(page, adapter); }
+  catch { return notAttempted('preflight', 'composer state unreadable'); }
+  if (!before?.evalOk) return notAttempted('preflight', `composer state unreadable: ${before?.reason ?? 'unknown'}`);
+  if (!(before.draftChars > 0)) return notAttempted('preflight', 'composer is empty: nothing to send');
+
+  let method = 'enter';
+  if (strategy === 'button') {
+    let button;
+    try { button = await d.findSendButton(page, adapter); }
+    catch { return notAttempted('button', 'send button inspection failed'); }
+    if (!button?.found) return notAttempted('button', 'strategy is "button" but no visible, enabled send button was found; not falling back to Enter');
+    method = 'button';
+  }
+
+  let dispatchError = null;
+  // Final synchronous latch; button dispatch also rechecks after its asynchronous box lookup.
+  if (d.canDispatch && !d.canDispatch()) return notAttempted(method, 'SUBMISSION_STOPPED');
+  try {
+    if (method === 'enter') {
+      await d.pressEnter(page);
+    } else {
+      const c = await d.clickSendButton(page);
+      if (c?.error) dispatchError = String(c.error);
+      if (!c?.dispatched) return notAttempted('button', `send button was not clicked: ${dispatchError ?? 'unknown'}`);
+    }
+  } catch (e) {
+    dispatchError = String(e?.message ?? e); // attempted, outcome unknown: observe, never retry
+  }
+
+  let after = null;
+  for (const wait of d.observeWaits) {
+    try {
+      await d.sleep(wait);
+      after = await d.sendState(page, adapter, before);
+    } catch { after = { sent: false, evalOk: false, reason: 'send observation unavailable' }; }
+    if (after?.evalOk && after?.sent) break;
+  }
+  const observed = !!(after?.evalOk && after?.sent);
+  const detail = after?.reason ?? 'no observation';
+  return {
+    ...after,
+    sent: observed,
+    ok: observed,
+    method,
+    dispatched: true,
+    sendStatus: observed ? 'observed' : 'uncertain',
+    uncertain: !observed,
+    ...(dispatchError ? { dispatchError } : {}),
+    reason: observed || !dispatchError ? detail : `dispatch error (${dispatchError}); ${detail}`,
+  };
+}
+
+// Conservative page-level send observation against the actual pre-dispatch snapshot. This is not
+// durable turn attribution/acceptance: the conversation adapter must supply that separately.
+// Empty composer, disabled controls, body growth or pre-existing streaming alone prove nothing.
 export async function sendState(page, adapter = null, before = null) {
   const state = await tryEval(page, String.raw`(() => { ${IN_PAGE}
-    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1; };
-    const composer = live();
-    let text = '';
-    try { text = composer ? String(composer.value ?? composer.innerText ?? '') : ''; } catch (e) { text = ''; }
-    if (!text) {
+    let composer = live();
+    if (!composer) {
       const a = document.activeElement;
-      if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT')) text = String(a.value ?? '');
+      if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.isContentEditable)) composer = a;
     }
+    // Missing/unreadable composer is unknown, not an empty composer.
+    if (!composer || !vis(composer)) return { evalOk: false };
+    const text = String(composer.value ?? composer.innerText ?? composer.textContent ?? '');
     const TURN_SEL = [
       '[data-message-author-role]',
       '[data-content-search-unit-key$="user"]',
@@ -318,7 +380,7 @@ export async function sendState(page, adapter = null, before = null) {
       'div[class*="markdown"]',
     ].join(',');
     let turns = 0;
-    try { turns = document.querySelectorAll(TURN_SEL).length; } catch (e) { turns = 0; }
+    turns = document.querySelectorAll(TURN_SEL).length;
     const root = document.querySelector('main') || document.body;
     const bodyLen = String((root && root.innerText) || '').length;
     const buttons = [...document.querySelectorAll('button,[role="button"]')].filter(vis);
@@ -327,16 +389,30 @@ export async function sendState(page, adapter = null, before = null) {
       if (!/send|发送|submit|发送消息/.test(l)) return false;
       return b.disabled === true || b.getAttribute('aria-disabled') === 'true';
     });
-    return { text: text, turns: turns, bodyLen: bodyLen, sendDisabled: sendDisabled };
+    return { evalOk: true, text: text, turns: turns, bodyLen: bodyLen, sendDisabled: sendDisabled };
   })()`);
-  const s = state.ok ? state.value : { text: '', turns: 0, bodyLen: 0, sendDisabled: false };
+  const s = state.value;
+  if (!state.ok || s?.evalOk !== true || typeof s.text !== 'string'
+    || !Number.isSafeInteger(s.turns) || s.turns < 0 || !Number.isSafeInteger(s.bodyLen) || s.bodyLen < 0 || typeof s.sendDisabled !== 'boolean') {
+    return { evalOk: false, draftChars: null, sent: false, cleared: false, streaming: null,
+      turns: null, bodyLen: null, sendDisabled: null, reason: 'composer state unreadable; delivery unknown' };
+  }
+  const draftChars = norm(s.text).length;
   const cleared = !norm(s.text);
-  let streaming = false;
-  try { streaming = (await isStreaming(page, adapter)).streaming; } catch { /* ignore */ }
-  const grew = !before || s.turns > (before.turns ?? 0) || s.bodyLen > (before.bodyLen ?? 0);
-  const changed = !before || s.text !== (before.text ?? '');
-  const sent = cleared || streaming || (grew && changed) || s.sendDisabled;
+  let streaming = null;
+  try {
+    const stream = await isStreaming(page, adapter);
+    if (!String(stream.evidence ?? '').startsWith('streaming check failed:')) streaming = stream.streaming;
+  } catch { /* unreadable streaming state stays unknown, never a false -> true transition */ }
+  const baseline = before?.evalOk === true && Number.isSafeInteger(before.draftChars) && before.draftChars > 0
+    && Number.isSafeInteger(before.turns) && typeof before.streaming === 'boolean';
+  const draftDecreased = baseline && draftChars < before.draftChars;
+  const newTurn = baseline && s.turns > before.turns;
+  const startedStreaming = baseline && before.streaming === false && streaming;
+  const sent = !!(baseline && (newTurn && (draftDecreased || startedStreaming) || startedStreaming && draftDecreased));
   return {
+    evalOk: true,
+    draftChars,
     sent,
     cleared,
     streaming,
@@ -344,8 +420,8 @@ export async function sendState(page, adapter = null, before = null) {
     bodyLen: s.bodyLen,
     sendDisabled: s.sendDisabled,
     reason: sent
-      ? (cleared ? 'composer cleared' : streaming ? 'response started' : s.sendDisabled ? 'send control disabled' : 'new turn appeared')
-      : 'no visible change after the send',
+      ? (newTurn ? 'new turn appeared with changed composer or new streaming' : 'response started with changed composer')
+      : before ? 'no corroborated change after the send; delivery unknown' : 'preflight snapshot; no submission inferred',
   };
 }
 
@@ -629,7 +705,7 @@ export async function isStreaming(page, adapter = null) {
   return { streaming: !!r.value?.streaming, evidence: r.value?.evidence ?? 'none' };
 }
 
-export async function waitForCompletion(page, adapter = null, { timeoutMs = 120000, stableMs = 2500, pollMs = 400, baseline = null, baseCount = null, exclude = [] } = {}) {
+export async function waitForCompletion(page, adapter = null, { timeoutMs = 120000, stableMs = 2500, pollMs = 400, baseline = null, baseCount = null, exclude = [], signal, onUpdate } = {}) {
   const startedAt = Date.now();
   let lastText = '';
   let lastChangeAt = startedAt;
@@ -637,9 +713,11 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
   let evidence = 'none';
   let text = '';
   let texts = [];
+  let publishedText = null;
   const base = baseline == null ? null : norm(baseline);
 
   for (;;) {
+    if (signal?.aborted) return { done: false, interrupted: true, text, texts, reason: 'Local waiting stopped; provider generation status unknown' };
     const now = Date.now();
     const stream = await isStreaming(page, adapter);
     evidence = stream.evidence;
@@ -650,6 +728,10 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     const newest = tr.last || last?.text || '';
     text = newest || last?.text || '';
     if (tr.texts?.length) texts = tr.texts;
+    if (text !== publishedText) {
+      publishedText = text;
+      try { onUpdate?.({ state: text ? 'streaming' : 'waiting', text }); } catch { /* observation listener cannot affect the exchange */ }
+    }
 
     if (text && text !== lastText) { lastText = text; lastChangeAt = now; }
     if (stream.streaming) lastStreamingAt = now;
@@ -921,6 +1003,7 @@ async function closeTab(port, targetId) {
 // Drive one live site: resolve the tab, check the login wall, record, type, send, wait, read back.
 // Site-level problems are returned, never thrown.
 export async function driveSite({ adapter, prompt, port = 9222, dataDir, record = true, timeoutMs = 120000, humanPace = true, freshTab = true, onEvent = null } = {}) {
+  const lease = acquireDriveLease({ port, holder: { kind: 'drive-job', id: `legacy-${process.pid}` } });
   const startedAt = Date.now();
   const errors = [];
   const result = {
@@ -933,16 +1016,17 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
   let conn = null;
   let page = null;
   let openedTabId = null;
+  let captureStopFailed = false;
 
   const cleanup = async () => {
     if (recorder) {
       try { await recorder.stop({ reason: 'drive_complete' }); }
-      catch (e) { errors.push(`recorder stop failed: ${String(e?.message ?? e)}`); }
+      catch (e) { captureStopFailed = true; result.ok = false; errors.push(`recorder stop failed: ${String(e?.message ?? e)}`); }
       recorder = null;
     }
     if (conn) { try { conn.close(); } catch { /* already closed */ } conn = null; }
     // The tab this drive opened is closed again: the owner's browser keeps only its own tabs.
-    if (openedTabId && result.openedTab) {
+    if (openedTabId && result.openedTab && !result.uncertain && !captureStopFailed) {
       const closed = await closeTab(port, openedTabId);
       result.tabClosed = closed;
     }
@@ -1079,6 +1163,7 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     else await sleep(150);
 
     const sent = await sendMessage(page, adapter);
+    if (sent.uncertain) result.uncertain = true;
     emit({ type: 'sent', ...sent });
     if (!sent.ok) { errors.push(`send did not take (${sent.method})`); result.reason = 'send-failed'; return; }
 
@@ -1103,7 +1188,7 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
 
   try { await run(); }
   catch (e) { errors.push(String(e?.message ?? e)); result.reason ??= 'drive-error'; }
-  finally { await cleanup(); }
+  finally { try { await cleanup(); } finally { if (!captureStopFailed) lease.release(); } }
 
   return result;
 }

@@ -19,7 +19,7 @@ const timeQuery = { at: { description: 'Epoch milliseconds or ISO timestamp', ty
 const sessionQuery = { ...pagination, site: str, origin: str, status: str, profile: str, q: str };
 const objectSchema = (properties = {}, required = []) => ({ type: 'object', properties, ...(required.length ? { required } : {}) });
 
-export function createIntegrationHub({ paths, profileStore, learner, recorder, deriveSession, previewRecord, previewEvent, getPort, cdpPort, deriving = new Set(), invalidateReplay = () => {} }) {
+export function createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, deriveSession, previewRecord, previewEvent, getPort, cdpPort, deriving = new Set(), invalidateReplay = () => {} }) {
   const feed = new EventFeed();
   const webhooks = new Webhooks(feed, { forbiddenPorts: () => [getPort(), cdpPort] });
   const routes = [];
@@ -43,6 +43,7 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, d
     }
   };
   const savedOnly = (s) => {
+    if (conversationRuntime?.isSessionActive(s.id)) throw problem(409, 'Finish conversation capture before replaying or rebuilding this session', 'SESSION_ACTIVE');
     if (['recording', 'stopping'].includes(recorder.state) && recorder.session?.id === s.id) throw problem(409, 'Stop capture before replaying or rebuilding this session', 'SESSION_ACTIVE');
   };
   const knowledge = (s) => {

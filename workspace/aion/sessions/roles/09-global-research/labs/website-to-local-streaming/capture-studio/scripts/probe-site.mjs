@@ -295,7 +295,11 @@ function collectPageFacts() {
   }
   const bodyText = String((document.body && document.body.innerText) || '').slice(0, 4000);
   const wallMatch = bodyText.match(/(sign in to continue|log in to continue|you need to sign in|please sign in|you must be signed in|continue with google|continue with email|enter your email|sign up to continue|log in or sign up)/i);
-  const chatComposers = composerCandidates.filter((c) => !c.searchLike);
+  // Only a genuinely writable control counts: Kimi's editor shell is [contenteditable="false"],
+  // so counting it would falsely report a usable composer (and hide a login wall).
+  const chatComposers = composerCandidates.filter((c) => !c.searchLike && (
+    c.isContentEditable === true || c.tag === 'textarea' || c.tag === 'input' || c.matched === '[role="textbox"]'
+  ));
   const hasComposer = chatComposers.length > 0;
   const evidence = [];
   if (urlWall) evidence.push('login URL: ' + location.href);

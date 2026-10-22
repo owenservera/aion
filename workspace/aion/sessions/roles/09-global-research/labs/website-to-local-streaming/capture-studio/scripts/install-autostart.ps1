@@ -122,7 +122,7 @@ function Install-Task {
 
   # Always pass the Chrome profile used for capture, so the supervisor can relaunch the
   # owner's real browser with the DevTools port after Chrome is closed (--ensure-chrome).
-  $argParts = @('"{0}"' -f $Script, '--chrome-profile', ('"{0}"' -f $ChromeProfile))
+  $argParts = @(('"{0}"' -f $Script), '--chrome-profile', ('"{0}"' -f $ChromeProfile))
   $argLine  = ($argParts -join ' ')
   $action = New-ScheduledTaskAction -Execute $node -Argument $argLine -WorkingDirectory $Root
   try {
@@ -149,7 +149,7 @@ function Install-Task {
       -Force | Out-Null
 
   Write-Host "Registered scheduled task '$TaskName' for user $user."
-  Write-Host "  Command      : `"$node`" `"$Script`""
+  Write-Host "  Command      : `"$node`" $argLine"
   Write-Host "  Working dir  : $Root"
   Write-Host "  Hidden       : yes"
   Write-Host "  Time limit   : unlimited"

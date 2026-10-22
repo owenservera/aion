@@ -24,10 +24,14 @@ import { buildSiteContinuity, siteFromSession, originFromSession, continuityTime
 import { createIntegrationHub } from './integration-hub.mjs';
 import { handlePlatformX } from './platform-x.mjs';
 import { problem, storageName } from './http.mjs';
+import { createDriveApi } from './drive-api.mjs';
+import { createConversationApi, defaultConversationRuntime } from './conversation-api.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
-export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token = randomBytes(18).toString('base64url'), rawOptions } = {}) {
+export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token = randomBytes(18).toString('base64url'), rawOptions, drive, campaign, conversationRuntime, conversationRuntimeFactory = defaultConversationRuntime } = {}) {
+  conversationRuntime ??= await conversationRuntimeFactory({ paths, profileStore, familyStore, port: cdpPort });
+  const conversationApi = createConversationApi({ runtime: conversationRuntime });
   // Persistent learning state (role models, corrections, calibration) lives in the data dir.
   const learner = new ScopedLearner(paths.learner ?? path.join(paths.root, 'learner'));
   const recorder = new Recorder({ sessionsDir: paths.sessions, profileStore, familyStore, port: cdpPort, rawOptions, learner });
@@ -46,6 +50,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   const deriving = new Set();
   async function deriveSession(session, profileName) {
     if (deriving.has(session.id)) throw problem(409, 'Session derivation is already running', 'DERIVATION_BUSY');
+    if (conversationRuntime.isSessionActive(session.id)) throw problem(409, 'Finish conversation capture before deriving this session', 'SESSION_ACTIVE');
     if (['recording', 'stopping'].includes(recorder.state) && recorder.session?.id === session.id) throw problem(409, 'Stop capture before deriving this session', 'SESSION_ACTIVE');
     deriving.add(session.id); replayCache.delete(session.id);
     try {
@@ -56,7 +61,8 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       return result;
     } finally { deriving.delete(session.id); }
   }
-  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id) });
+  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id) });
+  const driveApi = createDriveApi({ dataDir: paths.root, port: cdpPort, drive, campaign });
 
   const tokenBuf = Buffer.from(token);
   const authed = (req) => {
@@ -93,14 +99,34 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
         return res.end(readFileSync(new URL('./ui/platform.mjs', import.meta.url)));
       }
+      if (['/drive', '/drive.html', '/ui/drive.html', '/drive.mjs', '/ui/drive.mjs'].includes(url.pathname)) {
+        if (req.method !== 'GET') { res.setHeader('allow', 'GET'); return send(res, 405, { error: 'GET required' }); }
+        const script = url.pathname.endsWith('.mjs');
+        const file = new URL(script ? './ui/drive.mjs' : './ui/drive.html', import.meta.url);
+        let content;
+        try { content = readFileSync(file); } catch (e) { if (e.code === 'ENOENT') return send(res, 404, { error: 'Drive UI not installed yet' }); throw e; }
+        res.writeHead(200, { 'content-type': script ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" });
+        return res.end(content);
+      }
+      if (['/chat', '/ui/chat.mjs'].includes(url.pathname)) {
+        if (req.method !== 'GET') { res.setHeader('allow', 'GET'); return send(res, 405, { error: 'GET required' }); }
+        const script = url.pathname.endsWith('.mjs');
+        let content;
+        try { content = readFileSync(new URL(script ? './ui/chat.mjs' : './ui/chat.html', import.meta.url)); }
+        catch (e) { if (e.code === 'ENOENT') return send(res, 404, { error: 'Chat UI not installed yet' }); throw e; }
+        res.writeHead(200, { 'content-type': script ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" });
+        return res.end(content);
+      }
       if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'not found' });
       if (await handlePlatformX(req, res, { settings: rawOptions ?? {}, dataDir: paths.root, sessionsDir: paths.sessions }, url)) return;
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
+      if (await conversationApi.handle(req, res, url, body)) return;
+      if (await driveApi.handle(req, res, url, body)) return;
       if (await hub.handle(req, res, url, body)) return;
       return await route(req, res, url, body);
     } catch (e) {
       if (res.headersSent) res.destroy();
-      else send(res, e.status ?? 500, { error: String(e.message ?? e), ...(e.code ? { code: e.code } : {}) });
+      else send(res, e.status ?? 500, { error: String(e.message ?? e), ...(e.code ? { code: e.code } : {}), ...(typeof e.conversationId === 'string' && /^[a-z0-9][a-z0-9_-]{0,127}$/i.test(e.conversationId) ? { conversationId: e.conversationId } : {}), ...(e.holder ? { holder: { kind: e.holder.kind, id: e.holder.id } } : {}), ...(e.activeJobId ? { activeJobId: e.activeJobId } : {}) });
     }
   });
 
@@ -307,14 +333,19 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   }
 
   try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }); }
-  catch (e) { hub.close(); throw e; }
+  catch (e) { hub.close(); await conversationRuntime.close(); throw e; }
   const actualPort = server.address().port;
   port = actualPort;
   // Self-capture guard: the studio's own UI/API/SSE requests must never become captured targets.
   // The real port is only known after listen (port 0 selects a free one), so set it here.
   recorder.ignoreTargetUrls = [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`];
-  server.once('close', () => hub.close());
-  return { server, recorder, integrations: hub, port: actualPort, token, url: `http://127.0.0.1:${actualPort}/?token=${token}`, close: async () => { try { if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); } finally { await hub.close(); server.close(); } } };
+  server.once('close', () => { hub.close(); driveApi.close().catch(() => {}); });
+  let closing;
+  const close = () => closing ??= (async () => {
+    try { await conversationRuntime.close(); await driveApi.close(); if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); }
+    finally { await hub.close(); await new Promise((resolve) => server.close(resolve)); }
+  })();
+  return { server, recorder, conversationRuntime, integrations: hub, port: actualPort, token, url: `http://127.0.0.1:${actualPort}/?token=${token}`, close };
 }
 
 function listDatasets(s) {
