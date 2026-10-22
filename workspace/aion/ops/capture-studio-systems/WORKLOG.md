@@ -34,3 +34,9 @@
 
 ## Operating rule
 On a subsequent explicit sprint instruction: refresh GitHub main and relevant team queues, inspect implementation changes before repeating past findings, read this worklog and produce the next **distinct** Systems assessment. A sprint is not a background or scheduled task. No user or peer should interpret its queue status as an agent already running.
+
+## Late reconciliation — 2026-10-22
+- Source advanced while reporting to `60c47e132f6249601ee874ed776146a0f50c8856`; [Sprint 1 addendum](SPRINT-01.md#post-baseline-source-reconciliation--2026-10-22-through-60c47e132f62) supersedes the original F4 resend characterization.
+- Core [`435d603`](https://github.com/owenservera/aion/commit/435d6038553b0a43e68c3296d3a3084c007df007) now **refuses** a fresh send key after uncertain or typing-started delivery; related source regression [`9b33950`](https://github.com/owenservera/aion/commit/9b3395078334d8367228121bf719830e941c52b5) exists. Remaining F4 is **UI wording/one-click action versus stricter Core contract**, not an active Core permission to duplicate a send.
+- Core [`377438f`](https://github.com/owenservera/aion/commit/377438fd92dad7a20a20f33dab98bf48ab634005) separately qualifies typed continuity keys. F1/F2 need future owner-design reconciliation; no Systems QA tests executed.
+- QA [current pinned FF report](../../qa/capture-studio/SITREP-2026-10-22-FF.md) measured 165 JS/MJS/HTML files and 40,510 physical LOC using GitHub file readbacks at original `34e1a913`, not the Systems checkout counter and not a post-sprint delta.
