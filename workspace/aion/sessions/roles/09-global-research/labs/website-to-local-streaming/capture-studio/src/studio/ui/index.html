@@ -709,6 +709,11 @@ async function openSession(id) {
       <div class="row" style="margin-bottom:8px"><label>Dataset <select id="recPicker" aria-label="Saved dataset to read">${recordPickerOptions(datasets)}</select></label><span class="small-note">First ${REC_PAGE} rows of a saved dataset. Nothing is written from this panel.</span></div>
       <div id="recOut" role="status" aria-live="polite"></div>
     </div>
+    <h3>Stream to page <span class="small-note" style="font-weight:400">read-only</span></h3>
+    <div class="panel pad" id="joinPanel">
+      <div class="small-note">Ties parsed stream messages to the rendered DOM turns they produced, as derived by Rebuild datasets. Nothing is derived or sent from this panel.</div>
+      <div id="joinOut" role="status" aria-live="polite" style="margin-top:8px"></div>
+    </div>
     <h3>Time travel</h3><div class="row"><input type="range" id="tt" min="0" max="1000" value="1000" style="flex:1"><span id="ttLabel" class="mono"></span></div><div id="ttOut" style="margin-top:8px"></div>
     <div id="sessionKnowledgeStatus" role="status" class="small-note"></div>
     <h3>Continuity across sessions</h3>
@@ -749,6 +754,7 @@ async function openSession(id) {
   $('#recPicker').value = recDefault;
   $('#recPicker').onchange = () => loadRecords(id, datasets, requestSeq, $('#recPicker').value);
   loadRecords(id, datasets, requestSeq, recDefault);
+  guard(loadJoin)(id, requestSeq);
   const t0 = Date.parse(m.createdAt), t1 = Date.parse(m.endedAt || new Date().toISOString());
   const tt = $('#tt'), lab = $('#ttLabel');
   const tAt = () => t0 + (t1 - t0) * tt.value / 1000;
@@ -868,6 +874,142 @@ function renderContinuity(view, endpoint, timeQuery, requestSeq, callSeq) {
   }));
 }
 
+
+/* ---------------- stream to page (read-only join of stream messages and rendered DOM turns) ---------------- */
+// Reads kv STREAM_DOM_JOIN (GET sessions/:id/join) and DOM_TURNS (GET sessions/:id/turns). No write action.
+const JOIN_SCHEMA = 'capture-studio.stream-dom-join/1', JOIN_TURN_MAX = 160, JOIN_ROWS_MAX = 200;
+// Each status pairs a bracketed text cue with its label; colour is never the only signal.
+const JOIN_STATUS = {
+  verified: ['[OK]', 'order and normalized text agree'],
+  partial: ['[~]', 'stream not final or render ahead'],
+  near_match: ['[~~]', 'close but not verified'],
+  ambiguous: ['[?]', 'more than one candidate turn; no single link chosen'],
+  text_mismatch: ['[X]', 'aligned by order but text differs'],
+  unlinked_stream: ['[ ]', 'no DOM turn matched this stream message'],
+  unlinked_dom: ['[-]', 'no stream message claimed this turn'],
+};
+const JOIN_RULES = { 'order+text': 'order+text (position and text)', ordinal: 'ordinal (duplicate text; earlier messages aligned)', 'text-only': 'text-only (order not used)' };
+const JOIN_TEXT = { exact: 'exact', prefix: 'prefix (stream is a prefix of the render)', near: 'near', differs: 'differs', none: 'none compared' };
+const joinOwn = (table, key) => (Object.prototype.hasOwnProperty.call(table, key) ? table[key] : null);
+const joinIsUser = (role) => ['user', 'human', 'me', 'customer'].includes(String(role ?? '').trim().toLowerCase());
+const joinCue = (status) => { const s = joinOwn(JOIN_STATUS, String(status ?? '')); return s ? s[0] : '[!]'; };
+function joinChip(status) {
+  return '<span class="pill" data-status="' + esc(status) + '">' + esc(joinCue(status)) + ' ' + esc(status ?? 'unknown') + '</span>';
+}
+function joinTurnBody(t) {
+  const text = t && typeof t.text === 'string' ? t.text : '';
+  const mark = text.length > JOIN_TURN_MAX ? ' <span class="pill" style="color:var(--muted)">truncated, real length ' + text.length + ' chars</span>' : '';
+  return '<div style="overflow-wrap:anywhere">' + esc(text.slice(0, JOIN_TURN_MAX)) + mark + '</div>';
+}
+function joinBlockLine(b) {
+  const bl = b && typeof b === 'object' ? b : {};
+  return '<li>' + esc(joinCue(bl.status)) + ' stream block ' + esc(bl.blockKey ?? 'none') + ' -> DOM block ord ' + esc(bl.ord ?? 'none') + ': ' + esc(bl.status ?? 'unknown') + ' (text ' + esc(bl.textMatch ?? 'none') + ')</li>';
+}
+function joinRelation(l) {
+  const ev = l.evidence && typeof l.evidence === 'object' ? l.evidence : {};
+  const rule = ev.rule == null ? 'none (unlinked)' : (joinOwn(JOIN_RULES, String(ev.rule)) ?? String(ev.rule));
+  const tm = l.textMatch == null ? 'none' : (joinOwn(JOIN_TEXT, String(l.textMatch)) ?? String(l.textMatch));
+  const s = joinOwn(JOIN_STATUS, String(l.status ?? ''));
+  let head;
+  if (l.messageIndex == null) head = 'DOM turn #' + esc(l.turnIndex) + ' -> no stream message claimed this turn' + (joinIsUser(l.role) ? '. User prompts travel in the request body, not in a stream.' : '.');
+  else head = 'stream message #' + esc(l.messageIndex) + ' -> ' + (l.turnIndex != null ? 'DOM turn #' + esc(l.turnIndex) : (l.status === 'ambiguous' ? 'no single DOM turn' : 'no DOM turn'));
+  const cand = l.status === 'ambiguous' ? '<div>' + (Array.isArray(ev.candidates) && ev.candidates.length
+    ? 'candidate turns ' + ev.candidates.map((c) => '#' + esc(c)).join(', ') + ': no single link chosen'
+    : 'no candidate turns recorded; no link chosen') + '</div>' : '';
+  const notes = Array.isArray(ev.notes) && ev.notes.length ? '<ul class="small-note">' + ev.notes.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul>' : '';
+  const blocks = Array.isArray(l.blockLinks) && l.blockLinks.length ? '<div>Blocks:</div><ul>' + l.blockLinks.map(joinBlockLine).join('') + '</ul>' : '';
+  return '<li class="join-rel"' + (l.messageIndex != null ? ' data-rel="' + esc(l.messageIndex) + '"' : '') + '>' +
+    '<div>' + joinChip(l.status) + ' ' + esc(s ? s[1] : 'unknown status') + '</div>' +
+    '<div>' + head + '</div>' +
+    '<div>textMatch: ' + esc(tm) + ' · rule: ' + esc(rule) + '</div>' + cand + notes + blocks + '</li>';
+}
+// Pure: value is the join response, turns the DOM_TURNS array (or null), focus a messageIndex from a deep link.
+function renderJoinHtml(value, turns, turnsError, focus) {
+  const bad = (msg) => '<div class="feedback-error" role="alert">' + msg + '</div>';
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return bad('Unexpected stream-to-page response. Nothing is shown.');
+  if (value.status === 'not_derived') return '<div class="empty">The stream-to-page join has not been derived for this recording. Rebuild datasets derives it; this panel only reads it.</div>';
+  if (value.status === 'no_dom_turns') return '<div class="empty">No rendered DOM turns were captured for this recording, so no stream message can be tied to the page.</div>';
+  if (value.status === 'no_stream_messages') return '<div class="empty">No stream messages were parsed for this recording, so there is nothing to tie to the page.</div>';
+  if (value.error !== undefined) return bad('The stream-to-page join could not be computed: ' + esc(value.error) + '. No links are shown.');
+  if (value.schema !== JOIN_SCHEMA || !value.summary || typeof value.summary !== 'object' || !Array.isArray(value.links)) return bad('Unrecognized stream-to-page response. Nothing is shown.');
+  const links = value.links.filter((l) => l && typeof l === 'object');
+  const ms = value.summary.messageStatus && typeof value.summary.messageStatus === 'object' ? value.summary.messageStatus : {};
+  const msgLinks = links.filter((l) => l.messageIndex != null).sort((a, b) => a.messageIndex - b.messageIndex);
+  const domOnly = links.filter((l) => l.messageIndex == null);
+  const turnList = Array.isArray(turns) ? turns.filter((t) => t && typeof t === 'object') : [];
+  const claimOf = new Map(), candidateOf = new Map();
+  for (const l of links) {
+    if (l.turnIndex != null) claimOf.set(Number(l.turnIndex), l);
+    const cands = l.evidence && Array.isArray(l.evidence.candidates) ? l.evidence.candidates : [];
+    for (const c of cands) { const k = Number(c); if (!candidateOf.has(k)) candidateOf.set(k, []); candidateOf.get(k).push(l.messageIndex); }
+  }
+  const cap = (n, shown, what) => n > shown ? '<p class="small-note">Showing ' + shown + ' of ' + esc(n) + ' ' + what + '.</p>' : '';
+  const counts = Object.keys(JOIN_STATUS).map((k) => '<span>' + esc(JOIN_STATUS[k][0]) + ' ' + esc(k) + ' <b>' + esc(joinOwn(ms, k) ?? 0) + '</b></span>').join(' &nbsp; ');
+  const msgItems = msgLinks.slice(0, JOIN_ROWS_MAX).map((l) => '<li><button type="button" class="row-action" data-join="' + esc(l.messageIndex) +
+    '" data-link-turn="' + esc(l.turnIndex ?? '') + '" aria-pressed="false" aria-label="Focus stream message ' + esc(l.messageIndex) + ', ' + esc(l.status) + '">#' +
+    esc(l.messageIndex) + ' ' + esc(l.role || 'unknown role') + ' ' + esc(l.messageId ?? 'no message id') + '</button> ' + joinChip(l.status) + '</li>').join('');
+  const turnItems = turnList.slice(0, JOIN_ROWS_MAX).map((t) => {
+    const i = Number(t.index), claim = claimOf.get(i), cands = candidateOf.get(i);
+    let state;
+    if (claim && claim.status === 'unlinked_dom') state = joinChip('unlinked_dom') + ' no stream message claimed this turn' + (joinIsUser(t.role) ? '. User prompts travel in the request body, not in a stream.' : '.');
+    else if (claim) state = joinChip(claim.status) + ' claimed by stream message #' + esc(claim.messageIndex);
+    else if (cands) state = joinChip('ambiguous') + ' candidate for stream message ' + cands.map((c) => '#' + esc(c)).join(', ') + '; no link chosen';
+    else state = 'not in this join (DOM turns may have changed since derive)';
+    return '<li data-turn="' + esc(t.index) + '"><b>turn #' + esc(t.index) + '</b> ' + esc(t.role || 'unknown role') + '<div>' + state + '</div>' + joinTurnBody(t) + '</li>';
+  }).join('');
+  const turnBlock = turnsError ? bad('DOM turns could not be read: ' + esc(turnsError)) :
+    '<ul>' + turnItems + '</ul>' + cap(turnList.length, Math.min(turnList.length, JOIN_ROWS_MAX), 'DOM turns');
+  const relItems = [...msgLinks, ...domOnly].slice(0, JOIN_ROWS_MAX).map(joinRelation).join('');
+  const missing = focus != null && !msgLinks.some((l) => l.messageIndex === focus);
+  return '<p class="small-note">Read-only. The join holds ids, statuses and DOM text only; stream message text is not included. Unmatched elements stay unlinked and ambiguous ties are never forced.</p>' +
+    '<p class="small-note">Stream messages ' + esc(value.summary.messages ?? 0) + ' · DOM turns ' + esc(value.summary.turns ?? 0) + '</p>' +
+    '<p class="small-note">' + counts + '</p>' +
+    (links.length
+      ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><div><h4>Stream messages</h4>' +
+        cap(msgLinks.length, Math.min(msgLinks.length, JOIN_ROWS_MAX), 'stream messages') + '<ul>' + msgItems + '</ul></div>' +
+        '<div><h4>Rendered DOM turns</h4>' + turnBlock + '</div></div>' +
+        '<h4>Relationship per link</h4>' + cap(links.length, Math.min(msgLinks.length + domOnly.length, JOIN_ROWS_MAX), 'links') + '<ol>' + relItems + '</ol>'
+      : '<div class="empty">The join has no links.</div>') +
+    (missing ? '<p class="small-note">Requested stream message #' + esc(focus) + ' is not in this join.</p>' : '');
+}
+let joinSeq = 0;
+// Highlights one stream message, its linked DOM turn and its relationship row. Ambiguous and unlinked messages
+// have no linked turn, so only the message and its row are highlighted. Updates the hash with replaceState
+// (no hashchange, so the session is not reloaded).
+function selectJoinMessage(index) {
+  const out = $('#joinOut');
+  const btn = out && out.querySelector ? out.querySelector('button[data-join="' + String(index) + '"]') : null;
+  if (!btn) return false;
+  const turn = btn.dataset.linkTurn ?? '';
+  out.querySelectorAll('button[data-join]').forEach((b) => { const on = b === btn; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('sel', on); });
+  out.querySelectorAll('[data-rel]').forEach((el) => el.classList.toggle('sel', el.dataset.rel === String(index)));
+  out.querySelectorAll('li[data-turn]').forEach((el) => el.classList.toggle('sel', turn !== '' && el.dataset.turn === turn));
+  history.replaceState(null, '', joinDeepLinkHref(S.sessionId, index));
+  return true;
+}
+async function loadJoin(id, sessionSeq) {
+  const seq = ++joinSeq;
+  const focus = pendingJoinFocus && pendingJoinFocus.id === id ? pendingJoinFocus.index : null;
+  pendingJoinFocus = null;
+  const current = () => (seq === joinSeq && sessionSeq === S.sessionRequestSeq && S.sessionId === id) ? $('#joinOut') : null;
+  let out = current(); if (!out) return;
+  out.innerHTML = '<div class="empty">Loading stream-to-page join…</div>';
+  const enc = encodeURIComponent(id);
+  const [joinRes, turnRes] = await Promise.allSettled([api('sessions/' + enc + '/join'), api('sessions/' + enc + '/turns')]);
+  out = current(); if (!out) return;
+  if (joinRes.status === 'rejected') {
+    out.innerHTML = '<div class="feedback-error" role="alert">Could not load the stream-to-page join: ' + esc(joinRes.reason?.message ?? 'request failed') + '</div>';
+    return;
+  }
+  const turns = turnRes.status === 'fulfilled' && Array.isArray(turnRes.value) ? turnRes.value : null;
+  const turnsError = turnRes.status === 'rejected' ? (turnRes.reason?.message ?? 'request failed') : (turns ? null : 'Studio did not return DOM turns.');
+  let html;
+  try { html = renderJoinHtml(joinRes.value, turns, turnsError, focus); }
+  catch (e) { html = '<div class="feedback-error" role="alert">Could not display the stream-to-page join: ' + esc(e.message) + '</div>'; }
+  out.innerHTML = html;
+  out.querySelectorAll('button[data-join]').forEach((b) => b.onclick = guard(() => selectJoinMessage(Number(b.dataset.join))));
+  if (focus !== null) selectJoinMessage(focus);
+}
 
 /* ---------------- Knowledge workspace (read-only, existing Core API) ---------------- */
 function knowledgeText(value) { return value == null ? 'Unavailable' : String(value); }
@@ -1275,17 +1417,24 @@ function parseSessionDeepLink(hash) {
   const raw = hash.slice(1);
   if (/%(?![0-9a-f]{2})/i.test(raw)) return null;
   const params = new URLSearchParams(raw);
-  if ([...params.keys()].some((key) => !['session', 'view', 'sid', 'seq'].includes(key))) return null;
-  if (['session', 'view', 'sid', 'seq'].some((key) => params.getAll(key).length > 1) ||
+  if ([...params.keys()].some((key) => !['session', 'view', 'sid', 'seq', 'join'].includes(key))) return null;
+  if (['session', 'view', 'sid', 'seq', 'join'].some((key) => params.getAll(key).length > 1) ||
       params.getAll('session').length !== 1) return null;
-  const id = params.get('session'), view = params.get('view') || 'sessions', sid = params.get('sid'), rawSeq = params.get('seq');
+  const id = params.get('session'), view = params.get('view') || 'sessions', sid = params.get('sid'), rawSeq = params.get('seq'), rawJoin = params.get('join');
   if (!id || id.length > 128 || /[\u0000-\u001f\u007f]/.test(id)) return null;
   if (!['sessions', 'knowledge', 'streams'].includes(view)) return null;
   if ((sid !== null || rawSeq !== null) && view !== 'streams') return null;
   if (sid !== null && (!sid || sid.length > 256 || /[\u0000-\u001f\u007f]/.test(sid))) return null;
   if (rawSeq !== null && (sid === null || !/^\d+$/.test(rawSeq) || !Number.isSafeInteger(Number(rawSeq)))) return null;
-  return { id, view, sid, seq: rawSeq === null ? null : Number(rawSeq) };
+  // join=<messageIndex> selects a row in the Sessions "Stream to page" panel. It never opens a stream.
+  if (rawJoin !== null && (view !== 'sessions' || !/^\d+$/.test(rawJoin) || !Number.isSafeInteger(Number(rawJoin)))) return null;
+  return { id, view, sid, seq: rawSeq === null ? null : Number(rawSeq), join: rawJoin === null ? null : Number(rawJoin) };
 }
+// Hash for a selected stream message; the parser above reads it back. Built only from the saved session id and an index.
+function joinDeepLinkHref(id, index) {
+  return '#session=' + encodeURIComponent(id) + '&view=sessions&join=' + encodeURIComponent(String(index));
+}
+let pendingJoinFocus = null;
 let deepLinkEpoch = 0;
 async function openSessionDeepLink(hash) {
   const epoch = ++deepLinkEpoch, request = parseSessionDeepLink(hash);
@@ -1299,6 +1448,7 @@ async function openSessionDeepLink(hash) {
     return false;
   }
   notice.textContent = 'Opening the linked saved recording…';
+  pendingJoinFocus = request.join === null ? null : { id: request.id, index: request.join };
   const loaded = await openSession(request.id);
   if (epoch !== deepLinkEpoch) return false;
   if (!loaded) {
