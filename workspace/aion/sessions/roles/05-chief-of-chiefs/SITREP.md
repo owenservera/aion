@@ -1,5 +1,27 @@
 # Chief of Chiefs — Executive SITREP
 
+## CURRENT EXECUTIVE SITREP — 2026-10-22 (expanded GitHub-source review)
+
+**Evidence:** Live remote GitHub commit search through [`6aaee4628f`](https://github.com/owenservera/aion/commit/6aaee4628fb785561f2c78905fa3b8efb5552ab3) (17:59 UTC, 22 October); read latest role/Planning/Development/QA/Studio docs and shared agent intelligence, and checked issue #43/#64 comments. Commit search is an activity sample, not a Windows HEAD/installed build receipt. No fresh native Windows or browser execution was available in this Chief session.
+
+**Major new decision to enforce:** Owner's 22 October Capture Studio consolidation makes **Studio the sole browser capture/drive engine**; Track B extension/native-host/CLI becomes its *client*, not a second browser Send/recording authority. QA left the exact request on [Track B #43](https://github.com/owenservera/aion/issues/43#issuecomment-6347302646), **not Development-ACKed**. The Development-owned AX-0022/23 exchange records/disposition remain unverified. This is a real integration ownership seam, not permission to create a new bus.
+
+**Capture Studio change:** Core HTTP cross-chunk, WebSocket and EventSource prewrite-secret guards are now implemented in GitHub source ([5993f882](https://github.com/owenservera/aion/commit/5993f882), [57f38386](https://github.com/owenservera/aion/commit/57f38386), [58f8052c](https://github.com/owenservera/aion/commit/58f8052c)); QA's pinned V8 synthetic retest found 6/6 credential cases excluded, with benign control. This **reduces prior P0 source risk**, but [#64](https://github.com/owenservera/aion/issues/64) still needs native runner, full recorder/raw-store, CDP/browser and adverse-flow acceptance. Core W4's current sprint plan acknowledges these gates. Independently, pre-calibration family consolidation/accepted-evidence learning eligibility remains a separately recorded open issue (QA Sprint 1). Never claim all evidence or learning is trusted.
+
+**Product/people progress:** UI Sprint 2 reported 62/62 source/V8 checks and entered Sprint 3 evidence navigation; Knowledge–Learning delivered a temporal-truth source/Node slice, pending independent QA; Systems Sprint 1–2 source assessments are complete. New [Value Oracle](../../ops/capture-studio-value-oracle/README.md) workspace was committed on 22 October, with **no agent runtime launched**. Its first unblocked customer-value experiment is an offline source-linked **Outcome Packet** for a synthetic saved answer, not a new server or unapproved external action. This is the most concrete path from captured intelligence to reduced manual work; real usefulness is not yet measured.
+
+**Track B and machine truth:** Planning [TASKS.md](../02-long-term-planning-alignment/TASKS.md) and Development's [desk](../../ops/chrome-relay/workers/development/DELIVERABLES.md) still place account registration → exact-thread I1 receive → two-turn I2 → recovery I3 on the machine critical path. [PR #62](https://github.com/owenservera/aion/pull/62) is source merged; last documented `REGISTRATION_FAILED` and missing local build proof have no fresh successful Windows receipt in this scan. Global [STATE.json](../../STATE.json) is older; `m1_verified=false`. 19 October native UIA send/reply is partial M1, not Track B's I1/I2 acceptance.
+
+**Chief direction (no new queue):**
+1. **Planning 02:** update existing strategic roll-up for the *owner-decided* Studio→Track B client contract and distinguish Studio vs CLI acceptance without hiding either path; no competing roadmap.
+2. **Development 10 + CoS 03:** obtain actual acknowledgment/disposition on existing [#43](https://github.com/owenservera/aion/issues/43); then prove loaded Windows build, safe account registration and exact-thread I1. A GitHub comment alone does not dispatch a worker.
+3. **Core + independent QA:** keep [#64](https://github.com/owenservera/aion/issues/64) open for full evidence; prevent unassessed capture from silently becoming training-eligible. No duplicate Chief-authored test campaign.
+4. **Value Oracle:** deliver V1 synthetic Outcome Packet with source/unknown labels as an independent read-only slice; user-used and externally delivered status remain **unproven**.
+
+**Chief-owned conclusion:** No acceptance promotion, owner-only decision, or role arbitration requiring a competing implementation was justified by this scan. Retain the [provisional Chief↔CoS note](../../shared/agent-communications/chief-of-chiefs--chief-of-staff-provisional/README.md) as invitation-only; no peer ACK was found. Shared CANON/Immediate/Curated remains owner-approval-gated. Source docs can be updated; no claim of background action, local Windows sync, agent activation or fresh live test.
+
+---
+
 ## CURRENT EXECUTIVE SITREP — 2026-10-21 (GitHub-source review)
 
 **Remote evidence checkpoint:** `main@2dbc78d878a3a1b06be9a2add7245dcbbd58ba1b`, October 21 around 11:43 UTC. This is **not** Windows local checkout, native host, installed extension or active worker evidence.
