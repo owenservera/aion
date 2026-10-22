@@ -24,12 +24,17 @@ import { collectorSourceSha, VERSION } from '../config.mjs';
 import { createLiveTap } from './live-tap.mjs';
 import { followDecision, hostOf } from './targets.mjs';
 
+// Shape observation sampling (derived data only; raw and reducer are never sampled).
+const SHAPE_FORCE_PER_SID = 50; // the first events of every sid are always observed (endpoint coverage)
+const SHAPE_MAX_STRIDE = 64;    // at the queue cap, one event in this many is observed
+
 export class Recorder extends EventEmitter {
   constructor({
     sessionsDir, profileStore, familyStore = null, port = 9222, rawOptions = {}, allBodies = false,
     liveEventsPerStream = 2000, maxSessionBytes = 0, learner = null, maxStreamBytes = 0,
     reconnect = true, maxReconnectAttempts = 6, reconnectBaseDelayMs = 400, heartbeatMs = 15_000,
     tabs = 'one', follow = true, maxTargets = 32, pauseNewTargets = null, ignoreTargetUrls = [],
+    deferShapes = true, maxShapeQueue = 5000, shapeSliceMs = 4,
   }) {
     super();
     // tabs: 'one' = the selected tab only; 'all' = every web tab in the browser.
@@ -62,6 +67,11 @@ export class Recorder extends EventEmitter {
     this.reconnectBaseDelayMs = reconnectBaseDelayMs;
     this.heartbeatMs = heartbeatMs;
     this.reconnects = 0;
+    // Shape observation queue (see _offerShape). deferShapes:false = synchronous observeEvent.
+    this.deferShapes = deferShapes !== false;
+    this.maxShapeQueue = Math.max(1, maxShapeQueue);
+    this.shapeSliceMs = shapeSliceMs;
+    this._resetShapeQueue();
     this.paused = false;
     this.state = 'idle';
     this._resetTargets();
@@ -117,6 +127,7 @@ export class Recorder extends EventEmitter {
 
     this.reducer = new StreamReducer({ deltaDialect: profile.decode?.delta ?? 'auto', maxEventsPerStream: this.liveEventsPerStream });
     this.shapes = new ShapeInferencer();
+    this._resetShapeQueue();
     this.eventsDs = this.session.dataset('events');
 
     const append = (rec) => this._append(rec);
@@ -511,6 +522,68 @@ export class Recorder extends EventEmitter {
     return true;
   }
 
+  // Shape observation is derived data and must never slow or block the raw/reducer path. With
+  // deferShapes (default) each derived event is queued in O(1) and drained in setImmediate slices of
+  // shapeSliceMs. Above half of maxShapeQueue the queue SAMPLES: the stride grows linearly to
+  // SHAPE_MAX_STRIDE at the cap, and at the cap non-forced events are skipped. The first
+  // SHAPE_FORCE_PER_SID events of every sid are always kept so each endpoint stays represented.
+  // Every skip is counted in status().stats.shapes. Readers call flushShapes() first (liveReport,
+  // stop), so the report is identical to the synchronous one whenever nothing was sampled.
+  _resetShapeQueue() {
+    this._shapeQ = []; this._shapeQi = 0; this._shapeImmediate = null;
+    this._shapeSeen = new Map(); this._shapeTick = 0;
+    this.shapeStats = { deferred: 0, sampledOut: 0, forced: 0, queueHigh: 0, errors: 0 };
+  }
+
+  _offerShape(ev, stream) {
+    if (ev.json === undefined) return; // observeEvent ignores these as well
+    // The recorder queue is the only deferral: the inferencer applies each event as it is drained.
+    if (this.shapes.deferred !== false) { this.shapes.flush(); this.shapes.deferred = false; }
+    const depth = this._shapeQ.length - this._shapeQi;
+    const sid = ev.sid ?? '';
+    const seen = (this._shapeSeen.get(sid) ?? 0) + 1;
+    this._shapeSeen.set(sid, seen);
+    if (seen > SHAPE_FORCE_PER_SID) {
+      if (depth >= this.maxShapeQueue) { this.shapeStats.sampledOut++; return; }
+      const soft = Math.floor(this.maxShapeQueue / 2);
+      if (depth >= soft) {
+        const stride = 1 + Math.floor((depth - soft) * (SHAPE_MAX_STRIDE - 1) / Math.max(1, this.maxShapeQueue - soft));
+        if (++this._shapeTick % stride !== 0) { this.shapeStats.sampledOut++; return; }
+      }
+    } else if (depth >= this.maxShapeQueue) this.shapeStats.forced++;
+    this._shapeQ.push({ ev, stream });
+    this.shapeStats.deferred++;
+    if (depth + 1 > this.shapeStats.queueHigh) this.shapeStats.queueHigh = depth + 1;
+    if (this._shapeImmediate === null) this._scheduleShapeDrain();
+  }
+
+  _scheduleShapeDrain() {
+    this._shapeImmediate = setImmediate(() => { this._shapeImmediate = null; this._drainShapes(this.shapeSliceMs); });
+  }
+
+  _drainShapes(budgetMs) {
+    const deadline = budgetMs === Infinity ? Infinity : performance.now() + budgetMs;
+    const q = this._shapeQ;
+    let n = 0;
+    while (this._shapeQi < q.length) {
+      const item = q[this._shapeQi];
+      q[this._shapeQi++] = undefined;
+      try { this.shapes.observeEvent(item.ev, item.stream); }
+      catch { this.shapeStats.errors++; }
+      if ((++n & 15) === 0 && performance.now() >= deadline) break;
+    }
+    if (this._shapeQi >= q.length) { this._shapeQ = []; this._shapeQi = 0; }
+    else if (this._shapeQi > 4096) { this._shapeQ = q.slice(this._shapeQi); this._shapeQi = 0; }
+    if (this._shapeQi < this._shapeQ.length && this._shapeImmediate === null) this._scheduleShapeDrain();
+  }
+
+  // Brings shape observation fully up to date, synchronously. Every reader of shapes calls this.
+  flushShapes() {
+    if (this._shapeImmediate !== null) { clearImmediate(this._shapeImmediate); this._shapeImmediate = null; }
+    this._drainShapes(Infinity);
+    this.shapes?.flush?.();
+  }
+
   _append(rec) {
     if (!this.session || this.session.raw.closed) return null;
     if (this.paused && !['run.end', 'lifecycle', 'pause'].includes(rec.k)) { this.pausedCounts[rec.k] = (this.pausedCounts[rec.k] ?? 0) + 1; return null; }
@@ -523,7 +596,8 @@ export class Recorder extends EventEmitter {
     const derived = this.reducer.ingest(full);
     if (derived.length) {
       this.eventsDs.push(derived.map(stripForDataset));
-      for (const ev of derived) this.shapes.observeEvent(ev, this.reducer.streams.get(ev.sid));
+      if (this.deferShapes) for (const ev of derived) this._offerShape(ev, this.reducer.streams.get(ev.sid));
+      else for (const ev of derived) this.shapes.observeEvent(ev, this.reducer.streams.get(ev.sid));
     }
     this.emit('record', full);
     for (const ev of derived) this.emit('event', ev);
@@ -540,6 +614,7 @@ export class Recorder extends EventEmitter {
   }
 
   liveReport() {
+    this.flushShapes();
     const families = this.familyStore ? this.familyStore.names().map((n) => this.familyStore.load(n)) : [];
     return this.shapes.report(this.reducer, { families, profile: this.profile, domInspect: this.lastInspect, domTurns: this.lastTurns, calibrator: this.learner?.calibrator });
   }
@@ -554,7 +629,7 @@ export class Recorder extends EventEmitter {
       pageUrl: this.privacy.url(this.pageUrl ?? ''),
       profile: { name: this.profile.name, version: this.profile.version },
       queue: this.session.raw.queueDepth,
-      stats: { raw: { ...this.session.raw.stats }, network: { ...this.net.stats }, dom: { ...this.dom.stats } },
+      stats: { raw: { ...this.session.raw.stats }, network: { ...this.net.stats }, dom: { ...this.dom.stats }, shapes: { ...this.shapeStats, pending: this._shapeQ.length - this._shapeQi } },
       openStreams: this.net.openStreams().length,
       targets: { tabs: this.tabs, follow: this.follow, list: this.targetList() },
       transport: {
@@ -596,6 +671,8 @@ export class Recorder extends EventEmitter {
   _markStopFailed(error, reason = 'user_stop') {
     this.state = 'stop_failed';
     try { clearInterval(this.persistTimer); clearInterval(this.statusTimer); this.conn?.stopHeartbeat?.(); } catch { /* best effort */ }
+    // Pending shape work stays queued (drained by the next read); only the timer is released.
+    if (this._shapeImmediate !== null) { clearImmediate(this._shapeImmediate); this._shapeImmediate = null; }
     try {
       const meta = this.session?.meta;
       if (meta && meta.status !== 'complete' && meta.status !== 'complete_with_integrity_warnings') {
@@ -646,6 +723,7 @@ export class Recorder extends EventEmitter {
     this.session.meta.targets = { tabs: this.tabs, follow: this.follow, attachedByRole: { ...(this.targetCounts ?? {}) } };
     try { this.session.meta.rawIndex = this.session.rawStats(); } catch { /* index is derived data */ }
     this.session.saveMeta();
+    this.flushShapes(); // no shape work or timer outlives the run
     this.state = 'idle';
     const result = { id: this.session.id, dir: this.session.dir, reason, verify, summary: this.reducer.summary() };
     this.emit('stopped', result);
