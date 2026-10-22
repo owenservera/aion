@@ -46,7 +46,7 @@ function validSnapshot(s, id) {
     try { const url = new URL(s.binding.origin); if (url.origin !== s.binding.origin || url.protocol !== 'https:') return false; } catch { return false; }
   }
   if (s.state !== 'disconnected' && !s.binding) return false;
-  // A deliberate resend (new key) after an unobserved attempt is allowed, so several attempts may exist; only one may be observed.
+  // Old saved snapshots may contain several attempts from earlier releases; never promote multiple observed sends.
   if (s.attempts.filter((a) => a?.send?.state === 'observed').length > 1) return false;
   return s.attempts.every((a) => typeof a.key === 'string' && a.key.length > 0 && typeof a.id === 'string'
     && /^[a-f0-9]{64}$/.test(a.payloadDigest) && phases.includes(a.phase)
