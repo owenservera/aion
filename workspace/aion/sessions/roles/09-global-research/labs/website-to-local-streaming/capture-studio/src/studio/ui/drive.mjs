@@ -112,6 +112,8 @@ function sessionLinks(id) {
     el('a', { href: '/#session=' + encodeURIComponent(id), target: '_blank', rel: 'noopener', text: 'Open session' }),
     el('span', { class: 'sr', text: ' (new tab)' }),
     ' · ',
+    el('a', { href: '/#session=' + encodeURIComponent(id) + '&view=knowledge', target: '_blank', rel: 'noopener', text: 'Explore derived knowledge (may be incomplete)' }),
+    ' · ',
     el('a', { href: '/api/sessions/' + encodeURIComponent(id) + '/transcript', text: 'Transcript' }),
   ]);
 }
