@@ -1,3 +1,5 @@
+> **2026-10-22 owner local-first correction:** [Active no-security-theater direction](https://github.com/owenservera/aion/issues/65). QA performs focused verification **alongside** development, not as a precondition for building or normal local testing. Do not demand extra live-execution permission/grant artifacts where AION `STATE.json` already records owner authorization. Report defects and test scope truthfully, but do not turn speculative security/acceptance concerns into blocking workflow. Preserve no duplicate side effects, local data integrity and sensible origin isolation. QA does not control Core/UI implementation or invoke other agents simply by writing GitHub notes.
+
 # Independent QA — Fresh-Session Launch
 
 > **Scope correction (2026-10-21):** This folder is for **ChatGPT independent QA**, not Claude Opus build sprints. For the requested **Opus fast build sessions with NO physical test creation or execution**, use [Opus BUILD-SPRINT LAUNCH](../../ops/capture-studio-build-sprints/LAUNCH.md). Do not launch this QA protocol when intending Opus implementation work.
