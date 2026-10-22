@@ -1,0 +1,108 @@
+{
+  "schema": "aion.capture-studio.value-oracle.state/1",
+  "agent_id": "capture-studio-value-oracle",
+  "role_command": "#AION @VALUE-ORACLE",
+  "created_date": "2026-10-22",
+  "status": "SCAFFOLDED_NOT_LAUNCHED",
+  "source_baseline_main": "da6fada50c31fa6a71e31b5a97dec7da9a735ee1",
+  "scope": "AION Capture Studio user jobs, outcome artifacts, useful automation and friction; self-owned prototypes only",
+  "mission": "Turn user-authorized captured intelligence into source-grounded completed useful outcomes while eliminating manual user transitions",
+  "workspace": "workspace/aion/ops/capture-studio-value-oracle/",
+  "documents": [
+    "README.md",
+    "BOOTSTRAP.md",
+    "VALUE-MAP.md",
+    "QUEUE.md",
+    "STATE.json",
+    "LAUNCH.md"
+  ],
+  "audit": {
+    "method": "connected GitHub source/architecture/workspace read only",
+    "observed_inventory": {
+      "github_tree_files": 3718,
+      "github_tree_directories": 910,
+      "github_tree_truncated": false
+    },
+    "scoped_sources": [
+      "capture-studio README/ARCHITECTURE/WORKLOG and 16-capability vision",
+      "Capture Studio API/exports/learning/temporal UI surfaces",
+      "Core/UI/Systems/QA workspaces and five-sprint plans",
+      "Research 09, Planning 02, CoS 03, Chief 05, Intake 07",
+      "GitHub agent-fabric and shared agent-communications governance"
+    ],
+    "confirmed_existing_primitives": [
+      "saved raw captures and replay",
+      "structured datasets and exports",
+      "source-linked derived entities, graph, search, continuity",
+      "learning revisions and temporal contract",
+      "Studio API, tool manifest, local SSE and opt-in webhooks",
+      "GitHub issue/file coordination"
+    ],
+    "unverified_or_gaps": [
+      "actual first-to-last user outcome consumption after capture",
+      "automatic correct project routing",
+      "measured owner time/steps saved",
+      "full verified capture acceptance gate",
+      "source-grounded automated decision extraction",
+      "Windows authenticated end-to-end usefulness acceptance"
+    ],
+    "claimed_usability_trials": 0,
+    "claimed_runtime_automation": "none",
+    "classification": "source-backed capability audit + untested product opportunity proposals; not actual adoption"
+  },
+  "priorities": [
+    {
+      "key": "V1",
+      "name": "Source-linked Outcome Packet",
+      "state": "READY_TO_BUILD",
+      "user_value": "turn saved AI response into reusable answer/decision/proposed action artifact",
+      "requires_live_website": false
+    },
+    {
+      "key": "V2",
+      "name": "Reviewable project landing",
+      "state": "PROPOSED",
+      "user_value": "deliver artifact or proposal to right repo with approval",
+      "requires_permission": true
+    },
+    {
+      "key": "V3",
+      "name": "Change-since-last-capture brief",
+      "state": "PROPOSED",
+      "requires_core_temporal_contract": true
+    },
+    {
+      "key": "V4",
+      "name": "Automatic offline post-Finish result",
+      "state": "BLOCKED_ON_TRUSTED_ACCEPTANCE_AND_INTEGRATION"
+    },
+    {
+      "key": "V5",
+      "name": "Measured first-run UX reduction",
+      "state": "NEEDS_USER_RUNTIME_EVIDENCE"
+    }
+  ],
+  "metrics": {
+    "product_feature_shipped": 0,
+    "value_prototype_shipped": 0,
+    "local_tests_run": 0,
+    "user_trials_run": 0,
+    "owner_steps_eliminated": null,
+    "owner_minutes_saved": null,
+    "delivered_artifacts_used": 0,
+    "independent_qa_accepted": 0
+  },
+  "boundaries": {
+    "existing_agent_tasks_created": 0,
+    "agent_wakeups_claimed": 0,
+    "external_browser_sends": 0,
+    "private_transcript_uploads": 0,
+    "other_team_source_edits": 0
+  },
+  "next": "Launch fresh VALUE-ORACLE chat with LAUNCH.md using High effort; then build V1.1-V1.4 minimal read-only Outcome Packet prototype against synthetic saved evidence, verify, commit and measure. Do not dispatch peers before concrete interface needs.",
+  "notes": [
+    "SCAFFOLDED_NOT_LAUNCHED is deliberate: GitHub folders do not start conversations/agents.",
+    "GitHub issue proposals are not acknowledged work until a real receiving agent confirms.",
+    "Current user adoption, usability improvement and savings are UNKNOWN; no numeric ROI invented."
+  ]
+}
