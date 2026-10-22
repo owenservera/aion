@@ -1171,7 +1171,8 @@ function renderSearchHits(hits) {
     '<tr><td><span class="pill ' + (h.layer === 'L2' ? 'c-l2' : 'c-l3') + '">' +
       (h.layer === 'L2' ? 'Recorded event' : 'Recorded page') + '</span></td>' +
     '<td><button class="row-action" data-search-hit="' + i + '" aria-label="Open source recording">' + esc(String(h.session || '').slice(0, 15) || 'Unknown session') + '</button>' +
-    '<div class="small-note">Stream ' + esc(h.sid || '—') + ' · ' + esc(knowledgeTime(h.t)) + '</div></td>' +
+    '<div class="small-note">Stream ' + esc(h.sid || '—') + ' · ' + esc(knowledgeTime(h.t)) + '</div>' +
+    (recordedEvidenceHref(h) ? '<a class="knowledge-link" href="' + esc(recordedEvidenceHref(h)) + '">Open exact stream</a>' : '<span class="small-note"> Exact stream not recorded</span>') + '</td>' +
     '<td style="overflow-wrap:anywhere">' + esc(h.snippet ?? '') + '</td></tr>'
   ).join('') : '<tr><td colspan="3" class="empty">No matching recorded text. This is not evidence that the subject did not exist.</td></tr>';
   $('#hits tbody').querySelectorAll('button[data-search-hit]').forEach((button) =>
