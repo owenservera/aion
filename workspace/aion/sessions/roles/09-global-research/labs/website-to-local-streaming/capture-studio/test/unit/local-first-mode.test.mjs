@@ -42,7 +42,7 @@ test('recorder URL lifecycle and network use matching capture mode',()=>{
   assert.match(network,/if \(this\.privacy\.localRaw\)/);
 });
 test('local UI has zero token sign-in by default while remaining loopback bound',()=>{
-  assert.match(server,/CAPTURE_STUDIO_ACCESS_MODE \?\? 'local'/);
+  assert.match(server,/CAPTURE_STUDIO_ACCESS_MODE \?\? \(token === undefined \? 'local' : 'token'\)/);
   assert.match(server,/if \(accessMode === 'local'\) return true/);
   assert.match(server,/server\.listen\(port, '127\.0\.0\.1', resolve\)/);
   assert.match(server,/bad host/); assert.match(server,/bad origin/);
