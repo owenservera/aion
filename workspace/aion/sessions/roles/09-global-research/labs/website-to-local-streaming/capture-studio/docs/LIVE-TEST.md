@@ -1,5 +1,7 @@
 # Capture Studio — live test runbook (Windows PowerShell)
 
+> **Current local-first handoff (2026-10-22):** Run [CORE L0/L1 handoff](CORE-LOCAL-HANDOFF-2026-10-22.md) before the older manual examples below. The legacy security notes describing mandatory token login, default credential redaction and human-key pacing no longer match the current local-raw/tokenless source. Use current source and `docs/LOCAL-FIRST.md` for defaults. The CORE handoff runner creates local evidence packets; it does **not** execute on your PC merely because it was committed.
+
 A real, end-to-end test of the capture studio on a local Windows machine: from environment check
 through a live capture, derivation, search, replay mirror, export, integrity verification and the
 studio web UI.
