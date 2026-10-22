@@ -204,7 +204,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     async submit(id, body = {}) {
       active(); const entry = load(id);
       const registered = entry.registration.then(async () => {
-        if (typeof body.key !== 'string' || !body.key || body.key.length > 200 || typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 2000) throw fail(400, 'INVALID_SUBMISSION');
+        if (typeof body.key !== 'string' || !body.key || body.key.length > 200 || typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 250000) throw fail(400, 'INVALID_SUBMISSION');
         const s = entry.service.read(), original = s.attempts.find((a) => a.key === body.key);
         // Idempotent replay is a pure read and is honoured even when the conversation is finished,
         // restart-recovered or owned by another runtime: it never dispatches and never writes.
