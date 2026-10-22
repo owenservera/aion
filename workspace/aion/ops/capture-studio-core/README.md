@@ -5,6 +5,10 @@
 **Sprint checkpoint:** `workspace/aion/ops/capture-studio-build-sprints/STATE.json`
 **Architecture/leverage map (canonical Core JSON):** [LAYERED-CAKE.json](LAYERED-CAKE.json) — seven core layers, four cross-cutting threads, ten leverage points, separate operational foundation, source-grounded status at pinned GitHub SHA. Treat design as diagnostic rather than prescriptive; refresh assessment against latest source before treating it as current.
 
+## Negative Space Programming — Pass 1
+
+[NSP Pass 1 contract, evidence and next handoff](NSP-PASS-01-2026-10-22.md). CORE's shared `src/core/invariants.mjs` defines eight correctness rules; NSP-003 and NSP-004 are newly enforced in temporal revision folding, graph entity ID handling, and derivation receipts. No new auth/permission, redaction, worker or database layer. A violating **derived projection** can be marked partial while the owner's raw observations stay intact. The remaining epistemic/provenance work is scoped to CORE integration with the L4/L5 specialist; UI owns any visualization. Native Node and Windows execution remain separately unverified.
+
 ## Own
 - Capture/replay, evidence, entities, identity, semantics, temporal graph, continuity, persistence and correctness.
 - CLI commands and machine-readable contracts.
