@@ -93,7 +93,7 @@ test('W4 WS frame guard preserves safe frame order while withholding cross-frame
 test('W4 recorder HTTP raw append never contains split credentials and declares loss', async () => {
   const records = [];
   const recorder = new NetworkRecorder({ append: (r) => records.push(r),
-    profile: { capture: { retrospectiveFallback: false } },
+    profile: { capture: { privacyMode: 'filtered', retrospectiveFallback: false } },
     getPageUrl: () => 'https://example.com' });
   const st = { sid: 'p:req1', armed: true, body: true, chunks: 0, bytes: 0 };
   recorder.reqs.set(st.sid, st);
@@ -110,7 +110,7 @@ test('W4 recorder HTTP raw append never contains split credentials and declares 
 test('W4 recorder WS frame body remains metadata-only after split secret prefix', () => {
   const records = [];
   const recorder = new NetworkRecorder({ append: (r) => records.push(r),
-    profile: { capture: { wsSentFrames: false } },
+    profile: { capture: { privacyMode: 'filtered', wsSentFrames: false } },
     getPageUrl: () => 'https://example.com' });
   const st = { sid: 'p:ws1', body: true, ws: true, frames: 0, bytes: 0 };
   recorder.reqs.set(st.sid, st);
@@ -124,7 +124,7 @@ test('W4 recorder WS frame body remains metadata-only after split secret prefix'
 test('W4 no secret tail on interrupted or detached HTTP response', () => {
   const records = [];
   const recorder = new NetworkRecorder({ append: (r) => records.push(r),
-    profile: { capture: {} }, getPageUrl: () => 'https://example.com' });
+    profile: { capture: { privacyMode: 'filtered' } }, getPageUrl: () => 'https://example.com' });
   const st = { sid: 'p:r', body: true, armed: true, bytes: 0, chunks: 0 };
   recorder.reqs.set(st.sid, st);
   recorder._chunk(st, Buffer.from('an unfinished response under the scanner tail'));
@@ -136,7 +136,7 @@ test('W4 no secret tail on interrupted or detached HTTP response', () => {
 test('W4 parsed EventSource views also exclude split credential values', async () => {
   const records = [];
   const recorder = new NetworkRecorder({ append: (r) => records.push(r),
-    profile: { capture: { retrospectiveFallback: false } },
+    profile: { capture: { privacyMode: 'filtered', retrospectiveFallback: false } },
     getPageUrl: () => 'https://example.com' });
   const st = { sid: 'p:es', body: true, armed: true, chunks: 0, bytes: 0 };
   recorder.reqs.set(st.sid, st);
@@ -146,6 +146,26 @@ test('W4 parsed EventSource views also exclude split credential values', async (
   assert.equal(records.some((r) => r.k === 'es.msg' && r.data.includes('synthetic-eventsource-secret')), false);
   assert.ok(records.some((r) => r.k === 'body.excluded' && r.securityGuard === 'eventsource-v1'));
   assert.equal(st.credentialExcluded, true);
+});
+
+test('W4 local-raw passthrough: guard is bypassed by design and raw bytes are written unmodified', async () => {
+  // Owner decision: default capture mode is local-raw; credential stream guards are intentionally bypassed.
+  // privacyMode is deliberately NOT set here, so the default (local-raw) applies. Env var is not used.
+  const records = [];
+  const recorder = new NetworkRecorder({ append: (r) => records.push(r),
+    profile: { capture: { retrospectiveFallback: false } },
+    getPageUrl: () => 'https://example.com' });
+  assert.equal(recorder.privacy.localRaw, true);
+  const marker = '"accessToken":"synthetic-passthrough-secret"';
+  const st = { sid: 'p:raw', body: true, armed: true, chunks: 0, bytes: 0 };
+  recorder.reqs.set(st.sid, st);
+  for (const part of byteChunks('hello-safe-content\n' + marker, 2))
+    recorder._chunk(st, part, { ct: 100 });
+  await recorder._finalize({}, st, { timestamp: 110 });
+  const raw = Buffer.concat(records.filter((r) => r.k === 'chunk').map((r) => Buffer.from(r.b64, 'base64'))).toString('utf8');
+  assert.ok(raw.includes(marker));
+  assert.equal(records.some((r) => r.k === 'body.excluded'), false);
+  assert.equal(st.credentialExcluded, undefined);
 });
 
 test('W4 bounded frame memory excludes a flood of empty frames', () => {

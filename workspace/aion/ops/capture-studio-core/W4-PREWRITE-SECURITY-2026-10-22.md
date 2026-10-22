@@ -41,3 +41,10 @@ Nine deterministic `test/unit/stream-guard.test.mjs` tests were committed. They 
 - `d38295cd`, `1dc5e6da` nine deterministic Node regression cases
 
 **Open acceptance state:** source delivered, V8 checked; Node/Windows/QA not accepted.
+
+## Mode scope note (2026-10-22)
+
+- The W4 stream guard applies in **`filtered` mode only**. Filtered mode is opt-in via `capture.privacyMode: 'filtered'`.
+- **`local-raw` is the default** for the owner's local PC, per issue #65. In local-raw, the credential stream guards are intentionally bypassed and raw bytes are written unmodified.
+- Test coverage: the four filtered-mode recorder tests set `privacyMode: 'filtered'` explicitly; a local-raw passthrough test asserts the bypass.
+- Masking of credential material in local-raw remains a separate open question tracked in issue #64.
