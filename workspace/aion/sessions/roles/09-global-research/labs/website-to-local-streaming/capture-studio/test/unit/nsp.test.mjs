@@ -134,3 +134,41 @@ test('invalid temporal revision is excluded, not silently restored from final at
   assert.equal(g.nodes.get(e.eid).history.length, 1);
   assert.equal(g.toJSON().stats.invariantViolations, 1);
 });
+
+test('NSP-004: quarantine remains complete after a third matching observation', () => {
+  const entities = [
+    entity('thing:k:collision3', 'alice', 100),
+    entity('thing:k:collision3', 'bob', 200),
+    entity('thing:k:collision3', 'alice', 300),
+    entity('thing:k:other', 'clear', 400),
+  ];
+  const g = buildGraph({ model, resolutions: [{ type: 'thing', entities }] });
+  assert.equal(g.nodes.size, 1);
+  assert.equal(g.nodes.has('thing:k:collision3'), false);
+  assert.equal(g.quarantinedEntities, 3);
+  assert.equal(g.invariants[0].count, 3);
+});
+
+test('NSP-004: graph never creates a relation from quarantined identity', () => {
+  const modelWithReference = {
+    types: [
+      { id: 'author', name: 'Author', fields: [{ name: 'id', type: 'string' }], key: { field: 'id' } },
+      { id: 'post', name: 'Post', fields: [{ name: 'id', type: 'string' }], key: { field: 'id' } },
+    ],
+    relationships: [{ id: 'post-author', kind: 'references', from: 'post', to: 'author',
+      field: 'authorId', confidence: 0.99 }],
+  };
+  const author = entity('author:k:collision', 'alice', 100, { type: 'author', typeName: 'Author' });
+  const conflictingAuthor = entity('author:k:collision', 'bob', 200, { type: 'author', typeName: 'Author' });
+  const post = entity('post:k:safe', 'post1', 300, {
+    type: 'post', typeName: 'Post', attrs: { id: 'post1', authorId: 'alice' },
+    revisions: [{ t: 300, session: 'session1', values: { id: 'post1', authorId: 'alice' } }],
+  });
+  const g = buildGraph({ model: modelWithReference, resolutions: [
+    { type: 'author', entities: [author, conflictingAuthor] },
+    { type: 'post', entities: [post] },
+  ] });
+  assert.equal(g.nodes.has(author.eid), false);
+  assert.equal(g.nodes.has(post.eid), true);
+  assert.equal(g.edges.size, 0);
+});
