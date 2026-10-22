@@ -99,6 +99,7 @@ export class NetworkRecorder extends EventEmitter {
       st.armed = false; st.reattachOrphan = true;
       if (st.guard?.discard()) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_tail_devtools_reconnect' });
       if (st.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_frames_devtools_reconnect' });
+      if (st.esGuard?.discard().length) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_events_devtools_reconnect' });
       orphaned.push(st.sid);
       this.append({ k: 'body.excluded', sid: st.sid, reason: 'devtools_reconnect_stream_not_resumable' });
     }
@@ -122,6 +123,7 @@ export class NetworkRecorder extends EventEmitter {
       if (!sid.startsWith(`${entry.tag}:`)) continue;
       if (st.guard?.discard()) this.append({ k: 'body.excluded', sid, reason: 'security_tail_target_detached' });
       if (st.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid, reason: 'security_frames_target_detached' });
+      if (st.esGuard?.discard().length) this.append({ k: 'body.excluded', sid, reason: 'security_events_target_detached' });
       if (!st.ignored) this.append({ k: 'fail', sid, errorText: 'target detached', canceled: false, chunks: st.chunks ?? 0, bytes: st.bytes ?? 0 });
       this.reqs.delete(sid);
       n++;
@@ -137,6 +139,7 @@ export class NetworkRecorder extends EventEmitter {
     if (prev && p.redirectResponse) {
       if (prev.guard?.discard()) this.append({ k: 'body.excluded', sid, reason: 'security_tail_unfinished_redirect' });
       if (prev.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid, reason: 'security_frames_unfinished_redirect' });
+      if (prev.esGuard?.discard().length) this.append({ k: 'body.excluded', sid, reason: 'security_events_unfinished_redirect' });
       this.append({ k: 'res', sid, status: p.redirectResponse.status, mime: p.redirectResponse.mimeType, headers: redactHeaders(p.redirectResponse.headers), redirect: true });
       this.append({ k: 'done', sid, redirectedTo: redactUrl(url) });
     }
@@ -268,6 +271,9 @@ export class NetworkRecorder extends EventEmitter {
     if (st.armed && st.guard && !st.truncated && !st.credentialExcluded)
       this._appendProtectedChunk(st, st.guard.finish(), { finalSecurityTail: true });
     else if (st.guard) st.guard.discard();
+    if (!st.credentialExcluded) {
+      for (const msg of st.esGuard?.finish().frames ?? []) this.append(msg);
+    } else st.esGuard?.discard();
     if (st.body && !st.armed && this.profile.capture?.retrospectiveFallback !== false) {
       try {
         const r = await session.send('Network.getResponseBody', { requestId: p.requestId });
@@ -311,6 +317,7 @@ export class NetworkRecorder extends EventEmitter {
     if (st.ignored) { this.reqs.delete(st.sid); return; }
     if (st.guard?.discard()) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_tail_unfinished_failure' });
     if (st.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_frames_unfinished_failure' });
+    if (st.esGuard?.discard().length) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_events_unfinished_failure' });
     this.append({ k: 'fail', sid: st.sid, ct: p.timestamp, errorText: p.errorText, canceled: !!p.canceled, blockedReason: p.blockedReason, chunks: st.chunks, bytes: st.bytes });
     this.reqs.delete(st.sid);
   }
@@ -319,8 +326,24 @@ export class NetworkRecorder extends EventEmitter {
     const st = this.reqs.get(this._sid(tag, p.requestId));
     if (!st || st.ignored || !st.body) return;
     this.stats.esMessages++;
-    const { text } = scrubText(p.data ?? '');
-    this.append({ k: 'es.msg', sid: st.sid, ct: p.timestamp, eventName: p.eventName, eventId: p.eventId, data: text });
+    if (st.credentialExcluded) return;
+    // CDP emits this parsed view IN ADDITION to raw HTTP bytes. Guard it
+    // independently so split secret markers cannot survive via es.msg.
+    const bytes = Buffer.from(String(p.data ?? ''), 'utf8');
+    const { text, redactions } = scrubText(p.data ?? '');
+    const rec = { k: 'es.msg', sid: st.sid, ct: p.timestamp,
+      eventName: scrubText(p.eventName ?? '').text, eventId: scrubText(p.eventId ?? '').text,
+      data: text, securityDelayed: true };
+    if (redactions.length) rec.redactions = redactions;
+    const result = (st.esGuard ??= new FrameCredentialGuard()).push(rec, bytes);
+    for (const safe of result.frames) this.append(safe);
+    if (result.excluded) {
+      st.credentialExcluded = true;
+      st.guard?.exclude('eventsource_credential_candidate');
+      this.stats.sensitiveExcluded++;
+      this.append({ k: 'body.excluded', sid: st.sid, reason: result.reason,
+        securityGuard: 'eventsource-v1', coverage: 'Parsed EventSource messages and remaining stream body suppressed after a credential candidate.' });
+    }
   }
 
   _onWsCreated(tag, p, targetInfo) {
