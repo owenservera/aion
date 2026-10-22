@@ -174,7 +174,7 @@ test('periodic persist, explicit read and stop all carry the same complete repor
     feed(r, 'p:1', 300);
     feed(r, 'p:2', 120, 5000);
     const explicit = stable(r.liveReport());
-    r._persist();
+    await r._persist(); // periodic writes are asynchronous (kv.setAsync); await the settled files
     assert.deepEqual(stable(r.session.kv.get('SHAPES')), explicit, 'periodic persist equals an explicit read');
     const groupEvents = explicit.groups.filter((g) => g.source !== 'assembled').reduce((n, g) => n + g.count, 0);
     assert.equal(groupEvents, 420, 'every observed event is in the report (nothing dropped)');

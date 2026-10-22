@@ -76,8 +76,12 @@ function discriminatorsOf(json) {
   return out;
 }
 
-export function gatherEvidence(reducer, { domInspect = null, domTurns = null } = {}) {
+export function gatherEvidence(reducer, { domInspect = null, domTurns = null, phases = null } = {}) {
+  // Optional per-sub-phase wall time (the caller's phase object; never part of the returned evidence).
+  let tp = phases ? performance.now() : 0;
+  const mark = phases ? (k) => { const n = performance.now(); phases[k] = (phases[k] ?? 0) + (n - tp); tp = n; } : null;
   const summary = reducer.summary();
+  mark?.('e.summary');
   const leaves = {};
   const assembled = [];
   const samples = [];
@@ -114,12 +118,14 @@ export function gatherEvidence(reducer, { domInspect = null, domTurns = null } =
       eventCount++;
       eventBytes += (typeof e.text === 'string' ? e.text.length : 0) || (e.size ?? 0);
     }
+    mark?.('e.eventWalk');
     if (s._delta?.revisions > 0 && s._delta.doc && typeof s._delta.doc === 'object') {
       leafWalk(s._delta.doc, '$', leaves);
       collectArrays(s._delta.doc, '$', arrays);
       const texts = s._delta.texts(1);
       assembled.push({ sid: s.sid, endpoint: `${s.method ?? 'GET'} ${templateUrl(s.url)}`, url: s.url, doc: s._delta.doc, revisions: s._delta.revisions, longest: texts[0]?.text?.length ?? 0, status: s.status, startedT: s.startedT, blocks: s._delta.blocks?.().length ?? 0 });
     }
+    mark?.('e.deltaWalk');
     for (const d of s._delta?.detected ?? []) deltaDialects.add(d);
     if (s.appProtocol) appProtocols.add(s.appProtocol);
     if (s.graphql) graphql = s.graphql;
@@ -140,6 +146,7 @@ export function gatherEvidence(reducer, { domInspect = null, domTurns = null } =
     } catch { if (s.url) paths.push(String(s.url)); }
   }
 
+  mark?.('e.summaryStreams');
   const roleValues = new Set();
   for (const [p, vals] of Object.entries(leaves)) if (ROLEISH.test(p)) for (const v of vals) if (typeof v === 'string' && v.length < 24) roleValues.add(v.toLowerCase());
   for (const t of domTurns ?? []) if (t.role) roleValues.add(String(t.role).toLowerCase());
@@ -159,6 +166,7 @@ export function gatherEvidence(reducer, { domInspect = null, domTurns = null } =
       enumsByField.set(name, set);
     }
   }
+  mark?.('e.leafScan');
   const collections = [...arrays.values()].map((g) => ({
     path: g.path, observations: g.observations, items: g.items,
     avgItems: +(g.items / Math.max(1, g.observations)).toFixed(1),
@@ -168,6 +176,7 @@ export function gatherEvidence(reducer, { domInspect = null, domTurns = null } =
   const textLength = domInspect?.textLength ?? 0;
   const longestAssembled = assembled.reduce((a, x) => Math.max(a, x.longest), 0);
   const hasStreaming = summary.streams.some((s) => STREAMING_SET.has(s.transport));
+  mark?.('e.derive');
 
   return {
     summary, leaves, assembled, roleValues, fieldNames, numericChanging,

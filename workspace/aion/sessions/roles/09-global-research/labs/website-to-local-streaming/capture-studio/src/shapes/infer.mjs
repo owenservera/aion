@@ -264,7 +264,7 @@ export class ShapeInferencer {
     const suggestions = suggest(summary, groups, reducer, domBlocks, ph);
     mark('suggest');
     const ctx = { families: opts.families ?? [], profile: opts.profile ?? null, domInspect: opts.domInspect ?? null, domTurns: opts.domTurns ?? null };
-    const evidence = gatherEvidence(reducer, { domInspect: ctx.domInspect, domTurns: ctx.domTurns });
+    const evidence = gatherEvidence(reducer, { domInspect: ctx.domInspect, domTurns: ctx.domTurns, phases: ph });
     mark('evidence');
     const families = ctx.families.length ? detectFamilies(ctx.families, evidence) : [];
     suggestions.push(...familySuggestions(families, ctx, evidence), ...driftSuggestions(ctx.profile, reducer, evidence));

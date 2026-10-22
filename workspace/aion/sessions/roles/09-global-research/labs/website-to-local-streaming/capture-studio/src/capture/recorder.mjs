@@ -30,7 +30,7 @@ const SHAPE_MAX_STRIDE = 64;    // at the queue cap, one event in this many is o
 
 // Synchronous section timings, exposed as status().stats.timing. Each section costs two
 // performance.now() calls per execution. finalize* cover only terminal records (done/fail/ws.close).
-const TIMING_SECTIONS = ['statusTick', 'persistTick', 'shapeReport', 'shapeFlush', 'shapeDrain', 'finalize', 'finalizeIngest'];
+const TIMING_SECTIONS = ['statusTick', 'persistTick', 'persistStateWrite', 'persistShapesWrite', 'persistMetaWrite', 'shapeReport', 'shapeFlush', 'shapeDrain', 'finalize', 'finalizeIngest'];
 const TERMINAL_KINDS = new Set(['done', 'fail', 'ws.close']);
 const round3 = (n) => Math.round(n * 1000) / 1000;
 function newTiming() { return Object.fromEntries(TIMING_SECTIONS.map((k) => [k, { count: 0, lastMs: 0, maxMs: 0, totalMs: 0 }])); }
@@ -80,6 +80,8 @@ export class Recorder extends EventEmitter {
     this.maxShapeQueue = Math.max(1, maxShapeQueue);
     this.shapeSliceMs = shapeSliceMs;
     this.timing = newTiming();
+    // Outcome of periodic (asynchronous) state writes; a failed write is counted here, never thrown.
+    this.persistStats = { writes: 0, failed: 0, lastError: null };
     // Live-only JSON size cap (see StreamReducer jsonMaxBytes). 0 = no cap.
     this.liveJsonMaxBytes = Math.max(0, Number(liveJsonMaxBytes) || 0);
     this._resetShapeQueue();
@@ -643,7 +645,44 @@ export class Recorder extends EventEmitter {
     return seq;
   }
 
+  // Periodic tick (5 s timer). The STATE and SHAPES snapshots are taken and serialized synchronously,
+  // so they are one consistent view; their file writes run off the event loop (kv.setAsync). The
+  // session metadata save stays synchronous. A failed write is recorded in persistStats and never
+  // thrown, so a full disk cannot take the recorder down or surface as an unhandled rejection.
+  // Returns a promise that resolves to { state, shapes } booleans once both writes have settled.
   _persist() {
+    if (!this.session) return Promise.resolve(null);
+    const t0 = performance.now();
+    const st = this.status();
+    let t = performance.now();
+    const stateWrite = this._writeKvAsync('STATE', st);
+    this._mark('persistStateWrite', t);
+    const rep = this.liveReport();
+    t = performance.now();
+    const shapesWrite = this._writeKvAsync('SHAPES', rep);
+    this._mark('persistShapesWrite', t);
+    t = performance.now();
+    try { this.session.meta.stats = st.stats; this.session.saveMeta(); }
+    catch (e) { this._persistFailed('META', e); }
+    this._mark('persistMetaWrite', t);
+    this._mark('persistTick', t0);
+    return Promise.all([stateWrite, shapesWrite]).then(([state, shapes]) => ({ state, shapes }));
+  }
+
+  _writeKvAsync(key, value) {
+    let write;
+    try { write = this.session.kv.setAsync(key, value); }
+    catch (e) { this._persistFailed(key, e); return Promise.resolve(false); }
+    return write.then(() => { this.persistStats.writes++; return true; }, (e) => { this._persistFailed(key, e); return false; });
+  }
+
+  _persistFailed(what, error) {
+    this.persistStats.failed++;
+    this.persistStats.lastError = `${what}: ${String(error?.message ?? error).slice(0, 200)}`;
+  }
+
+  // Synchronous persist for stop and any caller that needs every file on disk when it returns.
+  _persistSync() {
     if (!this.session) return;
     const t0 = performance.now();
     const st = this.status();
@@ -674,7 +713,7 @@ export class Recorder extends EventEmitter {
       pageUrl: this.privacy.url(this.pageUrl ?? ''),
       profile: { name: this.profile.name, version: this.profile.version },
       queue: this.session.raw.queueDepth,
-      stats: { raw: { ...this.session.raw.stats }, network: { ...this.net.stats }, dom: { ...this.dom.stats }, shapes: { ...this.shapeStats, pending: this._shapeQ.length - this._shapeQi } },
+      stats: { raw: { ...this.session.raw.stats }, network: { ...this.net.stats }, dom: { ...this.dom.stats }, shapes: { ...this.shapeStats, pending: this._shapeQ.length - this._shapeQi }, persist: { ...this.persistStats } },
       openStreams: this.net.openStreams().length,
       targets: { tabs: this.tabs, follow: this.follow, list: this.targetList() },
       transport: {
@@ -760,7 +799,10 @@ export class Recorder extends EventEmitter {
     }
     try { if (this.follow || this.tabs === 'all') await this.conn.send('Target.setDiscoverTargets', { discover: false }, { timeoutMs: 2000 }); } catch { /* ignore */ }
     this.conn?.close();
-    this._persist();
+    // Periodic state writes may still be in flight: let them settle, so no older snapshot can land
+    // after the final synchronous one below. The periodic timer is already cleared above.
+    await this.session.kv.drain();
+    this._persistSync();
     await this.session.raw.close();
     const verify = await this.session.verify();
     this.session.meta.status = verify.ok ? 'complete' : 'complete_with_integrity_warnings';

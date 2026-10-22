@@ -8,6 +8,7 @@
 // falls back to a full ordered scan when it does not. The index is always rebuildable.
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, appendFileSync, renameSync, createReadStream, statSync, rmSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
+import { promises as fsp } from 'node:fs';
 import readline from 'node:readline';
 import path from 'node:path';
 import { RawLog } from './raw-log.mjs';
@@ -15,7 +16,7 @@ import { iterateRaw, iterateStreamRecords, loadRawIndex, buildRawIndex, rawStats
 import { compactSession, estimateCompaction, dirBytes } from './compact.mjs';
 
 export class KeyValueStore {
-  constructor(dir) { this.dir = dir; mkdirSync(dir, { recursive: true }); }
+  constructor(dir) { this.dir = dir; mkdirSync(dir, { recursive: true }); this._chains = new Map(); }
   _p(key) {
     if (!/^[A-Za-z0-9._-]{1,128}$/.test(key)) throw new Error(`invalid key: ${key}`);
     return path.join(this.dir, key.includes('.') ? key : `${key}.json`);
@@ -25,6 +26,28 @@ export class KeyValueStore {
     const data = typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(value, null, 2);
     writeFileSync(p + '.tmp', data); renameSync(p + '.tmp', p);
   }
+  // Asynchronous set for periodic snapshots. The value is serialized here, synchronously, with the
+  // same bytes set() would write, so the snapshot is fixed at call time. The file write itself runs
+  // off the event loop: a uniquely named temp file, then rename over the key (the same atomic replace
+  // as set()). Writes to one key are chained in call order, so a later snapshot always lands last.
+  // The returned promise rejects on failure; the caller owns that rejection. A synchronous set() of
+  // the same key must not overlap an unsettled setAsync() of it: callers await drain() first.
+  setAsync(key, value) {
+    const p = this._p(key);
+    const data = typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(value, null, 2);
+    const tmp = `${p}.${randomBytes(4).toString('hex')}.tmp`;
+    const prev = this._chains.get(p) ?? null;
+    const run = (async () => {
+      if (prev) await prev;
+      try { await fsp.writeFile(tmp, data); await fsp.rename(tmp, p); }
+      catch (e) { await fsp.rm(tmp, { force: true }).catch(() => {}); throw e; }
+    })();
+    const tail = run.then(() => {}, () => {}).then(() => { if (this._chains.get(p) === tail) this._chains.delete(p); });
+    this._chains.set(p, tail);
+    return run;
+  }
+  // Resolves once every setAsync() issued so far has settled (written or failed). Never rejects.
+  async drain() { while (this._chains.size) await Promise.all([...this._chains.values()]); }
   get(key, fallback = undefined) {
     const p = this._p(key);
     if (!existsSync(p)) return fallback;
