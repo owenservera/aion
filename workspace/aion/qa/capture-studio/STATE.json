@@ -2,21 +2,21 @@
   "schema": "aion.capture-studio.independent-qa.state.v1",
   "owner": "ChatGPT QA + team steering/alignment + light roadmap",
   "mode": "independent_qa_and_nonblocking_team_steering",
-  "status": "SPRINT_01_SOURCE_AUDIT_COMPLETE_INDEPENDENT_RUNTIME_QA_PENDING",
+  "status": "SPRINT_02_V8_SOURCE_EXECUTED_NATIVE_NODE_LIVE_ACCEPTANCE_PENDING",
   "initialized": "2026-10-21",
   "initial_pending_qa_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
-  "last_completed_sprint": "01-source-contract-audit-only",
-  "next_sprint": "02-browser-effects-and-capture-safety",
-  "next_mission": "QA Sprint 2: independent offline Node evidence for double-send denial, drive lease/crash/unknown effects, credential masking across chunks, capture lag/truncation and cancellation. No live sends. Keep family eligibility defect and Development AX exchange handoff visible.",
+  "last_completed_sprint": "02-bounded-source-and-v8",
+  "next_sprint": "03-identity-time-reconstruction",
+  "next_mission": "Pin newest source and perform independent temporal/raw/event-time regression against L4/L5 time-travel gaps: nonmonotonic seq timestamps [100,300,200], Knowledge UI as-of graph/model vs continuity, event-time versus pinned learner revision. Retest Sprint 2 Core split-token fix in real Node on checkout when available; no live browser send.",
   "product_path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio",
   "developer_handoff": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/QA-NEXT-TESTS.md",
   "no_product_code_edits": true,
   "developer_continues_without_qa_gate": true,
   "source_coverage_verified": false,
-  "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision. Sprint1 evidence is at 5eefb2e; prior physical LOC audit remains pinned to 34e1a913 and is not a current-source measurement.",
+  "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision. Sprint1 evidence is at 5eefb2e; prior physical LOC audit remains pinned to 34e1a913 and is not a current-source measurement. Sprint 2 independently source-exercised V8 mocks only, not native Node; 34e1a913 LOC remains historical.",
   "last_recon_date": "2026-10-22",
   "recon_baseline_sha": "49095348141646ba8d90bfc27c30e8fa0d1c6eda",
-  "last_observed_main_sha": "5eefb2e34345aa5d01d888f0a8d3e034e0ea0fc7",
+  "last_observed_main_sha": "02310fe5ae913c23a56fd16144b518b78eb0b4a6",
   "roadmap": "workspace/aion/qa/capture-studio/ROADMAP.md",
   "historical_executed_qa": {
     "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
@@ -40,7 +40,7 @@
   },
   "current_recon_executed_tests": 0,
   "steering_authority": "owner-authorized unilateral QA-owned records and roadmap updates; no other-lane code edits or quality gates",
-  "latest_scanned_product_head": "5eefb2e34345aa5d01d888f0a8d3e034e0ea0fc7",
+  "latest_scanned_product_head": "02310fe5ae913c23a56fd16144b518b78eb0b4a6",
   "next_parallel_build": {
     "status": "queued_not_started",
     "core": "workspace/aion/ops/capture-studio-core/SPRINT-03.md",
@@ -107,7 +107,9 @@
     "current_product": "Conversation runtime, Chat/Drive UI and live-drive sources committed",
     "latest_local_live_status": "Earlier connect/readiness stall; current-head live proof not verified",
     "core_agent": "Core's own Oct 22 five-sprint plan records owner-authorized Sprint 1 resumption; QA did not dispatch",
-    "qa_acceptance": "pending"
+    "qa_acceptance": "pending",
+    "qa_issue_credential_redaction": "https://github.com/owenservera/aion/issues/64",
+    "development_handoff_comment": "https://github.com/owenservera/aion/issues/43#issuecomment-6347302646"
   },
   "five_sprint_plan": "workspace/aion/qa/capture-studio/SPRINTS.md",
   "sprint_01": {
@@ -122,5 +124,30 @@
     "highest_risk": "Campaign family consolidation before calibration reply gate; SHAPES-only eligibility in buildFamily",
     "development_exchange": "Studio adoption AX-0022/23 drafts still absent in canonical exchange",
     "product_files_edited_by_qa": 0
+  },
+  "sprint_02": {
+    "source_pin": "02310fe5ae913c23a56fd16144b518b78eb0b4a6",
+    "receipt": "workspace/aion/qa/capture-studio/SPRINT-02.md",
+    "source_loaded_v8_redactor": {
+      "positive_controls_masked": 3,
+      "split_cases_unmasked": 3,
+      "method": "Exact redactor body with ASCII Buffer shim, synthetic credentials",
+      "native_node": false
+    },
+    "source_loaded_v8_conversation": {
+      "initial_simulated_submits": 1,
+      "fresh_key_uncertain": "ONE_TURN_LIMIT",
+      "same_key": "READ_ONLY_ORIGINAL",
+      "fresh_key_after_reconcile": "ONE_TURN_LIMIT",
+      "method": "Exact conversation service body with in-memory fs/crypto/URL shims",
+      "native_node": false
+    },
+    "native_node_test_artifact": "workspace/aion/qa/capture-studio/tests/sprint02-capture-safety.test.mjs",
+    "native_node_test_executed": false,
+    "live_browser_executed": false,
+    "files_product_modified": 0,
+    "critical_open": "Core W4 pre-disk split-token redaction QA issue 64",
+    "development_handoff": "GitHub issue 43 comment id 6347302646; not ACKed",
+    "independent_acceptance": false
   }
 }
