@@ -31,7 +31,33 @@
 
 ## Sprint 1 evidence ledger
 
-**Status:** active. Pending source and test commit receipts; no local Windows/browser acceptance asserted.
+**Status:** Sprint 1 source delivered on 2026-10-22, with 46/46 deterministic V8 interface contracts passing against committed source (37 prior contracts + 9 new handoff contracts). Native Node 22, real browser and independent QA acceptance remain pending.
+
+### Shipped source
+- Studio `index.html`: compatible `/#session=<id>` link parsing, explicit `&view=knowledge` route, strict field/malformed/multiple input rejection, authenticated session read before showing Knowledge, error guidance, navigation epochs and stale-selection clearing.
+- Chat `chat.mjs`: open source recording and optional explicitly labelled derived Knowledge from finished capture and details only if the conversation carries a real saved `sessionId`.
+- Live drive `drive.mjs`: same exact saved recording and cautious knowledge navigation, retaining transcript link. It does **not** interpret a reply-match verdict as accepted capture.
+- New `test/unit/studio-handoff-ui.test.mjs`: nine deterministic tests for source-backed navigation, legacy links, reserved IDs, malformed and duplicate fields, unavailable sessions, race order and no send/derive side effects.
+- Existing four UI suites re-exercised with the current source as regression fixtures.
+
+### Verified GitHub source commits
+- [`ca43231`](https://github.com/owenservera/aion/commit/ca4323113813d1fc423452f23f2185b5db2d3b55) — strict session-to-knowledge deep links
+- [`c5232c3`](https://github.com/owenservera/aion/commit/c5232c3192048a33ad3f4a7b3d87aa1ebb7ae005) — Chat saved-source / Knowledge actions
+- [`204be9a`](https://github.com/owenservera/aion/commit/204be9a11060c9aa03bc353535cfc59ec666af49) — Drive saved-source / Knowledge actions
+- [`60c47e1`](https://github.com/owenservera/aion/commit/60c47e132f6249601ee874ed776146a0f50c8856), [`f52a326`](https://github.com/owenservera/aion/commit/f52a326c2b394f85afcc12fb1d0d46f76cce5713), [`a76816c`](https://github.com/owenservera/aion/commit/a76816cf61341b694141997a542ff3903b98a954) — tests and fixture improvements
+- [`6e10eb0`](https://github.com/owenservera/aion/commit/6e10eb01ba57fd67e7779f116a4dbdff603cff76) — fail closed on invalid or unavailable saved recording link
+
+### Execution evidence and acceptance boundary
+All 46 test bodies were run from GitHub-fetched exact source/test blobs in an isolated JavaScript V8 compatibility harness: 46 passed / 0 failed. The browser inline script, Drive script and export-stripped Chat module parsed. The newly committed tests are Node `node:test` test files, **but the native Node runner was not executed** during this source-only interaction. No authenticated Chrome, Windows local runtime, real AI-site send or independent QA acceptance occurred. Session IDs are only used as same-origin navigation identifiers; no raw transcripts, credentials, or cookies were put into Git.
+
+### Remaining Sprint 1 acceptance
+- Run native Node 22 UI unit suite against local checkout and exercise authenticated Chat → saved session → Knowledge in actual Studio.
+- Verify keyboard focus and narrow-screen switch, missing/removed session and 401 scenarios with browser evidence.
+- Read-only functionality may be merged into broader UI, but do not mark physical acceptance complete.
+
+### Next queued build
+**Sprint 2 — Lifecycle & Recovery**: shared uncertainty/lease/reconnect/delete status language and state-safe recovery across Chat, Drive and Sessions. No automatic resend; contract ownership remains Core.
+
 
 ## Continuous pull after Sprint 1
 
