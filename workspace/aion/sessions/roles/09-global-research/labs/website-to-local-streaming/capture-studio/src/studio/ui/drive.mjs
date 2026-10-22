@@ -277,8 +277,19 @@ async function launch(dryRun) {
     $('#formStatus').textContent = '';
     if (e.status === 409) {
       const id = e.data?.activeJobId;
-      $('#formError').textContent = 'Another job is already running, and only one can run at a time. Nothing was started.' + (id ? ' Showing the running job.' : '');
-      if (id) await openJob(id);
+      const holder = e.data?.holder;
+      const error = $('#formError');
+      if (holder?.kind === 'conversation') {
+        error.replaceChildren('A Chat conversation holds the browser. No Drive job was started. Inspect or finish the conversation before trying again. ',
+          el('a', { href: '/chat', text: 'Open Chat' }));
+      } else if (id) {
+        error.textContent = 'Another Drive job holds the browser. Nothing was started. Showing that job to inspect its state.';
+        await openJob(id);
+      } else {
+        error.textContent = 'The browser is busy or its owner could not be confirmed. No Drive job was started. Check Chat and active Drive jobs before retrying.';
+      }
+      // Never automatically queue the rejected live request after a lease conflict.
+      $('#confirmLive').checked = false;
     } else if (e.status === 400) {
       $('#formError').textContent = 'The Studio rejected this request: ' + e.message;
     } else $('#formError').textContent = 'Could not start the job: ' + describe(e);
