@@ -15,7 +15,7 @@ const end = script.indexOf("if (location.hash.startsWith('#session='))", start);
 const navigation = start > 0 && end > start ? script.slice(start, end) : '';
 
 function harness() {
-  const states = [], reads = [];
+  const states = [], reads = [], selection = {sessionId:null};
   let read = async () => true;
   const nodes = new Map();
   const $ = (s) => {
@@ -23,10 +23,11 @@ function harness() {
     return nodes.get(s);
   };
   const show = (v) => states.push(v);
-  const apiRead = (id) => {reads.push(id);return read(id);};
+  const apiRead = (id) => {reads.push(id);selection.sessionId=id;return read(id);};
+  const selectSessionContext = (id) => {selection.sessionId=id || null;};
   const functions = runInNewContext(navigation + '\n({parseSessionDeepLink,openSessionDeepLink})',
-    { URLSearchParams, show, $ ,openSession:apiRead }, { timeout:1000 });
-  return {...functions,$,states,reads,setRead:(fn)=>{read=fn;}};
+    { URLSearchParams, show, $, openSession:apiRead, selectSessionContext, S:selection }, { timeout:1000 });
+  return {...functions,$,states,reads,selected:()=>selection.sessionId,setRead:(fn)=>{read=fn;}};
 }
 
 test('the Studio script compiles and provides the session handoff', () => {
@@ -62,6 +63,7 @@ test('a missing/unauthorized recording never switches to Knowledge', async () =>
   assert.equal(ok,false);
   assert.deepEqual(h.states,['sessions']);
   assert.match(h.$('#deepLinkNotice').textContent,/Could not open/);
+  assert.equal(h.selected(),null,'failed link cannot leave unverified recording selected');
 });
 
 test('invalid, duplicate or unknown fields do not trigger source fetch', async () => {
@@ -71,6 +73,7 @@ test('invalid, duplicate or unknown fields do not trigger source fetch', async (
     assert.equal(h.parseSessionDeepLink(fragment),null,fragment);
     assert.equal(await h.openSessionDeepLink(fragment),false,fragment);
     assert.equal(h.reads.length,0,fragment);
+    assert.equal(h.selected(),null,fragment);
     assert.match(h.$('#deepLinkNotice').textContent,/Invalid recording link/);
   }
 });
