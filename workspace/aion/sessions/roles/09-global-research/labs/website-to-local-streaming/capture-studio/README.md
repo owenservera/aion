@@ -16,6 +16,7 @@ Capture Studio itself writes evidence to your **local data directory outside the
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (module map and data flow).
 - Review findings and worklog: [`ASSESSMENT-AND-WORKLOG.md`](ASSESSMENT-AND-WORKLOG.md).
 - Single-PC defaults and de-securitization decisions: [`docs/LOCAL-FIRST.md`](docs/LOCAL-FIRST.md).
+- **Current Windows CORE L0/L1 handoff and diagnostics:** [`docs/CORE-LOCAL-HANDOFF-2026-10-22.md`](docs/CORE-LOCAL-HANDOFF-2026-10-22.md) and `node scripts/core-local-handoff.mjs l0|l1`.
 - Live-test runbook on Windows PowerShell: [`docs/LIVE-TEST.md`](docs/LIVE-TEST.md).
 - The interaction layer (pacing, measured CDP key-event rules, the typing harness):
   [`docs/HUMAN-INTERACTION.md`](docs/HUMAN-INTERACTION.md).
