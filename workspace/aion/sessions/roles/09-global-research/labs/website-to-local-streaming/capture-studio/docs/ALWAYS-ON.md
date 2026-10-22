@@ -74,6 +74,32 @@ existing sign-ins are used) and refuses with an explanation if that path exists 
 junction, launches Chrome with the flags above, waits up to 25 s, then prints the profile path, the
 pid and `OK`. PowerShell 5.1, no admin.
 
+## Background capture, foreground drive
+
+Capture reads a tab over CDP and needs nothing from the window: a background capture is fine, and the
+supervisor is happy with the browser behind other windows. **A background drive is not.**
+
+- A tab that is not the active tab reports `document.visibilityState === "hidden"`, and Chrome does
+  not deliver synthetic key input to a hidden tab. Measured on Chrome 155 on this machine:
+  `Input.insertText` still wrote into the composer while `Input.dispatchKeyEvent` keystrokes were
+  silently dropped, so the drive looked like it typed and sent but nothing arrived.
+- `Emulation.setFocusEmulationEnabled` makes `document.hasFocus()` return `true` even while the tab
+  is hidden, so `hasFocus()` is not a sufficient signal; `visibilityState` is. See
+  [`HUMAN-INTERACTION.md`](HUMAN-INTERACTION.md#visibility-and-focus).
+- A window that is occluded by another window reports every page as hidden, and `Page.bringToFront`
+  only switches tabs inside the browser. A drive therefore opens its own tab, which is visible by
+  construction, and closes it when the drive ends.
+
+If the window has to be brought forward for a drive:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\focus-chrome.ps1
+```
+
+It restores and raises the Chrome window from the OS (`ShowWindow(SW_RESTORE)`, `BringWindowToTop`,
+`SetForegroundWindow` with `AttachThreadInput`), accepts `-ProcessId` and `-Title`, and exits `0`
+when the window is in front, `1` when it is not or no Chrome window was found.
+
 ## Stopping is graceful
 
 `--stop` writes a stop request to `<data dir>\always-on.stop`; the supervisor notices it within

@@ -218,13 +218,16 @@ suffix, `latest`, `latest~2` (third newest), `latest:claude.ai` (newest for that
 `drive` and `campaign` are the opt-in interaction layer. They use the same CDP connection and the
 same recorder as capture, so what they send and receive lands in the same session format.
 
-- **`drive <site|url>`** sends **one** prompt into a tab that is already open on that site (or opens
-  one), records the exchange unless `--no-record`, waits until the reply stops changing and prints
-  it. A plain `https://` URL works without a site adapter: the generic heuristics in
-  `src/capture/actions.mjs` find the composer, the send control and the reply. A login wall stops
-  the command before anything is typed. The default prompt is a fixed 12-word calibration sentence
-  (`alpha bravo charlie …`), so a captured transcript can be checked word for word. `--dry-run`
-  prints the resolved adapter and target and types nothing.
+- **`drive <site|url>`** sends **one** prompt into a tab of its own, records the exchange unless
+  `--no-record`, waits until the reply stops changing and prints it. The drive opens a fresh tab on
+  the site, activates it, and closes it again when the drive ends, so your browser keeps only the
+  tabs you opened. A tab that is not the active one is hidden, and Chrome drops synthetic key input
+  for a hidden tab, which is why the tab is created fresh instead of reused. A plain `https://` URL
+  works without a site adapter: the generic heuristics in `src/capture/actions.mjs` find the
+  composer, the send control and the reply. A login wall stops the command before anything is typed.
+  The default prompt is a fixed 12-word calibration sentence (`alpha bravo charlie …`), so a
+  captured transcript can be checked word for word. `--dry-run` prints the resolved adapter and
+  target and types nothing.
 - **`campaign`** walks the nine known sites in order — `chatgpt`, `claude`, `gemini`, `deepseek`,
   `zai`, `qwen`, `lmarena`, `minimax`, `kimi` — one at a time, and for each one drives it, derives
   the session and builds the site family. **The default is plan-only**: adapters and target URLs
@@ -247,6 +250,20 @@ node bin/studio.mjs library show chatgpt.com
 node bin/studio.mjs library list
 ```
 
+**The browser window may have to be brought to the foreground.** A drive creates and activates its
+own tab, but a browser window that is behind another window reports every page as hidden, and
+`Page.bringToFront` only switches tabs inside the browser. Bring the window forward from the OS
+first:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\focus-chrome.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\focus-chrome.ps1 -Title chatgpt
+```
+
+`-ProcessId` and `-Title` choose which Chrome window; it restores and raises it and exits `0` when
+the window is in front, `1` when it is not or none was found. The measured evidence is in
+[`docs/HUMAN-INTERACTION.md`](docs/HUMAN-INTERACTION.md).
+
 **Human pacing.** Every character is a real `keyDown` + `char` + `keyUp` triple with 35–110 ms
 between keys, longer pauses at word and sentence boundaries, a periodic "thinking" pause, one
 deliberate typo that is noticed and corrected in longer texts, and a 0.7–1.9 s hold before sending.
@@ -261,8 +278,10 @@ rules behind them are in [`docs/HUMAN-INTERACTION.md`](docs/HUMAN-INTERACTION.md
 - An account may be rate-limited. One prompt per site per run is deliberate — do not loop the
   campaign to "get more data".
 - A blocked site (login wall, missing adapter) is recorded and skipped, not retried.
-- The interaction layer types and sends; it does not click through dialogs, accept cookie banners
-  you dismissed before, or solve a challenge.
+- The interaction layer types and sends. It dismisses a cookie banner only with the least
+  permissive option and never accepts tracking consent on your behalf; it never opens a cookie
+  "settings" link, never answers an age or login prompt, and never solves a challenge. Those are
+  reported and stop that site's drive.
 
 ## Studio web UI and the `/api/v1` API
 

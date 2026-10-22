@@ -44,13 +44,90 @@ by `scripts/human-check.mjs`.
    mutating the DOM: no marker attributes, no injected elements.
 8. **A background tab reports `document.hasFocus() === false`,** so the driver sends
    `Page.bringToFront` and then `Emulation.setFocusEmulationEnabled {enabled: true}` before
-   interacting. `prepareHumanEnvironment()` reports what the page actually sees.
+   interacting. `prepareHumanEnvironment()` reports what the page actually sees. Focus emulation
+   answers `hasFocus`, not visibility — see [Visibility and focus](#visibility-and-focus).
 9. **On this machine `navigator.webdriver` is `false`** (Chrome is launched without
    `--enable-automation`) **and the user agent is the normal Chrome UA.** The layer reads both and
    reports them; it never spoofs a UA and never sets automation overrides.
 
 The wider research on what a page can observe, and the browser parameter table, is in
 [`research/CDP-REALISM.md`](research/CDP-REALISM.md). It is not repeated here.
+
+## Visibility and focus
+
+A tab that is not the active tab is hidden, and Chrome does not deliver synthetic key input to a
+hidden tab. Measured on Chrome 155 on this machine, with `document.visibilityState === "hidden"`:
+
+- `Input.insertText` still wrote text into the composer, while `Input.dispatchKeyEvent` keystrokes
+  were silently dropped. The drive looked like it typed and sent; nothing arrived.
+- `Emulation.setFocusEmulationEnabled {enabled: true}` makes `document.hasFocus()` return `true`
+  even while the tab is hidden, so `hasFocus()` alone is **not** a sufficient signal.
+  `document.visibilityState` is. `prepareHumanEnvironment()` enables focus emulation and reports
+  `hasFocus`; a `true` from it is not proof that the tab is visible.
+- `Page.bringToFront` cannot fix a hidden tab when the browser window is occluded by another
+  window. It switches tabs inside the browser and nothing more.
+
+The fix is to drive in a freshly created tab, which is always visible. `driveSite()` opens its own
+tab through `/json/new`, activates it, and closes it again when the drive ends, so the owner's
+browser keeps only their own tabs. (`freshTab: false` exists and reuses an open tab on the host; it
+is the path that hits the hidden-tab problem.)
+
+When the window itself is behind another window, bring it to the foreground from the OS:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\focus-chrome.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\focus-chrome.ps1 -Title chatgpt
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\focus-chrome.ps1 -ProcessId 12345
+```
+
+`scripts/focus-chrome.ps1` calls `ShowWindow(SW_RESTORE)`, `BringWindowToTop` and
+`SetForegroundWindow`, attaching the input queues with `AttachThreadInput` first because Windows
+refuses `SetForegroundWindow` from a process that is not already foreground. `-ProcessId` and
+`-Title` choose which Chrome window is used; with no filter it takes the first Chrome process that
+has a main window. It waits 350 ms and exits `0` when the window is in front, `1` when it is not or
+when no Chrome window was found.
+
+## Reply detection
+
+A drive accepts an answer only when **new content** appeared after the send. These rules live in
+`readTranscript()`, `waitForCompletion()`, `detectSiteFailure()` and `detectAuthWall()` in
+`src/capture/actions.mjs`.
+
+- **New content, not new text.** The calibration prompt always produces the same 12 words, so a
+  fresh reply can be byte-identical to the previous one. The transcript reader reports `count`, the
+  number of visible content elements it matched, and `waitForCompletion()` accepts an answer only
+  when that count grew past the baseline taken before the send (`baseCount`). Text equality is
+  checked as well, but the count is the proof.
+- **The prompt we sent is excluded.** The transcript is read with `exclude: [prompt]`, and a block
+  whose text equals the prompt, contains it or is contained by it does not count.
+- **Status placeholders are not answers.** `Thinking`, `Generating`, `working`, `loading`,
+  `思考中`, `正在思考`, `生成中`, `加载中` and their dotted variants are filtered out of the count.
+- **Navigation chrome is excluded.** Sidebars, headers, footers, navs, menus, toolbars and
+  breadcrumbs are skipped, and so is interactive chrome (buttons, links, inputs). Kimi returned
+  `New chat / My Kimi / Plugins` as an answer before this was fixed.
+- **A site-side failure ends the drive immediately.** `detectSiteFailure()` checks visible
+  dialogs/modals first and then the page text for quota and credit messages, network errors, rate
+  limits, captchas, "service unavailable", age gates (`confirm your age`,
+  `what year were you born`) and login prompts (`log in or create account`, `sign in to continue`,
+  `请登录`). A match ends the drive with the site's own words instead of burning the timeout.
+- **A login modal over a usable composer is a login wall.** `detectAuthWall()` blocks the drive when
+  a visible dialog mentions log in, sign in, send code, a QR code or a password, even if the
+  composer below it looks enabled (Kimi shows a WeChat/phone login dialog over a working composer).
+  A login URL, a disabled composer and a read-only composer are walls too.
+
+## Cookie consent
+
+`dismissCookieBanner()` handles a consent banner before the prompt is typed, and always takes the
+**least permissive** option: `necessary`, `essential only`, `only necessary`, `reject`,
+`reject all`, `decline`, `deny`, `continue without`. What it will not do:
+
+- **A banner that offers only "accept all" is reported, not accepted.** Consent is the owner's
+  decision, so the banner and its labels are recorded in the drive result (`consent`) and the drive
+  continues, because a banner rarely blocks the composer.
+- **A "cookie settings" / "manage" / "preferences" link is never clicked.** On arena.ai it opened
+  `?manage-cookies=true`, and the open modal swallowed the next click, so the chat was blocked.
+- **An open settings modal is closed with Escape** (`closeCookieModal()`), which also clears the
+  `?manage-cookies=true` URL state.
 
 ## Pacing parameters
 
@@ -151,6 +228,13 @@ means the layer no longer behaves like a keyboard.
 - Do not spoof the user agent or set automation overrides; the machine already reports
   `navigator.webdriver === false` and a normal Chrome UA.
 - Do not run two drives at once, and do not loop `campaign --execute` to collect more messages.
+- Do not drive in a reused background tab: a hidden tab silently drops every synthetic keystroke.
+- Do not trust `document.hasFocus()` alone; focus emulation reports `true` for a hidden tab. Read
+  `document.visibilityState`.
+- Do not click a cookie "settings", "manage" or "preferences" link. Use a conservative option, or
+  report the banner.
+- Do not answer an age gate or a login prompt for the owner. Report it with the site's own words
+  and stop that drive.
 
 ## Limits
 
