@@ -66,7 +66,7 @@ test('recording context changes before new session-request epoch is captured', (
   assert.match(script,/async function openSession\(id\) \{\s*selectSessionContext\(id\);\s*const requestSeq = \+\+S\.sessionRequestSeq/);
 });
 
-test('401 responds with non-secret tokenized URL recovery, cleared after successful read', async () => {
+test('401 gives local-mode-aware recovery, cleared after successful read', async () => {
   const S={authExpired:false}, map=new Map();
   const $=(id)=>{if(!map.has(id))map.set(id,{textContent:''});return map.get(id);};
   let response={ok:false,status:401,statusText:'Unauthorized',json:async()=>({error:'Unauthorized'})};
@@ -74,7 +74,7 @@ test('401 responds with non-secret tokenized URL recovery, cleared after success
   const code=script.slice(script.indexOf('async function api('),script.indexOf('function toast('))+'\napi';
   const api=runInNewContext(code,{S,$,fetch},{timeout:1500});
   await assert.rejects(api('sessions/s1/model'),(e)=>e.status===401);
-  assert.match($('#connectionNote').textContent,/authorization expired/);
+  assert.match($('#connectionNote').textContent,/Local mode needs no token/);
   response={ok:true,status:200,json:async()=>({status:'complete'})};
   assert.equal((await api('sessions/s1/knowledge-status')).status,'complete');
   assert.equal(S.authExpired,false);
