@@ -228,8 +228,21 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         return send(res, 200, { total: bytes.length, chunks, truncatedForView: bytes.length > max });
       }
       if (c === 'events' && d) {
+        // Cursor paging: ?after=<seq> keeps events with seq > after (non-negative integer, else 400).
+        // ?limit= defaults to 2000 and is clamped to 1..5000. Events from one raw record share its seq,
+        // so a page finishes any seq group it started; otherwise the cursor would skip or repeat events.
+        if (q.after !== undefined && !/^\d+$/.test(q.after)) return send(res, 400, { error: 'after must be a non-negative integer' });
+        const after = q.after === undefined ? null : Number(q.after);
+        if (after !== null && !Number.isSafeInteger(after)) return send(res, 400, { error: 'after must be a non-negative integer' });
+        const limit = Math.min(Math.max(Math.trunc(Number(q.limit ?? 2000)) || 2000, 1), 5000);
         const out = [];
-        for await (const ev of s.dataset('events').iterate()) { if (ev.sid === d) out.push(previewEvent(ev)); if (out.length >= Number(q.limit ?? 2000)) break; }
+        let more = false, lastSeq = null;
+        for await (const ev of s.dataset('events').iterate()) {
+          if (ev.sid !== d || (after !== null && !(ev.seq > after))) continue;
+          if (out.length >= limit && ev.seq !== lastSeq) { more = true; break; }
+          out.push(previewEvent(ev)); lastSeq = ev.seq;
+        }
+        if (more) res.setHeader('x-next-after', String(lastSeq));
         return send(res, 200, out);
       }
       if (c === 'revision' && d) {
