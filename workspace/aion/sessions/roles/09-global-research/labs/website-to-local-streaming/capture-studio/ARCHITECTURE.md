@@ -120,7 +120,7 @@ A known limitation, verified: connections opened before attach are invisible to 
 
 ### 2026-10-23 update — offline work since 617f1067
 
-Owner decision 2026-10-23: offline work only; fresh controlled captures are deferred. Code observed at main `4106b785` (working tree clean). Evidence labels: **Build** = source exists; **Integrated** = wired into derive, API or UI; **Locally demonstrated on synthetic data** = run locally on synthetic fixtures or in-process; **Observed on saved real sessions (read-only)** = counts only. Nothing below is a live-site, real-Chrome or Windows result, and nothing is independently accepted.
+Owner decision 2026-10-23: offline work only; fresh controlled captures are deferred. Code observed at main `fc72fcb2` (working tree clean at observation). Evidence labels: **Build** = source exists; **Integrated** = wired into derive, API or UI; **Locally demonstrated on synthetic data** = run locally on synthetic fixtures or in-process; **Observed on saved real sessions (read-only)** = counts only. Nothing below is a live-site, real-Chrome or Windows result, and nothing is independently accepted.
 
 Commit note: the stated range `617f1067..5bcbc5bf` does not cover every commit cited here. Commits on main after `5bcbc5bf` are `ac87148d`, `56eed0dc`, `7b7e3306`, `3ec67e46`, `7cd1fb50` and `4106b785`; items 4–7 and 10 below cite them. The Records panel commit `1b3904d1` predates the `617f1067` base.
 
@@ -133,12 +133,12 @@ Commit note: the stated range `617f1067..5bcbc5bf` does not cover every commit c
 7. **Capture-path performance** (`f88d116f`, `ef66536f`, `07664233`, `4106b785`): live shape observation moved off the append path (deferred, time-sliced, sampled under load); events dataset was already buffered; DOM block normalisation cached per report. Measured on synthetic in-process runs only:
    - the saturation lab is too noisy to claim a p99 gain (CV 23–40%);
    - realistic chat scenario (paced SSE, DOM bursts, 6 MB JSON burst; n=3): event-loop p99 about 27–33 ms and queue-age p99 about 65–92 ms, within targets;
-   - **longest single stall 114–146 ms misses the 100 ms target** (reference with capture disabled, i.e. the load generator alone: 24–53 ms; this is not a before/after of a fix);
-   - remaining stall owners at the 5 s persist tick: gatherEvidence 41–56 ms, profiler 6–22 ms, SHAPES kv write 13–18 ms.
+   - **longest single stall 101-105 ms (n=3, CV about 2%) misses the 100 ms target by 1-5%; it was 114-146 ms before the periodic STATE/SHAPES snapshots were written asynchronously (fc72fcb2)** (reference with capture disabled, i.e. the load generator alone: 24–53 ms; this is not a before/after of a fix);
+   - remaining synchronous owners at the 5 s persist tick: the evidence walk (gatherEvidence) 41-56 ms, suggest 15-25 ms, profiler 6-22 ms; the STATE and SHAPES writes now run asynchronously.
 
    No real-Chrome performance number exists. Locally demonstrated on synthetic data; the 100 ms target is not met.
 8. **UI** (`1b3904d1`, `4bfdf814`, `e87a4672`): read-only Records panel, Stream-to-page panel, Page components panel, and cursor-paged events scrubbing. Build: source and vm-stub tests only; no browser run.
-9. **Tests**: `bun run test` (node --test unit suite) reports 759 tests, 758 pass, 0 fail and 1 pre-existing todo at the last full run. QA suites outside the unit suite: replay-fidelity (`617f1067`, 10/10 reported in `034d0e21`) shows 10 of 10 finished synthetic sessions byte- and event-faithful, with 2 sessions having an unfinished stream correctly excluded and one open todo (S1-F1: family build does not require an acceptance verdict). native-shape-fidelity (`2062f9f4`) shows 6 of 6 variants faithful at stream, components and page layers, with 3 cut variants correctly non-final. Locally demonstrated on synthetic data.
+9. **Tests**: `bun run test` (node --test unit suite) reports 781 tests, 780 pass, 0 fail and 1 pre-existing todo at the last full run. QA suites outside the unit suite: replay-fidelity (`617f1067`, 10/10 reported in `034d0e21`) shows 10 of 10 finished synthetic sessions byte- and event-faithful, with 2 sessions having an unfinished stream correctly excluded and one open todo (S1-F1: family build does not require an acceptance verdict). native-shape-fidelity (`2062f9f4`) shows 6 of 6 variants faithful at stream, components and page layers, with 3 cut variants correctly non-final. Locally demonstrated on synthetic data.
 
 Defect fixes and their commits are listed in `workspace/aion/qa/capture-studio/FINDINGS.md` (2026-10-23 section).
 
@@ -184,7 +184,7 @@ No row is TESTED REAL WEBSITE or VERIFIED WINDOWS yet.
 - Real-Chrome performance (no number exists).
 - The turn-extractor effect on the real ChatGPT page.
 - Claude reply reconstruction.
-- The 100 ms longest-stall target (synthetic: 114–146 ms, missed).
+- The 100 ms longest-stall target (synthetic: 101-105 ms, missed by 1-5%).
 - Independent acceptance: none; L4/L5 0/7 unchanged.
 - Development / Track B acknowledgement of the Studio consolidation: AX-0022/0023 still absent from `EXCHANGE.jsonl`.
 - Issue #64 (credential masking): open. The default capture mode is local-raw, which bypasses the stream credential guards by design per owner direction in issue #65.

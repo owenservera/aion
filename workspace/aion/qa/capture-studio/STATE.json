@@ -16,7 +16,7 @@
   "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision. Sprint1 evidence is at 5eefb2e; prior physical LOC audit remains pinned to 34e1a913 and is not a current-source measurement. Sprint 2 independently source-exercised V8 mocks only, not native Node; 34e1a913 LOC remains historical.",
   "last_recon_date": "2026-10-22",
   "recon_baseline_sha": "49095348141646ba8d90bfc27c30e8fa0d1c6eda",
-  "last_observed_main_sha": "4106b78581df514a20604eb54cee1ec23c54bb97",
+  "last_observed_main_sha": "fc72fcb2ee4e3e365a27cc619ce04724c9154229",
   "roadmap": "workspace/aion/qa/capture-studio/ROADMAP.md",
   "historical_executed_qa": {
     "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
@@ -169,7 +169,7 @@
   "session_2026_10_23": {
     "date": "2026-10-23",
     "scope": "offline only; owner decision 2026-10-23: fresh controlled captures deferred",
-    "code_head_observed": "4106b78581df514a20604eb54cee1ec23c54bb97",
+    "code_head_observed": "fc72fcb2ee4e3e365a27cc619ce04724c9154229",
     "stated_commit_range": "617f1067..5bcbc5bf",
     "commits_on_main_after_5bcbc5bf_cited": ["ac87148d", "56eed0dc", "7b7e3306", "3ec67e46", "7cd1fb50", "4106b785"],
     "records_panel_commit_before_base": "1b3904d1",
@@ -177,11 +177,11 @@
     "independently_accepted": "none",
     "unit_suite": {
       "command": "bun run test",
-      "tests": 759,
-      "pass": 758,
+      "tests": 781,
+      "pass": 780,
       "fail": 0,
       "todo_pre_existing": 1,
-      "basis": "last full run recorded in session; not re-run in this QA edit"
+      "basis": "bun run test at main fc72fcb2, run by the lead before committing; QA suites re-run at the same time"
     },
     "qa_suites": {
       "replay_fidelity": {
@@ -233,7 +233,7 @@
       "CLAUDE_TYPED_EVENTS_MAP_NO_MATCH",
       "CLAUDE_REPLY_PATH_1_1_5_9_LEAD_NOT_ESTABLISHED",
       "CLAUDE_STREAM_ARM_FALLBACK_29_OF_47",
-      "PERF_LONGEST_STALL_114_146MS_MISSES_100MS_TARGET_SYNTHETIC",
+      "PERF_LONGEST_STALL_101_105MS_MISSES_100MS_TARGET_SYNTHETIC",
       "PERF_NO_REAL_CHROME_MEASUREMENT"
     ],
     "open": [
