@@ -132,3 +132,27 @@ test('W4 no secret tail on interrupted or detached HTTP response', () => {
   assert.equal(records.some((r) => r.k === 'chunk'), false);
   assert.ok(records.some((r) => r.k === 'body.excluded' && r.reason === 'security_tail_unfinished_failure'));
 });
+
+test('W4 parsed EventSource views also exclude split credential values', async () => {
+  const records = [];
+  const recorder = new NetworkRecorder({ append: (r) => records.push(r),
+    profile: { capture: { retrospectiveFallback: false } },
+    getPageUrl: () => 'https://example.com' });
+  const st = { sid: 'p:es', body: true, armed: true, chunks: 0, bytes: 0 };
+  recorder.reqs.set(st.sid, st);
+  for (const data of ['safe '.repeat(50), '"refresh', 'Token"', ':', '"synthetic-eventsource-secret"', 'after'])
+    recorder._onEventSource('p', { requestId: 'es', timestamp: 9, eventName: 'message', data });
+  await recorder._finalize({}, st, { timestamp: 11 });
+  assert.equal(records.some((r) => r.k === 'es.msg' && r.data.includes('synthetic-eventsource-secret')), false);
+  assert.ok(records.some((r) => r.k === 'body.excluded' && r.securityGuard === 'eventsource-v1'));
+  assert.equal(st.credentialExcluded, true);
+});
+
+test('W4 bounded frame memory excludes a flood of empty frames', () => {
+  const g = new FrameCredentialGuard({ maxPendingFrames: 3 });
+  for (let i = 0; i < 3; i++) assert.equal(g.push({ i }, Buffer.alloc(0)).excluded, false);
+  const rejected = g.push({ i: 3 }, Buffer.alloc(0));
+  assert.equal(rejected.excluded, true);
+  assert.equal(rejected.reason, 'security_scan_limit');
+  assert.equal(rejected.dropped.length, 4);
+});
