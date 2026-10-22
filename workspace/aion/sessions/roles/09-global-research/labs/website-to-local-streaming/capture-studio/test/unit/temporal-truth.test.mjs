@@ -137,3 +137,11 @@ test('comparison needs existing revisions and interpreter; no silent fallback to
   assert.throws(()=>compareTemporalRevisions({journal,before:1,after:3,interpret:s=>s}),e=>e.code==='REVISION_NOT_FOUND');
   assert.throws(()=>compareTemporalRevisions({journal,before:1,after:2}),e=>e.code==='INTERPRETER_REQUIRED');
 });
+
+test('as-known cannot use evidence recorded after the knowledge horizon', () => {
+  let runs = 0;
+  const result = temporalPerspective({ query:{ lens:'as-known',eventAsOf:t(5),knowledgeAsOf:t(1) },
+    source, journal:new Journal(), interpret:() => { runs++; return 0.9; } });
+  assert.equal(result.interpretation.reason, 'EVIDENCE_NOT_YET_KNOWN');
+  assert.equal(runs,0);
+});
