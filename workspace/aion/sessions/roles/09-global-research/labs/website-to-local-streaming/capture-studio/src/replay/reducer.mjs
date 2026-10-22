@@ -107,8 +107,11 @@ export class StreamReducer {
   _touch(sid) { const s = this.streams.get(sid); if (s) s._sum.base = null; return s; }
 
   _emitEvents(s, evs, rec, out) {
-    for (const ev of evs) {
-      const e = { sid: s.sid, seq: rec.seq, t: rec.t, layer: 'L2', ...ev };
+    for (let idx = 0; idx < evs.length; idx++) {
+      const ev = evs[idx];
+      // n = position within this emission (one raw record per emission), so (sid, seq, n) is unique.
+      // A decoder-provided ev.n is never overwritten: the position is kept as evn instead.
+      const e = { sid: s.sid, seq: rec.seq, t: rec.t, layer: 'L2', ...(ev.n === undefined ? { n: idx } : { evn: idx }), ...ev };
       // Duplicate / out-of-order detection from protocol ids or sequence-like fields.
       if (ev.id !== undefined && ev.id !== '') {
         s._ids ??= new Set();
