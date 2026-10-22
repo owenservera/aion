@@ -18,7 +18,7 @@
     },
     "note": "zero means no independently accepted criterion in this worker record yet, not zero existing capability"
   },
-  "next": "L5-02: expand adversarial review-order and scoped contamination cases; profile journal recovery/retention; repeat full Node22 suite from a real checkout. Core paused: do not change server/CLI/derive/UI.",
+  "next": "Reconcile with owner-resumed Core; first L5-owned task TT1 temporal truth/version contract + TT3 accepted-evidence eligibility negatives; plan only, no build in this SITREP.",
   "owner": "Knowledge & Learning worker",
   "steering": "QA",
   "avoid_concurrent_core_writes": true,
@@ -122,6 +122,29 @@
       "Orphaned lock after process crash requires recovery inspection",
       "No measured high-load snapshot retention policy",
       "End-to-end rederive and multi-site real-world acceptance still pending"
+    ]
+  },
+  "last_sitrep": {
+    "date": "2026-10-22",
+    "base_sha": "6dd74e6bdc3fbae422dfd4a35397bd907b890f91",
+    "artifact": "workspace/aion/ops/capture-studio-knowledge-learning/TIME-TRAVEL-SITREP-2026-10-22.md",
+    "type": "read-only source-grounded time travel rebaseline and plan",
+    "new_tests_executed": 0,
+    "product_edits": 0,
+    "core_status": "owner-resumed Sprint 1 source work recorded in Core five-sprint plan, not paused",
+    "key_deltas": [
+      "Time picker filters continuity but not graph/model in legacy Knowledge UI",
+      "Replay toT stops on first future timestamp in seq-ordered raw log",
+      "Derive overwrites inferred model without pinning learner revision",
+      "Acceptance gate G1-G7 not yet implemented; QA source found family promotion before final calibration",
+      "Core CLI/API now expose persisted learning proposal/review/rollback"
+    ],
+    "time_travel_plan": [
+      "TT1 temporal truth/version contract",
+      "TT2 timestamp-correct deterministic replay",
+      "TT3 accepted-evidence learning admission",
+      "TT4 historical model replay/recovery",
+      "TT5 coherent UI + QA acceptance"
     ]
   }
 }
