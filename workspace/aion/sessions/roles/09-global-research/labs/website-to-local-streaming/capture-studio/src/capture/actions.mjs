@@ -587,9 +587,24 @@ export async function detectSiteFailure(page, adapter = null) {
       /service (is )?unavailable/i,
       /failed to (generate|send|connect)/i,
       /服务(?:暂时)?不可用|网络错误|请求失败|额度不足|超出额度/i,
+      // Dialogs that appear AFTER the send. The driver must not answer these on the owner's
+      // behalf (an age or a birth year is personal data), so it reports them instead.
+      /confirm your age|what year were you born|verify your age|are you over \d{2}/i,
+      /log in or create account|sign in to (continue|chat)|please log in|create an account to continue/i,
+      /请登录|登录后继续|确认你的年龄|你出生于哪一年/i,
     ];
     const root = document.querySelector('main') || document.body;
-    const text = String((root && root.innerText) || '').slice(-4000);
+    // A blocking dialog is the clearest signal, so it is checked first and on its own: the
+    // dialog text is not always inside <main>, and it is often not in the last 4000 chars.
+    for (const d of document.querySelectorAll('[role="dialog"],dialog,[class*="modal" i],[class*="dialog" i],[class*="mask" i]')) {
+      if (!vis(d)) continue;
+      const dt = String(d.innerText || '').replace(/\s+/g, ' ').slice(0, 400);
+      for (const p of patterns) {
+        const m = dt.match(p);
+        if (m) return { failed: true, message: m[0].slice(0, 120) };
+      }
+    }
+    const text = String((root && root.innerText) || '').slice(-4000) + ' ' + String((document.body && document.body.innerText) || '').slice(0, 4000);
     for (const p of patterns) {
       const m = text.match(p);
       if (m) return { failed: true, message: m[0].slice(0, 120) };
