@@ -873,7 +873,7 @@ function boot() {
     $('#finishOutcome').hidden = !out; syncChips($('#finishOutcome'), out ? [out.chip] : []);
     syncList($('#finishReasons'), out ? out.reasons : []);
     const sid = snap.sessionId, links = $('#finishLinks'), linkSig = out && sid ? sid : '';
-    if (links.dataset.sig !== linkSig) { links.dataset.sig = linkSig; links.replaceChildren(...(linkSig ? [newTabLink('/#session=' + encodeURIComponent(sid), 'Open saved session')] : [])); }
+    if (links.dataset.sig !== linkSig) { links.dataset.sig = linkSig; links.replaceChildren(...(linkSig ? [newTabLink('/#session=' + encodeURIComponent(sid), 'Open saved session'), newTabLink('/#session=' + encodeURIComponent(sid) + '&view=knowledge', 'Explore derived knowledge (may be incomplete)')] : [])); }
     $('#btnFinish').disabled = ctl.disabled;
     setText($('#btnFinish'), ctl.label);
     $('#btnFinish').className = snap.reply?.state === 'ready' && messageStarted(snap) && !closed ? 'primary' : '';
@@ -913,6 +913,7 @@ function boot() {
     const sid = snap?.sessionId;
     $('#sessionLinks').replaceChildren(...(sid ? [
       newTabLink('/#session=' + encodeURIComponent(sid), 'Open session'),
+      newTabLink('/#session=' + encodeURIComponent(sid) + '&view=knowledge', 'Explore derived knowledge (may be incomplete)'),
       el('a', { class: 'hit', href: '/api/sessions/' + encodeURIComponent(sid) + '/transcript', text: 'Download transcript' }),
     ] : []));
   }
