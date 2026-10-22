@@ -957,12 +957,12 @@ function renderKnowledgeDrift() {
    It does not convert a conversation send boundary or a page-only observation into a stream. */
 function recordedEvidenceHref(source) {
   const session = source?.session, sid = source?.sid;
-  if (typeof session !== 'string' || !session || session.length > 128 || /[\\u0000-\\u001f\\u007f]/.test(session)) return null;
-  if (typeof sid !== 'string' || !sid || sid.length > 256 || /[\\u0000-\\u001f\\u007f]/.test(sid)) return null;
+  if (typeof session !== 'string' || !session || session.length > 128 || /[\u0000-\u001f\u007f]/.test(session)) return null;
+  if (typeof sid !== 'string' || !sid || sid.length > 256 || /[\u0000-\u001f\u007f]/.test(sid)) return null;
   const parts = ['session=' + encodeURIComponent(session), 'view=streams', 'sid=' + encodeURIComponent(sid)];
   const seq = source?.seq;
   if ((typeof seq === 'number' && Number.isSafeInteger(seq) && seq >= 0) ||
-      (typeof seq === 'string' && /^\\d+$/.test(seq) && Number.isSafeInteger(Number(seq)))) {
+      (typeof seq === 'string' && /^\d+$/.test(seq) && Number.isSafeInteger(Number(seq)))) {
     parts.push('seq=' + encodeURIComponent(String(seq)));
   }
   return '/#' + parts.join('&');
