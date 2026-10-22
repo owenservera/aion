@@ -602,24 +602,31 @@ function boot() {
     if (!check.ok) { renderComposer(); return; }
     const prompt = $('#prompt').value.replace(/\s+$/, '');
     S.pending = { convId: snap.id, key: newKey(), prompt, expectedRevision: Number(snap.revision), priorTurnId: snap.turn?.id ?? null };
+    const attempt = S.pending;
     savePending();
-    const body = { key: S.pending.key, prompt, confirm: true, expectedRevision: S.pending.expectedRevision };
+    const body = { key: attempt.key, prompt, confirm: true, expectedRevision: attempt.expectedRevision };
     S.submitting = true; S.checkedNote = ''; S.unknownDetail = '';
     setError('#sendError', ''); render();
     $('#transcript').focus();
     try {
       const c = unwrapConversation(await api('/conversations/' + encodeURIComponent(snap.id) + '/turns', { method: 'POST', body }));
-      if (!c) throw Object.assign(new Error('The Studio accepted the request but sent a reply we couldn’t read.'), { status: 200, malformed: true });
-      S.sentPrompt = S.pending?.prompt ?? S.sentPrompt; store.set('sessionStorage', 'chat.sent.' + snap.id, S.sentPrompt);
-      clearPending(); if (stillOn(snap.id)) applySnapshot(c);
+      if (!c || c.id !== snap.id) throw Object.assign(new Error('The Studio accepted the request but returned an unreadable or mismatched conversation.'), { status: 200, malformed: true });
+      // Persist the result for the original conversation, never for a different one now on screen.
+      store.set('sessionStorage', 'chat.sent.' + snap.id, attempt.prompt);
+      if (S.pending?.convId === snap.id && S.pending.key === attempt.key) clearPending();
+      else store.del('sessionStorage', 'chat.pending.' + snap.id);
+      if (stillOn(snap.id)) { S.sentPrompt = attempt.prompt; applySnapshot(c); }
     } catch (e) {
       if (isAmbiguous(e)) {
-        // Outcome unknown: the composer stays locked and the banner offers a read-only check or a deliberate Send again.
-        S.unknownDetail = describe(e); savePending(); refresh(snap.id);
+        // The original attempt remains persisted. Switching conversations must not unlock/retry it.
+        if (stillOn(snap.id)) { S.unknownDetail = describe(e); refresh(snap.id); }
       } else {
-        clearPending();
-        const r = sendRejection(e); setError('#sendError', r.text, r.link);
-        refresh(snap.id);
+        if (S.pending?.convId === snap.id && S.pending.key === attempt.key) clearPending();
+        else store.del('sessionStorage', 'chat.pending.' + snap.id);
+        if (stillOn(snap.id)) {
+          const r = sendRejection(e); setError('#sendError', r.text, r.link);
+          refresh(snap.id);
+        }
       }
     } finally { S.submitting = false; render(); }
   }
