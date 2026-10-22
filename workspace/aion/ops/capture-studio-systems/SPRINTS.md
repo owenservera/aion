@@ -24,7 +24,7 @@ Previous SYS1–SYS6 in [TASK-QUEUE.md](TASK-QUEUE.md) are **complete source inv
 - **Question:** Does the raw/decoded/DOM evidence pipeline account for late-joined WebSockets, incomplete streams, payload masking, backpressure, failure flush and partial sampling without claiming full coverage?
 - **Inspect:** `src/capture/{recorder,network,dom,actions}`, `src/store/{raw-log,session}`, `src/replay/reducer.mjs`, performance report/fixtures, `scripts/loadlab.mjs`, acceptance design G1–G7.
 - **Deliverable:** evidence-coverage matrix by event source and failure; latency/backpressure hypotheses and non-destructive minimal recommendations.
-- **Exit:** Separate lab-reported p99/throughput from real Windows acceptance, and completeness from derivation; **no duplicate benchmark campaign**. **Status: QUEUED.**
+- **Exit:** Separate lab-reported p99/throughput from real Windows acceptance, and completeness from derivation; **no duplicate benchmark campaign**. **Status: COMPLETE — static source assessment 2026-10-22; no runtime acceptance.**
 
 ### Sprint 3 — Accepted evidence into knowledge and adaptation
 - **Question:** When can captured data enter family building, L4 graph and L5 learning without poisoning priors or crossing tenant, identity or temporal boundaries?
@@ -53,3 +53,8 @@ Previous SYS1–SYS6 in [TASK-QUEUE.md](TASK-QUEUE.md) are **complete source inv
 - Prioritization follows actual source evolution; a later Core fix supersedes an older Systems finding.
 
 **Suggested ChatGPT thinking:** High for full new sprint analysis and source reconciliation; Medium for later narrow receipt/queue readback.
+
+## Sprint 2 closeout — 2026-10-22
+- [SPRINT-02.md](SPRINT-02.md) is the verified source-backed fidelity/provenance/resource assessment, started at `02310fe5ae913c23a56fd16144b518b78eb0b4a6`.
+- Ranked S2-F1…F5: chunk-boundary credential scrub and categorical receipt overclaim (Core already owns W4); unbounded DevTools arm pending buffer; configured stream-cap overshoot; periodic fsync/durability overclaim; fragmented capture viability versus accepted-evidence coverage.
+- Systems ran no tests and edited no product code. Other lanes' subsequent commits do not constitute independent acceptance. **Next: Sprint 3 (queued).**
