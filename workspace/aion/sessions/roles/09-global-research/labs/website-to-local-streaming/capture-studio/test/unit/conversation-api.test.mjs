@@ -68,7 +68,7 @@ test('auth, origin, host, methods, strict bodies and runtime conflicts', async (
   }
   for (const body of [null, [], '{', { site: 'chatgpt', extra: true }, { site: 'chatgpt', freshTab: 'yes' }]) assert.equal((await request('/api/v1/conversations', 'POST', body)).status, 400);
   const valid = { key: 'once', prompt: 'hello', confirm: true, expectedRevision: 1 };
-  for (const body of [{ ...valid, confirm: false }, { ...valid, key: '' }, { ...valid, prompt: 'x'.repeat(2001) }, { ...valid, expectedRevision: '1' }, { ...valid, unknown: true }]) assert.equal((await request('/api/v1/conversations/conv-1/turns', 'POST', body)).status, 400);
+  for (const body of [{ ...valid, confirm: false }, { ...valid, key: '' }, { ...valid, prompt: 'x'.repeat(250000 + 1) }, { ...valid, expectedRevision: '1' }, { ...valid, unknown: true }]) assert.equal((await request('/api/v1/conversations/conv-1/turns', 'POST', body)).status, 400);
   runtime.submit = async () => { throw Object.assign(new Error('Revision conflict'), { status: 409, code: 'REVISION_CONFLICT', holder: { kind: 'conversation', id: 'other', token: 'must-not-leak' } }); };
   const conflict = await request('/api/v1/conversations/conv-1/turns', 'POST', valid);
   assert.equal(conflict.status, 409); assert.equal(conflict.body.code, 'REVISION_CONFLICT');

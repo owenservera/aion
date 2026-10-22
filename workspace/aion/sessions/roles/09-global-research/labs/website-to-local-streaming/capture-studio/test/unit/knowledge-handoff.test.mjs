@@ -59,10 +59,10 @@ test('KH-02 exact-origin + typed-key join, no number/string/keyless/host conflat
   assert.equal(result.stats.joinedEntities, f.expected.joinedEntities);
   const linked = result.entities.find((e) => e.sessionCount === 2 && e.keyType === 'string');
   assert.ok(linked, 'same-origin string-key observations should join');
-  assert.deepEqual([...linked.sessionIds].sort(), f.expected.sameTypedStringSessions);
+  assert.deepEqual([...linked.sessions].sort(), f.expected.sameTypedStringSessions);
   assert.ok(result.entities.some((e) => e.keyType === 'number' && e.sessionCount === 1));
   assert.ok(result.entities.some((e) => e.identityBasis === 'session-local' || e.identityBasis === 'provisional-missing-key'));
-  assert.ok(result.entities.every((e) => e.sessionIds.every((id) => id !== 'kh02-d')));
+  assert.ok(result.entities.every((e) => e.sessions.every((id) => id !== 'kh02-d')));
   // Account identity is deliberately not asserted; this API verifies origin+typed key, not account.
 }));
 
