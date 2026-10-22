@@ -233,7 +233,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
       <div class="panel scroll" style="max-height:38vh"><table id="streams"><thead><tr><th>Endpoint</th><th>Transport</th><th>Status</th><th class="num">Chunks</th><th class="num">Bytes</th><th class="num">Events</th><th class="num">Revisions</th><th>Coverage</th></tr></thead><tbody></tbody></table></div>
       <div class="detail" id="detail" hidden>
         <div class="panel"><h4><span class="c-l1">Raw bytes</span><span id="rawMeta" class="conf"></span></h4><div class="body raw" id="rawBody"></div></div>
-        <div class="panel"><h4><span class="c-l2">Decoded events</span><span id="evMeta" class="conf"></span></h4><div class="body" id="evBody"></div></div>
+        <div class="panel"><h4><span class="c-l2">Decoded events</span><span id="evMeta" class="conf"></span></h4><div class="body" id="evBody"></div><div id="evMore" class="pad" role="status" aria-live="polite"></div></div>
         <div class="panel"><h4><span>Assembled content</span><span id="asMeta" class="conf"></span></h4><div class="body" id="asBody"></div></div>
       </div>
     </section>
@@ -570,14 +570,91 @@ async function loadStreams() {
   return rows;
 }
 function shortUrl(u) { try { const x = new URL(u); return x.host + x.pathname + (x.search ? '?…' : ''); } catch { return u || ''; } }
+/* ---------------- stream events paging (cursor pages of saved events, read-only) ---------------- */
+// Pages come from GET sessions/:id/events/:sid?after=<seq>. The next cursor is the X-Next-After header, present only
+// when more events exist. The existing request helper is unchanged; apiPaged reads the header from the same kind of GET.
+const EV_ROWS_CAP = 100000;
+let evPaging = null;
+async function apiPaged(path) {
+  let r;
+  try { r = await fetch('/api/' + path); }
+  catch { const e = new Error('Cannot reach the local Studio; no request was automatically retried.'); e.status = 0; throw e; }
+  const json = await r.json().catch(() => ({}));
+  if (!r.ok) { const err = new Error((json && json.error) || r.statusText || 'Request failed'); err.status = r.status; throw err; }
+  const header = r.headers && typeof r.headers.get === 'function' ? r.headers.get('X-Next-After') : null;
+  const text = header == null ? '' : String(header).trim();
+  return { json, nextAfter: /^\d+$/.test(text) ? text : null };
+}
+function eventsPagePath(id, sid, after) {
+  return 'sessions/' + encodeURIComponent(id) + '/events/' + encodeURIComponent(sid) + (after === null ? '' : '?after=' + encodeURIComponent(after));
+}
+function newEventPaging(id, sid, live) {
+  return { id, sid, live: !!live, rows: 0, keys: new Set(), cursor: null, dropped: false, busy: false, cap: EV_ROWS_CAP };
+}
+// Same seq and n is the same event (sid#seq.n). Events without n never collide: the row ordinal makes them unique.
+function eventRowKey(sid, e, ordinal) {
+  return e.n != null ? sid + '#' + e.seq + '.' + e.n : sid + '#' + e.seq + '~' + ordinal;
+}
+function mergeEventPage(state, events, nextAfter) {
+  for (const e of Array.isArray(events) ? events : []) {
+    if (e === null || typeof e !== 'object') continue;
+    if (state.rows >= state.cap) { state.dropped = true; break; }
+    const key = eventRowKey(state.sid, e, state.rows);
+    if (state.keys.has(key)) continue;
+    state.keys.add(key); state.rows++;
+    appendEvent(e);
+  }
+  state.cursor = state.dropped || nextAfter === null || nextAfter === undefined ? null : String(nextAfter);
+  return state.rows;
+}
+function eventPagingStopped(state) { return state.dropped || (state.rows >= state.cap && state.cursor !== null); }
+function isCurrentEventPaging(state) { return evPaging === state && src()?.id === state.id && S.sid === state.sid; }
+function canLoadEventPage(state) {
+  return !!state && !state.live && !state.busy && state.cursor !== null && !eventPagingStopped(state) && isCurrentEventPaging(state);
+}
+function renderEventMore(state) {
+  const meta = $('#evMeta'), more = $('#evMore');
+  if (!state || !meta || !more) return;
+  const n = state.rows;
+  if (state.live) { meta.textContent = n + ' events'; more.innerHTML = ''; return; }
+  if (eventPagingStopped(state)) {
+    meta.textContent = 'stopped at cap: ' + n + ' events in memory (limit ' + state.cap + '); more events exist but are not loaded';
+    more.innerHTML = ''; return;
+  }
+  if (state.cursor !== null) {
+    meta.textContent = 'showing ' + n + ' events, more available';
+    more.innerHTML = '<button type="button" id="evLoadMore"' + (state.busy ? ' disabled' : '') + '>' + (state.busy ? 'Loading…' : 'Load more events') + '</button>';
+    const b = $('#evLoadMore');
+    if (b) b.onclick = guard(() => loadEventPage(state));
+    return;
+  }
+  meta.textContent = 'all ' + n + ' events loaded';
+  more.innerHTML = '';
+}
+// Requests the next page only when a cursor exists. A response for a replaced stream or session is dropped.
+async function loadEventPage(state) {
+  if (!canLoadEventPage(state)) return false;
+  state.busy = true; renderEventMore(state);
+  let page;
+  try { page = await apiPaged(eventsPagePath(state.id, state.sid, state.cursor)); }
+  catch (e) {
+    if (isCurrentEventPaging(state)) { state.busy = false; renderEventMore(state); }
+    throw e;
+  }
+  if (!isCurrentEventPaging(state)) return false;
+  state.busy = false;
+  mergeEventPage(state, page.json, page.nextAfter);
+  renderEventMore(state);
+  return true;
+}
 async function openStream(sid) {
   const streamSeq = ++S.streamRequestSeq;
   S.sid = sid; document.querySelectorAll('#streams tr').forEach((tr) => tr.classList.toggle('sel', tr.dataset.sid === sid));
   $('#detail').hidden = false;
   const s = src(), id = s.id;
-  const [raw, evs, as] = await Promise.all([
+  const [raw, evRes, as] = await Promise.all([
     api(`sessions/${id}/raw/${encodeURIComponent(sid)}`).catch((e) => ({ error: e.message })),
-    s.kind === 'live' ? api(`live/stream/${encodeURIComponent(sid)}/events`) : api(`sessions/${id}/events/${encodeURIComponent(sid)}`),
+    s.kind === 'live' ? api(`live/stream/${encodeURIComponent(sid)}/events`).then((json) => ({ json, nextAfter: null })) : apiPaged(eventsPagePath(id, sid, null)),
     s.kind === 'live' ? api(`live/stream/${encodeURIComponent(sid)}/assembled`) : api(`sessions/${id}/assembled/${encodeURIComponent(sid)}`),
   ]);
   if (streamSeq !== S.streamRequestSeq || src()?.id !== id || S.sid !== sid) return false;
@@ -586,8 +663,12 @@ async function openStream(sid) {
     $('#rawMeta').textContent = `${raw.chunks.length} chunks, ${fmtB(raw.total)}${raw.truncatedForView ? ' (view truncated, file complete)' : ''}`;
     $('#rawBody').innerHTML = raw.chunks.length ? raw.chunks.map((c, i) => `<span data-seq="${esc(c.seq ?? '')}" class="c${i % 2}${c.pre ? ' pre' : ''}${c.redactions ? ' red' : ''}" title="seq ${c.seq}, ${c.length} bytes at offset ${c.offset}${c.pre ? ', received before capture was armed' : ''}${c.retrospective ? ', read after completion' : ''}${c.redactions ? ', ' + c.redactions.length + ' credential(s) masked' : ''}${c.dir ? ', ' + c.dir : ''}">${esc(c.text)}</span>`).join('') : '<div class="empty">No body bytes for this stream.</div>';
   }
-  $('#evMeta').textContent = `${evs.length} events`;
-  $('#evBody').innerHTML = ''; evs.forEach(appendEvent);
+  if (!Array.isArray(evRes.json)) throw new Error('Studio did not return decoded events.');
+  const evs = evRes.json;
+  $('#evBody').innerHTML = ''; $('#evMore').innerHTML = '';
+  evPaging = newEventPaging(id, sid, s.kind === 'live');
+  mergeEventPage(evPaging, evs, evRes.nextAfter);
+  renderEventMore(evPaging);
   if (!evs.length) $('#evBody').innerHTML = '<div class="empty">Nothing decoded yet.</div>';
   const doc = s.kind === 'live' ? as?.doc : as?.doc;
   $('#asMeta').textContent = as ? `${as.revisions} revisions` : '';
@@ -714,6 +795,11 @@ async function openSession(id) {
       <div class="small-note">Ties parsed stream messages to the rendered DOM turns they produced, as derived by Rebuild datasets. Nothing is derived or sent from this panel.</div>
       <div id="joinOut" role="status" aria-live="polite" style="margin-top:8px"></div>
     </div>
+    <h3>Page components <span class="small-note" style="font-weight:400">read-only</span></h3>
+    <div class="panel pad" id="compPanel">
+      <div class="small-note">Components the saved stream messages built, from the stream-components derivation made by Rebuild datasets. Nothing is derived or sent from this panel.</div>
+      <div id="compOut" role="status" aria-live="polite" style="margin-top:8px"></div>
+    </div>
     <h3>Time travel</h3><div class="row"><input type="range" id="tt" min="0" max="1000" value="1000" style="flex:1"><span id="ttLabel" class="mono"></span></div><div id="ttOut" style="margin-top:8px"></div>
     <div id="sessionKnowledgeStatus" role="status" class="small-note"></div>
     <h3>Continuity across sessions</h3>
@@ -755,6 +841,7 @@ async function openSession(id) {
   $('#recPicker').onchange = () => loadRecords(id, datasets, requestSeq, $('#recPicker').value);
   loadRecords(id, datasets, requestSeq, recDefault);
   guard(loadJoin)(id, requestSeq);
+  guard(loadComponents)(id, requestSeq);
   const t0 = Date.parse(m.createdAt), t1 = Date.parse(m.endedAt || new Date().toISOString());
   const tt = $('#tt'), lab = $('#ttLabel');
   const tAt = () => t0 + (t1 - t0) * tt.value / 1000;
@@ -1009,6 +1096,117 @@ async function loadJoin(id, sessionSeq) {
   out.innerHTML = html;
   out.querySelectorAll('button[data-join]').forEach((b) => b.onclick = guard(() => selectJoinMessage(Number(b.dataset.join))));
   if (focus !== null) selectJoinMessage(focus);
+}
+
+/* ---------------- page components (read-only view of the saved stream-components derivation) ---------------- */
+// Reads kv STREAM_COMPONENTS (GET sessions/:id/components). No write action; nothing is derived or guessed here.
+const COMP_SCHEMA = 'capture-studio.stream-components/1', COMP_PREVIEW_MAX = 160, COMP_ROWS_MAX = 200;
+let compSeq = 0;
+function compPreview(c) {
+  const full = typeof c.text === 'string' ? c.text : '';
+  const real = Number.isFinite(Number(c.textLength)) && c.textLength !== null ? Number(c.textLength) : full.length;
+  const cut = full.length > COMP_PREVIEW_MAX || c.textTruncated === true;
+  return '<div style="overflow-wrap:anywhere">' + esc(full.slice(0, COMP_PREVIEW_MAX)) +
+    (cut ? ' <span class="pill" style="color:var(--muted)">truncated, ' + esc(real) + ' chars</span>' : '') + '</div>';
+}
+function compMark(m) { return m && typeof m === 'object' ? esc(m.seq ?? '?') + '.' + esc(m.n ?? '-') : '<span class="small-note">none</span>'; }
+function compRow(si, cj, c) {
+  const key = si + '.' + cj;
+  const kind = typeof c.component === 'string' ? c.component : 'unknown';
+  const id = c.componentKey == null ? '<span class="small-note">no id observed</span>' : '<span class="mono">' + esc(c.componentKey) + '</span>';
+  const closed = c.closed && typeof c.closed === 'object' ? '<span class="mono">' + compMark(c.closed) + '</span>' :
+    '<span class="c-act">still open</span> <span class="small-note">stream not finalized</span>';
+  return '<tr data-comp-row="' + esc(key) + '"><td><button type="button" class="row-action" data-comp="' + esc(key) + '" aria-pressed="false" aria-label="Focus component ' + esc(key) + ', ' + esc(kind) + '">' + esc(kind) + '</button></td>' +
+    '<td>' + id + '</td><td>' + compPreview(c) + '</td><td class="mono">' + compMark(c.opened) + '</td><td>' + closed + '</td></tr>';
+}
+function compStream(s, si) {
+  const sid = '<span class="mono">' + esc(s.sid ?? 'unknown stream') + '</span>';
+  const omitted = Number(s.eventsOmitted) > 0 ? '<p class="small-note">' + esc(s.eventsOmitted) + ' earlier event(s) left the in-memory window; text may be incomplete.</p>' : '';
+  if (typeof s.mapId !== 'string' || !s.mapId) {
+    const cands = Array.isArray(s.candidates) && s.candidates.length
+      ? '<p class="small-note">Candidate maps, none chosen:</p><ul>' + s.candidates.map((c) => '<li>' + esc(c && c.id != null ? c.id : 'unnamed map') + ' matched ' + esc(c && c.matched != null ? c.matched : 0) + ' event(s)</li>').join('') + '</ul>'
+      : '<p class="small-note">No candidate maps were recorded.</p>';
+    return '<div style="margin-top:8px"><h4>Stream #' + si + ' ' + sid + '</h4>' +
+      '<div class="empty">no built-in map matched this stream. No components are shown and none were guessed.</div>' + cands + omitted + '</div>';
+  }
+  const st = s.stats && typeof s.stats === 'object' ? s.stats : {};
+  const comps = Array.isArray(s.components) ? s.components : [];
+  const statsLine = '<p class="small-note">Map <span class="mono">' + esc(s.mapId) + '</span> · events ' + esc(st.events ?? 0) +
+    ' · components ' + esc(st.components ?? comps.length) + ' · still open ' + esc(st.openComponents ?? 0) +
+    ' · finalized ' + (st.finalized ? 'yes' : 'no') + ' · unmapped ' + esc(s.unmappedCount ?? 0) + '</p>';
+  const rows = comps.slice(0, COMP_ROWS_MAX).map((c, cj) => compRow(si, cj, c && typeof c === 'object' ? c : {})).join('');
+  const table = comps.length
+    ? '<div class="panel scroll" style="max-height:32vh"><table><thead><tr><th>Kind</th><th>Key</th><th>Text preview</th><th>Opened seq.n</th><th>Closed seq.n</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      (comps.length > COMP_ROWS_MAX ? '<p class="small-note">Showing ' + COMP_ROWS_MAX + ' of ' + esc(comps.length) + ' components.</p>' : '')
+    : '<div class="empty">No components were built from this stream.</div>';
+  const samples = Array.isArray(s.unmappedSample) ? s.unmappedSample : [];
+  const unmappedCount = Number(s.unmappedCount) || 0;
+  const unmapped = unmappedCount > 0
+    ? '<p class="small-note">' + esc(unmappedCount) + ' stream message(s) not placed into any component. Sample:</p><ul>' +
+      samples.map((u) => '<li>#' + esc(u && u.seq != null ? u.seq : '?') + ' ' + esc(u && u.reason != null ? u.reason : 'no reason recorded') + '</li>').join('') + '</ul>' +
+      (unmappedCount > samples.length ? '<p class="small-note">Showing ' + esc(samples.length) + ' of ' + esc(unmappedCount) + '.</p>' : '')
+    : '';
+  return '<div style="margin-top:8px"><h4>Stream #' + si + ' ' + sid + '</h4>' + statsLine + omitted + table + unmapped + '</div>';
+}
+// Pure: value is the endpoint response, focus is {stream, component} from a deep link or null.
+function renderComponentsHtml(value, focus) {
+  const bad = (msg) => '<div class="feedback-error" role="alert">' + msg + '</div>';
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return bad('Unexpected page-components response. Nothing is shown.');
+  if (value.status === 'not_derived') return '<div class="empty">Page components have not been derived for this recording. Rebuild datasets derives them; this panel only reads them.</div>';
+  if (value.status === 'no_events') return '<div class="empty">This recording has no decoded stream events, so no page components can be built.</div>';
+  if (value.error !== undefined) return bad('Page components could not be computed: ' + esc(value.error) + '. No components are shown.');
+  if (value.schema !== COMP_SCHEMA || !Array.isArray(value.streams)) return bad('Unrecognized page-components response. Nothing is shown.');
+  const t = value.totals && typeof value.totals === 'object' ? value.totals : {};
+  const summary = '<p class="small-note">Streams ' + esc(t.streams ?? value.streams.length) + ' · mapped ' + esc(t.mapped ?? 0) + ' · no built-in map ' + esc(t.noMap ?? 0) +
+    ' · components ' + esc(t.components ?? 0) + ' · unmapped stream messages ' + esc(t.unmappedCount ?? 0) +
+    (Number(t.eventsOmitted) > 0 ? ' · events omitted from window ' + esc(t.eventsOmitted) : '') + '</p>';
+  const note = '<p class="small-note">Read-only. Components come from a declared map over saved stream events; when no map matches, none are guessed.</p>';
+  if (!value.streams.length) return note + summary + '<div class="empty">No streams in this derivation.</div>';
+  const body = value.streams.map((s, si) => compStream(s && typeof s === 'object' ? s : {}, si)).join('');
+  const wanted = focus && Number.isSafeInteger(focus.stream) && Number.isSafeInteger(focus.component) ? focus : null;
+  const target = wanted ? value.streams[wanted.stream] : null;
+  const found = !!(target && typeof target === 'object' && Array.isArray(target.components) && target.components[wanted.component]);
+  const missing = wanted && !found ? '<p class="small-note">Requested component ' + esc(wanted.stream + '.' + wanted.component) + ' is not in this derivation.</p>' : '';
+  return note + summary + body + missing;
+}
+function compDeepLinkHref(id, key) {
+  return '#session=' + encodeURIComponent(id) + '&view=sessions&comp=' + encodeURIComponent(String(key));
+}
+// Highlights one component row and sets comp= with replaceState (no hashchange, so the session is not reloaded).
+function selectComponent(key) {
+  const out = $('#compOut');
+  const btn = out && out.querySelector ? out.querySelector('button[data-comp="' + String(key) + '"]') : null;
+  if (!btn) return false;
+  out.querySelectorAll('button[data-comp]').forEach((b) => { const on = b === btn; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('sel', on); });
+  out.querySelectorAll('tr[data-comp-row]').forEach((r) => r.classList.toggle('sel', r.dataset.compRow === String(key)));
+  history.replaceState(null, '', compDeepLinkHref(S.sessionId, key));
+  return true;
+}
+async function loadComponents(id, sessionSeq) {
+  const seq = ++compSeq;
+  const focus = pendingCompFocus && pendingCompFocus.id === id ? pendingCompFocus.comp : null;
+  pendingCompFocus = null;
+  const current = () => (seq === compSeq && sessionSeq === S.sessionRequestSeq && S.sessionId === id) ? $('#compOut') : null;
+  let out = current(); if (!out) return;
+  out.innerHTML = '<div class="empty">Loading page components…</div>';
+  let value;
+  try { value = await api('sessions/' + encodeURIComponent(id) + '/components'); }
+  catch (e) {
+    out = current(); if (out) out.innerHTML = '<div class="feedback-error" role="alert">Could not load page components: ' + esc(e.message) + '</div>';
+    return;
+  }
+  out = current(); if (!out) return;
+  let html;
+  try { html = renderComponentsHtml(value, focus); }
+  catch (e) { html = '<div class="feedback-error" role="alert">Could not display page components: ' + esc(e.message) + '</div>'; }
+  out.innerHTML = html;
+  out.querySelectorAll('button[data-comp]').forEach((b) => b.onclick = guard(() => selectComponent(b.dataset.comp)));
+  // Enter and Space on a focused row select it (idempotent with the native button click).
+  out.onkeydown = (ev) => {
+    const b = ev.target;
+    if (b && b.dataset && b.dataset.comp && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); selectComponent(b.dataset.comp); }
+  };
+  if (focus) selectComponent(focus.stream + '.' + focus.component);
 }
 
 /* ---------------- Knowledge workspace (read-only, existing Core API) ---------------- */
@@ -1417,10 +1615,10 @@ function parseSessionDeepLink(hash) {
   const raw = hash.slice(1);
   if (/%(?![0-9a-f]{2})/i.test(raw)) return null;
   const params = new URLSearchParams(raw);
-  if ([...params.keys()].some((key) => !['session', 'view', 'sid', 'seq', 'join'].includes(key))) return null;
-  if (['session', 'view', 'sid', 'seq', 'join'].some((key) => params.getAll(key).length > 1) ||
+  if ([...params.keys()].some((key) => !['session', 'view', 'sid', 'seq', 'join', 'comp'].includes(key))) return null;
+  if (['session', 'view', 'sid', 'seq', 'join', 'comp'].some((key) => params.getAll(key).length > 1) ||
       params.getAll('session').length !== 1) return null;
-  const id = params.get('session'), view = params.get('view') || 'sessions', sid = params.get('sid'), rawSeq = params.get('seq'), rawJoin = params.get('join');
+  const id = params.get('session'), view = params.get('view') || 'sessions', sid = params.get('sid'), rawSeq = params.get('seq'), rawJoin = params.get('join'), rawComp = params.get('comp');
   if (!id || id.length > 128 || /[\u0000-\u001f\u007f]/.test(id)) return null;
   if (!['sessions', 'knowledge', 'streams'].includes(view)) return null;
   if ((sid !== null || rawSeq !== null) && view !== 'streams') return null;
@@ -1428,13 +1626,19 @@ function parseSessionDeepLink(hash) {
   if (rawSeq !== null && (sid === null || !/^\d+$/.test(rawSeq) || !Number.isSafeInteger(Number(rawSeq)))) return null;
   // join=<messageIndex> selects a row in the Sessions "Stream to page" panel. It never opens a stream.
   if (rawJoin !== null && (view !== 'sessions' || !/^\d+$/.test(rawJoin) || !Number.isSafeInteger(Number(rawJoin)))) return null;
-  return { id, view, sid, seq: rawSeq === null ? null : Number(rawSeq), join: rawJoin === null ? null : Number(rawJoin) };
+  // comp=<streamIndex>.<componentIndex> selects a row in the Sessions "Page components" panel. Sessions view only; never opens a stream.
+  if (rawComp !== null && (view !== 'sessions' || rawJoin !== null || !/^\d+\.\d+$/.test(rawComp))) return null;
+  const compParts = rawComp === null ? null : rawComp.split('.').map(Number);
+  if (compParts && !compParts.every((x) => Number.isSafeInteger(x))) return null;
+  return { id, view, sid, seq: rawSeq === null ? null : Number(rawSeq), join: rawJoin === null ? null : Number(rawJoin),
+    ...(compParts ? { comp: { stream: compParts[0], component: compParts[1] } } : {}) };
 }
 // Hash for a selected stream message; the parser above reads it back. Built only from the saved session id and an index.
 function joinDeepLinkHref(id, index) {
   return '#session=' + encodeURIComponent(id) + '&view=sessions&join=' + encodeURIComponent(String(index));
 }
 let pendingJoinFocus = null;
+let pendingCompFocus = null;
 let deepLinkEpoch = 0;
 async function openSessionDeepLink(hash) {
   const epoch = ++deepLinkEpoch, request = parseSessionDeepLink(hash);
@@ -1449,6 +1653,7 @@ async function openSessionDeepLink(hash) {
   }
   notice.textContent = 'Opening the linked saved recording…';
   pendingJoinFocus = request.join === null ? null : { id: request.id, index: request.join };
+  pendingCompFocus = request.comp ? { id: request.id, comp: request.comp } : null;
   const loaded = await openSession(request.id);
   if (epoch !== deepLinkEpoch) return false;
   if (!loaded) {
