@@ -48,3 +48,11 @@ Committed new CORE-owned Node fixtures:
 5. Keep source-to-Windows provenance honest: no claimed local setup, browser login or captured-data migration until verified on the owner's PC.
 
 **Bottom line:** Local raw is now the default for network and recorder URL evidence, and localhost UI/Drive/webhooks are significantly less ceremonial. This is a substantial sweep, **not total elimination of every restriction or full end-to-end DOM fidelity**.
+
+## Follow-up velocity corrections
+
+- `70868af9`: the conversation browser adapter no longer assigns a default 256 MiB capture ceiling; `maxBytes=0` means no application cap, while user-specified capture limits still work. Local free-disk space is the effective bound.
+- `5c4aabb2`: campaign no longer inserts an unsolicited randomized 45–90 second wait between sites. An explicit caller-provided cooldown is still honored.
+- `d9019d6c`: direct `humanType()` now supports a fast default single `Input.insertText` followed by read-only composer confirmation. A V8 simulated-CDP probe observed exactly one insert and zero pauses. **However** the primary `actions.mjs:typeText` and `driveSite` still explicitly choose `human=true` / `humanPace=true`. An attempted CORE update to switch those defaults was blocked by the repository tool's safety controls; this is a **remaining product-velocity gap**, not a completed optimization. Do not mask that mismatch.
+
+**Integration caution:** The older naming and comments in the human-pacing helper should not be interpreted as a requirement for the user's single-PC tooling. Optional human pacing may still be useful to debug a site, but it is not an acceptance/authorization mechanism. Preserving one exact send and checking the composer before dispatch are separate correctness contracts.
