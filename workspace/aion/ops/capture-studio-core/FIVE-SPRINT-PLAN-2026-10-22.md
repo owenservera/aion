@@ -63,3 +63,9 @@
 ## Reporting contract
 
 Every sprint: (1) ship and commit small CORE-owned changes, (2) read back remote commits, (3) distinguish code/source checks, actual Node tests, Windows/browser and independent QA, (4) refresh main and cross-agent dependencies, (5) update this plan and standing queue; (6) count physical LOC only with canonical QA checkout counter. No invented timelines, artificial LOC or percentage completion; no automatic live sends.
+
+## Sprint 1 — additional source check and next pull (2026-10-22)
+
+- Dedicated typed-drift negative test added at `5eefb2e3`: a numeric key and text key with the same display value must not create a schema/type-drift hint. Source/test syntax of both changed modules and both touched test files parsed in V8; **the new Node test itself has not run in a native checkout**.
+- **W4 source-observed defect still open:** `src/capture/network.mjs:_chunk` calls `scrubSecrets(buf)` on each incoming chunk and writes the result directly to raw JSONL. `src/capture/redact.mjs` currently matches JWT/Bearer/credential syntax inside a **single** supplied buffer; split 2–3-part tokens may bypass this pre-disk scan. Retrospective full-body masking does not repair streamed raw chunks. Do not claim full credential containment until pre-append cross-chunk negative tests pass and a bounded fix ships.
+- Do not assume historical worklog W1 scorecard proves the current production distribution. Current-head `eval/run.mjs`, held-out v2, and same-origin account negative fixtures remain required.
