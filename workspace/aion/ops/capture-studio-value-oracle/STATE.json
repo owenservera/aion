@@ -3,8 +3,8 @@
   "agent_id": "capture-studio-value-oracle",
   "role_command": "#AION @VALUE-ORACLE",
   "created_date": "2026-10-22",
-  "status": "SCAFFOLDED_NOT_LAUNCHED",
-  "source_baseline_main": "da6fada50c31fa6a71e31b5a97dec7da9a735ee1",
+  "status": "V1_SOURCE_DELIVERED_NODE22_TESTED_WINDOWS_UNVERIFIED",
+  "source_baseline_main": "06e9810948c23dad3a6599b62b591b7d3a470ee7",
   "scope": "AION Capture Studio user jobs, outcome artifacts, useful automation and friction; self-owned prototypes only",
   "mission": "Turn user-authorized captured intelligence into source-grounded completed useful outcomes while eliminating manual user transitions",
   "workspace": "workspace/aion/ops/capture-studio-value-oracle/",
@@ -55,7 +55,7 @@
     {
       "key": "V1",
       "name": "Source-linked Outcome Packet",
-      "state": "READY_TO_BUILD",
+      "state": "EXECUTED_TESTED_OFFLINE_WINDOWS_PENDING",
       "user_value": "turn saved AI response into reusable answer/decision/proposed action artifact",
       "requires_live_website": false
     },
@@ -85,8 +85,8 @@
   ],
   "metrics": {
     "product_feature_shipped": 0,
-    "value_prototype_shipped": 0,
-    "local_tests_run": 0,
+    "value_prototype_shipped": 1,
+    "local_tests_run": 1,
     "user_trials_run": 0,
     "owner_steps_eliminated": null,
     "owner_minutes_saved": null,
@@ -100,7 +100,7 @@
     "private_transcript_uploads": 0,
     "other_team_source_edits": 0
   },
-  "next": "Begin VALUE-ORACLE V1 Outcome Packet to prove a useful post-capture result; separate Windows owner smoke/acceptance. Do not restart security backlog unless a friction issue is measured.",
+  "next": "V1 code + Node22 synthetic QA receipt delivered; await actual local Windows V1 fixture verification and usefulness trial; no V2-V5.",
   "notes": [
     "SCAFFOLDED_NOT_LAUNCHED is deliberate: GitHub folders do not start conversations/agents.",
     "GitHub issue proposals are not acknowledged work until a real receiving agent confirms.",
@@ -115,8 +115,8 @@
     "state": true,
     "launch_prompt": true,
     "source_edits_outside_role": 0,
-    "first_working_outcome_packet": false,
-    "source_execution_claimed": false
+    "first_working_outcome_packet": true,
+    "source_execution_claimed": true
   },
   "last_local_first_sweep": {
     "date": "2026-10-22",
@@ -173,5 +173,49 @@
     "api_schema_commit": "4489e2d7fa9982eff460b2ea778ec068c0456475",
     "node_tests_committed": 5,
     "native_tests_run": 0
+  },
+  "v1_2026_10_22": {
+    "status": "EXECUTED_TESTED_OFFLINE_NOT_WINDOWS_ACCEPTED",
+    "baseline_main": "06e9810948c23dad3a6599b62b591b7d3a470ee7",
+    "source_paths": [
+      "prototypes/outcome-packet.mjs",
+      "prototypes/outcome-packet.test.mjs",
+      "prototypes/fixtures/demo.json",
+      "prototypes/V1-HANDOFF.md",
+      "prototypes/V1-RECEIPT.md"
+    ],
+    "source_commits": [
+      "1e3e0915e59481363ada5ae958eeacbda466b810",
+      "28b89b088b5ed19c834137815373b3b775751be1",
+      "d50d4d9459fd409da408b8ad6d623a5a82ec70a6",
+      "18d5b8efbfe8a747d7bf24256c1fedb95ce72bbd",
+      "753adb9ddd44b4173af1228bd329eb58ac7c3f77"
+    ],
+    "native_test": {
+      "node": "v22.16.0",
+      "environment": "isolated Linux sandbox",
+      "tests_passed": 13,
+      "tests_failed": 0
+    },
+    "demo": {
+      "input": "synthetic-session-001",
+      "command": "node prototypes/outcome-packet.mjs --demo --out <local-folder>",
+      "outcome": "PASS",
+      "evidence_verified": 6,
+      "markdown": true,
+      "json": true,
+      "qa_receipt": "qa-v1/round-L4/"
+    },
+    "not_tested": [
+      "Windows checkout",
+      "actual saved real user Studio export",
+      "independent QA acceptance",
+      "owner consumption",
+      "measured user steps/time saved"
+    ],
+    "external_actions": 0,
+    "private_capture_uploads": 0,
+    "other_lane_source_edits": 0,
+    "next": "Local Windows team executes demo, checks six refs, returns L4 evidence receipt. Do not begin V2-V5."
   }
 }
