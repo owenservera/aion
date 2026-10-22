@@ -17,6 +17,8 @@
 // Nothing here is site specific: every recogniser keys off wire shape, never off a hostname.
 
 import { CsvDecoder, sniffDelimiter } from './csv.mjs';
+import { decodeProtobuf, protoStrings } from './protobuf.mjs';
+import { gunzipSync, inflateSync, inflateRawSync } from 'node:zlib';
 
 export const NL = 0x0a, CR = 0x0d, RS = 0x1e, TAB = 0x09, SP = 0x20;
 
@@ -432,18 +434,79 @@ export class LengthPrefixedDecoder {
 }
 
 // ---------------------------------------------------------------------------------------------
-// gRPC / gRPC-Web message frames: 1 byte compressed flag + 4 byte big-endian length.
-// Payload is protobuf: not parsed (no dependencies), but framing, sizes, trailers and printable
-// strings are recovered, which is what makes a capture reviewable.
+// gRPC / gRPC-Web / Connect message frames: 1 byte flags + 4 byte big-endian length.
+// Framing, sizes, trailers and printable strings are always recovered (raw payload). For
+// non-end-stream data frames the payload is additionally:
+//   compressed (0x01): inflated with gunzip, then zlib inflate, then raw deflate (first success
+//     wins; never throws). Event gets compression: 'gzip' | 'deflate' | 'deflate-raw' | 'undecodable'.
+//   protobuf: decoded schema-less (src/decode/protobuf.mjs) when the response mime contains
+//     'proto' or the payload is not JSON text. Event gets proto: { ok, strings, fieldCount, truncated }
+//     or { ok: false, reason }.
+// End-stream frames (0x02, Connect JSON trailer) and trailer frames (0x80) keep their exact shape.
 // ---------------------------------------------------------------------------------------------
+const INFLATE_MAX_BYTES = 16 * 1024 * 1024;   // hard cap on inflated size (zlib maxOutputLength)
+const PROTO_MAX_STRINGS = 64;                 // per event: bounds persisted size (events dataset)
+const PROTO_MAX_CHARS = 4000;                 // per string, in code points (no split surrogates)
+const INFLATERS = [['gzip', gunzipSync], ['deflate', inflateSync], ['deflate-raw', inflateRawSync]];
+
+// Returns { method, bytes } with bytes null when no inflater accepts the payload.
+function inflateFrame(payload) {
+  for (const [method, fn] of INFLATERS) {
+    try { return { method, bytes: fn(payload, { maxOutputLength: INFLATE_MAX_BYTES }) }; } catch { /* next */ }
+  }
+  return { method: 'undecodable', bytes: null };
+}
+
+// Bounded view of a decoded protobuf body. Oversize (live cap) is decided before decoding.
+function protoView(body, cap) {
+  if (cap && body.length > cap) return { ok: false, reason: 'oversize' };
+  let r;
+  try { r = decodeProtobuf(body); } catch { return { ok: false, reason: 'decode-error' }; }
+  if (!r.ok) return { ok: false, reason: r.reason };
+  const strings = [];
+  let truncated = false;
+  for (const s of protoStrings(r.tree)) {
+    if (strings.length >= PROTO_MAX_STRINGS) { truncated = true; break; }
+    let text = s.text;
+    if (text.length > PROTO_MAX_CHARS) {
+      const chars = Array.from(text);
+      if (chars.length > PROTO_MAX_CHARS) { text = chars.slice(0, PROTO_MAX_CHARS).join(''); truncated = true; }
+    }
+    strings.push({ path: s.path, text });
+  }
+  return { ok: true, strings, fieldCount: r.stats.fields, truncated };
+}
+
 export class GrpcFrameDecoder {
-  constructor({ maxFrameBytes = 32 * 1024 * 1024 } = {}) {
+  // mime: response content type (protobuf when it contains 'proto'). jsonMaxBytes (0 = unlimited)
+  // is the live cap shared with the JSON path: a larger inflated protobuf body is an oversize marker.
+  constructor({ maxFrameBytes = 32 * 1024 * 1024, mime = null, jsonMaxBytes = 0 } = {}) {
     this.kind = 'grpc';
     this.buf = Buffer.alloc(0);
     this.base = 0;
     this.count = 0;
     this.maxFrameBytes = maxFrameBytes;
+    this.mime = mime;
+    this.jsonMaxBytes = jsonMaxBytes;
     this.stats = { frames: 0, trailers: 0, compressed: 0, bytes: 0 };
+  }
+
+  // Adds compression / proto to a data frame. rawJson: JSON parse of the raw payload (or undefined).
+  _annotate(ev, payload, rawJson) {
+    let body = payload;
+    if (ev.compressed) {
+      const inf = inflateFrame(payload);
+      ev.compression = inf.method;
+      body = inf.bytes;
+    }
+    if (body !== null) {
+      const bodyIsJson = ev.compressed ? parseJsonSafe(body.toString('utf8')) !== undefined : rawJson !== undefined;
+      const protoMime = /proto/i.test(String(this.mime ?? ''));
+      if (!protoMime && bodyIsJson) return;   // JSON Connect payload: current handling only
+      ev.proto = protoView(body, this.jsonMaxBytes);
+    } else {
+      ev.proto = { ok: false, reason: 'undecodable' };
+    }
   }
   push(chunk) {
     this.buf = this.buf.length ? Buffer.concat([this.buf, chunk]) : Buffer.from(chunk);
@@ -466,6 +529,7 @@ export class GrpcFrameDecoder {
         const json = parseJsonSafe(text);
         if (json !== undefined) ev.json = json;                       // grpc-gateway / JSON codec
         else { const strs = extractStrings(payload, 3); if (strs.length) ev.strings = strs.slice(0, 40); }
+        if ((flag & 0x02) === 0) this._annotate(ev, payload, json);  // not end-stream (Connect JSON trailer)
       }
       if (ev.compressed) this.stats.compressed++;
       this.stats.bytes += len;
@@ -555,7 +619,7 @@ export class AutoDecoder {
     this.kind = forced ?? classifyMime(mime);
   }
   _init(firstBytes) {
-    this.inner = decoderForKind(sniff(this.mime, firstBytes), { forced: this.forced, jsonMaxBytes: this.jsonMaxBytes });
+    this.inner = decoderForKind(sniff(this.mime, firstBytes), { forced: this.forced, jsonMaxBytes: this.jsonMaxBytes, mime: this.mime });
     this.kind = this.inner.kind;
     return this.inner;
   }
@@ -570,7 +634,7 @@ export class AutoDecoder {
         const better = sniff(this.mime, head);
         if (better !== this.inner.kind && ['sse', 'ndjson', 'jsonseq', 'chunked-json', 'grpc', 'length-prefixed', 'csv'].includes(better)) {
           this.switched = { from: this.inner.kind, to: better, atChunk: this.chunkCount };
-          this.inner = decoderForKind(better, { forced: this.forced, jsonMaxBytes: this.jsonMaxBytes });
+          this.inner = decoderForKind(better, { forced: this.forced, jsonMaxBytes: this.jsonMaxBytes, mime: this.mime });
           this.kind = this.inner.kind;
           const evs = this.inner.push(head);
           this.emitted += evs.length;
@@ -598,7 +662,8 @@ export class AutoDecoder {
 export function classifyMime(mime = '') {
   const m = String(mime ?? '').toLowerCase();
   if (m.includes('event-stream')) return 'sse';
-  if (m.includes('grpc')) return 'grpc';
+  // Connect streaming (application/connect+proto, connect+json) uses the same 5-byte envelopes as gRPC.
+  if (m.includes('grpc') || m.includes('connect+')) return 'grpc';
   if (m.includes('json-seq')) return 'jsonseq';
   if (m.includes('ndjson') || m.includes('jsonl') || m.includes('x-json-stream')) return 'ndjson';
   if (m.includes('json')) return 'json';
@@ -625,7 +690,7 @@ class CsvRowDecoder extends CsvDecoder {
   }
 }
 
-export function decoderForKind(kind, { forced, jsonMaxBytes = 0 } = {}) {
+export function decoderForKind(kind, { forced, jsonMaxBytes = 0, mime = null } = {}) {
   switch (kind) {
     case 'csv': return new CsvRowDecoder();
     case 'sse': return new SseDecoder();
@@ -633,7 +698,7 @@ export function decoderForKind(kind, { forced, jsonMaxBytes = 0 } = {}) {
     case 'jsonseq': return new JsonSeqDecoder({ maxBytes: jsonMaxBytes });
     case 'chunked-json': return new ChunkedJsonDecoder({ maxBytes: jsonMaxBytes });
     case 'length-prefixed': return new LengthPrefixedDecoder();
-    case 'grpc': return new GrpcFrameDecoder();
+    case 'grpc': return new GrpcFrameDecoder({ mime, jsonMaxBytes });
     case 'json': case 'html': case 'text': return new WholeBodyDecoder(kind, { maxBytes: jsonMaxBytes });
     default: return new WholeBodyDecoder(forced === 'binary' ? 'binary' : 'binary');
   }
