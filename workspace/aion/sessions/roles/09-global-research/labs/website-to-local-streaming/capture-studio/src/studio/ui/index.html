@@ -336,7 +336,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtB = (n) => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
-const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, searchRequestSeq: 0, workflowStep: '', historicalAsOfLocal: '', trail: [], authExpired: false, knowledge: null };
+const S = { status: null, liveId: null, sessionId: null, view: 'capture', sid: null, profile: null, recording: false, sessions: [], sessionLoadSeq: 0, sessionRequestSeq: 0, streamRequestSeq: 0, continuityRequestSeq: 0, knowledgeRequestSeq: 0, knowledgeDetailSeq: 0, searchRequestSeq: 0, workflowStep: '', historicalAsOfLocal: '', trail: [], authExpired: false, knowledge: null };
 
 async function api(path, opts = {}) {
   let r;
@@ -366,7 +366,7 @@ const src = () => (S.sessionId && S.sessionId !== S.liveId) ? { kind: 'session',
 
 /* ---------------- navigation ---------------- */
 document.querySelectorAll('nav button[data-view]').forEach((b) => b.onclick = () => show(b.dataset.view));
-function show(v) {
+function show(v, skipLoad = false) {
   S.view = v;
   document.querySelectorAll('nav button[data-view]').forEach((b) => {
     if (b.dataset.view === v) b.setAttribute('aria-current', 'page');
@@ -374,7 +374,7 @@ function show(v) {
   });
   document.querySelectorAll('section.view').forEach((s) => s.classList.toggle('on', s.id === 'v-' + v));
   const load = ({ streams: loadStreams, shapes: loadShapes, sessions: loadSessions, profiles: loadProfiles, capture: loadTargets, knowledge: loadKnowledge })[v];
-  if (load) guard(load)();
+  if (load && !skipLoad) guard(load)();
   updateInvestigationTrail();
 }
 function updateInvestigationTrail() {
@@ -399,7 +399,7 @@ function selectSessionContext(id) {
   const selected = id || null;
   if (S.sessionId === selected) return;
   S.sessionId = selected; S.sid = null;
-  ++S.sessionRequestSeq; ++S.continuityRequestSeq; ++S.knowledgeRequestSeq; ++S.knowledgeDetailSeq; ++S.searchRequestSeq;
+  ++S.sessionRequestSeq; ++S.streamRequestSeq; ++S.continuityRequestSeq; ++S.knowledgeRequestSeq; ++S.knowledgeDetailSeq; ++S.searchRequestSeq;
   S.knowledge = null;
   const state = $('#knowledgeState');
   if (state) state.textContent = selected ? 'Recording changed. Explore knowledge to read its own derived evidence.' : 'No saved recording selected. Prior derived evidence is no longer displayed.';
@@ -557,6 +557,8 @@ async function loadStreams() {
   const s = src();
   if (!s) { $('#streams tbody').innerHTML = '<tr><td colspan="8" class="empty">Start a recording or choose a saved session.</td></tr>'; return; }
   const rows = s.kind === 'live' ? (await api('live/streams')).streams : await api(`sessions/${s.id}/streams`);
+  if (src()?.id !== s.id || src()?.kind !== s.kind) return [];
+  if (!Array.isArray(rows)) throw new Error('Studio did not return a stream list.');
   streamsCache = rows;
   const tcls = (t) => ({ HTTP_SSE: 'c-l2', HTTP_NDJSON: 'c-l2', EVENT_SOURCE: 'c-l2', WEBSOCKET: 'c-l3', HTTP_STREAMED: 'c-l1' })[t] || '';
   $('#streams tbody').innerHTML = rows.length ? rows.map((r) => `<tr class="click ${r.sid === S.sid ? 'sel' : ''}" data-sid="${esc(r.sid)}">
@@ -565,9 +567,11 @@ async function loadStreams() {
     <td>${esc(r.status_code ?? '')} ${esc(r.status)}</td><td class="num">${r.chunks || r.frames || 0}</td><td class="num">${fmtB(r.bytes)}</td><td class="num">${r.events}</td><td class="num">${r.deltaRevisions || ''}</td>
     <td>${r.gaps ? '<span class="c-gap">gap in stream</span>' : r.status === 'incomplete_at_stop' ? '<span class="c-act">ended before the stream did</span>' : r.armError ? '<span class="c-act">retrospective only</span>' : r.retrospective ? 'retrospective' : r.preBytes ? 'from start (buffered prefix)' : 'from start'}</td></tr>`).join('') : '<tr><td colspan="8" class="empty">No in-scope traffic yet. Use the page in the capture browser.</td></tr>';
   document.querySelectorAll('#streams tr.click').forEach((tr) => tr.onclick = guard(() => openStream(tr.dataset.sid)));
+  return rows;
 }
 function shortUrl(u) { try { const x = new URL(u); return x.host + x.pathname + (x.search ? '?…' : ''); } catch { return u || ''; } }
 async function openStream(sid) {
+  const streamSeq = ++S.streamRequestSeq;
   S.sid = sid; document.querySelectorAll('#streams tr').forEach((tr) => tr.classList.toggle('sel', tr.dataset.sid === sid));
   $('#detail').hidden = false;
   const s = src(), id = s.id;
@@ -576,10 +580,11 @@ async function openStream(sid) {
     s.kind === 'live' ? api(`live/stream/${encodeURIComponent(sid)}/events`) : api(`sessions/${id}/events/${encodeURIComponent(sid)}`),
     s.kind === 'live' ? api(`live/stream/${encodeURIComponent(sid)}/assembled`) : api(`sessions/${id}/assembled/${encodeURIComponent(sid)}`),
   ]);
+  if (streamSeq !== S.streamRequestSeq || src()?.id !== id || S.sid !== sid) return false;
   if (raw.error) $('#rawBody').innerHTML = `<div class="empty">${esc(raw.error)}</div>`;
   else {
     $('#rawMeta').textContent = `${raw.chunks.length} chunks, ${fmtB(raw.total)}${raw.truncatedForView ? ' (view truncated, file complete)' : ''}`;
-    $('#rawBody').innerHTML = raw.chunks.length ? raw.chunks.map((c, i) => `<span class="c${i % 2}${c.pre ? ' pre' : ''}${c.redactions ? ' red' : ''}" title="seq ${c.seq}, ${c.length} bytes at offset ${c.offset}${c.pre ? ', received before capture was armed' : ''}${c.retrospective ? ', read after completion' : ''}${c.redactions ? ', ' + c.redactions.length + ' credential(s) masked' : ''}${c.dir ? ', ' + c.dir : ''}">${esc(c.text)}</span>`).join('') : '<div class="empty">No body bytes for this stream.</div>';
+    $('#rawBody').innerHTML = raw.chunks.length ? raw.chunks.map((c, i) => `<span data-seq="${esc(c.seq ?? '')}" class="c${i % 2}${c.pre ? ' pre' : ''}${c.redactions ? ' red' : ''}" title="seq ${c.seq}, ${c.length} bytes at offset ${c.offset}${c.pre ? ', received before capture was armed' : ''}${c.retrospective ? ', read after completion' : ''}${c.redactions ? ', ' + c.redactions.length + ' credential(s) masked' : ''}${c.dir ? ', ' + c.dir : ''}">${esc(c.text)}</span>`).join('') : '<div class="empty">No body bytes for this stream.</div>';
   }
   $('#evMeta').textContent = `${evs.length} events`;
   $('#evBody').innerHTML = ''; evs.forEach(appendEvent);
@@ -587,6 +592,7 @@ async function openStream(sid) {
   const doc = s.kind === 'live' ? as?.doc : as?.doc;
   $('#asMeta').textContent = as ? `${as.revisions} revisions` : '';
   $('#asBody').innerHTML = doc !== undefined && doc !== null ? `<pre class="mono" style="white-space:pre-wrap;margin:0">${esc(JSON.stringify(doc, null, 2))}</pre>` : '<div class="empty">This stream has no assembled document. Events are shown individually.</div>';
+  return true;
 }
 function appendEvent(e) {
   const body = $('#evBody'); if (body.querySelector('.empty')) body.innerHTML = '';
