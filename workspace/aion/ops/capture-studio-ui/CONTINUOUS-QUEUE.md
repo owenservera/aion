@@ -1,3 +1,5 @@
+> **2026-10-22 final pre-Windows UI handoff:** exact saved-stream/SID/sequence permalink and Knowledge/Search source links delivered; Chat/Drive continue linking the exact saved session without inventing unsupported SID. **67/67** deterministic UI contract cases passed in V8 (native Node/Windows/QA pending). [Windows UI handoff receipt](LOCAL-HANDOFF-2026-10-22.md). Freeze broad remote UI work; run QA L0/L1 and patch evidence-backed defects. DOM-only locator and broad type-drift comparison explicitly deferred.
+
 > **2026-10-22 local-PC de-securitization sweep:** source delivered. Raw network/recorder/DOM/preview evidence aligned; default no-token localhost; redundant Drive checkbox removed; 2,000-character Chat/Drive prompt ceiling lifted to 250,000; local-first instructions updated. **73/73 V8 source contracts pass** (62 UI + 11 local-first). Native Node, Windows/browser and independent QA remain pending. [Canonical local-first policy](https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/docs/LOCAL-FIRST.md). This is a cross-cutting user-requested sweep, not a new competing sprint.
 
 > **OWNER PRIORITY 2026-10-22 — LOCAL PC DE-SECURITIZATION:** [Issue #65](https://github.com/owenservera/aion/issues/65). Continue your existing UI Sprint 3. Prefer a **single clear intentional Send/Execute action** rather than a separate live-checkbox and repetitive confirmation, and enable genuine multi-turn Chat once Core adds it. A failed cookie/token session should recover through the local app without reopening a terminal URL repeatedly. Show inspect/recover for stale lease/recordings; reduce uncertainty warning spam while keeping truthful unknown-effect behavior. No invented RBAC, cloud account workflows or mandatory approval screens. Keep source evidence accessible even if not independently accepted, label inferred/unverified honestly. Do not edit Core backend or auto-retry ambiguous sends. This is queue steering, not a code change or agent wakeup.
@@ -14,7 +16,8 @@
 - [x] **Local-first friction sweep:** removed redundant capture/UI masking, token and confirmation gates; retained local integrity, no-duplicate and ownership semantics. See canonical local-first policy.
 - [x] **Sprint 1 Connected Journey:** Chat/Drive → exact saved recording and optional Knowledge, validated in source. [Receipt](FIVE-SPRINT-WORKPLAN.md#sprint-1-evidence-ledger).
 - [x] **Sprint 2 Lifecycle & Recovery:** Chat and Drive concurrent-load guards, original-send outcome isolation, Chat lease owner wording, lost job/state uncertainty, stale Knowledge clearing, 62 UI tests passing in V8. [Receipt](SPRINT-02-RECOVERY.md).
-- [ ] **Sprint 3 raw-evidence path:** navigate exact source stream/sequence or DOM evidence only when backed by Core provenance IDs; distinguish missing/truncated/source-unknown.
+- [x] **Sprint 3 saved-stream/sequence path:** verified session/SID permalinks, real decoded/raw sequence focus when present, bounded-preview and missing-source diagnostics. [Handoff](LOCAL-HANDOFF-2026-10-22.md).
+- [ ] **DOM-only source deep link:** deferred until Core returns a verified durable DOM locator; do not fabricate a SID.
 - [ ] **Sprint 3 type-drift review:** two-source read-only comparison, provenance/identity caveats, no automatic merge/correction.
 - [ ] **Native and real-browser acceptance:** Node 22 full checkout tests, authorized local Chrome, keyboard/mobile and independent QA; old V8-only receipts never count as acceptance.
 
@@ -23,7 +26,7 @@
 - [x] **Core correctness adapter:** status complete/zero-entities/deriving/failed/legacy; origin-qualified identities; incomplete and truncated evidence; explicit field removal and deleted-session handling. Source only.
 - [ ] **Actual integration acceptance:** native Node 22 suite, authenticated local browser with saved recordings, keyboard/mobile and independent QA.
 - [ ] **Exact observation drilldown — PARTIAL:** session + SID stream opens; source seq highlight when available. DOM-only evidence and precise unsupported seq fallbacks remain next.
-- [ ] **Review-only drift comparison:** side-by-side two candidate structures/histories, no mutation or merge.
+- [ ] **Review-only drift comparison:** deferred to post-Windows L4 evidence; existing hints remain read-only and no merge/correction is performed.
 - [ ] **Measured large-data UX:** assess bigger histories and graph cost, paginate or virtualize only where supported by actual measurements.
 
 ## NEXT
