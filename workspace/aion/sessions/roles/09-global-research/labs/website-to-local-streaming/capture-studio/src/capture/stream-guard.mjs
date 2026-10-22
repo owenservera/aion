@@ -72,9 +72,11 @@ export class ChunkCredentialGuard {
 // spans frames, queued content is discarded and all further frames are metadata.
 // A large uninspectable frame also fails closed.
 export class FrameCredentialGuard {
-  constructor({ holdbackBytes = STREAM_GUARD_HOLDBACK, maxBufferedBytes = STREAM_GUARD_MAX_BUFFER } = {}) {
+  constructor({ holdbackBytes = STREAM_GUARD_HOLDBACK, maxBufferedBytes = STREAM_GUARD_MAX_BUFFER,
+    maxPendingFrames = 4096 } = {}) {
     this.holdbackBytes = holdbackBytes;
     this.maxBufferedBytes = maxBufferedBytes;
+    this.maxPendingFrames = maxPendingFrames;
     this.pending = [];
     this.bytes = 0;
     this.excluded = false;
@@ -85,7 +87,8 @@ export class FrameCredentialGuard {
     if (!Buffer.isBuffer(bytes) || bytes.length > this.maxBufferedBytes) return this.exclude('security_scan_limit', { frame, bytes: bytes?.length ?? 0 });
     this.pending.push({ frame, bytes });
     this.bytes += bytes.length;
-    if (this.bytes > this.maxBufferedBytes) return this.exclude('security_scan_limit');
+    if (this.bytes > this.maxBufferedBytes || this.pending.length > this.maxPendingFrames)
+      return this.exclude('security_scan_limit');
     if (credentialCandidate(Buffer.concat(this.pending.map((f) => f.bytes), this.bytes))) return this.exclude('credential_candidate');
     const frames = [];
     while (this.pending.length && this.bytes - this.pending[0].bytes.length >= this.holdbackBytes) {
