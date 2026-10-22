@@ -2,14 +2,14 @@
 
 **Updated:** 2026-10-22. **Owner:** Systems / Algorithms / Usability. **Mode:** independent analysis, no product code changes or independent QA campaigns.
 **Workplan:** [SPRINTS.md](SPRINTS.md). **Previous completed work:** [ASSESSMENT-01.md](ASSESSMENT-01.md), SYS1–SYS6 (2026-10-21).
-**Current source checkpoint:** `34e1a913248c717c7f3d7c54f4be30bc9b23a098` at assessment start; all later source changes must be re-read before asserting risks still apply.
+**Source checkpoints:** Sprint 1 pinned `34e1a913248c717c7f3d7c54f4be30bc9b23a098`; Sprint 2 pinned `02310fe5ae913c23a56fd16144b518b78eb0b4a6`. Refresh current main when continuing; never infer fixes from documentation alone.
 
 ## Worklog — five sprints
 
 | Sprint | Description | Source status | Assessment / next action |
 |---|---|---|---|
 | 1 | Exact-target conversation safety, browser lease, send uncertainty, restart/finalization | **Completed 2026-10-22 (static source assessment)** | [SPRINT-01.md](SPRINT-01.md). Five ranked items with source anchors, counterevidence and owners |
-| 2 | Capture completeness, gaps, late WebSocket, raw/DOM fidelity, bounded performance | **Queued, not begun** | Reconcile loadlab and source event pipeline; no independent benchmark campaign |
+| 2 | Capture completeness, gaps, late WebSocket, raw/DOM fidelity, bounded performance | **Completed 2026-10-22 (source assessment)** | [SPRINT-02.md](SPRINT-02.md); five ranked findings, existing evidence matrix, no new benchmarks/tests |
 | 3 | Trusted capture acceptance → knowledge graph/families → learning | **Queued, not begun** | Trace acceptance G1–G7 versus implemented consumer eligibility and L4/L5 test receipts |
 | 4 | Unified Chat/Drive/UI/CLI and Development thin-client integration | **Queued, not begun** | Audit concrete contract mismatch and migration; don't start other agents |
 | 5 | Seven-layer architecture synthesis and residual risk ordering | **Queued, not begun** | Compare fresher shipped receipts and QA acceptance, provide one consolidated owner decision brief |
@@ -40,3 +40,19 @@ On a subsequent explicit sprint instruction: refresh GitHub main and relevant te
 - Core [`435d603`](https://github.com/owenservera/aion/commit/435d6038553b0a43e68c3296d3a3084c007df007) now **refuses** a fresh send key after uncertain or typing-started delivery; related source regression [`9b33950`](https://github.com/owenservera/aion/commit/9b3395078334d8367228121bf719830e941c52b5) exists. Remaining F4 is **UI wording/one-click action versus stricter Core contract**, not an active Core permission to duplicate a send.
 - Core [`377438f`](https://github.com/owenservera/aion/commit/377438fd92dad7a20a20f33dab98bf48ab634005) separately qualifies typed continuity keys. F1/F2 need future owner-design reconciliation; no Systems QA tests executed.
 - QA [current pinned FF report](../../qa/capture-studio/SITREP-2026-10-22-FF.md) measured 165 JS/MJS/HTML files and 40,510 physical LOC using GitHub file readbacks at original `34e1a913`, not the Systems checkout counter and not a post-sprint delta.
+
+## Sprint 2 receipt — 2026-10-22
+
+- **Authorized trigger:** owner's “next” after completed Systems Sprint 1.
+- **Source pinned:** `02310fe5ae913c23a56fd16144b518b78eb0b4a6` (source-audit starting head); report source hyperlinks point to that immutable SHA. The newer UI/L5 commits seen near closeout do not touch assessed capture engine files.
+- **Report:** [SPRINT-02.md](SPRINT-02.md), committed in `77228e3bc0705919e4c24ee02a2508863241ce0d` and source links subsequently pinned in `1986b26bc120e9a3846233a82bd41d5b5c948692`.
+- **S2-F1:** per-chunk secret masking and categorical privacy receipt language; already Core W4-owned, not a new Systems implementation request.
+- **S2-F2:** unbounded pending arming buffers are outside the bounded RawLog queue; require separate accounting or cap.
+- **S2-F3:** configured stream byte limit can be exceeded by the final oversized chunk with no truncation marker.
+- **S2-F4:** periodic fsync errors suppressed, so timer language is not a durability receipt.
+- **S2-F5:** raw-viable, live preview tail, inference samples and accepted evidence are separate denominators; avoid blanket completeness statements.
+- **Positive evidence:** RawLog gap/segment/manifest/verify infrastructure, proper late-WebSocket markers, explicit open-at-stop/pause loss indicators, synthetic 64MB/4-stream source-reported performance gains, reference-comparison tests.
+- **Cross-owner dedup:** Core owns W4 + L1 fixes, QA independent negative tests/acceptance, Knowledge & Learning owns temporal time-cutoff and L5 admissibility, UI truthful labels. No work assigned or started in those lanes by Systems.
+- **Execution:** GitHub static source/docs/test inspection; **0 new tests, 0 benchmark runs, 0 browser actions, 0 product changes**. Source changes from unrelated agents continued concurrently.
+- **Metrics:** prior QA independent inventory 165 executable JS/MJS/HTML files / 40,510 physical LOC at `34e1a913`; no current-head checked-out counter or Sprint 2 product LOC delta measured.
+- **Next:** Sprint 3 = eligibility of raw captures for families, L4 knowledge and L5 learning; **queued, not begun**. Review latest source first.
