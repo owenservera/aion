@@ -221,6 +221,7 @@ async function deriveAndConsolidate({ sessionId, adapter, targetUrl, paths }) {
 export async function runCampaign({
   sites = [...siteOrder], prompt = defaultPrompt, port = 9222, dataDir,
   execute = false, cooldownMs, perSiteTimeoutMs, limit, onEvent, resume = true,
+  drive = driveSite, // injectable for tests; production always uses driveSite
 } = {}) {
   const startedAt = nowIso();
   const root = path.resolve(dataDir ? String(dataDir) : defaultDataDir());
@@ -290,7 +291,7 @@ export async function runCampaign({
     emit({ type: 'site.start', site: id, targetUrl });
     let driven;
     try {
-      driven = await driveSite({
+      driven = await drive({
         adapter, prompt, port, dataDir: root, record: true, timeoutMs,
         onEvent: (ev) => emit({ type: 'drive', site: id, event: ev }),
       });
@@ -372,7 +373,10 @@ export async function runCampaign({
         siteResult.reason += `; ${match.reason}`;
       }
       totals.ok++;
-      results.push({ ...siteResult, status: 'ok' });
+      // resultFor() defaults to 'failed'; the persistence step below reads siteResult.status, so it
+      // must be set here, not only on the pushed copy (else a verified drive is stored as 'failed').
+      siteResult.status = 'ok';
+      results.push({ ...siteResult });
       emit({ type: 'site.ok', site: id, sessionId: siteResult.sessionId, derived: siteResult.derived, family: siteResult.family, signature: siteResult.signature });
     }
 
