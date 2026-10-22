@@ -18,13 +18,14 @@ import { joinStreamToDom } from '../intel/join.mjs';
 import { buildStreamMessages } from './stream-messages.mjs';
 import { applyStreamMap } from '../profiles/stream-map.mjs';
 import { buildStreamComponents, STREAM_COMPONENTS_SCHEMA } from './stream-components.mjs';
+import { evaluateAcceptance, writeAcceptance } from '../capture/acceptance.mjs';
 
 export const STREAM_DOM_JOIN_SCHEMA = 'capture-studio.stream-dom-join/1';
 // Per-stream event window for the component pass: larger than the reducer's 400 so long answers
 // are not cut short; any eviction is still reported as eventsOmitted.
 const STREAM_COMPONENTS_EVENT_CAP = 20000;
 
-export async function derive(session, profile, { onProgress, families, learner, joinImpl = joinStreamToDom, componentsImpl = applyStreamMap } = {}) {
+export async function derive(session, profile, { onProgress, families, learner, joinImpl = joinStreamToDom, componentsImpl = applyStreamMap, acceptanceImpl = evaluateAcceptance } = {}) {
   // Fail closed during rebuild: old MODEL/entities must not appear to be current.
   const knowledgeRun = { schema: 'capture-studio.knowledge-status/1',
     status: 'deriving', startedAt: new Date().toISOString(), dataset: 'entities' };
@@ -156,6 +157,8 @@ export async function derive(session, profile, { onProgress, families, learner, 
   // ---- Stream-to-component map: which UI component parts each response stream built. ----
   // Isolated like the join step: a failure is recorded in STREAM_COMPONENTS and never fails derive.
   receipt.stream_components = await streamComponents(session, profile, { componentsImpl });
+  // ---- Offline acceptance label (no conversation context). A label only: nothing reads it here. ----
+  receipt.acceptance = await acceptanceLabel(session, { acceptanceImpl });
   receipt.knowledge = knowledge;
   receipt.nsp = { schema: NSP_SCHEMA, graphInvariantViolations: knowledge.graphInvariantViolations ?? 0,
     graphQuarantinedEntities: knowledge.graphQuarantinedEntities ?? 0,
@@ -175,7 +178,7 @@ function streamDomJoin(session, reducer, domTurnsRaw, { firstSeqBySid, joinImpl 
       if (!messages.length) value = { schema: STREAM_DOM_JOIN_SCHEMA, status: 'no_stream_messages' };
       else {
         const { links, summary } = joinImpl({ messages, turns });
-        value = { schema: STREAM_DOM_JOIN_SCHEMA, summary, links,
+        value = { schema: STREAM_DOM_JOIN_SCHEMA, summary, links: withStreamText(links, messages),
           sources: { streams: messages.map((m) => m.sid), domTurns: turns.length } };
       }
     }
@@ -218,6 +221,46 @@ async function streamComponents(session, profile, { componentsImpl }) {
     return `${t.mapped} mapped, ${t.noMap} no map, ${t.components} components, ${t.unmappedCount} unmapped events`;
   }
   return value.status ?? 'error';
+}
+
+// Stream side of each join link that has a messageIndex: the stream sid and a raw (not normalized)
+// text preview of the first STREAM_PREVIEW_CHARS characters. Added here, not in join.mjs, which stays
+// pure. Characters are code points, so a preview never splits a surrogate pair. Never mutates input.
+const STREAM_PREVIEW_CHARS = 160;
+function withStreamText(links, messages) {
+  return links.map((l) => {
+    if (!Number.isInteger(l.messageIndex)) return l;
+    const m = messages[l.messageIndex];
+    if (!m) return l;
+    const chars = Array.from(typeof m.text === 'string' ? m.text : '');
+    return { ...l, stream: {
+      sid: m.sid ?? null,
+      textPreview: chars.slice(0, STREAM_PREVIEW_CHARS).join(''),
+      textLength: chars.length,
+      textTruncated: chars.length > STREAM_PREVIEW_CHARS,
+    } };
+  });
+}
+
+// Writes <session>/acceptance.json and returns the one-line receipt entry. Never throws: a failure
+// is recorded in the receipt line and derive continues.
+async function acceptanceLabel(session, { acceptanceImpl }) {
+  try {
+    const doc = await acceptanceImpl({ session, conversation: null });
+    writeAcceptance(session, doc);
+    if (doc.verdict === 'unassessed') return `verdict unassessed: ${doc.reasons.join('; ')}`;
+    // Consecutive gates with the same value collapse to a range, in gate order: "G4-G6 passed".
+    const runs = [];
+    for (const [id, g] of Object.entries(doc.gates)) {
+      const last = runs.at(-1);
+      if (last && last.value === g.value) last.ids.push(id);
+      else runs.push({ value: g.value, ids: [id] });
+    }
+    const parts = runs.map((r) => `${r.ids.length > 1 ? `${r.ids[0]}-${r.ids.at(-1)}` : r.ids[0]} ${r.value}`);
+    return `verdict ${doc.verdict}: ${parts.join(', ')}`;
+  } catch (e) {
+    return `error: ${String(e?.message ?? e)}`;
+  }
 }
 
 // Metadata-only lab receipt in the format of EXPERIMENTS.md. Safe to paste into an issue:

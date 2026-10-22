@@ -11,6 +11,7 @@ import { listTargets, browserVersion, isReachable } from '../cdp/discovery.mjs';
 import { launchChrome } from '../chrome/launch.mjs';
 import { Session, listSessions } from '../store/session.mjs';
 import { derive, streamBytes, stateAt, search } from '../replay/derive.mjs';
+import { readAcceptance } from '../capture/acceptance.mjs';
 import { exportDataset, exportTranscript } from '../export/export.mjs';
 import { applySuggestion } from '../profiles/apply.mjs';
 import { profileDiff, normalizeProfile } from '../profiles/profiles.mjs';
@@ -203,6 +204,12 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       if (c === 'components') {
         if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
         return send(res, 200, s.kv.get('STREAM_COMPONENTS', null) ?? { status: 'not_derived' });
+      }
+      if (c === 'acceptance') {
+        if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
+        // Read-only label. Legacy sessions have no acceptance.json; readAcceptance fails closed on mismatch.
+        if (!existsSync(path.join(s.dir, 'acceptance.json'))) return send(res, 200, { verdict: 'unassessed', reason: 'no acceptance.json' });
+        return send(res, 200, readAcceptance(s));
       }
       if (c === 'continuity') {
         if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
