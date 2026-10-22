@@ -11,7 +11,8 @@
 //      profile allows, Network.getResponseBody is attempted at loadingFinished (marked retrospective).
 //   3. WebSocket frames and browser-parsed EventSource messages are recorded as separate views.
 import { EventEmitter } from 'node:events';
-import { redactHeaders, redactUrl, isSensitiveUrl, scrubSecrets, scrubText } from './redact.mjs';
+import { isSensitiveUrl } from './redact.mjs';
+import { capturePrivacy } from './privacy.mjs';
 import { ChunkCredentialGuard, FrameCredentialGuard } from './stream-guard.mjs';
 import { inScope } from '../profiles/profiles.mjs';
 
@@ -20,10 +21,12 @@ export class NetworkRecorder extends EventEmitter {
     super();
     this.append = append;              // (rec) => seq|null  — writes to raw log + live pipeline
     this.profile = profile;
+    this.privacy = capturePrivacy(profile);
     this.getPageUrl = getPageUrl;
     this.options = options;
     this.reqs = new Map();             // sid -> state
     this.stats = {
+      captureMode: this.privacy.mode,
       requests: 0, outOfScope: 0, metadataOnly: 0, streamed: 0, armFailed: 0, armRetried: 0,
       retrospective: 0, chunks: 0, bytes: 0, wsFrames: 0, wsControlFrames: 0, esMessages: 0,
       sensitiveExcluded: 0, redactions: 0, truncatedStreams: 0, reattaches: 0, handlerErrors: 0,
@@ -39,6 +42,8 @@ export class NetworkRecorder extends EventEmitter {
 
   setProfile(p) {
     this.profile = p;
+    this.privacy = capturePrivacy(p);
+    this.stats.captureMode = this.privacy.mode;
     if (this.options.maxStreamBytes === undefined) this.maxStreamBytes = p?.capture?.maxStreamBytes ?? this.maxStreamBytes;
   }
 
@@ -53,6 +58,9 @@ export class NetworkRecorder extends EventEmitter {
     if (!inScope(this.profile, url, pageUrl)) {
       return this.profile.scope?.thirdParty === 'metadata' ? { capture: true, body: false, reason: 'third_party_metadata' } : { capture: false, reason: 'out_of_scope' };
     }
+    // The PC-local default records in-scope traffic without automatic auth
+    // suppression or format allowlists. Profiles still control site scope.
+    if (this.privacy.localRaw) return { capture: true, body: true, reason: 'local_raw' };
     if (isSensitiveUrl(url, c.sensitive ?? [])) return { capture: true, body: false, reason: 'credential_policy' };
     if ((c.exclude ?? []).some((re) => new RegExp(re, 'i').test(url))) return { capture: true, body: false, reason: 'profile_exclude' };
     if (this.options.allBodies) return { capture: true, body: true };
@@ -140,8 +148,8 @@ export class NetworkRecorder extends EventEmitter {
       if (prev.guard?.discard()) this.append({ k: 'body.excluded', sid, reason: 'security_tail_unfinished_redirect' });
       if (prev.frameGuard?.discard().length) this.append({ k: 'body.excluded', sid, reason: 'security_frames_unfinished_redirect' });
       if (prev.esGuard?.discard().length) this.append({ k: 'body.excluded', sid, reason: 'security_events_unfinished_redirect' });
-      this.append({ k: 'res', sid, status: p.redirectResponse.status, mime: p.redirectResponse.mimeType, headers: redactHeaders(p.redirectResponse.headers), redirect: true });
-      this.append({ k: 'done', sid, redirectedTo: redactUrl(url) });
+      this.append({ k: 'res', sid, status: p.redirectResponse.status, mime: p.redirectResponse.mimeType, headers: this.privacy.headers(p.redirectResponse.headers), redirect: true });
+      this.append({ k: 'done', sid, redirectedTo: this.privacy.url(url) });
     }
     const pol = this._policy(url, p.type, tag);
     this.stats.requests++;
@@ -152,13 +160,13 @@ export class NetworkRecorder extends EventEmitter {
     if (!pol.body) this.stats.metadataOnly++;
     if (pol.reason === 'credential_policy') this.stats.sensitiveExcluded++;
     const rec = {
-      k: 'req', sid, method: p.request.method, url: redactUrl(url), type: p.type, frameId: p.frameId,
+      k: 'req', sid, method: p.request.method, url: this.privacy.url(url), type: p.type, frameId: p.frameId,
       initiator: p.initiator?.type, ct: p.timestamp, wallTime: p.wallTime, target: targetInfo.type ?? 'page',
-      headers: redactHeaders(p.request.headers), hasPostData: !!p.request.hasPostData,
+      headers: this.privacy.headers(p.request.headers), hasPostData: !!p.request.hasPostData,
       policy: pol.body ? 'body' : `metadata_only:${pol.reason}`,
     };
-    if (this.profile.capture?.requestBodies && pol.body && p.request.postData) {
-      const { text, redactions } = scrubText(p.request.postData);
+    if ((this.privacy.localRaw || this.profile.capture?.requestBodies) && pol.body && p.request.postData) {
+      const { text, redactions } = this.privacy.text(p.request.postData);
       rec.postData = text;
       if (redactions.length) rec.postDataRedactions = redactions.length;
     }
@@ -172,7 +180,7 @@ export class NetworkRecorder extends EventEmitter {
     const r = p.response;
     this.append({
       k: 'res', sid, status: r.status, mime: r.mimeType, protocol: r.protocol, type: p.type, ct: p.timestamp,
-      headers: redactHeaders(r.headers), fromServiceWorker: !!r.fromServiceWorker, fromCache: !!(r.fromDiskCache || r.fromPrefetchCache), encodedDataLength: r.encodedDataLength,
+      headers: this.privacy.headers(r.headers), fromServiceWorker: !!r.fromServiceWorker, fromCache: !!(r.fromDiskCache || r.fromPrefetchCache), encodedDataLength: r.encodedDataLength,
     });
     if (!st.body) { this.append({ k: 'body.excluded', sid, reason: st.reason }); return; }
     if (p.type === 'WebSocket') return;
@@ -245,6 +253,12 @@ export class NetworkRecorder extends EventEmitter {
       st.droppedByCap = (st.droppedByCap ?? 0) + buf.length;
       return;
     }
+    if (this.privacy.localRaw) {
+      st.chunks++; st.bytes += buf.length;
+      this.stats.chunks++; this.stats.bytes += buf.length;
+      this.append({ k: 'chunk', sid: st.sid, n: buf.length, b64: buf.toString('base64'), ...extra });
+      return;
+    }
     this._appendProtectedChunk(st, (st.guard ??= new ChunkCredentialGuard()).push(buf), extra);
   }
 
@@ -281,9 +295,10 @@ export class NetworkRecorder extends EventEmitter {
         this.stats.retrospective++;
         // Retrospective is a completed body, but it must still use the bounded
         // fail-closed guard. A large/ambiguous body is metadata-only.
-        const guard = new ChunkCredentialGuard();
-        const first = guard.push(buf);
-        const last = first.excluded ? first : guard.finish();
+        const guard = this.privacy.localRaw ? null : new ChunkCredentialGuard();
+        const first = guard ? guard.push(buf) : { bytes: buf, redactions: [], excluded: false };
+        const last = guard ? (first.excluded ? first : guard.finish())
+          : { bytes: Buffer.alloc(0), redactions: [], excluded: false };
         if (first.excluded || last.excluded) {
           this.stats.sensitiveExcluded++;
           this.append({ k: 'body.excluded', sid: st.sid, reason: first.reason ?? last.reason,
@@ -294,7 +309,7 @@ export class NetworkRecorder extends EventEmitter {
             ...x, offset: x.offset + first.bytes.length }))];
           this.stats.redactions += redactions.length;
           const rec = { k: 'body', sid: st.sid, n: bytes.length, b64: bytes.toString('base64'),
-            retrospective: true, securityGuard: 'stream-v1' };
+            retrospective: true, ...(this.privacy.localRaw ? { captureMode: 'local-raw' } : { securityGuard: 'stream-v1' }) };
           if (redactions.length) rec.redactions = redactions;
           this.append(rec);
         }
@@ -327,12 +342,17 @@ export class NetworkRecorder extends EventEmitter {
     if (!st || st.ignored || !st.body) return;
     this.stats.esMessages++;
     if (st.credentialExcluded) return;
+    if (this.privacy.localRaw) {
+      this.append({ k: 'es.msg', sid: st.sid, ct: p.timestamp, eventName: p.eventName,
+        eventId: p.eventId, data: p.data ?? '' });
+      return;
+    }
     // CDP emits this parsed view IN ADDITION to raw HTTP bytes. Guard it
     // independently so split secret markers cannot survive via es.msg.
     const bytes = Buffer.from(String(p.data ?? ''), 'utf8');
-    const { text, redactions } = scrubText(p.data ?? '');
+    const { text, redactions } = this.privacy.text(p.data ?? '');
     const rec = { k: 'es.msg', sid: st.sid, ct: p.timestamp,
-      eventName: scrubText(p.eventName ?? '').text, eventId: scrubText(p.eventId ?? '').text,
+      eventName: this.privacy.text(p.eventName ?? '').text, eventId: this.privacy.text(p.eventId ?? '').text,
       data: text, securityDelayed: true };
     if (redactions.length) rec.redactions = redactions;
     const result = (st.esGuard ??= new FrameCredentialGuard()).push(rec, bytes);
@@ -350,16 +370,16 @@ export class NetworkRecorder extends EventEmitter {
     const sid = this._sid(tag, p.requestId);
     if (!this.profile.capture?.websockets) { this.reqs.set(sid, { sid, ignored: true }); return; }
     const pol = this._policy(p.url, null, tag); // WebSockets are governed by capture.websockets, not resource types
-    if (!pol.capture || !pol.body) { this.reqs.set(sid, { sid, ignored: !pol.capture, body: false }); if (pol.capture) this.append({ k: 'ws.open', sid, url: redactUrl(p.url), policy: `metadata_only:${pol.reason}` }); return; }
+    if (!pol.capture || !pol.body) { this.reqs.set(sid, { sid, ignored: !pol.capture, body: false }); if (pol.capture) this.append({ k: 'ws.open', sid, url: this.privacy.url(p.url), policy: `metadata_only:${pol.reason}` }); return; }
     this.reqs.set(sid, { sid, url: p.url, ws: true, body: true, frames: 0, bytes: 0, chunks: 0,
       frameGuard: new FrameCredentialGuard() });
-    this.append({ k: 'ws.open', sid, url: redactUrl(p.url), initiator: p.initiator?.type, target: targetInfo.type ?? 'page' });
+    this.append({ k: 'ws.open', sid, url: this.privacy.url(p.url), initiator: p.initiator?.type, target: targetInfo.type ?? 'page' });
   }
 
   _onWsHandshakeRequest(tag, p) {
     const st = this.reqs.get(this._sid(tag, p.requestId));
     if (!st || st.ignored) return;
-    const headers = redactHeaders(p.request?.headers ?? {});
+    const headers = this.privacy.headers(p.request?.headers ?? {});
     const proto = headers['sec-websocket-protocol'] ?? headers['Sec-WebSocket-Protocol'];
     this.append({ k: 'ws.handshake_request', sid: st.sid, ct: p.timestamp, headers, ...(proto ? { requestedProtocols: String(proto).split(/\s*,\s*/) } : {}) });
   }
@@ -367,7 +387,7 @@ export class NetworkRecorder extends EventEmitter {
   _onWsHandshake(tag, p) {
     const st = this.reqs.get(this._sid(tag, p.requestId));
     if (!st || st.ignored) return;
-    this.append({ k: 'ws.handshake', sid: st.sid, status: p.response?.status, headers: redactHeaders(p.response?.headers) });
+    this.append({ k: 'ws.handshake', sid: st.sid, status: p.response?.status, headers: this.privacy.headers(p.response?.headers) });
   }
 
   // A socket opened before observation began never produces webSocketCreated, but Chrome still
@@ -414,7 +434,7 @@ export class NetworkRecorder extends EventEmitter {
       this.append({ ...metadata, policy: st.credentialExcluded ? 'metadata_only:credential_guard' : 'metadata_only' });
       return;
     }
-    if (dir === 'out' && !this.profile.capture?.wsSentFrames) {
+    if (dir === 'out' && !this.privacy.localRaw && !this.profile.capture?.wsSentFrames) {
       this.stats.wsMetadataFrames++;
       this.append({ ...metadata, policy: 'metadata_only:sent_frame_policy' });
       return;
@@ -434,9 +454,14 @@ export class NetworkRecorder extends EventEmitter {
     // Observe raw bytes only in memory, before appending anything to raw JSONL.
     // Each delayed safe frame keeps its original opcode/direction and arrival ct.
     const bytes = f.opcode === 2 ? Buffer.from(data, 'base64') : Buffer.from(data, 'utf8');
+    if (this.privacy.localRaw) {
+      st.bytes = (st.bytes ?? 0) + size;
+      this.append({ k: 'ws.frame', sid: st.sid, dir, opcode: f.opcode, payload: data, ct: p.timestamp });
+      return;
+    }
     let payload, redactions;
-    if (f.opcode === 2) { const r = scrubSecrets(bytes); payload = r.bytes.toString('base64'); redactions = r.redactions; }
-    else { const r = scrubText(data); payload = r.text; redactions = r.redactions; }
+    if (f.opcode === 2) { const r = this.privacy.bytes(bytes); payload = r.bytes.toString('base64'); redactions = r.redactions; }
+    else { const r = this.privacy.text(data); payload = r.text; redactions = r.redactions; }
     const rec = { k: 'ws.frame', sid: st.sid, dir, opcode: f.opcode, payload, ct: p.timestamp, securityDelayed: true };
     if (redactions.length) rec.redactions = redactions;
     st.bytes = (st.bytes ?? 0) + size;
@@ -458,7 +483,7 @@ export class NetworkRecorder extends EventEmitter {
   // Same set with enough detail for a coverage note (what exactly is still in flight).
   openStreamDetail() {
     return [...this.reqs.values()].filter((s) => !s.ignored).map((s) => ({
-      sid: s.sid, url: s.url ? redactUrl(s.url) : undefined, ws: !!s.ws, body: !!s.body,
+      sid: s.sid, url: s.url ? this.privacy.url(s.url) : undefined, ws: !!s.ws, body: !!s.body,
       chunks: s.chunks ?? 0, bytes: s.bytes ?? 0, frames: s.frames ?? 0,
       armed: !!s.armed, truncated: !!s.truncated, securityExcluded: !!s.credentialExcluded,
       securityWithheldBytes: (s.guard?.pending.length ?? 0) + (s.frameGuard?.bytes ?? 0) + (s.esGuard?.bytes ?? 0),
