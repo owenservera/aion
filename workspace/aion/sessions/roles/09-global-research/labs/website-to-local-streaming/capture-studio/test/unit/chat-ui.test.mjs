@@ -35,7 +35,7 @@ test('Studio really serves /chat and /ui/chat.mjs (loopback, injected fake runti
   const root = mkdtempSync(path.join(os.tmpdir(), 'chat-ui-'));
   const paths = dataPaths(root); ensureDataDirs(paths);
   const runtime = { isSessionActive: () => false, close: async () => {}, targets: async () => ({ sites: [], targets: [] }), list: async () => [] };
-  const studio = await startStudio({ paths, profileStore: new ProfileStore(paths.profiles), port: 0, token: 'fixture-token', conversationRuntime: runtime });
+  const studio = await startStudio({ paths, profileStore: new ProfileStore(paths.profiles), port: 0, token: 'fixture-token', accessMode: 'token', conversationRuntime: runtime });
   t.after(async () => { await studio.close(); rmSync(root, { recursive: true, force: true }); });
   const base = `http://127.0.0.1:${studio.port}`, auth = { 'x-studio-token': 'fixture-token' };
 
