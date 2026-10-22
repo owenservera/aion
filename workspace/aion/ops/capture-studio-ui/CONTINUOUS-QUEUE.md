@@ -1,4 +1,4 @@
-> **Five-sprint delivery authority (2026-10-22):** [FIVE-SPRINT-WORKPLAN.md](FIVE-SPRINT-WORKPLAN.md). Sprint 1 safe Chat/Drive → Session → Knowledge handoff is **source-delivered, 46/46 V8 mock-contract checks passed; real Node/browser/independent QA still pending**. Sprint 2 lifecycle/recovery is next. Retain earlier Knowledge/Integration sprint receipts as historical implementation evidence, not a second active queue.
+> **2026-10-22 update:** [Sprint 2 — Lifecycle & Recovery](SPRINT-02-RECOVERY.md) source delivered with 62/62 UI contract bodies passing in V8. Native Node/browser/Windows and independent QA remain pending. **Next UI build: Sprint 3 Evidence Explorer** from [five-sprint plan](FIVE-SPRINT-WORKPLAN.md).
 
 > **Current authority:** [SPRINT-03-INTEGRATION.md](SPRINT-03-INTEGRATION.md) — Integration source slice delivered with 37/37 deterministic V8 UI checks. **Native Node, local browser/Windows and independent QA acceptance pending.** [SPRINT-03.md](SPRINT-03.md) is the original evidence-navigation substream, not a competing active sprint.
 
@@ -6,11 +6,12 @@
 
 **Owner:** UI / Integration. **Steward:** QA / Steering. **Updated:** 2026-10-21 (UI Sprint 02 delivery). **Nature:** rolling outcome priorities, not a second detailed sprint tracker.
 
-## NOW — Sprint 2 lifecycle and recovery after Sprint 1 source delivery
-- [x] **Sprint 1 Connected Journey (source):** Chat/Drive per-session links, authenticated deep-link loading, optional Knowledge route, explicit unavailable/malformed error and stale selection cleanup. [Receipt](FIVE-SPRINT-WORKPLAN.md#sprint-1-evidence-ledger).
-- [ ] **Sprint 1 physical acceptance:** native Node test suite, authenticated local browser journey, keyboard/mobile, negative links (QA and authorized local runtime).
-- [ ] **Sprint 2 shared recovery:** uncertain send, read-only reconcile, lease busy, interrupted recording, stale revision and authorization expiry with correct next action.
-- [ ] **Sprint 2 recovery interaction tests:** no auto resend, no synthetic success verdict, no prior-recording contamination, exact source IDs across Chat/Drive/Studio.
+## NOW — Sprint 3 Evidence Explorer / remaining acceptance
+- [x] **Sprint 1 Connected Journey:** Chat/Drive → exact saved recording and optional Knowledge, validated in source. [Receipt](FIVE-SPRINT-WORKPLAN.md#sprint-1-evidence-ledger).
+- [x] **Sprint 2 Lifecycle & Recovery:** Chat and Drive concurrent-load guards, original-send outcome isolation, Chat lease owner wording, lost job/state uncertainty, stale Knowledge clearing, 62 UI tests passing in V8. [Receipt](SPRINT-02-RECOVERY.md).
+- [ ] **Sprint 3 raw-evidence path:** navigate exact source stream/sequence or DOM evidence only when backed by Core provenance IDs; distinguish missing/truncated/source-unknown.
+- [ ] **Sprint 3 type-drift review:** two-source read-only comparison, provenance/identity caveats, no automatic merge/correction.
+- [ ] **Native and real-browser acceptance:** Node 22 full checkout tests, authorized local Chrome, keyboard/mobile and independent QA; old V8-only receipts never count as acceptance.
 
 ## Standing evidence and deeper exploration backlog
 - [x] **Coherent application source path:** Capture → Session → Knowledge → History/Graph → source recording/stream; consistent recording + as-of context, breadcrumbs and stale response safety. Source only; real browser acceptance outstanding.
