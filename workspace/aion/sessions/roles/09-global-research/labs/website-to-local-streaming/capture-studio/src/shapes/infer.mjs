@@ -243,23 +243,32 @@ export class ShapeInferencer {
   // Build the full report: groups (schemas) + ranked, actionable suggestions.
   report(reducer, opts = {}) {
     const { domBlocks } = opts;
+    // Per-phase wall time of the last report (instance-only; never part of the returned report).
+    const ph = {}; let tp = performance.now();
+    const mark = (k) => { const n = performance.now(); ph[k] = (ph[k] ?? 0) + (n - tp); tp = n; };
     const summary = reducer.summary();
+    mark('summary');
     for (const s of summary.streams) {
       if (s.deltaRevisions > 1 && (s.status !== 'open')) {
         const st = reducer.streams.get(s.sid);
         if (st && !st._assembledObserved) { this.observeAssembled(st, st._delta.doc); Object.defineProperty(st, '_assembledObserved', { value: true }); }
       }
     }
+    mark('assembledObserve');
     const groups = [...this.groups.values(), ...this.assembled.values()].map((g) => ({
       key: g.key, endpoint: g.endpoint, discriminator: g.discriminator, discriminatorPath: g.discriminatorPath, source: g.source, count: g.count, streams: g.streams.size,
       fields: Object.fromEntries([...g.fields].slice(0, 200).map(([p, f]) => [p, f.toJSON()])),
       collections: [...g.arrays].map(([p, a]) => ({ path: p, avgItems: +(a.items / a.observations).toFixed(1), sampledItems: a.sampledItems, keys: [...a.keyCounts].sort((x, y) => y[1] - x[1]).slice(0, 20).map(([k, n]) => ({ key: k, presence: +(n / Math.max(1, a.sampledItems)).toFixed(2) })) })),
     }));
-    const suggestions = suggest(summary, groups, reducer, domBlocks);
+    mark('groups');
+    const suggestions = suggest(summary, groups, reducer, domBlocks, ph);
+    mark('suggest');
     const ctx = { families: opts.families ?? [], profile: opts.profile ?? null, domInspect: opts.domInspect ?? null, domTurns: opts.domTurns ?? null };
     const evidence = gatherEvidence(reducer, { domInspect: ctx.domInspect, domTurns: ctx.domTurns });
+    mark('evidence');
     const families = ctx.families.length ? detectFamilies(ctx.families, evidence) : [];
     suggestions.push(...familySuggestions(families, ctx, evidence), ...driftSuggestions(ctx.profile, reducer, evidence));
+    mark('families');
     // Corrections persist: apply accepted renames and mark decided suggestions.
     const acc = new Map((ctx.profile?.shapes?.accepted ?? []).map((x) => [x.id, 'accepted']));
     for (const x of ctx.profile?.shapes?.excluded ?? []) acc.set(x.id, 'rejected');
@@ -270,8 +279,14 @@ export class ShapeInferencer {
     // often suggestions of this kind and score were actually accepted by the user.
     for (const g of suggestions) g.calibratedConfidence = opts.calibrator ? opts.calibrator.calibrate(`suggestion:${g.kind}`, g.confidence) : g.confidence;
     suggestions.sort((a, b) => (a.decided ? 1 : 0) - (b.decided ? 1 : 0) || b.confidence - a.confidence);
-    return { generatedAt: new Date().toISOString(), endpoints: endpointTable(summary.streams), groups, families, suggestions,
-      schemaProfiles: this.profiler.report(), quality: quality(summary, reducer, suggestions, families, ctx, evidence) };
+    mark('rank');
+    const endpoints = endpointTable(summary.streams);
+    const schemaProfiles = this.profiler.report();
+    mark('profiler');
+    const q = quality(summary, reducer, suggestions, families, ctx, evidence);
+    mark('quality');
+    this.lastReportPhases = ph;
+    return { generatedAt: new Date().toISOString(), endpoints, groups, families, suggestions, schemaProfiles, quality: q };
   }
 }
 
@@ -292,9 +307,12 @@ function endpointTable(streams) {
 
 const norm = (t) => String(t ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
-function suggest(summary, groups, reducer, domBlocks) {
+function suggest(summary, groups, reducer, domBlocks, ph = null) {
   const out = [];
   const push = (kind, key, title, detail, confidence, evidence, proposal) => out.push({ id: `${kind}-${sid8(key)}`, kind, title, detail, confidence: +confidence.toFixed(2), evidence, proposal });
+  // Optional per-section timing (instance phase object); no-op when not requested.
+  let tp = performance.now();
+  const mk = ph ? (k) => { const n = performance.now(); ph['s.' + k] = (ph['s.' + k] ?? 0) + (n - tp); tp = n; } : () => {};
   const eps = endpointTable(summary.streams);
 
   // 1. Streaming endpoints.
@@ -313,6 +331,7 @@ function suggest(summary, groups, reducer, domBlocks) {
     }
   }
 
+  mk('endpoints');
   // 3. Event types, delta streams, fields.
   for (const g of groups) {
     if (g.source === 'assembled') continue;
@@ -332,11 +351,13 @@ function suggest(summary, groups, reducer, domBlocks) {
     }
   }
 
+  mk('fields');
   // 4. Delta-encoded streams.
   for (const s of summary.streams) {
     if (s.deltaRevisions < 5) continue;
     push('delta_stream', s.sid, `Streaming content revised ${s.deltaRevisions} times (${s.deltaDialects.join(', ') || 'snapshots'})`, `${s.method ?? ''} ${templateUrl(s.url)} — retain all intermediate revisions, or just the final assembled state? (raw is always kept)`, 0.85, { sid: s.sid, revisions: s.deltaRevisions, dialects: s.deltaDialects }, { op: 'retain_revisions', endpoint: endpointRegex(`${s.method ?? 'GET'} ${templateUrl(s.url)}`), choices: ['all', 'final'] });
   }
+  mk('delta');
 
   // 5. Relationships: *_id values that match identifiers elsewhere.
   const idValues = new Map();
@@ -348,6 +369,7 @@ function suggest(summary, groups, reducer, domBlocks) {
       if (f.examples.some((v) => vals.has(v))) { push('relationship', `${g.key}|${p}|${k}`, `Relationship: ${p} → ${k.split('|')[1]}`, `Values of ${p} (“${g.discriminator}”) match identifiers in ${k.split(' :: ')[1]?.split('|')[0]}. Link as parent/child?`, 0.6, { from: `${g.key}|${p}`, to: k }, null); break; }
     }
   }
+  mk('relationship');
 
   // 6. Raw stream <-> DOM correlation (or honest absence of one).
   const blocks = domBlocks ?? [...(reducer.dom?.blocks?.values() ?? [])];
@@ -358,13 +380,25 @@ function suggest(summary, groups, reducer, domBlocks) {
     const evTexts = (st?._events ?? []).filter((e) => typeof e.text === 'string' && e.text.length >= 40).map((e) => ({ text: e.text }));
     for (const t of [...texts.slice(0, 3), ...evTexts.slice(0, 2)]) streamTexts.push({ sid: s.sid, endpoint: `${s.method ?? ''} ${templateUrl(s.url)}`, text: norm(t.text) });
   }
+  mk('domTexts');
   const matchedBlocks = new Set();
+  // Each block's normalised text is computed at most once per report (lazily), not once per probe.
+  // The first-match order is unchanged: the scan still walks blocks in order and returns the first hit.
+  const normBlocks = new Array(blocks.length);
   for (const st of streamTexts) {
     const probe = st.text.slice(0, 120);
     if (probe.length < 30) continue;
-    const hit = blocks.find((b) => b.text && norm(b.text).includes(probe.slice(0, 60)));
+    const needle = probe.slice(0, 60);
+    let hit = null;
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (!b.text) continue;
+      const nt = normBlocks[i] ?? (normBlocks[i] = norm(b.text));
+      if (nt.includes(needle)) { hit = b; break; }
+    }
     if (hit) { matchedBlocks.add(hit.id); push('correlation', `${st.sid}|${hit.id}`, `Raw stream ↔ rendered block`, `Decoded text from ${st.endpoint} appears in UI block #${hit.id} (${hit.sig}).`, 0.8, { sid: st.sid, domId: hit.id }, null); }
   }
+  mk('domMatch');
   for (const b of blocks) {
     if (matchedBlocks.has(b.id) || !b.text || b.text.length < 200 || b.removed) continue;
     push('uncorrelated_ui', `ui|${b.id}`, `UI block #${b.id} has no matching raw event`, `${b.sig} (${b.text.length} chars, ${b.revisions} revisions). Mark correlation unknown? It may come from earlier history, a non-captured transport, or client-side rendering.`, 0.5, { domId: b.id }, null);
@@ -378,6 +412,7 @@ function suggest(summary, groups, reducer, domBlocks) {
     if (!started.length) continue;
     push('action_effect', `${a.seq}`, `${a.kind} on ${a.target?.label ? `“${a.target.label.slice(0, 40)}”` : a.target?.sig} → ${started.length} request(s)`, started.slice(0, 4).map((s) => `${s.method ?? ''} ${templateUrl(s.url)} (${s.transport})`).join('; '), 0.7, { actionSeq: a.seq, sids: started.map((s) => s.sid) }, null);
   }
+  mk('uncorrelatedAndActions');
 
   // 8. Coverage honesty.
   if (reducer.gaps.length) push('coverage_gap', 'gaps', `${reducer.gaps.length} capture gap(s) recorded`, `Local queue overflow dropped ${reducer.gaps.reduce((a, g) => a + (g.droppedRecords ?? 0), 0)} record(s). Affected streams are marked; consider a faster disk or narrower scope.`, 1, { gaps: reducer.gaps.length }, null);
