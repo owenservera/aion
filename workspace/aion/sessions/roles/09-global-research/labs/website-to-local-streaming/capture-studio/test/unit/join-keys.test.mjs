@@ -103,6 +103,81 @@ test('path-ops texts never invent a key for parts that have no pointer', () => {
   for (const part of a.texts()) assert.equal(typeof part.key, 'string');
 });
 
+// ---- stream side: Responses-style typed events --------------------------------------------
+
+const responsesWithId = [
+  { type: 'response.created', response: { id: 'resp_SYN_1', object: 'response', status: 'in_progress', output: [] } },
+  { type: 'response.output_item.added', output_index: 0, item: { id: 'item_SYN_1', type: 'message', role: 'assistant', content: [] } },
+  { type: 'response.output_text.delta', output_index: 0, content_index: 0, delta: 'Hel' },
+  { type: 'response.output_text.delta', output_index: 0, content_index: 0, delta: 'lo' },
+  { type: 'response.output_text.done', output_index: 0, content_index: 0, text: 'Hello' },
+  { type: 'response.completed', response: { id: 'resp_SYN_1', object: 'response', status: 'completed' } },
+];
+
+test('Responses: response.created id gives "<id>:0" for the item and "<id>:0.0" for its text', () => {
+  const a = run(responsesWithId);
+  const blocks = a.blocks();
+  assert.deepEqual(blocks.map((b) => b.index), ['0', '0.0']);
+  assert.deepEqual(blocks.map((b) => b.key), ['resp_SYN_1:0', 'resp_SYN_1:0.0']);
+  assert.equal(blocks[1].text, 'Hello');
+  assert.equal(blocks[1].done, true);
+  assert.equal(a.messageIdSource, 'response');
+  assert.equal(a.doc.meta.messageId, 'resp_SYN_1');
+});
+
+test('Responses: text block exposes parentIndex "0"; item block and Claude-style indexes get null', () => {
+  const a = run(responsesWithId);
+  const [item, text] = a.blocks();
+  assert.equal(text.parentIndex, '0');
+  assert.equal(item.parentIndex, null);
+  assert.deepEqual(run(typedWithId).blocks().map((b) => b.parentIndex), [null, null]);
+});
+
+test('Responses: no response id and no item_id gives null keys (nothing invented)', () => {
+  const a = run([
+    { type: 'response.created', response: { object: 'response', status: 'in_progress' } },
+    { type: 'response.output_item.added', output_index: 0, item: { id: 'item_SYN_3', type: 'message' } },
+    { type: 'response.output_text.delta', output_index: 0, content_index: 0, delta: 'Nope' },
+  ]);
+  assert.deepEqual(a.blocks().map((b) => b.key), [null, null]);
+  assert.equal(a.messageId, null);
+  assert.equal(a.doc.meta, undefined);
+});
+
+test('Responses: an empty-string response id is not usable and gives null keys', () => {
+  const a = run([
+    { type: 'response.created', response: { id: '', status: 'in_progress' } },
+    { type: 'response.output_text.delta', output_index: 0, content_index: 0, delta: 'x' },
+  ]);
+  assert.equal(a.blocks()[0].key, null);
+});
+
+test('Responses: item_id fallback gives "<item_id>:<index>" only when no response id was seen', () => {
+  const a = run([
+    { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: 'item_SYN_2', delta: 'Fallback' },
+  ]);
+  assert.equal(a.messageIdSource, 'item');
+  assert.equal(a.blocks()[0].key, 'item_SYN_2:0.0');
+});
+
+test('Responses: a response id seen first wins over item_id on later events', () => {
+  const a = run([
+    { type: 'response.created', response: { id: 'resp_SYN_4', status: 'in_progress' } },
+    { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: 'item_SYN_4', delta: 'Win' },
+  ]);
+  assert.equal(a.messageId, 'resp_SYN_4');
+  assert.equal(a.blocks()[0].key, 'resp_SYN_4:0.0');
+});
+
+test('Responses: item_id is ignored when a message_start id is already present (Claude-style path unchanged)', () => {
+  const a = run([
+    { type: 'message_start', message: { id: 'msg_SYN_5' } },
+    { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: 'item_SYN_5', delta: 'Keep' },
+  ]);
+  assert.equal(a.messageId, 'msg_SYN_5');
+  assert.equal(a.messageIdSource, 'message');
+});
+
 // ---- DOM side: page-agent ord ------------------------------------------------------------
 
 function makeEl(tag, attrs, kids) {

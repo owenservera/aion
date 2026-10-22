@@ -26,6 +26,8 @@ const INDEX_KEYS = ['index', 'output_index', 'content_index', 'block_index', 'ca
 const DELTA_KEYS = ['delta', 'text_delta', 'chunk', 'partial', 'diff'];
 // Field names whose string values are incremental content rather than a replaced attribute.
 const TEXT_DELTA_FIELD = /^(text|content|value|token|tokens|append|partial|chunk|delta|body|output_text|message_text|answer|completion)$/i;
+// A provider-supplied id is usable only when it is a non-empty string or a finite number.
+const usableId = (v) => (typeof v === 'string' && v.length > 0) || Number.isFinite(v);
 
 export function parsePointer(p) {
   if (p === '' || p === '/' || p === undefined || p === null) return [];
@@ -118,6 +120,7 @@ export class DeltaAssembler {
     this.replacements = 0;
     this.lastAppliedAt = null;
     this.messageId = null;                            // from a message_start-style event, never invented
+    this.messageIdSource = null;                      // 'message' | 'response' | 'item' | null (what set messageId)
     this._meta = null;                                // doc.meta object we created (not a content root)
   }
 
@@ -312,17 +315,30 @@ export class DeltaAssembler {
     return applied;
   }
 
+  _setMessageId(id, source) {
+    this.messageId = id;
+    this.messageIdSource = source;
+    this._meta = { ...(this._meta ?? {}), messageId: id };
+    this.doc.meta = this._meta;
+  }
+
   _typed(ev) {
     const t = ev.type;
     if (this.doc === undefined || typeof this.doc !== 'object' || this.doc === null) this.doc = {};
     // message_start-style event: record the message id only when the event carries one.
     if (TYPED_START.test(t) && /message/.test(t)) {
       const mid = ev.message?.id ?? ev.id;
-      if ((typeof mid === 'string' && mid.length) || Number.isFinite(mid)) {
-        this.messageId = String(mid);
-        this._meta = { ...(this._meta ?? {}), messageId: this.messageId };
-        this.doc.meta = this._meta;
-      }
+      if (usableId(mid)) this._setMessageId(String(mid), 'message');
+    }
+    // Responses-style: response.created / response.in_progress carry the id at response.id.
+    // A response id replaces only an item-sourced fallback id, never a message-sourced one.
+    if (/^response\.(created|in_progress)$/.test(t)) {
+      const rid = ev.response?.id;
+      if (usableId(rid) && this.messageIdSource !== 'message' && this.messageIdSource !== 'response') this._setMessageId(String(rid), 'response');
+    } else if (/^response\.(output_item|output_text|content_part)/.test(t) && this.messageIdSource == null) {
+      // Fallback only when no response id (or message id) was seen: the item id from the event.
+      const iid = ev.item_id;
+      if (usableId(iid)) this._setMessageId(String(iid), 'item');
     }
     const key = INDEX_KEYS.filter((k) => Number.isInteger(ev[k])).map((k) => ev[k]).join('.');
     const rootObj = () => { for (const [k, v] of Object.entries(this.doc)) if (k !== 'blocks' && v !== this._meta && v && typeof v === 'object' && !Array.isArray(v)) return v; return this.doc; };
@@ -394,7 +410,8 @@ export class DeltaAssembler {
     if (!b || typeof b !== 'object') return [];
     return Object.entries(b)
       // key = `${messageId}:${index}` once a message id has been observed, otherwise null.
-      .map(([k, v]) => ({ index: k, done: !!v?._done, ...v, key: this.messageId == null ? null : `${this.messageId}:${k}` }))
+      // parentIndex: the composite index without its last segment ("0.0" -> "0"), null for top-level indexes.
+      .map(([k, v]) => ({ index: k, done: !!v?._done, ...v, key: this.messageId == null ? null : `${this.messageId}:${k}`, parentIndex: k.includes('.') ? k.slice(0, k.lastIndexOf('.')) : null }))
       .sort((x, y) => String(x.index).localeCompare(String(y.index), undefined, { numeric: true }));
   }
 
