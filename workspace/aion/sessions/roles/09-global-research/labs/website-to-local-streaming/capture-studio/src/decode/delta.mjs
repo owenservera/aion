@@ -29,6 +29,11 @@ const TEXT_DELTA_FIELD = /^(text|content|value|token|tokens|append|partial|chunk
 // A provider-supplied id is usable only when it is a non-empty string or a finite number.
 const usableId = (v) => (typeof v === 'string' && v.length > 0) || Number.isFinite(v);
 
+// Leaves that describe a message rather than carry its content. Matched on the last path segment;
+// everything under /meta/ (the assembler's own bookkeeping) counts too.
+const META_LEAF = /^(?:id|type|role|model|status|object|created|created_at|updated_at|stop_reason|stop_sequence|finish_reason|content_type|messageId|_done|_incomplete)$|_id$/i;
+const isMetaTextPath = (p) => (p.startsWith('/meta/') || META_LEAF.test(p.slice(p.lastIndexOf('/') + 1))) ? 1 : 0;
+
 export function parsePointer(p) {
   if (p === '' || p === '/' || p === undefined || p === null) return [];
   return String(p).split('/').slice(1).map((s) => s.replace(/~1/g, '/').replace(/~0/g, '~'));
@@ -404,7 +409,10 @@ export class DeltaAssembler {
       if (node && typeof node === 'object') for (const [k, v] of Object.entries(node)) walk(v, `${p}/${k}`, `${ptr}/${String(k).replace(/~/g, '~0').replace(/\//g, '~1')}`);
     };
     walk(this.doc, '', '');
-    return out.sort((a, b) => b.text.length - a.text.length);
+    // Content first, then by length. Several consumers take texts()[0] as "the reply", so an
+    // identifier or status leaf (a message id, a model name, a role) must never outrank a short
+    // reply just because it is longer. Metadata leaves are demoted, never removed.
+    return out.sort((a, b) => (isMetaTextPath(a.path) - isMetaTextPath(b.path)) || (b.text.length - a.text.length));
   }
 
   // Text of a specific pointer or dotted path.

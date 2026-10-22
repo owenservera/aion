@@ -331,3 +331,38 @@ test('snapshot id never overrides an id from message_start, and absent ids stay 
   assert.equal(c.messageId, null);
   assert.equal(c.messageIdSource, null);
 });
+
+// ---- reply ranking: identifiers must never outrank a short reply (found by the acceptance lane) ----
+test('texts() ranks reply content before identifiers even when the id is longer than the reply (typed events)', () => {
+  const a = new DeltaAssembler();
+  a.apply({ type: 'message_start', message: { id: 'msg_0123456789abcdef0123456789abcdef', model: 'claude-synthetic-model-with-a-long-name', role: 'assistant' } });
+  a.apply({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+  a.apply({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Sure!' } });
+  const t = a.texts(1);
+  assert.equal(t[0].text, 'Sure!');
+  assert.equal(a.primaryText(), 'Sure!');
+  // metadata leaves are still reported, only demoted
+  assert.ok(t.some((x) => x.path === '/meta/messageId'));
+  assert.ok(t.some((x) => x.path === '/message/id'));
+  assert.ok(t.some((x) => x.path === '/message/model'));
+});
+
+test('texts() ranks reply content before identifiers (path-ops snapshot with a long message id)', () => {
+  const a = new DeltaAssembler();
+  a.apply({ message: { id: 'syn-msg-chatgpt-with-a-very-long-identifier-0001', author: { role: 'assistant' }, content: { content_type: 'text', parts: [''] }, status: 'in_progress' }, conversation_id: 'syn-conv-0001' });
+  a.apply({ p: '/message/content/parts/0', o: 'append', v: 'Hi.' });
+  const t = a.texts(1);
+  assert.equal(t[0].text, 'Hi.');
+  assert.equal(a.primaryText(), 'Hi.');
+});
+
+test('texts() still orders content leaves by length and keeps every leaf', () => {
+  const a = new DeltaAssembler();
+  a.apply({ type: 'message_start', message: { id: 'm1' } });
+  a.apply({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+  a.apply({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'short' } });
+  a.apply({ type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } });
+  a.apply({ type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: 'a much longer second block of text' } });
+  const content = a.texts(1).filter((x) => x.path.startsWith('/blocks/') && x.path.endsWith('/text'));
+  assert.deepEqual(content.map((x) => x.text), ['a much longer second block of text', 'short']);
+});
