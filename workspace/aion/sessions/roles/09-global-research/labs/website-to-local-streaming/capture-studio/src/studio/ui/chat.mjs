@@ -416,6 +416,7 @@ function boot() {
   const S = {
     targets: { sites: [], targets: [] }, targetsState: 'loading', targetsError: '', list: [], listState: 'loading',
     snap: null, mode: 'new', site: '', targetId: '', connecting: false, submitting: false, working: false,
+    openSeq: 0,
     pending: null, timer: null, failures: 0, announced: '', bannerFocus: '',
     focusMessage: false, openBlocks: {}, sentPrompt: '', authExpired: false,
     unknownDetail: '', checkedNote: '', copyState: '', replyTrack: null, finishFocus: false,
@@ -484,7 +485,7 @@ function boot() {
   function clearPending() { if (S.pending) store.del('sessionStorage', 'chat.pending.' + S.pending.convId); S.pending = null; }
 
   // A response for a conversation the user has since left is dropped.
-  const stillOn = (id) => !S.snap || S.snap.id === id;
+  const stillOn = (id) => S.snap?.id === id;
   async function refresh(id = S.snap?.id) {
     if (!id) return;
     try {
@@ -498,7 +499,7 @@ function boot() {
       if (!stillOn(id)) return;
       if (e.status === 404) {
         stopPolling();
-        if (S.snap?.id === id) { S.snap = null; store.del('localStorage', SELECTED_KEY); }
+        if (S.snap?.id === id) { ++S.openSeq; S.snap = null; store.del('localStorage', SELECTED_KEY); }
         showProblem('That conversation is no longer available on the Studio.'); render(); return;
       }
       S.failures++;
@@ -538,12 +539,22 @@ function boot() {
     renderList();
   }
   async function openConversation(id) {
+    const requestSeq = ++S.openSeq;
     try {
       const c = unwrapConversation(await api('/conversations/' + encodeURIComponent(id)));
-      if (!c) throw unreadable();
+      if (requestSeq !== S.openSeq) return;
+      if (!c || c.id !== id) throw unreadable();
       S.failures = 0; showProblem(''); applySnapshot(c);
     } catch (e) {
-      if (e.status === 404) { store.del('localStorage', SELECTED_KEY); showProblem('That conversation is no longer available.'); } else showProblem('Could not open that conversation: ' + describe(e));
+      if (requestSeq !== S.openSeq) return;
+      if (e.status === 404) {
+        // An unavailable list entry does not invalidate the different conversation currently on screen.
+        if (S.snap?.id === id) {
+          stopPolling(); S.snap = null;
+          store.del('localStorage', SELECTED_KEY);
+          showProblem('That conversation is no longer available. Choose an earlier conversation or connect again.');
+        } else showProblem('The requested conversation is unavailable. The previously selected conversation remains visible; no new send was attempted.');
+      } else showProblem('Could not open that conversation: ' + describe(e) + '. No new send was attempted.');
       render();
     }
   }
@@ -671,6 +682,7 @@ function boot() {
     } finally { S.working = false; render(); }
   }
   function newConversation() {
+    ++S.openSeq;
     stopPolling(); S.snap = null; S.pending = null; S.sentPrompt = ''; S.failures = 0;
     S.unknownDetail = ''; S.checkedNote = ''; S.copyState = ''; S.replyTrack = null; S.finishFocus = false; textBlocks.clear();
     store.del('localStorage', SELECTED_KEY); $('#prompt').value = ''; $('#prompt').readOnly = false;
