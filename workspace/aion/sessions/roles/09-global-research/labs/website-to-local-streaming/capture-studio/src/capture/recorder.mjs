@@ -19,7 +19,7 @@ import { NetworkRecorder } from './network.mjs';
 import { DomObserver } from './dom.mjs';
 import { StreamReducer } from '../replay/reducer.mjs';
 import { ShapeInferencer } from '../shapes/infer.mjs';
-import { redactUrl } from './redact.mjs';
+import { capturePrivacy } from './privacy.mjs';
 import { collectorSourceSha, VERSION } from '../config.mjs';
 import { createLiveTap } from './live-tap.mjs';
 import { followDecision, hostOf } from './targets.mjs';
@@ -88,6 +88,7 @@ export class Recorder extends EventEmitter {
     }
     const profile = profileName ? this.profileStore.load(profileName) : this.profileStore.selectFor(target.url);
     this.profile = profile;
+    this.privacy = capturePrivacy(profile);
     this.pageUrl = target.url;
 
     const host = (() => { try { return new URL(target.url).hostname; } catch { return 'page'; } })();
@@ -95,7 +96,7 @@ export class Recorder extends EventEmitter {
       site: label || host,
       rawOptions: this.rawOptions,
       meta: {
-        target: { id: target.id, url: redactUrl(target.url), title: target.title },
+        target: { id: target.id, url: this.privacy.url(target.url), title: target.title },
         browser: version.Browser, protocol: version['Protocol-Version'], userAgent: version['User-Agent'],
         os: `${os.type()} ${os.release()} ${os.arch()}`, node: process.version,
         collector: { name: 'aion-capture-studio', version: VERSION, sourceSha: collectorSourceSha() },
@@ -135,7 +136,7 @@ export class Recorder extends EventEmitter {
     this.state = 'recording';
     this.startedAt = Date.now();
     append({
-      k: 'run.start', target: { id: target.id, url: redactUrl(target.url), title: target.title }, profile: { name: profile.name, version: profile.version },
+      k: 'run.start', target: { id: target.id, url: this.privacy.url(target.url), title: target.title }, profile: { name: profile.name, version: profile.version },
       targets: { tabs: this.tabs, follow: this.follow, maxTargets: this.maxTargets },
       coverage: 'Requests opened before this record are not observed at all. A WebSocket opened earlier stays invisible unless the browser reports its later frames, in which case it is joined late (ws.open lateJoin: URL, handshake and earlier frames UNKNOWN). History earlier than attach is unknown unless the page re-sends it.',
     });
@@ -175,7 +176,7 @@ export class Recorder extends EventEmitter {
     this.sessionTags.set(p.sessionId, tag);
     this.tagRoot.set(tag, this.tagRoot.get(parentTag) ?? parentTag);
     if (info.targetId) this.targets.set(info.targetId, entry);
-    this._append({ k: 'lifecycle', event: 'child_target_attached', tag, parentTag, targetType: info.type, url: redactUrl(info.url ?? '') });
+    this._append({ k: 'lifecycle', event: 'child_target_attached', tag, parentTag, targetType: info.type, url: this.privacy.url(info.url ?? '') });
     child.on('detached', (d) => {
       this.sessionTags.delete(p.sessionId);
       if (info.targetId && this.targets.get(info.targetId) === entry) this.targets.delete(info.targetId);
@@ -231,7 +232,7 @@ export class Recorder extends EventEmitter {
     if (state === 'attached') this.targetCounts[entry.role] = (this.targetCounts[entry.role] ?? 0) + 1;
     const openerTag = entry.openerId ? this.targets.get(entry.openerId)?.tag : undefined;
     this.emit('target', {
-      targetId: entry.targetId, type: entry.type, url: redactUrl(entry.url ?? ''), tag: entry.tag, role: entry.role, state,
+      targetId: entry.targetId, type: entry.type, url: this.privacy.url(entry.url ?? ''), tag: entry.tag, role: entry.role, state,
       ...(entry.parentTag ? { parentTag: entry.parentTag } : {}), ...(openerTag ? { openerTag } : {}), ...(reason ? { reason } : {}),
     });
   }
@@ -345,7 +346,7 @@ export class Recorder extends EventEmitter {
       if (info.type === 'page') await this._setupSecondaryPage(session, entry);
       else if (this.follow) await session.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: this.pauseNewTargets, flatten: true }).catch(() => {});
       this._append({
-        k: 'lifecycle', event: reattach ? 'target_reattached' : 'target_attached', tag, role, targetType: info.type, url: redactUrl(entry.url ?? ''),
+        k: 'lifecycle', event: reattach ? 'target_reattached' : 'target_attached', tag, role, targetType: info.type, url: this.privacy.url(entry.url ?? ''),
         ...(entry.openerId && this.targets.get(entry.openerId) ? { openerTag: this.targets.get(entry.openerId).tag } : {}),
         coverage: reattach
           ? 'Traffic of this target while the DevTools transport was down is UNOBSERVED.'
@@ -375,7 +376,7 @@ export class Recorder extends EventEmitter {
       if (frame.parentId || this.state !== 'recording') return;
       const hostChanged = hostOf(frame.url) !== hostOf(entry.url);
       entry.url = frame.url;
-      this._append({ k: 'lifecycle', event: 'target_navigated', tag: entry.tag, role: entry.role, url: redactUrl(frame.url) });
+      this._append({ k: 'lifecycle', event: 'target_navigated', tag: entry.tag, role: entry.role, url: this.privacy.url(frame.url) });
       this._emitTarget(entry, 'navigated');
       if (hostChanged) this._reconsiderCandidates();
     });
@@ -401,7 +402,7 @@ export class Recorder extends EventEmitter {
 
   targetList() {
     return [...(this.targets?.values() ?? [])].map((e) => ({
-      targetId: e.targetId, tag: e.tag, type: e.type, role: e.role, url: redactUrl((e.role === 'primary' ? this.pageUrl : e.url) ?? ''),
+      targetId: e.targetId, tag: e.tag, type: e.type, role: e.role, url: this.privacy.url((e.role === 'primary' ? this.pageUrl : e.url) ?? ''),
       attached: !!e.session && !e.session.detached, ...(e.parentTag ? { parentTag: e.parentTag } : {}),
     }));
   }
@@ -422,14 +423,14 @@ export class Recorder extends EventEmitter {
       const hostChanged = hostOf(frame.url) !== hostOf(this.pageUrl);
       this.pageUrl = frame.url;
       if (primary) primary.url = frame.url;
-      append({ k: 'nav', kind: 'document', url: redactUrl(frame.url) });
+      append({ k: 'nav', kind: 'document', url: this.privacy.url(frame.url) });
       this._maybeSwitchProfile(frame.url);
       if (hostChanged && this._candidates?.size) this._reconsiderCandidates();
     });
     this.page.on('Page.navigatedWithinDocument', ({ frameId, url }) => {
       if (frameId !== this.dom.mainFrameId) return;
       this.pageUrl = url;
-      append({ k: 'nav', kind: 'same_document', url: redactUrl(url) });
+      append({ k: 'nav', kind: 'same_document', url: this.privacy.url(url) });
     });
     this.page.on('Page.loadEventFired', () => append({ k: 'lifecycle', event: 'load' }));
     this.page.on('Page.lifecycleEvent', (p) => { if (p.name === 'networkIdle' && p.frameId === this.dom.mainFrameId) append({ k: 'lifecycle', event: 'network_idle' }); });
@@ -550,7 +551,7 @@ export class Recorder extends EventEmitter {
       paused: this.paused,
       id: this.session.id,
       startedAt: this.startedAt,
-      pageUrl: redactUrl(this.pageUrl ?? ''),
+      pageUrl: this.privacy.url(this.pageUrl ?? ''),
       profile: { name: this.profile.name, version: this.profile.version },
       queue: this.session.raw.queueDepth,
       stats: { raw: { ...this.session.raw.stats }, network: { ...this.net.stats }, dom: { ...this.dom.stats } },
@@ -670,7 +671,7 @@ export class Recorder extends EventEmitter {
   async domBlocks(id) { return this.dom.blocksOf(id); }
   async snapshotDom() {
     const snap = await this.dom.snapshot();
-    if (snap) { this.session.kv.set(`DOM_SNAPSHOT_${Date.now()}.html`, snap.html); this._append({ k: 'dom.snapshot', url: redactUrl(snap.url), title: snap.title, bytes: Buffer.byteLength(snap.html ?? ''), redactions: snap.redactions }); }
+    if (snap) { this.session.kv.set(`DOM_SNAPSHOT_${Date.now()}.html`, snap.html); this._append({ k: 'dom.snapshot', url: this.privacy.url(snap.url), title: snap.title, bytes: Buffer.byteLength(snap.html ?? ''), redactions: snap.redactions }); }
     return snap ? { url: snap.url, title: snap.title, bytes: Buffer.byteLength(snap.html ?? '') } : null;
   }
   async highlight(id) { return this.dom.highlight(id); }
