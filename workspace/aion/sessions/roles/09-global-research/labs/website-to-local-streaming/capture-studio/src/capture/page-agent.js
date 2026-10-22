@@ -208,6 +208,9 @@
       else out.push(...blocks(n, depth + 1));
     }
     flushPara();
+    // Ordinal among emitted siblings (document order). Nested blocks get their own 0-based run
+    // because each nested blocks() call renumbers its own output.
+    out.forEach((b, i) => { b.ord = i; });
     return out;
   }
 

@@ -117,6 +117,8 @@ export class DeltaAssembler {
     this.pathRevisions = new Map();                   // pointer -> times written
     this.replacements = 0;
     this.lastAppliedAt = null;
+    this.messageId = null;                            // from a message_start-style event, never invented
+    this._meta = null;                                // doc.meta object we created (not a content root)
   }
 
   _note(op, path) {
@@ -313,8 +315,17 @@ export class DeltaAssembler {
   _typed(ev) {
     const t = ev.type;
     if (this.doc === undefined || typeof this.doc !== 'object' || this.doc === null) this.doc = {};
+    // message_start-style event: record the message id only when the event carries one.
+    if (TYPED_START.test(t) && /message/.test(t)) {
+      const mid = ev.message?.id ?? ev.id;
+      if ((typeof mid === 'string' && mid.length) || Number.isFinite(mid)) {
+        this.messageId = String(mid);
+        this._meta = { ...(this._meta ?? {}), messageId: this.messageId };
+        this.doc.meta = this._meta;
+      }
+    }
     const key = INDEX_KEYS.filter((k) => Number.isInteger(ev[k])).map((k) => ev[k]).join('.');
-    const rootObj = () => { for (const [k, v] of Object.entries(this.doc)) if (k !== 'blocks' && v && typeof v === 'object' && !Array.isArray(v)) return v; return this.doc; };
+    const rootObj = () => { for (const [k, v] of Object.entries(this.doc)) if (k !== 'blocks' && v !== this._meta && v && typeof v === 'object' && !Array.isArray(v)) return v; return this.doc; };
     const objectFields = Object.entries(ev).filter(([k, v]) => k !== 'type' && !DELTA_KEYS.includes(k) && !INDEX_KEYS.includes(k) && v && typeof v === 'object' && !Array.isArray(v));
     if (TYPED_START.test(t)) {
       if (!objectFields.length) return false;
@@ -361,11 +372,12 @@ export class DeltaAssembler {
   // Longest string leaves are the most likely human-visible text.
   texts(minLength = 1) {
     const out = [];
-    const walk = (node, p) => {
-      if (typeof node === 'string') { if (node.length >= minLength) out.push({ path: p, text: node }); return; }
-      if (node && typeof node === 'object') for (const [k, v] of Object.entries(node)) walk(v, `${p}/${k}`);
+    // key: RFC 6901 escaped JSON pointer of the part (same value as path for ordinary keys).
+    const walk = (node, p, ptr) => {
+      if (typeof node === 'string') { if (node.length >= minLength) out.push({ path: p, key: ptr, text: node }); return; }
+      if (node && typeof node === 'object') for (const [k, v] of Object.entries(node)) walk(v, `${p}/${k}`, `${ptr}/${String(k).replace(/~/g, '~0').replace(/\//g, '~1')}`);
     };
-    walk(this.doc, '');
+    walk(this.doc, '', '');
     return out.sort((a, b) => b.text.length - a.text.length);
   }
 
@@ -381,7 +393,8 @@ export class DeltaAssembler {
     const b = this.doc?.blocks;
     if (!b || typeof b !== 'object') return [];
     return Object.entries(b)
-      .map(([k, v]) => ({ index: k, done: !!v?._done, ...v }))
+      // key = `${messageId}:${index}` once a message id has been observed, otherwise null.
+      .map(([k, v]) => ({ index: k, done: !!v?._done, ...v, key: this.messageId == null ? null : `${this.messageId}:${k}` }))
       .sort((x, y) => String(x.index).localeCompare(String(y.index), undefined, { numeric: true }));
   }
 
