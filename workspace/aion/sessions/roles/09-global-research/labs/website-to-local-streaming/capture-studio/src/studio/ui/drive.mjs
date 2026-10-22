@@ -203,8 +203,8 @@ function onSiteToggle(id, checked) {
   } else if (checked) S.selected.add(id); else S.selected.delete(id);
   syncChecks(); touched();
 }
-// Any change to what would be run drops the live confirmation: it must describe the current selection.
-function touched() { $('#confirmLive').checked = false; $('#formError').textContent = ''; updateControls(); }
+// Editing the target/prompt keeps the visible execution action straightforward.
+function touched() { $('#formError').textContent = ''; updateControls(); }
 
 function currentTargets() {
   if (S.mode === 'drive') {
@@ -225,17 +225,14 @@ function updateControls() {
   const t = currentTargets(), active = activeJobId();
   $('#urlError').textContent = t.error ?? '';
   const ready = t.sites.length > 0 && !t.error && !S.busy && !active;
-  const confirmed = $('#confirmLive').checked;
   $('#btnDry').disabled = !ready;
-  $('#btnLive').disabled = !(ready && confirmed);
-  $('#confirmLive').disabled = !ready && !confirmed;
+  $('#btnLive').disabled = !ready;
   let hint;
   if (active) hint = 'A job is already active, and only one can run at a time. Wait for it to finish, or stop it after the current site.';
   else if (S.busy) hint = 'Starting…';
   else if (t.error) hint = t.error;
   else if (!t.sites.length) hint = S.mode === 'drive' ? 'Choose a site or enter an https address to continue.' : 'Tick at least one site to continue.';
-  else if (!confirmed) hint = 'Tick the confirmation to enable “Execute on live accounts”. Dry run is always available.';
-  else hint = 'Will send ' + t.sites.length + (t.sites.length === 1 ? ' prompt' : ' prompts, one per site') + ' to: ' + t.sites.join(', ') + '.';
+  else hint = 'Click Send to selected sites to send ' + t.sites.length + (t.sites.length === 1 ? ' prompt' : ' prompts, one per site') + ' to: ' + t.sites.join(', ') + '. Dry run is optional.';
   $('#runHint').textContent = hint;
 }
 
@@ -250,7 +247,6 @@ function numberField(id, min = 0) {
 async function launch(dryRun) {
   const t = currentTargets();
   if (!t.sites.length || t.error || S.busy || activeJobId()) { updateControls(); return; }
-  if (!dryRun && !$('#confirmLive').checked) { updateControls(); return; }
   const body = { mode: S.mode, sites: t.sites, dryRun };
   if (!dryRun) body.confirm = true;
   const prompt = $('#prompt').value.trim();
@@ -270,7 +266,6 @@ async function launch(dryRun) {
   try {
     const { job } = await api('/jobs', { method: 'POST', body });
     $('#formStatus').textContent = (dryRun ? 'Dry run' : 'Live run') + ' queued. Progress is on the right.';
-    if (!dryRun) $('#confirmLive').checked = false;
     S.jobs = [job, ...S.jobs.filter((j) => j.id !== job.id)];
     showJob(job);
   } catch (e) {
@@ -289,7 +284,6 @@ async function launch(dryRun) {
         error.textContent = 'The browser is busy or its owner could not be confirmed. No Drive job was started. Check Chat and active Drive jobs before retrying.';
       }
       // Never automatically queue the rejected live request after a lease conflict.
-      $('#confirmLive').checked = false;
     } else if (e.status === 400) {
       $('#formError').textContent = 'The Studio rejected this request: ' + e.message;
     } else $('#formError').textContent = 'Could not start the job: ' + describe(e);
@@ -509,7 +503,6 @@ $('#driveUrl').addEventListener('input', () => {
   if ($('#driveUrl').value.trim() && S.selected.size) { S.selected = new Set(); syncChecks(); }
   touched();
 });
-$('#confirmLive').addEventListener('change', updateControls);
 $('#driveForm').addEventListener('submit', (e) => { e.preventDefault(); launch(true); });
 $('#btnLive').addEventListener('click', () => launch(false));
 $('#btnJobs').onclick = loadJobs;
