@@ -1,6 +1,6 @@
 # Systems / Algorithms / Usability — Five-Sprint Workplan
 **Authorized by owner:** 2026-10-22, “assess worklog queue for you and break into 5 sprints and begin sprint 1.”
-**Lane:** Systems independent architecture, algorithms, usability. **Base source:** AION main \`34e1a913248c717c7f3d7c54f4be30bc9b23a098\` (2026-10-22 14:51:41Z). **Evidence mode:** source/contract/document analysis. **Product edits and independent QA:** forbidden by this plan; no live browser work/sends, no agents activated.
+**Lane:** Systems independent architecture, algorithms, usability. **Base source:** AION main `34e1a913248c717c7f3d7c54f4be30bc9b23a098` (2026-10-22 14:51:41Z). **Evidence mode:** source/contract/document analysis. **Product edits and independent QA:** forbidden by this plan; no live browser work/sends, no agents activated.
 
 ## Queue reconciliation
 Previous SYS1–SYS6 in [TASK-QUEUE.md](TASK-QUEUE.md) are **complete source investigations**, delivered in [ASSESSMENT-01.md](ASSESSMENT-01.md); do not replay them. Remaining prior NEXT items are incorporated below. Canonical build ownership is elsewhere:
@@ -16,25 +16,25 @@ Previous SYS1–SYS6 in [TASK-QUEUE.md](TASK-QUEUE.md) are **complete source inv
 
 ### Sprint 1 — Exact-target conversation safety and ownership
 - **Question:** Can Connect → Read/Preflight → Send → Check → Finish preserve target, sole driver, no unobserved automatic re-send, durable provenance and fail-closed uncertainty across crashes?
-- **Inspect:** \`conversation-service.mjs\`, \`conversation-runtime.mjs\`, \`conversation-browser-adapter.mjs\`, \`drive-lease.mjs\`, \`actions.mjs\`, \`drive-api.mjs\`, Chat client/HTTP, appropriate existing tests.
+- **Inspect:** `conversation-service.mjs`, `conversation-runtime.mjs`, `conversation-browser-adapter.mjs`, `drive-lease.mjs`, `actions.mjs`, `drive-api.mjs`, Chat client/HTTP, appropriate existing tests.
 - **Deliverable:** [SPRINT-01.md](SPRINT-01.md): factual seam map, minimal invariants, ranked source-grounded gaps, exact owner and verification suggestions.
 - **Exit:** Review source paths and counterevidence (tests and recent fixes); label *implemented / unverified / proposal*. Commit only Systems report. **Status: COMPLETE — first source assessment, execution untested.**
 
 ### Sprint 2 — Capture completeness, provenance and resource behavior
 - **Question:** Does the raw/decoded/DOM evidence pipeline account for late-joined WebSockets, incomplete streams, payload masking, backpressure, failure flush and partial sampling without claiming full coverage?
-- **Inspect:** \`src/capture/{recorder,network,dom,actions}\`, \`src/store/{raw-log,session}\`, \`src/replay/reducer.mjs\`, performance report/fixtures, \`scripts/loadlab.mjs\`, acceptance design G1–G7.
+- **Inspect:** `src/capture/{recorder,network,dom,actions}`, `src/store/{raw-log,session}`, `src/replay/reducer.mjs`, performance report/fixtures, `scripts/loadlab.mjs`, acceptance design G1–G7.
 - **Deliverable:** evidence-coverage matrix by event source and failure; latency/backpressure hypotheses and non-destructive minimal recommendations.
 - **Exit:** Separate lab-reported p99/throughput from real Windows acceptance, and completeness from derivation; **no duplicate benchmark campaign**. **Status: QUEUED.**
 
 ### Sprint 3 — Accepted evidence into knowledge and adaptation
 - **Question:** When can captured data enter family building, L4 graph and L5 learning without poisoning priors or crossing tenant, identity or temporal boundaries?
-- **Inspect:** \`campaign.mjs\`, \`families/build.mjs\`, acceptance sidecar design, \`derive.mjs\`, \`continuity.mjs\`, \`graph.mjs\`, \`learn.mjs\`, \`learner-journal.mjs\`, specialist acceptance/receipts.
+- **Inspect:** `campaign.mjs`, `families/build.mjs`, acceptance sidecar design, `derive.mjs`, `continuity.mjs`, `graph.mjs`, `learn.mjs`, `learner-journal.mjs`, specialist acceptance/receipts.
 - **Deliverable:** source-to-acceptance-to-learning lineage, version/rollback/rederive semantics and safe/unsafe promotion matrix.
 - **Exit:** Explain where 14 criteria remain pending independently accepted evidence; no specialist code edits, no product gate declarations. **Status: QUEUED.**
 
 ### Sprint 4 — Unified user and agent-consumer integration
 - **Question:** How do Chat, Drive, existing Knowledge UI, CLI/API and Development/Track B consume one authoritative lifecycle without another capture/drive stack or wrong UX assertions?
-- **Inspect:** UI source, integration hub, CLI command modules, \`INTEGRATION-ROADMAP.md\`, Development/Harvest existing exchange, actual API contracts.
+- **Inspect:** UI source, integration hub, CLI command modules, `INTEGRATION-ROADMAP.md`, Development/Harvest existing exchange, actual API contracts.
 - **Deliverable:** UI journey + wire/interface ownership matrix, contract discrepancies, safe migration ordering for thin clients.
 - **Exit:** Distinguish owner DECIDED Studio consolidation from draft AX-0022/AX-0023 and actual Development acknowledgment; never dispatch other agents. **Status: QUEUED.**
 
