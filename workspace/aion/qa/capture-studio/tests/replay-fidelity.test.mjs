@@ -29,7 +29,9 @@ const MIB = 1024 * 1024;
 const SSE = 'text/event-stream';
 const NDJSON = 'application/x-ndjson';
 const INCOMPLETE_KINDS = new Set(['gap', 'body.excluded', 'body.truncated']);
-const ENVELOPE_KEYS = new Set(['sid', 'seq', 't', 'layer', 'frameT', 'revision']);
+// `n` (and `evn`, set only if a decoder already emits its own `n`) is the reducer's per-record event
+// position that completes the event id sid#seq.n. A direct decode has no raw record, so it never has it.
+const ENVELOPE_KEYS = new Set(['sid', 'seq', 't', 'layer', 'frameT', 'revision', 'n', 'evn']);
 const REDUCER_ANNOTATIONS = ['duplicate', 'outOfOrder', 'sequenceSkip'];
 const EXPECTED_COMPLETE = 10;
 const EXPECTED_INCOMPLETE = 2;
@@ -340,11 +342,9 @@ for (const spec of SPECS) {
 
 // Known product defects. Each entry marks ONE criterion of ONE session as todo; the assertion itself
 // stays strict. Remove the entry when the product is fixed.
-const KNOWN_B = {
-  'sse-crlf-ids-comments-cr-split': 'RF-1 (new, unfixed): src/decode/decoders.mjs LineSplitter does not extend the previous ' +
-    'line end over the LF when a CRLF is split across chunks, so event.span end is 1 byte short (replay 14, direct 15). ' +
-    'Event content is unaffected; only the byte link is off.',
-};
+// (Empty since RF-1 was fixed in decoders.mjs LineSplitter: a CR-terminated line is held until the next
+// byte or end of stream, so a CRLF split across chunks keeps its exact span.)
+const KNOWN_B = {};
 
 for (const r of RESULTS) {
   if (r.expectComplete) {
