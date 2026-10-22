@@ -179,7 +179,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
     },
     submit({ key, prompt, expectedRevision, confirm } = {}, { registered } = {}) {
       return serial(async () => {
-        if (typeof key !== 'string' || !key || key.length > 200 || typeof prompt !== 'string' || !prompt.trim() || prompt.length > 2000) throw error('INVALID_SUBMISSION');
+        if (typeof key !== 'string' || !key || key.length > 200 || typeof prompt !== 'string' || !prompt.trim() || prompt.length > 250000) throw error('INVALID_SUBMISSION');
         const payloadDigest = createHash('sha256').update(prompt, 'utf8').digest('hex');
         const original = snapshot.attempts.find((a) => a.key === key);
         // Same key replays the original turn read-only, even after finish/restart; only NEW sends need a writable conversation.
