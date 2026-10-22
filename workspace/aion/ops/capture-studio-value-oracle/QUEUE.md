@@ -1,7 +1,9 @@
+> **2026-10-22 V1 BUILT AND NODE22 EXECUTED/TESTED — WINDOWS/QA NOT YET VERIFIED:** Standalone [Outcome Packet generator](prototypes/outcome-packet.mjs), [synthetic fixture](prototypes/fixtures/demo.json), [13 Node tests](prototypes/outcome-packet.test.mjs), [Windows + QA handoff](prototypes/V1-HANDOFF.md), and [execution receipt](prototypes/V1-RECEIPT.md) delivered on main. Isolated Linux Node v22.16.0 test 13/13 PASS; one fixture run produced six verified source locators plus Markdown/JSON and QA-style L4 files. **No Windows run, real owner use, measured savings, independent QA acceptance, external browser actions or private-data upload.** V1.1–V1.4 complete as an offline proof; V1.5 integration deliberately deferred pending local feedback. Do not begin V2–V5.
+
 > **2026-10-22 LOCAL-PC DESecuritization SWEEP — SOURCE DELIVERED, NOT WINDOWS VERIFIED:** [Full first-party friction audit](LOCAL-FIRST-SWEEP-2026-10-22.md). Direct localhost mode, local-raw fidelity, one-click Drive, long prompts, loopback integrations and local testing URLs shipped via multiple active lanes. The workspace's actual user-value prototype remains **0 shipped / 0 used**, so **V1 Outcome Packet is still the next highest-leverage product task**. Do not grow a new hardening or permissions program; preserve one-dispatch correctness and raw provenance. Windows smoke/local CLI real run still required.
 
 # @VALUE-ORACLE — Outcome Delivery Queue
-**Origin:** 2026-10-22 value audit. **This is the single local product-value queue**, not a new PM/agent-dispatch system. **Status:** Agent workspace bootstrapped; execution not started. Product source is under the existing Global Research 09 Capture Studio project.
+**Origin:** 2026-10-22 value audit. **This is the single local product-value queue**, not a new PM/agent-dispatch system. **Status:** V1 standalone source shipped and isolated Node22 tests executed; Windows/use/QA acceptance pending. Product source is under the existing Global Research 09 Capture Studio project.
 
 ## Governing target: automation of usefulness
 
@@ -9,7 +11,7 @@
 
 | Sprint | User-facing proof, not a feature list | Already available / smallest build | Exit: demonstrably useful | Owner / blockers |
 | --- | --- | --- | --- | --- |
-| **V1 — First outcome (ACTIVE NEXT)** | "Take this saved AI answer and give me a ready-to-use packet." | Existing transcript, entities, session API, export → standalone read-only Outcome Packet generator + synthetic fixture | Correct Markdown/JSON packet with sources, decisions, proposed tasks, unknowns; zero external side effects; real manual-vs-new workflow measurement when available | Value-Oracle owns independent prototype; no Core editing; synthetic only initially |
+| **V1 — First outcome (OFFLINE PROOF DELIVERED)** | "Take this saved AI answer and give me a ready-to-use packet." | Existing transcript, entities, session API, export → standalone read-only Outcome Packet generator + synthetic fixture | Correct Markdown/JSON packet with sources, decisions, proposed tasks, unknowns; zero external side effects; real manual-vs-new workflow measurement when available | Value-Oracle owns independent prototype; no Core editing; synthetic only initially |
 | **V2 — Project landing** | "Give this result to the relevant AION project without copying." | Existing GitHub issue/file capabilities; read-only project mapping and dedup | Correct destination suggested; user-approved draft, idempotent delivery with readback link; no duplicate or secret leakage; no unverified task status | Value-Oracle consumer; 03 owns dispatch, 02 ownership map, GitHub write permission per action |
 | **V3 — What's changed?** | "What changed in this topic or project since last session?" | Existing continuity/graph/history/search; L5 temporal contract | Two-session evidence-linked change brief; missing/untrusted entity joins explicitly abstain, including different-account same-origin | Value-Oracle brief; Core/L4 temporal and provenance confidence, QA negatives |
 | **V4 — Automatic useful after Finish** | "I finish recording, and the next useful artifact is already available." | Existing derived artifacts and `/api/v1` tool manifest; local event feed/hooks | Saved capture -> accepted eligibility assessed -> offline packet generation -> local outcome notification and repeat-safe delivery; no browser sends | Core capture acceptance gate and bounded job lifecycle; agent does NOT create parallel server |
@@ -17,13 +19,13 @@
 
 ## Immediate actionable tasks — strict order, no massive speculative backlog
 
-**V1.1 [NEXT, unblocked]** Pin the selected saved-session transcript/record structure using GitHub source and one synthetic offline fixture. Produce one realistic example of source-grounded extractable **decision** and **proposed task**. Determine which fields exist versus must abstain.
+**V1.1 [DONE, OFFLINE]** Pin the selected saved-session transcript/record structure using GitHub source and one synthetic offline fixture. Produce one realistic example of source-grounded extractable **decision** and **proposed task**. Determine which fields exist versus must abstain.
 
-**V1.2 [NEXT]** Build `prototypes/outcome-packet.mjs` (or equivalent, only in this agent-owned directory): pure, bounded, source-preserving transformation from a **sanitized** synthetic session representation into a local Markdown+JSON output. Avoid external LLM dependence as a required runtime path; optional semantic enrichment can be evaluated separately.
+**V1.2 [DONE, OFFLINE]** Build `prototypes/outcome-packet.mjs` (or equivalent, only in this agent-owned directory): pure, bounded, source-preserving transformation from a **sanitized** synthetic session representation into a local Markdown+JSON output. Avoid external LLM dependence as a required runtime path; optional semantic enrichment can be evaluated separately.
 
-**V1.3 [NEXT]** Write Node 22 positive and negative regression fixtures: missing session, incomplete derivation, anonymous/unknown identity, credential-shaped content redaction, untrusted inferred decisions, duplicate actions, oversized outputs, malformed evidence reference. Source links must never be fabricated.
+**V1.3 [DONE, OFFLINE]** Write Node 22 positive and negative regression fixtures: missing session, incomplete derivation, anonymous/unknown identity, credential-shaped content redaction, untrusted inferred decisions, duplicate actions, oversized outputs, malformed evidence reference. Source links must never be fabricated.
 
-**V1.4 [NEXT]** Demonstrate a one-command read-only result against a test fixture. Measure actual developer-run steps and error counts; don't pretend to have measured owner baseline until the owner uses it.
+**V1.4 [DONE, OFFLINE]** Demonstrate a one-command read-only result against a test fixture. Measure actual developer-run steps and error counts; don't pretend to have measured owner baseline until the owner uses it.
 
 **V1.5 [DEFERRED]** Map it to the existing Studio UI/API as an owner-requested minimal interface once Core/UI ownership and privacy/acceptance gates are stable. Submit one issue for the precise integration instead of editing another lane's files.
 
