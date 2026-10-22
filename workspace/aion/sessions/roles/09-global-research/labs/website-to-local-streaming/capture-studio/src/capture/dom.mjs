@@ -1,7 +1,7 @@
 // L3 rendered-DOM observation + user-action timeline, via an isolated-world page agent.
 import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { scrubText, redactUrl } from './redact.mjs';
+import { capturePrivacy } from './privacy.mjs';
 
 const AGENT_SRC = readFileSync(new URL('./page-agent.js', import.meta.url), 'utf8').trim().replace(/;\s*$/, '');
 
@@ -9,6 +9,7 @@ export class DomObserver {
   constructor({ append, profile }) {
     this.append = append;
     this.profile = profile;
+    this.privacy = capturePrivacy(profile);
     this.worldName = `aion_capture_${randomBytes(4).toString('hex')}`;
     this.binding = `__aionBind_${randomBytes(4).toString('hex')}`;
     this.contexts = new Map(); // frameId -> contextId (our isolated world)
@@ -49,14 +50,14 @@ export class DomObserver {
     try { msg = JSON.parse(payload); } catch { return; }
     if (msg.type === 'dom.batch') {
       this.stats.batches++; this.stats.mutations += msg.items.length;
-      for (const it of msg.items) if (it.text) { const s = scrubText(it.text); it.text = s.text; if (s.redactions.length) it.redactions = s.redactions.length; }
-      this.append({ k: 'dom.batch', url: scrubUrl(msg.url), items: msg.items });
+      for (const it of msg.items) if (it.text) { const s = this.privacy.text(it.text); it.text = s.text; if (s.redactions.length) it.redactions = s.redactions.length; }
+      this.append({ k: 'dom.batch', url: this.privacy.url(msg.url), items: msg.items });
     } else if (msg.type === 'action') {
       this.stats.actions++;
-      this.append({ k: 'action', kind: msg.kind, url: scrubUrl(msg.url), target: msg.target, length: msg.length, top: msg.top, height: msg.height, open: msg.open, state: msg.state, shift: msg.shift });
+      this.append({ k: 'action', kind: msg.kind, url: this.privacy.url(msg.url), target: msg.target, length: msg.length, top: msg.top, height: msg.height, open: msg.open, state: msg.state, shift: msg.shift });
     } else if (msg.type === 'agent.ready') {
       this.stats.agentStarts++;
-      this.append({ k: 'lifecycle', event: 'dom_agent_ready', url: scrubUrl(msg.url) });
+      this.append({ k: 'lifecycle', event: 'dom_agent_ready', url: this.privacy.url(msg.url) });
     }
   }
 
@@ -76,11 +77,11 @@ export class DomObserver {
 
   async turns() {
     const t = (await this._evalInMain('globalThis.__aionCapture && globalThis.__aionCapture.turns()')).value ?? [];
-    for (const x of t) { const s = scrubText(x.text ?? ''); x.text = s.text; if (s.redactions.length) x.redactions = s.redactions.length; scrubBlocks(x.blocks); }
+    for (const x of t) { const s = this.privacy.text(x.text ?? ''); x.text = s.text; if (s.redactions.length) x.redactions = s.redactions.length; scrubBlocks(x.blocks, this.privacy); }
     return t;
   }
 
-  async blocksOf(nodeId) { const b = (await this._evalInMain(`globalThis.__aionCapture && globalThis.__aionCapture.blocks(${Number(nodeId)})`)).value ?? []; scrubBlocks(b); return b; }
+  async blocksOf(nodeId) { const b = (await this._evalInMain(`globalThis.__aionCapture && globalThis.__aionCapture.blocks(${Number(nodeId)})`)).value ?? []; scrubBlocks(b, this.privacy); return b; }
 
   // Read-only summary of the browser's accessibility tree: semantics independent of markup.
   async accessibility() {
@@ -98,7 +99,7 @@ export class DomObserver {
 
   async snapshot() {
     const v = (await this._evalInMain('globalThis.__aionCapture && globalThis.__aionCapture.snapshot()')).value;
-    if (v?.html) { const s = scrubText(v.html); v.html = s.text; v.redactions = s.redactions.length; }
+    if (v?.html) { const s = this.privacy.text(v.html); v.html = s.text; v.redactions = s.redactions.length; }
     return v;
   }
 
@@ -115,14 +116,12 @@ export class DomObserver {
   async clearHighlight() { try { await this.session.send('Overlay.hideHighlight'); } catch { /* ignore */ } }
 }
 
-function scrubUrl(u) { return u ? redactUrl(u) : u; }
-
-function scrubBlocks(blocks) {
+function scrubBlocks(blocks, privacy) {
   for (const b of blocks ?? []) {
-    if (typeof b.text === 'string') b.text = scrubText(b.text).text;
-    for (const i of b.inline ?? []) if (typeof i.text === 'string') i.text = scrubText(i.text).text;
-    if (b.rows) b.rows = b.rows.map((r) => r.map((c) => scrubText(c).text));
-    scrubBlocks(b.blocks);
-    for (const it of b.items ?? []) scrubBlocks(it.blocks);
+    if (typeof b.text === 'string') b.text = privacy.text(b.text).text;
+    for (const i of b.inline ?? []) if (typeof i.text === 'string') i.text = privacy.text(i.text).text;
+    if (b.rows) b.rows = b.rows.map((r) => r.map((c) => privacy.text(c).text));
+    scrubBlocks(b.blocks, privacy);
+    for (const it of b.items ?? []) scrubBlocks(it.blocks, privacy);
   }
 }
