@@ -36,6 +36,13 @@
 // USAGE
 //   node scripts/loadlab.mjs [--mb N] [--chunk KB] [--streams N] [--dom-rows N]
 //                             [--seed N] [--repeats N] [--json] [--out FILE] [--keep] [--help]
+//                             [--scenario saturation|chat] [--rate-kbps N] [--duration-s N] [--burst-mb N]
+//
+//   --scenario chat  realistic AI-chat load instead of saturation (see the CHAT section below):
+//                    a paced SSE reply, 4 Hz DOM batches, one history burst at 40 % of the run and
+//                    three analytics-like streams. Reports event-loop stalls, their timing relative
+//                    to the burst, queue age, peak queue bytes, frames/s, and PASS/FAIL verdicts.
+//   Chat run:        node scripts/loadlab.mjs --scenario chat --duration-s 20 --repeats 3 --json
 //
 //   --repeats N   run each mode (capture ON, baseline OFF) N times, alternating the order per
 //                 repeat (default 5). The report then carries median / p95 / min / max / CV over
@@ -136,7 +143,11 @@ function installFsProbe() {
 // ---------------------------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------------------------
-const DEFAULTS = { mb: 64, chunkKb: 64, streams: 4, domRows: 2000, seed: 1337, repeats: 5 };
+const DEFAULTS = { mb: 64, chunkKb: 64, streams: 4, domRows: 2000, seed: 1337, repeats: 5, scenario: 'saturation', rateKbps: 40, durationS: 20, burstMb: 6 };
+const MAX_CHAT_DURATION_S = 120;
+// Chat-scenario targets. Fixed constants on purpose: the run reports whether they are met, it does
+// not tune them.
+const CHAT_TARGETS = { eventLoopP99Ms: 50, longestStallMs: 100, queueAgeP99Ms: 100 };
 
 function usage() {
   return [
@@ -150,6 +161,10 @@ function usage() {
     `  --dom-rows N   total rendered-DOM rows across batches (default ${DEFAULTS.domRows})`,
     `  --seed N       deterministic seed (default ${DEFAULTS.seed})`,
     `  --repeats N    runs per mode, order alternates per repeat (default ${DEFAULTS.repeats}, max ${MAX_REPEATS})`,
+    '  --scenario S   saturation (default, as fast as possible) or chat (realistic AI-chat load)',
+    `  --rate-kbps N  chat: SSE reply rate in KB/s (default ${DEFAULTS.rateKbps})`,
+    `  --duration-s N chat: run length in seconds (default ${DEFAULTS.durationS}, max ${MAX_CHAT_DURATION_S})`,
+    `  --burst-mb N   chat: history-load burst at 40 % of the run (default ${DEFAULTS.burstMb})`,
     '  --json         print the JSON report on stdout (table goes to stderr)',
     '  --profile      attach a V8 CPU profile summary to each scenario (slower)',
     '  --out FILE     also write the JSON report to FILE',
@@ -188,6 +203,10 @@ function parseArgs(argv) {
       case '--help': case '-h': cfg.help = true; break;
       case '--worker': cfg.worker = true; break;
       case '--mode': cfg.mode = next(); break;
+      case '--scenario': cfg.scenario = next(); break;
+      case '--rate-kbps': cfg.rateKbps = num(next(), 'rate-kbps'); break;
+      case '--duration-s': cfg.durationS = num(next(), 'duration-s'); break;
+      case '--burst-mb': cfg.burstMb = num(next(), 'burst-mb'); break;
       default:
         if (a.startsWith('--') && a.includes('=')) {
           const [k, v] = a.split(/=(.*)/s);
@@ -203,6 +222,9 @@ function parseArgs(argv) {
   if (cfg.streams < 1 || cfg.streams > 64) throw new Error('--streams must be between 1 and 64');
   if (cfg.repeats < 1 || cfg.repeats > MAX_REPEATS) throw new Error(`--repeats must be between 1 and ${MAX_REPEATS}`);
   if (cfg.chunkKb > 8192) throw new Error('--chunk is capped at 8192 KB');
+  if (cfg.scenario !== 'saturation' && cfg.scenario !== 'chat') throw new Error(`--scenario must be saturation or chat (got ${cfg.scenario})`);
+  if (cfg.durationS > MAX_CHAT_DURATION_S) throw new Error(`--duration-s is capped at ${MAX_CHAT_DURATION_S} s (got ${cfg.durationS})`);
+  if (cfg.burstMb > MAX_MB) throw new Error(`--burst-mb is capped at ${MAX_MB} MB (got ${cfg.burstMb})`);
   return cfg;
 }
 
@@ -914,12 +936,748 @@ export function summarize(values) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Chat scenario (--scenario chat). Realistic AI-chat traffic instead of saturation.
+//
+//   (a) one SSE reply with typed events (content_block_delta), paced at --rate-kbps for
+//       --duration-s, chunks of 200-800 bytes at seeded, jittered intervals;
+//   (b) rendered-DOM batches at 4 Hz (--dom-rows is the total over the run);
+//   (c) one burst: a --burst-mb JSON history document in 64 KB frames back to back at 40 % of the
+//       run;
+//   (d) three analytics-like streams, one tiny NDJSON line every 500 ms.
+//
+// planChatWorkload() builds the whole run up front from the seed: every frame, its bytes and its
+// due time. Nothing in the plan reads the clock, so the same seed gives the same bytes and the
+// same sha256 values. runChatScenario() delivers the plan on real timers: it waits until each event
+// is due and yields to the event loop before every frame. A stall the probe sees is a real stall
+// of the capture path, not a side effect of the generator.
+// ---------------------------------------------------------------------------------------------
+const CHAT = {
+  domHz: 4,
+  bgStreams: 3,
+  bgIntervalMs: 500,
+  burstFrameBytes: 64 * 1024,
+  burstFraction: 0.4,
+  sseChunkMin: 200,
+  sseChunkMax: 800,
+  probeMs: 10,
+  keptStalls: 5,
+};
+const CHAT_PAGE_URL = 'https://lab.invalid/';
+
+export function planChatWorkload({
+  seed = DEFAULTS.seed,
+  durationS = DEFAULTS.durationS,
+  rateKbps = DEFAULTS.rateKbps,
+  burstMb = DEFAULTS.burstMb,
+  domRows = DEFAULTS.domRows,
+} = {}) {
+  const durationMs = Math.round(durationS * 1000);
+  const bytesPerMs = (rateKbps * 1024) / 1000;
+  // Separate PRNG streams, so each part of the plan does not depend on how many draws another
+  // part made.
+  const rPlan = mulberry32(seed);
+  const rText = mulberry32(seed + 1);
+  const rBurst = mulberry32(seed + 2);
+  const rBg = mulberry32(seed + 3);
+
+  const streams = [];
+  const hashes = new Map();
+  const events = [];
+  const pushEvent = (atMs, ev) => { events.push({ ...ev, atMs, seq: events.length }); };
+  const makeStream = (role, kind, mime, requestId, url) => {
+    const s = { index: streams.length, role, kind, mime, requestId, sid: `p:${requestId}`, url, budget: 0, chunks: 0, finishAtMs: 0 };
+    streams.push(s);
+    hashes.set(s.index, crypto.createHash('sha256'));
+    return s;
+  };
+  const openStream = (s, atMs) => {
+    pushEvent(atMs, {
+      method: 'Network.requestWillBeSent',
+      stream: s.index,
+      params: {
+        requestId: s.requestId,
+        loaderId: 'LAB-LOADER',
+        documentURL: CHAT_PAGE_URL,
+        request: { url: s.url, method: 'GET', headers: { accept: '*/*' }, hasPostData: false },
+        timestamp: 1000 + s.index,
+        wallTime: 1700000000 + s.index,
+        initiator: { type: 'other' },
+        type: 'Fetch',
+        frameId: 'LAB-FRAME-1',
+      },
+    });
+    pushEvent(atMs, {
+      method: 'Network.responseReceived',
+      stream: s.index,
+      params: {
+        requestId: s.requestId,
+        timestamp: 1000.5 + s.index,
+        type: 'Fetch',
+        response: {
+          url: s.url, status: 200, statusText: 'OK', headers: { 'content-type': s.mime }, mimeType: s.mime,
+          protocol: 'h2', remoteIPAddress: '127.0.0.1', remotePort: 443, fromDiskCache: false,
+          fromPrefetchCache: false, encodedDataLength: 0, securityState: 'secure',
+        },
+      },
+    });
+  };
+  const addChunk = (s, atMs, buf) => {
+    s.budget += buf.length;
+    s.chunks++;
+    hashes.get(s.index).update(buf);
+    pushEvent(atMs, {
+      method: 'Network.dataReceived',
+      stream: s.index,
+      kind: s.kind,
+      buf,
+      params: { requestId: s.requestId, timestamp: 1001 + atMs / 1000, data: buf.toString('base64'), encodedDataLength: buf.length },
+    });
+  };
+
+  // (a) SSE reply. The chunk sizes and gaps are drawn first, then the typed-event text fills them.
+  // The gap is size / rate times a factor in [0.5, 1.5), so the mean rate is the target rate.
+  const sseSizes = [];
+  for (let t = 0; t < durationMs;) {
+    const size = CHAT.sseChunkMin + Math.floor(rPlan() * (CHAT.sseChunkMax - CHAT.sseChunkMin + 1));
+    sseSizes.push({ atMs: t, size });
+    t += (size / bytesPerMs) * (0.5 + rPlan());
+  }
+  const sseTotal = sseSizes.reduce((a, c) => a + c.size, 0);
+  let sseText = 'event: message_start\ndata: {"type":"message_start"}\n\n';
+  while (sseText.length < sseTotal) {
+    const w = () => WORDS[Math.floor(rText() * WORDS.length)];
+    sseText += `event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"${w()} ${w()} ${w()} "}}\n\n`;
+  }
+  const sseBytes = Buffer.from(sseText, 'utf8');
+  const sse = makeStream('sse', 'sse', 'text/event-stream', 'lab-chat-sse', 'https://lab.invalid/api/chat/completion');
+  openStream(sse, 0);
+  let sseOff = 0;
+  for (const c of sseSizes) {
+    addChunk(sse, c.atMs, sseBytes.subarray(sseOff, sseOff + c.size));
+    sseOff += c.size;
+  }
+  sse.finishAtMs = durationMs;
+
+  // (d) analytics-like streams: one tiny NDJSON line every 500 ms, with a seeded phase.
+  for (let i = 0; i < CHAT.bgStreams; i++) {
+    const s = makeStream('analytics', 'ndjson', 'application/x-ndjson', `lab-chat-bg-${i}`, `https://lab.invalid/collect/analytics-${i}`);
+    openStream(s, 0);
+    let k = 0;
+    for (let t = Math.floor(rBg() * CHAT.bgIntervalMs); t < durationMs; t += CHAT.bgIntervalMs) {
+      addChunk(s, t, Buffer.from(`{"ev":"beacon","src":"analytics-${i}","seq":${k},"v":${Math.floor(rBg() * 10000)}}\n`, 'utf8'));
+      k++;
+    }
+    s.finishAtMs = durationMs;
+  }
+
+  // (c) the burst: one conversation-history document, 64 KB frames back to back at 40 % of the run.
+  // The whole-body JSON parse at loadingFinished is part of what this burst is meant to expose.
+  const burstAtMs = Math.round(durationMs * CHAT.burstFraction);
+  const burstBytes = Math.round(burstMb * 1024 * 1024);
+  const burst = makeStream('burst', 'document', 'application/json', 'lab-chat-burst', 'https://lab.invalid/api/conversations/history');
+  openStream(burst, burstAtMs);
+  const doc = buildDocument(rBurst, burstBytes);
+  for (let off = 0; off < doc.length; off += CHAT.burstFrameBytes) {
+    addChunk(burst, burstAtMs, doc.subarray(off, off + CHAT.burstFrameBytes));
+  }
+  burst.finishAtMs = burstAtMs;
+
+  // (b) rendered-DOM batches at 4 Hz. --dom-rows is the total, spread evenly over the batches.
+  const domCount = Math.floor((durationMs * CHAT.domHz) / 1000);
+  for (let k = 0; k < domCount; k++) {
+    const start = Math.floor((domRows * k) / domCount);
+    const end = Math.floor((domRows * (k + 1)) / domCount);
+    if (end <= start) continue;
+    const items = [];
+    for (let n = start; n < end; n++) {
+      items.push({
+        id: `row-${String(n).padStart(6, '0')}`,
+        sig: `div.list > li.item:nth-child(${(n % 50) + 1})`,
+        text: `Virtualized row ${n} - deterministic synthetic rendered text ${WORDS[n % WORDS.length]} ${WORDS[(n + 3) % WORDS.length]}`,
+        tag: 'LI',
+        op: n % 10 === 0 ? 'added' : 'updated',
+      });
+    }
+    pushEvent(Math.round((k * 1000) / CHAT.domHz), {
+      method: 'Runtime.bindingCalled',
+      stream: null,
+      kind: 'dom',
+      rows: end - start,
+      payload: JSON.stringify({ type: 'dom.batch', url: CHAT_PAGE_URL, items }),
+    });
+  }
+
+  // Every stream ends at its finish time. Stable sort: events at the same time keep their order.
+  for (const s of streams) {
+    pushEvent(s.finishAtMs, {
+      method: 'Network.loadingFinished',
+      stream: s.index,
+      params: { requestId: s.requestId, timestamp: 2000 + s.index, encodedDataLength: s.budget },
+    });
+  }
+  events.sort((a, b) => a.atMs - b.atMs || a.seq - b.seq);
+
+  const sumWhere = (pred) => streams.filter(pred).reduce((a, s) => a + s.budget, 0);
+  return {
+    seed,
+    durationMs,
+    burstAtMs,
+    burstStreamIndex: burst.index,
+    pageUrl: CHAT_PAGE_URL,
+    events,
+    streams: streams.map((s) => ({
+      index: s.index,
+      role: s.role,
+      kind: s.kind,
+      mime: s.mime,
+      requestId: s.requestId,
+      sid: s.sid,
+      url: s.url,
+      budget: s.budget,
+      chunks: s.chunks,
+      plannedSha256: hashes.get(s.index).digest('hex'),
+    })),
+    totals: {
+      bytes: streams.reduce((a, s) => a + s.budget, 0),
+      sseBytes: sumWhere((s) => s.role === 'sse'),
+      analyticsBytes: sumWhere((s) => s.role === 'analytics'),
+      burstBytes: burst.budget,
+      dataFrames: events.filter((e) => e.buf).length,
+      domBatches: events.filter((e) => e.kind === 'dom').length,
+      domRows: events.reduce((a, e) => a + (e.rows ?? 0), 0),
+    },
+  };
+}
+
+function withinTarget(value, limit) {
+  return Number.isFinite(value) && value <= limit;
+}
+
+async function runChatScenario({ mode, cfg }) {
+  const probe = installFsProbe();
+  const warnings = [];
+  const capture = mode === 'capture';
+
+  // Same import order as runScenario: the fs probe is installed before any capture module.
+  const { DomObserver } = await import('../src/capture/dom.mjs');
+  const { CdpConnection } = await import('../src/cdp/client.mjs');
+  const { normalizeProfile } = await import('../src/profiles/profiles.mjs');
+  const { Recorder } = capture ? await import('../src/capture/recorder.mjs') : { Recorder: null };
+  const { NetworkRecorder } = capture ? await import('../src/capture/network.mjs') : { NetworkRecorder: null };
+  const { StreamReducer } = capture ? await import('../src/replay/reducer.mjs') : { StreamReducer: null };
+  const { ShapeInferencer } = capture ? await import('../src/shapes/infer.mjs') : { ShapeInferencer: null };
+  const { Session } = capture ? await import('../src/store/session.mjs') : { Session: null };
+  const { streamBytes } = capture ? await import('../src/replay/derive.mjs') : { streamBytes: null };
+  const { capturePrivacy } = capture ? await import('../src/capture/privacy.mjs') : { capturePrivacy: null };
+
+  const esmFs = await import('node:fs');
+  probe.measured = Object.keys(probe.patched).every((n) => esmFs[n] === probe.patched[n]);
+  if (!probe.measured) probe.reason = 'node:fs ESM facade was created before the probe was installed (this process imported node:fs first)';
+
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-loadlab-'));
+  const safeTmp = path.resolve(os.tmpdir());
+  if (!path.resolve(tmpRoot).startsWith(safeTmp)) throw new Error(`Refusing to write outside the temp dir: ${tmpRoot}`);
+  if (/capture-studio/i.test(tmpRoot)) throw new Error(`Refusing to use a capture-studio data path: ${tmpRoot}`);
+
+  const profile = normalizeProfile({
+    name: 'loadlab',
+    capture: { websockets: false, retrospectiveFallback: true },
+    dom: { enabled: true, flushMs: 100 },
+  });
+
+  // The whole run is planned before the clock starts, so planning cost is not measured.
+  const plan = planChatWorkload({ seed: cfg.seed, durationS: cfg.durationS, rateKbps: cfg.rateKbps, burstMb: cfg.burstMb, domRows: cfg.domRows });
+
+  // ---- build the capture stack (same collaborators and timers as runScenario) ---------------
+  let recorder = null;
+  let session = null;
+  let dom = null;
+  if (capture) {
+    recorder = new Recorder({ sessionsDir: tmpRoot, profileStore: null, liveEventsPerStream: 2000, maxStreamBytes: 0, allBodies: true });
+    recorder.profile = profile;
+    recorder.privacy = capturePrivacy(profile);
+    recorder.pageUrl = CHAT_PAGE_URL;
+    recorder.state = 'recording';
+    recorder.startedAt = Date.now();
+    recorder.session = Session.create(tmpRoot, {
+      site: 'loadlab',
+      rawOptions: {},
+      meta: {
+        target: { id: 'LAB-TARGET', url: CHAT_PAGE_URL, title: 'load lab' },
+        profile: { name: profile.name, version: profile.version },
+        options: { loadlab: true, mode, scenario: 'chat' },
+        node: process.version,
+      },
+    });
+    recorder.reducer = new StreamReducer({ deltaDialect: profile.decode?.delta ?? 'auto', maxEventsPerStream: 2000 });
+    recorder.shapes = new ShapeInferencer();
+    recorder.eventsDs = recorder.session.dataset('events');
+    const append = (rec) => recorder._append(rec);
+    recorder.net = new NetworkRecorder({ append, profile, getPageUrl: () => recorder.pageUrl, options: { allBodies: true, maxStreamBytes: 0 } });
+    recorder.net.on('error', (e) => warnings.push(`network handler error: ${e?.message ?? e}`));
+    recorder.dom = new DomObserver({ append, profile });
+    session = recorder.session;
+    dom = recorder.dom;
+  } else {
+    dom = new DomObserver({ append: () => {}, profile });
+  }
+
+  const socket = new FakeCdpSocket(CDP_HANDLERS);
+  const conn = new CdpConnection(socket, { requestTimeoutMs: 0, url: 'ws://127.0.0.1:0/loadlab' });
+  const cdpSession = await conn.attach('LAB-TARGET');
+  if (capture) {
+    await recorder.net.attach(cdpSession, 'p', { type: 'page' });
+    await recorder.dom.attach(cdpSession);
+  }
+
+  let statusTicks = 0;
+  let persistTicks = 0;
+  const statusTimer = capture ? setInterval(() => {
+    try { recorder.emit('status', recorder.status()); statusTicks++; } catch (e) { warnings.push(`status timer: ${e?.message ?? e}`); }
+  }, 1000) : null;
+  const persistTimer = capture ? setInterval(() => {
+    try { recorder._persist(); persistTicks++; } catch (e) { warnings.push(`persist timer: ${e?.message ?? e}`); }
+  }, 5000) : null;
+  statusTimer?.unref?.();
+  persistTimer?.unref?.();
+
+  const { monitorEventLoopDelay } = await import('node:perf_hooks');
+  const hist = monitorEventLoopDelay({ resolution: 10 });
+  hist.enable();
+
+  let datasetPushes = 0;
+  let rawFlushBatches = 0;
+  if (capture) {
+    const ds = recorder.eventsDs;
+    const origPush = ds.push.bind(ds);
+    ds.push = (items) => { datasetPushes++; return origPush(items); };
+    session.raw.on('written', () => { rawFlushBatches++; });
+  }
+
+  // QUEUE AGE PROBE: the same read-only wrapper as runScenario, armed only during the run.
+  const queueAgesMs = [];
+  let queueAgeArmed = false;
+  let queueFlushSamples = 0;
+  let queuePeakBytesSeen = 0;
+  if (capture) {
+    const raw = session.raw;
+    const origFlush = raw.flush.bind(raw);
+    raw.flush = (...args) => {
+      if (queueAgeArmed && raw.fd !== undefined) {
+        const now = Date.now();
+        let batchBytes = 0;
+        for (let i = 0; i < raw.queue.length && batchBytes < RAW_FLUSH_BATCH_BYTES; i++) {
+          const r = raw.queue[i];
+          batchBytes += r.bytes;
+          queueAgesMs.push(now - r.t);
+        }
+        if (raw.queueBytes > queuePeakBytesSeen) queuePeakBytesSeen = raw.queueBytes;
+        queueFlushSamples++;
+      }
+      return origFlush(...args);
+    };
+  }
+
+  // ---- stall probe --------------------------------------------------------------------------
+  // A chain of 10 ms timers. Each one records how late it fired. Lateness is the time the loop
+  // was not free to run this timer, so it is a stall in the same sense as the event-loop histogram,
+  // but with a start time and an end time, which the histogram does not give.
+  let t0 = process.hrtime.bigint();
+  const nowMs = () => Number(process.hrtime.bigint() - t0) / 1e6;
+  let probeDue = 0;
+  let probeTimer = null;
+  let probing = false;
+  let longest = { ms: 0, startMs: null, endMs: null };
+  const stalls = [];
+  const probeTick = () => {
+    if (!probing) return;
+    const now = nowMs();
+    const late = now - probeDue;
+    if (late > 0) {
+      const st = { ms: round3(late), startMs: round3(probeDue), endMs: round3(now) };
+      if (st.ms > longest.ms) longest = st;
+      stalls.push(st);
+      if (stalls.length > 200) { stalls.sort((a, b) => b.ms - a.ms); stalls.length = CHAT.keptStalls; }
+    }
+    probeDue = now + CHAT.probeMs;
+    probeTimer = setTimeout(probeTick, CHAT.probeMs);
+  };
+
+  // ---- deliver the plan ---------------------------------------------------------------------
+  const tick = () => new Promise((r) => setImmediate(r));
+  const sleepFor = (ms) => new Promise((r) => setTimeout(r, ms));
+  const streamState = new Map(plan.streams.map((s) => [s.index, { hash: crypto.createHash('sha256'), bytes: 0, chunks: 0 }]));
+  const maxFrame = { ms: 0, method: null, kind: null, frame: null };
+  let cdpFrames = 0;
+  let dataFrames = 0;
+  let controlFrames = 0;
+  let domFrames = 0;
+  let domRowsSent = 0;
+  let domBatchIndex = 0;
+  let burstFrames = 0;
+  let burstStartMs = null;
+  let burstEndMs = null;
+  const rssStart = process.memoryUsage().rss;
+  let rssPeak = rssStart;
+
+  const send = (ev) => {
+    const isDom = ev.kind === 'dom';
+    const startedAt = nowMs();
+    const t1 = process.hrtime.bigint();
+    socket.deliver({
+      method: ev.method,
+      sessionId: cdpSession.sessionId,
+      params: isDom ? { name: dom.binding, payload: ev.payload } : ev.params,
+    });
+    const dt = Number(process.hrtime.bigint() - t1) / 1e6;
+    cdpFrames++;
+    if (dt > maxFrame.ms) { maxFrame.ms = dt; maxFrame.method = ev.method; maxFrame.kind = ev.kind ?? null; maxFrame.frame = cdpFrames; }
+    if (ev.buf) {
+      const st = streamState.get(ev.stream);
+      st.hash.update(ev.buf);
+      st.bytes += ev.buf.length;
+      st.chunks++;
+      dataFrames++;
+      if (ev.stream === plan.burstStreamIndex) {
+        if (burstStartMs === null) burstStartMs = startedAt;
+        burstEndMs = nowMs();
+        burstFrames++;
+      }
+    } else if (isDom) {
+      domFrames++;
+      domRowsSent += ev.rows;
+      domBatchIndex++;
+    } else {
+      controlFrames++;
+    }
+    if (cdpFrames % 64 === 0) { const r = process.memoryUsage().rss; if (r > rssPeak) rssPeak = r; }
+  };
+
+  // Start the clock and the probe together, then arm the queue probe for the workload window.
+  t0 = process.hrtime.bigint();
+  probeDue = CHAT.probeMs;
+  probing = true;
+  probeTimer = setTimeout(probeTick, CHAT.probeMs);
+  queueAgeArmed = capture;
+
+  for (const ev of plan.events) {
+    const wait = ev.atMs - nowMs();
+    // A future event sleeps until it is due. A due or overdue event still yields first, so every
+    // frame is its own event-loop turn (back to back for the burst, as a socket delivers them).
+    if (wait > 1) await sleepFor(wait);
+    else await tick();
+    send(ev);
+  }
+
+  const wallMs = nowMs();
+  probing = false;
+  clearTimeout(probeTimer);
+  hist.disable();
+  queueAgeArmed = false;
+  rssPeak = Math.max(rssPeak, process.memoryUsage().rss);
+  clearInterval(statusTimer);
+  clearInterval(persistTimer);
+
+  // ---- shut the capture stack down and verify the bytes -------------------------------------
+  let integrity = null;
+  const perStream = [];
+  let bytesEqual = null;
+  let rawBytes = 0;
+  if (capture) {
+    await session.raw.close();
+    integrity = await session.verify();
+    rawBytes = session.raw.stats.bytes;
+    for (const s of plan.streams) {
+      const st = streamState.get(s.index);
+      const { bytes } = await streamBytes(session, s.sid);
+      const reassembledSha = crypto.createHash('sha256').update(bytes).digest('hex');
+      const emittedSha = st.hash.digest('hex');
+      perStream.push({
+        sid: s.sid,
+        kind: s.kind,
+        mime: s.mime,
+        chunks: st.chunks,
+        emittedBytes: st.bytes,
+        emittedSha256: emittedSha,
+        reassembledBytes: bytes.length,
+        reassembledSha256: reassembledSha,
+        equal: emittedSha === reassembledSha && bytes.length === st.bytes && st.bytes === s.budget,
+      });
+    }
+    bytesEqual = perStream.length > 0 && perStream.every((p) => p.equal);
+  }
+
+  const bytesEmitted = [...streamState.values()].reduce((a, st) => a + st.bytes, 0);
+  const sseBytesEmitted = plan.streams.filter((s) => s.role === 'sse').reduce((a, s) => a + streamState.get(s.index).bytes, 0);
+  const seconds = wallMs / 1000;
+  const stallsTop = [...stalls].sort((a, b) => b.ms - a.ms).slice(0, CHAT.keptStalls);
+  const relToBurst = (ms) => (burstStartMs === null || ms === null || ms === undefined ? null : round3(ms - burstStartMs));
+  const burstStartRel = burstStartMs === null ? null : round3(burstStartMs);
+  const burstEndRel = burstEndMs === null ? null : round3(burstEndMs);
+
+  const counters = {
+    cdpFrames,
+    dataFrames,
+    controlFrames,
+    domFrames,
+    domBatches: domBatchIndex,
+    domRows: domRowsSent,
+    statusTicks,
+    persistTicks,
+    datasetPushes,
+    rawFlushBatches,
+    rawRecords: capture ? session.raw.stats.records : 0,
+    rawIndexEntries: capture ? session.raw.stats.indexEntries : 0,
+    rawGaps: capture ? session.raw.stats.gaps : 0,
+    rawDroppedRecords: capture ? session.raw.stats.droppedRecords : 0,
+    reducerEvents: capture ? recorder.reducer.totals.events : 0,
+    reducerBytes: capture ? recorder.reducer.totals.bytes : 0,
+    networkChunks: capture ? recorder.net.stats.chunks : 0,
+    networkBytes: capture ? recorder.net.stats.bytes : 0,
+    handlerErrors: capture ? recorder.net.stats.handlerErrors : 0,
+    shapeGroups: capture ? recorder.shapes.groups.size : 0,
+  };
+
+  const delay = {
+    resolutionMs: 10,
+    p50: round3(hist.percentile(50) / 1e6),
+    p99: round3(hist.percentile(99) / 1e6),
+    max: round3(hist.max / 1e6),
+    mean: round3(hist.mean / 1e6),
+    min: round3(hist.min / 1e6),
+    samples: hist.count,
+  };
+
+  const syncFs = {
+    measured: probe.measured,
+    reason: probe.reason,
+    ...(probe.measured
+      ? { writeSync: probe.counts.writeSync ?? 0, fsyncSync: probe.counts.fsyncSync ?? 0, appendFileSync: probe.counts.appendFileSync ?? 0, writeFileSync: probe.counts.writeFileSync ?? 0, renameSync: probe.counts.renameSync ?? 0, mkdirSync: probe.counts.mkdirSync ?? 0, openSync: probe.counts.openSync ?? 0, closeSync: probe.counts.closeSync ?? 0, readFileSync: probe.counts.readFileSync ?? 0, total: Object.values(probe.counts).reduce((a, b) => a + b, 0) }
+      : { total: null }),
+  };
+
+  const result = {
+    mode,
+    scenario: 'chat',
+    label: capture ? 'capture ON (real capture path)' : 'baseline OFF (same emitter, handlers no-op)',
+    wallMs: round3(wallMs),
+    bytesEmitted,
+    bytesPerSec: seconds > 0 ? Math.round(bytesEmitted / seconds) : 0,
+    framesPerSec: seconds > 0 ? round3(cdpFrames / seconds) : null,
+    sseKbps: seconds > 0 ? round3(sseBytesEmitted / 1024 / seconds) : null,
+    eventLoopDelayMs: delay,
+    longestStall: {
+      ms: longest.ms,
+      startMs: longest.startMs,
+      endMs: longest.endMs,
+      relativeToBurstStartMs: relToBurst(longest.startMs),
+      relativeToBurstEndMs: burstEndMs === null || longest.startMs === null ? null : round3(longest.startMs - burstEndMs),
+      inBurstWindow: burstStartMs !== null && longest.startMs !== null && longest.endMs >= burstStartMs && longest.startMs <= burstEndMs,
+      probeIntervalMs: CHAT.probeMs,
+    },
+    stalls: stallsTop.map((s) => ({ ms: s.ms, startMs: s.startMs, endMs: s.endMs, relativeToBurstStartMs: relToBurst(s.startMs) })),
+    burst: {
+      plannedAtMs: plan.burstAtMs,
+      startMs: burstStartRel,
+      endMs: burstEndRel,
+      windowMs: burstStartMs === null ? null : round3(burstEndMs - burstStartMs),
+      frames: burstFrames,
+      bytes: plan.totals.burstBytes,
+    },
+    maxFrameHandlerMs: { ms: round3(maxFrame.ms), method: maxFrame.method, kind: maxFrame.kind, frame: maxFrame.frame },
+    memory: {
+      peakRssMb: round3(Math.max(rssPeak, process.resourceUsage().maxRSS * 1024) / (1024 * 1024)),
+      rssStartMb: round3(rssStart / (1024 * 1024)),
+      rssEndMb: round3(process.memoryUsage().rss / (1024 * 1024)),
+      processMaxRssMb: round3((process.resourceUsage().maxRSS * 1024) / (1024 * 1024)),
+    },
+    syncFs,
+    queue: capture
+      ? {
+        ageSamples: queueAgesMs.length,
+        flushSamples: queueFlushSamples,
+        ageP50Ms: round3(percentile(queueAgesMs, 50)),
+        ageP99Ms: round3(percentile(queueAgesMs, 99)),
+        ageMinMs: queueAgesMs.length ? queueAgesMs.reduce((a, b) => (b < a ? b : a)) : null,
+        ageMaxMs: queueAgesMs.length ? queueAgesMs.reduce((a, b) => (b > a ? b : a)) : null,
+        agesNonNegative: queueAgesMs.every((a) => a >= 0),
+        peakQueueBytes: session.raw.stats.maxQueueBytesSeen,
+        peakQueueBytesAtFlush: queuePeakBytesSeen,
+      }
+      : null,
+    counters,
+    bytes: { equal: bytesEqual, rawLogBytes: rawBytes, perStream },
+    integrity: integrity
+      ? { ok: integrity.ok, records: integrity.records, gapRecords: integrity.gapRecords, droppedRecords: integrity.droppedRecords, unexplainedSeqGaps: integrity.unexplainedSeqGaps ?? 0 }
+      : null,
+    plan: {
+      seed: cfg.seed,
+      durationS: cfg.durationS,
+      rateKbps: cfg.rateKbps,
+      burstMb: cfg.burstMb,
+      domRows: cfg.domRows,
+      plannedBytes: plan.totals,
+      streams: plan.streams.map((s) => ({ sid: s.sid, role: s.role, kind: s.kind, budget: s.budget, chunks: s.chunks, plannedSha256: s.plannedSha256 })),
+    },
+    warnings,
+  };
+
+  try { conn.close(); } catch { /* ignore */ }
+  if (!cfg.keep) {
+    try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch { /* ignore */ }
+  } else {
+    result.tempDir = tmpRoot;
+  }
+  return result;
+}
+
+function buildChatReport(cfg, scenarios) {
+  const captureRuns = scenarios.filter((s) => s.mode === 'capture');
+  const baselineRuns = scenarios.filter((s) => s.mode === 'baseline');
+  const med = (runs, f) => summarize(runs.map(f));
+  const modeSummary = (runs, isCapture) => ({
+    runs: runs.length,
+    eventLoopP50Ms: med(runs, (s) => s.eventLoopDelayMs.p50),
+    eventLoopP99Ms: med(runs, (s) => s.eventLoopDelayMs.p99),
+    eventLoopMaxMs: med(runs, (s) => s.eventLoopDelayMs.max),
+    longestStallMs: med(runs, (s) => s.longestStall.ms),
+    longestStallRelBurstStartMs: med(runs, (s) => s.longestStall.relativeToBurstStartMs),
+    framesPerSec: med(runs, (s) => s.framesPerSec),
+    bytesPerSec: med(runs, (s) => s.bytesPerSec),
+    queue: isCapture
+      ? {
+        ageP50Ms: med(runs, (s) => s.queue?.ageP50Ms),
+        ageP99Ms: med(runs, (s) => s.queue?.ageP99Ms),
+        ageMaxMs: med(runs, (s) => s.queue?.ageMaxMs),
+        peakQueueBytes: med(runs, (s) => s.queue?.peakQueueBytes),
+      }
+      : null,
+    perRepeat: runs.map((s) => ({
+      repeat: s.repeat,
+      eventLoopP99Ms: s.eventLoopDelayMs.p99,
+      longestStallMs: s.longestStall.ms,
+      longestStallRelBurstStartMs: s.longestStall.relativeToBurstStartMs,
+      queueAgeP99Ms: s.queue ? s.queue.ageP99Ms : null,
+    })),
+    bytesEqualAllRuns: isCapture ? runs.length > 0 && runs.every((s) => s.bytes.equal === true) : null,
+  });
+  const summary = { capture: modeSummary(captureRuns, true), baseline: modeSummary(baselineRuns, false) };
+  const verdictFor = (m, isCapture) => {
+    const T = CHAT_TARGETS;
+    const checks = {
+      eventLoopP99: m.eventLoopP99Ms.median !== null && withinTarget(m.eventLoopP99Ms.median, T.eventLoopP99Ms),
+      longestStall: m.longestStallMs.median !== null && withinTarget(m.longestStallMs.median, T.longestStallMs),
+    };
+    if (isCapture) checks.queueAgeP99 = m.queue.ageP99Ms.median !== null && withinTarget(m.queue.ageP99Ms.median, T.queueAgeP99Ms);
+    const within = (r) => withinTarget(r.eventLoopP99Ms, T.eventLoopP99Ms)
+      && withinTarget(r.longestStallMs, T.longestStallMs)
+      && (!isCapture || withinTarget(r.queueAgeP99Ms, T.queueAgeP99Ms));
+    return {
+      pass: Object.values(checks).every(Boolean),
+      checks,
+      allRepeatsWithinTargets: m.perRepeat.length > 0 && m.perRepeat.every(within),
+    };
+  };
+  return {
+    schema: SCHEMA,
+    scenario: 'chat',
+    generatedAt: new Date().toISOString(),
+    node: process.version,
+    platform: `${process.platform} ${process.arch}`,
+    config: {
+      scenario: 'chat',
+      durationS: cfg.durationS,
+      rateKbps: cfg.rateKbps,
+      burstMb: cfg.burstMb,
+      domRows: cfg.domRows,
+      seed: cfg.seed,
+      repeats: cfg.repeats,
+      domHz: CHAT.domHz,
+      bgStreams: CHAT.bgStreams,
+      burstAtFraction: CHAT.burstFraction,
+      sseChunkBytes: [CHAT.sseChunkMin, CHAT.sseChunkMax],
+      probeIntervalMs: CHAT.probeMs,
+    },
+    targets: CHAT_TARGETS,
+    layers: LAYERS,
+    scenarios,
+    repeats: {
+      count: cfg.repeats,
+      order: 'repeat r runs capture then baseline when r is odd, baseline then capture when r is even',
+      runs: { capture: captureRuns.length, baseline: baselineRuns.length },
+    },
+    summary,
+    verdict: {
+      capture: verdictFor(summary.capture, true),
+      baseline: verdictFor(summary.baseline, false),
+      basis: 'PASS/FAIL uses the median over repeats. allRepeatsWithinTargets reports the worst repeat. The targets are fixed constants and were not tuned.',
+    },
+    bytesEqual: summary.capture.bytesEqualAllRuns,
+    warnings: scenarios.flatMap((s) => (s.warnings ?? []).map((w) => `${s.mode}#${s.repeat}: ${w}`)),
+  };
+}
+
+function chatTable(report) {
+  const fmt = (v, d = 2) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? 'n/a' : Number(v).toFixed(d));
+  const cell = (v, n) => String(v).padStart(n);
+  const head = [
+    'run'.padEnd(10), cell('wall ms', 9), cell('frames/s', 9), cell('p50 ms', 8), cell('p99 ms', 8), cell('max ms', 8),
+    cell('stall ms', 9), cell('stall vs burst', 15), cell('qage p50', 9), cell('qage p99', 9), cell('qage max', 9),
+    cell('peak q B', 10), cell('equal', 6),
+  ].join(' ');
+  const rows = [head, '-'.repeat(head.length)];
+  for (const s of report.scenarios) {
+    const q = s.queue;
+    const rel = s.longestStall.relativeToBurstStartMs;
+    rows.push([
+      `${s.mode === 'capture' ? 'ON' : 'OFF'} #${s.repeat}`.padEnd(10),
+      cell(fmt(s.wallMs, 0), 9),
+      cell(fmt(s.framesPerSec, 0), 9),
+      cell(fmt(s.eventLoopDelayMs.p50), 8),
+      cell(fmt(s.eventLoopDelayMs.p99), 8),
+      cell(fmt(s.eventLoopDelayMs.max), 8),
+      cell(fmt(s.longestStall.ms), 9),
+      cell(rel === null ? 'n/a' : `${rel >= 0 ? '+' : ''}${fmt(rel, 0)} ms`, 15),
+      cell(q ? fmt(q.ageP50Ms) : 'n/a', 9),
+      cell(q ? fmt(q.ageP99Ms) : 'n/a', 9),
+      cell(q ? fmt(q.ageMaxMs) : 'n/a', 9),
+      cell(q ? q.peakQueueBytes : 'n/a', 10),
+      cell(s.mode === 'capture' ? String(s.bytes.equal) : 'n/a', 6),
+    ].join(' '));
+  }
+  const { capture: C, baseline: B } = report.summary;
+  const v = report.verdict;
+  rows.push('');
+  rows.push(`medians over ${report.repeats.count} repeat(s) per mode (synthetic in-process numbers, not real Chrome):`);
+  for (const [tag, m] of [['capture ON ', C], ['baseline OFF', B]]) {
+    rows.push(`  ${tag} event-loop p50 ${fmt(m.eventLoopP50Ms.median, 3)} ms  p99 ${fmt(m.eventLoopP99Ms.median, 3)} ms  max ${fmt(m.eventLoopMaxMs.median, 2)} ms | longest stall ${fmt(m.longestStallMs.median, 2)} ms at ${fmt(m.longestStallRelBurstStartMs.median, 0)} ms vs burst start | ${fmt(m.framesPerSec.median, 0)} frames/s`);
+  }
+  if (C.queue) {
+    rows.push(`  capture ON  queue age p50 ${fmt(C.queue.ageP50Ms.median, 3)} ms  p99 ${fmt(C.queue.ageP99Ms.median, 3)} ms  max ${fmt(C.queue.ageMaxMs.median, 2)} ms | peak queue ${fmt(C.queue.peakQueueBytes.median, 0)} bytes`);
+  }
+  rows.push('');
+  for (const [tag, key] of [['capture ON ', 'capture'], ['baseline OFF', 'baseline']]) {
+    const x = v[key];
+    const parts = Object.entries(x.checks).map(([k, ok]) => `${k} ${ok ? 'met' : 'missed'}`).join(', ');
+    rows.push(`VERDICT ${tag}: ${x.pass ? 'PASS' : 'FAIL'}  (${parts}; every repeat within targets: ${x.allRepeatsWithinTargets})`);
+  }
+  const T = report.targets;
+  rows.push(`targets: event-loop p99 <= ${T.eventLoopP99Ms} ms, longest stall <= ${T.longestStallMs} ms, queue age p99 <= ${T.queueAgeP99Ms} ms`);
+  rows.push(`bytes equal (capture, every repeat): ${report.bytesEqual}`);
+  if (report.warnings.length) rows.push(`warnings: ${report.warnings.length}`);
+  return rows.join('\n');
+}
+
+// ---------------------------------------------------------------------------------------------
 // Parent: run both scenarios and report.
 // ---------------------------------------------------------------------------------------------
 function runWorker(mode, cfg) {
   const args = [SELF, '--worker', '--mode', mode, '--mb', String(cfg.mb), '--chunk', String(cfg.chunkKb),
     '--streams', String(cfg.streams), '--dom-rows', String(cfg.domRows), '--seed', String(cfg.seed)];
   if (cfg.keep) args.push('--keep');
+  if (cfg.scenario === 'chat') {
+    args.push('--scenario', 'chat', '--rate-kbps', String(cfg.rateKbps), '--duration-s', String(cfg.durationS), '--burst-mb', String(cfg.burstMb));
+  }
   let profileDir = null;
   if (cfg.profile) {
     profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-loadlab-prof-'));
@@ -1017,6 +1775,7 @@ function buildReport(cfg, scenarios) {
   const over = (s) => !!s && s.eventLoopDelayMs.p99 !== null && s.eventLoopDelayMs.p99 > threshold;
   return {
     schema: SCHEMA,
+    scenario: 'saturation',
     generatedAt: new Date().toISOString(),
     node: process.version,
     platform: `${process.platform} ${process.arch}`,
@@ -1152,7 +1911,7 @@ async function main() {
 
   if (cfg.worker) {
     const mode = cfg.mode === 'baseline' ? 'baseline' : 'capture';
-    const scenario = await runScenario({ mode, cfg });
+    const scenario = cfg.scenario === 'chat' ? await runChatScenario({ mode, cfg }) : await runScenario({ mode, cfg });
     process.stdout.write(`${JSON.stringify(scenario)}\n`);
     return;
   }
@@ -1169,8 +1928,9 @@ async function main() {
       scenarios.push(scenario);
     }
   }
-  const report = buildReport(cfg, scenarios);
-  const text = table(report);
+  const isChat = cfg.scenario === 'chat';
+  const report = isChat ? buildChatReport(cfg, scenarios) : buildReport(cfg, scenarios);
+  const text = isChat ? chatTable(report) : table(report);
 
   if (cfg.out) {
     fs.mkdirSync(path.dirname(path.resolve(cfg.out)), { recursive: true });

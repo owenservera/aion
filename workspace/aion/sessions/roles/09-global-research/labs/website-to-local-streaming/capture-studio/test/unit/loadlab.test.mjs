@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { median, percentile, summarize } from '../../scripts/loadlab.mjs';
+import { median, percentile, planChatWorkload, summarize } from '../../scripts/loadlab.mjs';
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'loadlab.mjs');
 
@@ -186,4 +186,66 @@ test('repeat mode runs every mode N times and queue age is non-negative and sane
   for (const s of report.scenarios.filter((x) => x.mode === 'baseline')) {
     assert.equal(s.queue, null, 'baseline has no queue');
   }
+});
+
+// ---- chat scenario (--scenario chat) --------------------------------------------------------
+
+test('chat plan is deterministic for a seed and depends on it', () => {
+  const opts = { durationS: 3, rateKbps: 40, burstMb: 1, domRows: 50 };
+  const a = planChatWorkload({ seed: 7, ...opts });
+  const b = planChatWorkload({ seed: 7, ...opts });
+  assert.deepEqual(a.totals, b.totals, 'same seed, same byte counts');
+  const digest = (p) => p.streams.map((s) => [s.sid, s.budget, s.chunks, s.plannedSha256]);
+  assert.deepEqual(digest(a), digest(b), 'same seed, same bytes');
+  assert.equal(a.events.length, b.events.length);
+
+  const c = planChatWorkload({ seed: 8, ...opts });
+  assert.notEqual(c.streams[0].plannedSha256, a.streams[0].plannedSha256, 'a different seed changes the bytes');
+
+  // The reply carries about rate x duration: 40 KB/s x 3 s = 122880 bytes.
+  const sse = a.streams.find((s) => s.kind === 'sse');
+  const want = 40 * 1024 * 3;
+  assert.ok(Math.abs(sse.budget - want) / want < 0.1, `sse bytes ${sse.budget} vs ${want}`);
+  // The burst is exactly --burst-mb and fires at 40 % of the run.
+  assert.equal(a.streams.find((s) => s.role === 'burst').budget, 1024 * 1024);
+  assert.equal(a.burstAtMs, 1200);
+  // --dom-rows is a total over the run, and 4 Hz over 3 s is 12 batches.
+  assert.equal(a.totals.domRows, 50);
+  assert.equal(a.totals.domBatches, 12);
+});
+
+// One short chat run, shared by the chat tests: 3 s of reply, a 1 MB burst at 1.2 s, one repeat.
+let chatCached = null;
+function runChat() {
+  if (!chatCached) {
+    const res = spawnSync(process.execPath, [SCRIPT, '--scenario', 'chat', '--duration-s', '3', '--burst-mb', '1', '--rate-kbps', '40', '--repeats', '1', '--json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 120_000 });
+    assert.equal(res.status, 0, `loadlab chat exited ${res.status}\n${res.stderr}`);
+    chatCached = JSON.parse(res.stdout);
+  }
+  return chatCached;
+}
+
+test('chat scenario runs both modes, reproduces the bytes and times the stall against the burst', () => {
+  const report = runChat();
+  assert.equal(report.schema, 'aion-capture-studio.loadlab/1');
+  assert.equal(report.scenario, 'chat');
+  assert.deepEqual(report.scenarios.map((s) => s.mode).sort(), ['baseline', 'capture']);
+  const capture = report.scenarios.find((s) => s.mode === 'capture');
+  const baseline = report.scenarios.find((s) => s.mode === 'baseline');
+
+  assert.equal(capture.scenario, 'chat');
+  assert.equal(capture.bytes.equal, true, 'reassembled raw bytes must equal the emitted bytes');
+  for (const p of capture.bytes.perStream) assert.equal(p.equal, true, `stream ${p.sid} must match byte for byte`);
+  assert.equal(capture.integrity?.ok, true, 'the raw log must verify');
+  assert.deepEqual(capture.warnings, [], 'no warnings in the capture run');
+  assert.deepEqual(baseline.warnings, [], 'no warnings in the baseline run');
+
+  // The longest stall is reported with its time relative to the burst.
+  assert.equal(typeof capture.longestStall.ms, 'number');
+  assert.ok('relativeToBurstStartMs' in capture.longestStall, 'longest stall must be timed against the burst');
+  assert.ok(Array.isArray(capture.stalls));
+  // The burst fires at 40 % of 3 s and is never early. 16 frames of 64 KB make 1 MB.
+  assert.ok(capture.burst.startMs >= 1190 && capture.burst.startMs < 3000, `burst start ${capture.burst.startMs}`);
+  assert.equal(capture.burst.frames, 16);
+  assert.ok(report.verdict.capture && typeof report.verdict.capture.pass === 'boolean');
 });
