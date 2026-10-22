@@ -460,7 +460,8 @@ export class NetworkRecorder extends EventEmitter {
     return [...this.reqs.values()].filter((s) => !s.ignored).map((s) => ({
       sid: s.sid, url: s.url ? redactUrl(s.url) : undefined, ws: !!s.ws, body: !!s.body,
       chunks: s.chunks ?? 0, bytes: s.bytes ?? 0, frames: s.frames ?? 0,
-      armed: !!s.armed, truncated: !!s.truncated,
+      armed: !!s.armed, truncated: !!s.truncated, securityExcluded: !!s.credentialExcluded,
+      securityWithheldBytes: (s.guard?.pending.length ?? 0) + (s.frameGuard?.bytes ?? 0) + (s.esGuard?.bytes ?? 0),
     }));
   }
 }
