@@ -77,3 +77,15 @@ At this time the code was **committed without native Node execution**, because G
 **Metrics:** prior seven-layer source/LOC audit remains pinned to `34e1a913` (165 JS/MJS/HTML / 40,510 LOC); not measured at `02310fe` and not a sprint delta. This Sprint 2 adds QA-only file(s), zero QA edits to product implementation. All changed QA artifacts are tracked in QA Git commits.
 
 **Next:** Sprint 3 — identity, historical truth, event-time vs model-revision and reconstruction, targeting the time-travel mismatches that the L4/L5 specialist has now independently identified. Preserve Core/UI ownership of repairs and QA ownership of regression evidence.
+
+## 5. Post-source reconciliation during active team builds
+
+Core committed HTTP pre-disk streaming quarantine in 5993f882 and WebSocket frame quarantine in 57f38386 after the initial 02310fe QA reproduction. The missing cross-chunk guard is therefore SOURCE-MITIGATED for the narrow audited paths. The earlier failing results in section 1 remain historically pinned, NOT current main claims.
+
+Independently executed an additional source-loaded V8 retest: original fetched redactor and new stream-guard function bodies ran with an ASCII-compatible Buffer shim. All six whole/split synthetic JWT/Bearer/JSON cases were excluded before emitting payload; one non-secret 320-character three-chunk example preserved all bytes. A split Bearer across two WS frames was excluded, with zero frames published. This is 8 bounded scenarios, NOT native Node, raw-log integration or live browser acceptance.
+
+QA-native Node fixture tests/sprint02-capture-safety.test.mjs was updated for delayed safe-tail flush and explicit body.excluded instead of assuming immediate masked output. GitHub issue #64 comment 6347416142 reflects shipped Core mitigation and remains OPEN for independent native Node, raw append, abnormal termination and host acceptance.
+
+UI Sprint 2 recovery source closeout now reports 62/62 V8 interface checks; Knowledge/Learning reports TT1 temporal contract source and specialist Node receipt, while L4/L5 independent acceptance remains 0/7 each. Do not collide with their next owned work.
+
+Steering after reconciliation: avoid reassigning an already source-fixed W4. QA next prioritizes host lease/cancel and Sprint 3 temporal truth regressions. No browser sends were performed; Core/UI/L5 source changes were not QA edits.
