@@ -22,7 +22,7 @@ function el(tag, props = {}, kids = []) {
 
 const S = {
   sites: [], defaultPrompt: '', mode: 'drive', selected: new Set(), rows: new Map(),
-  job: null, jobs: [], pollTimer: null, pollSeq: 0, failures: 0, busy: false, progressSig: '', stopRequested: null,
+  job: null, jobs: [], pollTimer: null, pollSeq: 0, jobRequestSeq: 0, failures: 0, busy: false, progressSig: '', stopRequested: null,
 };
 
 /* ---------------- api ---------------- */
@@ -389,23 +389,30 @@ function renderJob(job) {
   }
 }
 function showJob(job) {
+  ++S.jobRequestSeq; // Invalidate any older openJob response before changing the selected job.
   stopPolling();
   S.job = job; S.progressSig = '';
   renderJob(job); renderJobs(); updateControls();
   if (ACTIVE.has(job.state)) startPolling(job.id);
 }
 async function openJob(id) {
+  const requestSeq = ++S.jobRequestSeq;
   $('#pollNote').textContent = 'Loading job…';
   try {
     const { job } = await api('/jobs/' + encodeURIComponent(id));
+    if (requestSeq !== S.jobRequestSeq) return;
+    if (!job || job.id !== id) throw new Error('Studio returned a different job. No job was selected.');
     $('#pollNote').textContent = '';
     showJob(job);
     if (!ACTIVE.has(job.state)) refreshAfterEnd();
   } catch (e) {
+    if (requestSeq !== S.jobRequestSeq) return;
     $('#pollNote').textContent = '';
+    const note = 'Could not load requested job: ' + describe(e) +
+      (S.job?.id && S.job.id !== id ? ' Showing the previously selected job, not the requested job.' : ' Job status is unverified; nothing was started.');
     $('#jobEmpty').hidden = !!S.job; $('#jobBody').hidden = !S.job;
-    if (!S.job) $('#jobEmpty').textContent = 'Could not load that job: ' + describe(e);
-    else $('#jobError').textContent = 'Could not load that job: ' + describe(e);
+    if (!S.job) $('#jobEmpty').textContent = note;
+    else $('#jobError').textContent = note;
   }
 }
 function stopPolling() { S.pollSeq++; clearTimeout(S.pollTimer); S.failures = 0; $('#pollNote').textContent = ''; }
@@ -423,7 +430,7 @@ function startPolling(id) {
       if (!ACTIVE.has(job.state)) { stopPolling(); refreshAfterEnd(); return; }
     } catch (e) {
       if (seq !== S.pollSeq) return;
-      if (e.status === 404) { stopPolling(); $('#jobError').textContent = 'This job is no longer available on the Studio.'; return; }
+      if (e.status === 404) { stopPolling(); $('#jobError').textContent = 'This job is no longer available on the Studio. The last displayed state is stale; do not assume the job stopped. No new live run was started.'; $('#btnCancel').disabled = true; return; }
       S.failures++;
       $('#pollNote').textContent = 'Lost contact with the Studio (' + describe(e) + '). Retrying… the job may still be running.';
     }
