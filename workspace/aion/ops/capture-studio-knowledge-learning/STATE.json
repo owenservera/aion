@@ -2,7 +2,7 @@
   "schema": "aion.capture-studio.knowledge-learning.worker.v1",
   "created": "2026-10-21",
   "baseline_sha": "1990a5243c07e125f40c76669c0b12a1f58cc437",
-  "status": "L5_SPRINT_01_BUILDER_TESTED_PENDING_INDEPENDENT_QA",
+  "status": "TT1_BUILDER_IMPLEMENTED_NATIVE_NODE_TESTED_QA_PENDING",
   "mission": "Drive L4 Knowledge & Relationships and L5 Learning & Adaptation toward criterion-based independently accepted 100%",
   "acceptance": {
     "knowledge": {
@@ -18,7 +18,7 @@
     },
     "note": "zero means no independently accepted criterion in this worker record yet, not zero existing capability"
   },
-  "next": "Reconcile with owner-resumed Core; first L5-owned task TT1 temporal truth/version contract + TT3 accepted-evidence eligibility negatives; plan only, no build in this SITREP.",
+  "next": "TT3 specialist-owned acceptance/learning eligibility negative fixtures, plus detached learner snapshot integration tests when safe; Core owns raw/replay/derive/API, UI owns temporal picker; no cross-owner edits or agent wakeup.",
   "owner": "Knowledge & Learning worker",
   "steering": "QA",
   "avoid_concurrent_core_writes": true,
@@ -49,9 +49,9 @@
     "build_started": false
   },
   "build_started": true,
-  "last_product_source_sha": "5f49d3a00296b449c8f6ad1e6b0d1dc1ebbc81fc",
+  "last_product_source_sha": "89fa7c4d60e3dad8e9da1537307f3fe5858ce834",
   "last_evidence_commit": "fe7011f6b6b017763fe1e64e5703a8a6e168d6b7",
-  "evidence": "workspace/aion/ops/capture-studio-knowledge-learning/EVIDENCE-SPRINT-01.md",
+  "evidence": "workspace/aion/ops/capture-studio-knowledge-learning/EVIDENCE-TIME-TRAVEL-SPRINT-01.md",
   "sprint_01": {
     "date": "2026-10-21",
     "outcome": "Committed L5 learner journal and reviewed correction lifecycle with specialist tests; no Core-owned source modified",
@@ -146,5 +146,76 @@
       "TT4 historical model replay/recovery",
       "TT5 coherent UI + QA acceptance"
     ]
+  },
+  "time_travel_sprint_01": {
+    "date": "2026-10-22",
+    "baseline_main": "02310fe5ae913c23a56fd16144b518b78eb0b4a6",
+    "status": "specialist_contract_shipped_native_node_tested_not_integrated_not_qa_accepted",
+    "commits": [
+      "5068b2513d524a5e8910caea8216b48d8897051d",
+      "c0532620f3124d1d78795cb5bf5333f08cffc6b3",
+      "5b3819c172806152ddd6e12eec5e4a3a1c928e05",
+      "960b23ceec27544f1516b023d76c2fc6997ffd3d"
+    ],
+    "source": {
+      "path": "src/intel/temporal-truth.mjs",
+      "blob": "89fa7c4d60e3dad8e9da1537307f3fe5858ce834",
+      "physical_loc": 147,
+      "files_added": 1
+    },
+    "tests": {
+      "path": "test/unit/temporal-truth.test.mjs",
+      "blob": "f6b93ae2b8002fcfdbe4936eb3447e0b75a93a1b",
+      "physical_loc": 147,
+      "files_added": 1,
+      "native_node": "v22.16.0",
+      "environment": "isolated Linux node:test, in-memory synthetic journal, exact committed blobs",
+      "execution_utc": "2026-10-22T17:43:09Z",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "coverage_line_pct": 100,
+      "coverage_branch_pct": 92.96,
+      "coverage_functions_pct": 100
+    },
+    "current_l5_fetched_source_subset": {
+      "files": 4,
+      "physical_loc": 777,
+      "paths": [
+        "src/intel/priors.mjs",
+        "src/intel/learn.mjs",
+        "src/intel/learner-journal.mjs",
+        "src/intel/temporal-truth.mjs"
+      ]
+    },
+    "current_l5_fetched_specialist_tests": {
+      "files": 4,
+      "physical_loc": 407,
+      "paths": [
+        "test/unit/learner-journal.test.mjs",
+        "test/unit/learning-lifecycle.test.mjs",
+        "test/unit/learning-heldout.test.mjs",
+        "test/unit/temporal-truth.test.mjs"
+      ]
+    },
+    "integration_status": "not wired into Core derive/replay/API/CLI or UI; not independent QA",
+    "blocked_by": [
+      "No full repo checkout in isolated runner",
+      "Core derivation must pin and validate learner revision/source digest/recipe",
+      "Core must correct nonmonotonic timestamp replay cutoffs",
+      "Core must add accepted-evidence gate before trusted training",
+      "UI historical graph/model time filter needs alignment"
+    ],
+    "qa_acceptance": {
+      "knowledge": {
+        "verified": 0,
+        "total": 7
+      },
+      "learning": {
+        "verified": 0,
+        "total": 7
+      }
+    }
   }
 }
