@@ -78,3 +78,7 @@ This sequence complements Core/UI/QA **existing** five-sprint plans; it is an L4
 - Read-only inspection of current GitHub main, role/state/queue, Core/UI/Systems/QA plans, canonical team communications, source and available prior evidence. No user website touched, no send attempted, no test suite executed.
 - The specialist's state and queue must reference this assessment, **and** correct the stale phrase `Core paused`.
 - If a later build is requested: recommend **High** thinking effort for TT1–TT4 source and semantic work; **Medium** for narrow status/receipt checks.
+
+## 8. Execution update — TT1 specialist slice delivered (2026-10-22)
+
+The earlier read-only SITREP is superseded for TT1 implementation status by [exact blob-pinned native Node receipt](EVIDENCE-TIME-TRAVEL-SPRINT-01.md). `src/intel/temporal-truth.mjs` and `test/unit/temporal-truth.test.mjs` were added, then future-knowledge-evidence leakage corrected. **16/16 native Node 22 tests passed; no Core/UI source changes.** The specialist contract distinguishes observed, as-known and retrospective lenses and never equates recomputation with archived historical belief. **NOT delivered:** actual `ScopedLearner` snapshot adapter integrated into Core derive, trust-anchored historical source digest, raw timestamp bug fix or UI as-of integration. Independent acceptance still K 0/7 + A 0/7. Next specialist slice: acceptance/learning eligibility negatives and detached historical model adapter; Core/UI own their corresponding integration seams.
