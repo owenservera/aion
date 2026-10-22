@@ -784,6 +784,10 @@ async function openSession(id) {
     <div style="color:var(--muted);overflow-wrap:anywhere">${esc(m.target?.url || '')}</div>
     <div style="margin:8px 0">${esc(m.browser || '')}, profile ${esc(m.profile?.name)} v${m.profile?.version}, ended: ${esc(m.endReason || m.status)}${m.integrity ? `, integrity ${m.integrity.ok ? '<span class="c-l3">verified</span>' : '<span class="c-gap">warnings</span>'}` : ''}</div>
     <div class="row"><button id="bGoKnowledge">Explore knowledge</button><button id="bDerive">Rebuild datasets</button><button id="bVerify">Check integrity</button><a href="/api/sessions/${encodeURIComponent(id)}/transcript"><button>Download transcript</button></a></div>
+    <h3>Capture acceptance <span class="small-note" style="font-weight:400">read-only label</span></h3>
+    <div class="panel pad" id="acceptancePanel">
+      <div id="acceptanceOut" role="status" aria-live="polite"></div>
+    </div>
     <h3>Export</h3><div class="row">${datasets.map((ds) => `<span>${esc(ds)}: ${['jsonl', 'json', 'csv', 'md'].map((f) => `<a href="/api/sessions/${encodeURIComponent(id)}/export?dataset=${encodeURIComponent(ds)}&format=${f}">${f}</a>`).join(' ')}</span>`).join('') || '<span style="color:var(--muted)">Rebuild datasets first.</span>'}</div>
     <h3>Records <span class="small-note" style="font-weight:400">read-only</span></h3>
     <div class="panel pad" id="recPanel">
@@ -842,6 +846,7 @@ async function openSession(id) {
   loadRecords(id, datasets, requestSeq, recDefault);
   guard(loadJoin)(id, requestSeq);
   guard(loadComponents)(id, requestSeq);
+  guard(loadAcceptance)(id, requestSeq);
   const t0 = Date.parse(m.createdAt), t1 = Date.parse(m.endedAt || new Date().toISOString());
   const tt = $('#tt'), lab = $('#ttLabel');
   const tAt = () => t0 + (t1 - t0) * tt.value / 1000;
@@ -854,6 +859,99 @@ async function openSession(id) {
   return true;
 }
 
+
+/* ---------------- capture acceptance (read-only label from GET sessions/:id/acceptance) ---------------- */
+// Information, not a gate: nothing here derives, evaluates, accepts or sends. Every value goes through esc() or accText().
+const ACC_SCHEMA = 'capture-studio.acceptance/1', ACC_REASON_MAX = 200, ACC_ROWS_MAX = 50, ACC_LEGACY = 'no acceptance.json';
+const ACC_NOTE = 'This label does not change what the studio does with the capture: it is information, not a gate.';
+const ACC_VERDICT = {
+  capture_accepted: ['[OK]', 'capture accepted', 'all seven gates passed.'],
+  capture_rejected: ['[X]', 'capture rejected', 'at least one gate failed.'],
+  capture_incomplete: ['[~]', 'capture incomplete', 'no gate failed, but at least one could not be checked (not enough evidence).'],
+  unassessed: ['[?]', 'unassessed', 'there is no evaluation, or the saved evaluation no longer matches the raw log.'],
+};
+const ACC_GATE_IDS = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7'];
+const ACC_GATE_NAME = { G1: 'prompt matched', G2: 'reply words in order', G3: 'reply stable and complete', G4: 'recording stopped cleanly', G5: 'raw log verified with no gaps', G6: 'derive complete', G7: 'stream text matches rendered text' };
+const ACC_GATE_CUE = { passed: 'passed', failed: 'failed', 'not-checked': 'not checked', unknown: 'unknown' };
+const ACC_CONTEXT_GATES = ['G1', 'G2', 'G3'];
+const ACC_CONTEXT_NOTE = 'needs a conversation context (a driven chat turn); not available for passively recorded sessions';
+const accOwn = (table, key) => (Object.prototype.hasOwnProperty.call(table, key) ? table[key] : null);
+// Free text (reasons, schema): capped at 200 characters with the real length. Slices the raw text, then escapes.
+function accText(value) {
+  const text = value == null ? '' : String(value);
+  if (text.length <= ACC_REASON_MAX) return esc(text);
+  return esc(text.slice(0, ACC_REASON_MAX)) + ' <span class="pill" style="color:var(--muted)">truncated, real length ' + text.length + ' chars</span>';
+}
+// Evidence is not shown, except one short count: the first numeric field, labelled with its key.
+function accCount(evidence) {
+  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return '';
+  const key = Object.keys(evidence).find((k) => Number.isFinite(evidence[k]));
+  return key === undefined ? '' : esc(evidence[key]) + ' <span class="small-note">' + esc(key) + '</span>';
+}
+function accGateRow(id, g) {
+  const gate = g && typeof g === 'object' ? g : {};
+  const raw = gate.value;
+  const cue = raw === undefined ? 'missing' : (accOwn(ACC_GATE_CUE, String(raw)) ?? 'unrecognized value');
+  const reason = gate.reason == null ? 'no reason recorded' : accText(gate.reason);
+  const context = raw === 'not-checked' && ACC_CONTEXT_GATES.includes(id) ? '<div class="small-note">' + esc(ACC_CONTEXT_NOTE) + '</div>' : '';
+  return '<tr data-gate="' + esc(id) + '"><td class="mono">' + esc(id) + '</td><td>' + esc(ACC_GATE_NAME[id]) + '</td><td>' + esc(cue) +
+    '</td><td>' + reason + context + '</td><td class="num">' + accCount(gate.evidence) + '</td></tr>';
+}
+function accBinding(doc) {
+  const b = doc.binding && typeof doc.binding === 'object' ? doc.binding : null;
+  if (!b) return '<p class="small-note">Binding: not available for this document.</p>';
+  const range = Array.isArray(b.seqRange) ? b.seqRange : [];
+  const seq = range[0] == null && range[1] == null ? 'seq range none' : 'seq ' + esc(range[0] ?? '?') + ' to ' + esc(range[1] ?? '?');
+  const digest = typeof b.rawDigest === 'string' ? b.rawDigest.slice(0, 12) : '';
+  const version = doc.evaluator && typeof doc.evaluator === 'object' ? doc.evaluator.version : undefined;
+  return '<p class="small-note">Binding: evaluator ' + esc(version ?? 'unknown') + '; evaluated ' + esc(doc.evaluatedAt ?? 'time unavailable') +
+    '; ' + seq + '; raw digest ' + (digest ? esc(digest) : 'none') + '</p>';
+}
+// Pure: doc is the parsed GET sessions/:id/acceptance response.
+function renderAcceptanceHtml(doc) {
+  const bad = (msg) => '<div class="feedback-error" role="alert">' + msg + '</div>';
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return bad('Unexpected capture acceptance response. Nothing is shown.');
+  if (doc.schema === undefined && doc.verdict === 'unassessed' && doc.reason === ACC_LEGACY) {
+    return '<div class="acc-verdict" data-verdict="legacy"><b>' + esc(ACC_VERDICT.unassessed[0] + ' ' + ACC_VERDICT.unassessed[1]) + '</b> <span>' +
+      esc('no acceptance.json for this recording: it was recorded before this label existed, or it was never evaluated. This is unassessed; it is not a failed check.') +
+      '</span></div><p class="small-note">' + esc(ACC_NOTE) + '</p>';
+  }
+  const verdict = typeof doc.verdict === 'string' ? accOwn(ACC_VERDICT, doc.verdict) : null;
+  if (doc.schema !== ACC_SCHEMA || !verdict) {
+    return bad('This is an unrecognized acceptance document (schema: ' + accText(doc.schema == null ? 'none' : doc.schema) + '). Nothing is shown.');
+  }
+  const gates = doc.gates && typeof doc.gates === 'object' && !Array.isArray(doc.gates) ? doc.gates : null;
+  const head = '<div class="acc-verdict" data-verdict="' + esc(doc.verdict) + '"><b>' + esc(verdict[0] + ' ' + verdict[1]) + '</b> <span>' + esc(verdict[2]) + '</span></div>';
+  const reasons = Array.isArray(doc.reasons) ? doc.reasons : [];
+  const reasonList = doc.verdict !== 'unassessed' ? '' : reasons.length
+    ? '<p class="small-note">Reasons (' + esc(reasons.length) + '):</p><ul>' + reasons.slice(0, ACC_ROWS_MAX).map((r) => '<li>' + accText(r) + '</li>').join('') + '</ul>' +
+      (reasons.length > ACC_ROWS_MAX ? '<p class="small-note">Showing ' + ACC_ROWS_MAX + ' of ' + esc(reasons.length) + ' reasons.</p>' : '')
+    : '<p class="small-note">No reasons recorded.</p>';
+  const table = gates
+    ? '<div class="panel scroll" style="max-height:40vh;margin-top:8px"><table><thead><tr><th>Gate</th><th>Check</th><th>Value</th><th>Reason</th><th class="num">Count</th></tr></thead><tbody>' +
+      ACC_GATE_IDS.map((id) => accGateRow(id, gates[id])).join('') + '</tbody></table></div>'
+    : '<p class="small-note">No gate results: no evaluation was read for this recording.</p>';
+  return head + '<p class="small-note">' + esc(ACC_NOTE) + '</p>' + accBinding(doc) + reasonList + table;
+}
+let acceptanceSeq = 0;
+// GET only. Stale guard: a response for an older request or another session is dropped.
+async function loadAcceptance(id, sessionSeq) {
+  const seq = ++acceptanceSeq;
+  const current = () => (seq === acceptanceSeq && sessionSeq === S.sessionRequestSeq && S.sessionId === id) ? $('#acceptanceOut') : null;
+  let out = current(); if (!out) return;
+  out.innerHTML = '<div class="empty">Loading capture acceptance...</div>';
+  let doc;
+  try { doc = await api('sessions/' + encodeURIComponent(id) + '/acceptance'); }
+  catch (e) {
+    out = current(); if (out) out.innerHTML = '<div class="feedback-error" role="alert">Could not load capture acceptance: ' + esc(e.message) + '</div>';
+    return;
+  }
+  out = current(); if (!out) return;
+  let html;
+  try { html = renderAcceptanceHtml(doc); }
+  catch (e) { html = '<div class="feedback-error" role="alert">Could not display capture acceptance: ' + esc(e.message) + '</div>'; }
+  out.innerHTML = html;
+}
 
 /* ---------------- records (read-only view of saved datasets) ---------------- */
 const REC_PAGE = 50, REC_CELL_MAX = 200, REC_MAX_COLS = 12, REC_EXPECTED = ['family-ai-chat-message'];
