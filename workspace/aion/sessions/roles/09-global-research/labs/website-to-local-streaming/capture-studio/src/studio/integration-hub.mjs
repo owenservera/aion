@@ -19,7 +19,7 @@ const timeQuery = { at: { description: 'Epoch milliseconds or ISO timestamp', ty
 const sessionQuery = { ...pagination, site: str, origin: str, status: str, profile: str, q: str };
 const objectSchema = (properties = {}, required = []) => ({ type: 'object', properties, ...(required.length ? { required } : {}) });
 
-export function createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, deriveSession, previewRecord, previewEvent, getPort, cdpPort, deriving = new Set(), invalidateReplay = () => {} }) {
+export function createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, deriveSession, previewRecord, previewEvent, getPort, getAccessMode = () => 'local', cdpPort, deriving = new Set(), invalidateReplay = () => {} }) {
   const feed = new EventFeed();
   const webhooks = new Webhooks(feed, { forbiddenPorts: () => [getPort(), cdpPort] });
   const routes = [];
@@ -311,8 +311,8 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
   }, { body: objectSchema({ name: str, arguments: { type: 'object' } }, ['name']) });
 
   function openapi() {
-    const spec = { openapi: '3.1.0', info: { title: 'Capture Studio Integration API', version: VERSION, description: 'Local authenticated API v1. Captured content is private. Timestamps use epoch milliseconds or ISO strings. Includes only versioned integration routes; legacy UI routes remain available.' },
-      servers: [{ url: `http://127.0.0.1:${getPort()}` }], security: [{ StudioToken: [] }, { StudioCookie: [] }],
+    const spec = { openapi: '3.1.0', info: { title: 'Capture Studio Integration API', version: VERSION, description: 'Local-first API v1. Default loopback mode needs no token; optional token mode accepts Studio cookie or header. Timestamps use epoch milliseconds or ISO strings.' },
+      servers: [{ url: `http://127.0.0.1:${getPort()}` }], security: getAccessMode() === 'local' ? [] : [{ StudioToken: [] }, { StudioCookie: [] }],
       components: { securitySchemes: { StudioToken: { type: 'apiKey', in: 'header', name: 'x-studio-token' }, StudioCookie: { type: 'apiKey', in: 'cookie', name: 'studio_token' } } }, paths: {} };
     for (const r of routes) {
       const parameters = [...r.parts.filter((s) => s.startsWith('{')).map((s) => ({ name: s.slice(1, -1), in: 'path', required: true, schema: str })), ...Object.entries(querySchema(r)).map(([name, schema]) => ({ name, in: 'query', required: (r.query?.required ?? []).includes(name), schema }))];
