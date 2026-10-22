@@ -82,6 +82,7 @@ test('local mode auth messages do not insist on nonexistent token as default',()
 test('local raw DOM mutation records preserve full original text and URL',()=>{
   const log=[];
   const obs=new DomObserver({append:r=>log.push(r),profile:{capture:{}}});
+  obs.privacy=capturePrivacy({capture:{}},{});
   const text='Visible {"access_token":"local-fixture-token"}';
   const url='https://example.test/page?token=local-fixture-token';
   obs._onMessage(JSON.stringify({type:'dom.batch',url,items:[{text}]}));
@@ -91,6 +92,7 @@ test('local raw DOM mutation records preserve full original text and URL',()=>{
 });
 test('local raw DOM snapshot and turns do not hide source content',async()=>{
   const obs=new DomObserver({append:()=>{},profile:{capture:{}}});
+  obs.privacy=capturePrivacy({capture:{}},{});
   const html='<section>Access token: {"access_token":"local-fixture-token"}</section>';
   obs._evalInMain=async()=>({value:{html}});
   assert.equal((await obs.snapshot()).html,html);
