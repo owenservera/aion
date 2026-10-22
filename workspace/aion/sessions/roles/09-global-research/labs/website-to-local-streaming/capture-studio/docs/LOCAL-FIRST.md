@@ -17,6 +17,7 @@ The system exists to **capture as much useful evidence as possible and make that
 | DOM capture | Full extracted text, turns, nested blocks and snapshot HTML via the same capture mode | Filtered mode applies matching masking |
 | Recorder/lifecycle metadata | URL fields follow capture mode; local raw does not silently redact target/query metadata | Filtered mode redacts |
 | Live target preview | Uses the source recorder capture mode | Filtered mode redacts |
+| OpenAPI discovery | No token required in localhost mode | Studio cookie/header in optional token mode |
 | Studio Web UI | `http://127.0.0.1:<port>/` opens without token login | `CAPTURE_STUDIO_ACCESS_MODE=token` enables tokenized launch / cookie |
 | Drive | Direct **Send to selected sites** click is the explicit execution action | Dry run is optional |
 | Chat and Drive prompt length | At most **250,000 characters** (HTTP request size and provider limits also apply) | Smaller prompt if desired |
@@ -59,9 +60,9 @@ The source repo and the evidence directory serve different purposes. Do **not** 
 
 ## Source regression receipts
 
-- **10 / 10** local-first contract tests passed using GitHub-fetched source in a V8 compatibility harness (including raw DOM and snapshot test fixtures).
+- **11 / 11** local-first contract tests passed using GitHub-fetched source in a V8 compatibility harness (including raw DOM and snapshot test fixtures).
 - **62 / 62** preexisting Studio client contract tests passed in the same harness after compatibility updates.
-- This **72 / 72** total is not native `node --test`, actual Windows Chrome, network capture or independent QA acceptance. Run those separately on a complete local checkout.
+- This **73 / 73** total is not native `node --test`, actual Windows Chrome, network capture or independent QA acceptance. Run those separately on a complete local checkout.
 
 See `test/unit/local-first-mode.test.mjs`, `test/unit/studio-recovery-ui.test.mjs` and the UI agent's [five-sprint plan](https://github.com/owenservera/aion/blob/main/workspace/aion/ops/capture-studio-ui/FIVE-SPRINT-WORKPLAN.md).
 
