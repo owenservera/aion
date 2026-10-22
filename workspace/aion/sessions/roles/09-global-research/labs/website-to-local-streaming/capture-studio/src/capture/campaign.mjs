@@ -25,6 +25,45 @@ import { driveSite } from './actions.mjs';
 // word for word (same wording as `studio drive`).
 export const defaultPrompt = 'Reply with exactly these 12 words separated by single spaces and nothing else: alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima';
 
+// The answer the calibration prompt asks for. A reply is only accepted when it contains these
+// words in order: without that check a static greeting, a sidebar menu or a redirect notice
+// counts as a successful capture.
+export const expectedWords = Object.freeze('alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima'.split(' '));
+
+// Is there another site left to drive after the current one?
+function moreToDoSoon(wanted, index, cap, totals, resume, state) {
+  if (cap !== null && totals.processed >= cap) return false;
+  return wanted.slice(index + 1).some((rest) => {
+    const d = state.sites?.[rest];
+    return !(resume && d?.status === 'ok' && d?.sessionId);
+  });
+}
+
+// What a reply must contain to count as the calibration answer.
+export function expectedAnswer(prompt = defaultPrompt) {
+  const p = String(prompt ?? '');
+  if (!p.includes('alpha bravo charlie')) return null;
+  return expectedWords.join(' ');
+}
+
+// Does a reply contain the expected words, in order, ignoring punctuation and case?
+export function replyMatchesExpectation(reply, expected) {
+  const want = String(expected ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!want) return { ok: false, reason: 'no expectation given' };
+  const got = String(reply ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const words = want.split(' ');
+  let at = 0;
+  const missing = [];
+  for (const w of words) {
+    const idx = got.indexOf(w, at);
+    if (idx < 0) { missing.push(w); continue; }
+    at = idx + w.length;
+  }
+  return missing.length === 0
+    ? { ok: true, reason: `the reply contains all ${words.length} expected words in order` }
+    : { ok: false, reason: `the reply is missing ${missing.length} of ${words.length} expected words (${missing.slice(0, 6).join(', ')})`, missing };
+}
+
 // Sites in campaign order. ADAPTER_IDS is the registry truth; keep the order explicit here.
 export const siteOrder = Object.freeze(['chatgpt', 'claude', 'gemini', 'deepseek', 'zai', 'qwen', 'lmarena', 'minimax', 'kimi']);
 
@@ -194,7 +233,7 @@ export async function runCampaign({
 
   const state = resume ? readState(root) : { version: 1, updatedAt: null, sites: {} };
   const results = [];
-  const totals = { requested: wanted.length, processed: 0, ok: 0, planned: 0, blocked: 0, failed: 0, skipped: 0, envFailure: false };
+  const totals = { requested: wanted.length, processed: 0, ok: 0, unverified: 0, planned: 0, blocked: 0, failed: 0, skipped: 0, envFailure: false };
 
   emit({ type: 'campaign.start', sites: wanted, execute, port, prompt, limit: cap, resume });
 
@@ -305,6 +344,33 @@ export async function runCampaign({
       else if (!built.family) notes.push(built.note || 'family not built');
       siteResult.reason = notes.filter(Boolean).join('; ');
       siteResult.ms = Date.now() - siteStarted;
+
+      // Fidelity check: the calibration prompt asks for 12 exact words. A reply that does not
+      // contain them is not the answer, however plausible it looks (a greeting, a sidebar menu
+      // or a redirect notice all "settle" without answering). Such a capture is recorded and
+      // kept, but it is not counted as a successful interaction.
+      const expect = expectedAnswer(prompt);
+      if (expect) {
+        const match = replyMatchesExpectation(siteResult.reply, expect);
+        siteResult.verified = match.ok;
+        if (!match.ok) {
+          siteResult.reason += `; ${match.reason}`;
+          totals.unverified++;
+          results.push({ ...siteResult, status: 'unverified' });
+          emit({ type: 'site.unverified', site: id, reason: match.reason, reply: siteResult.reply });
+          state.sites[id] = { status: 'unverified', reason: match.reason, at: nowIso(), sessionId: siteResult.sessionId ?? null };
+          writeState(root, state);
+          if (moreToDoSoon(wanted, index, cap, totals, resume, state)) {
+            const waitMs = cooldownFor(cooldownMs);
+            if (waitMs > 0) {
+              emit({ type: 'campaign.cooldown', ms: waitMs, after: id });
+              await sleep(waitMs);
+            }
+          }
+          continue;
+        }
+        siteResult.reason += `; ${match.reason}`;
+      }
       totals.ok++;
       results.push({ ...siteResult, status: 'ok' });
       emit({ type: 'site.ok', site: id, sessionId: siteResult.sessionId, derived: siteResult.derived, family: siteResult.family, signature: siteResult.signature });

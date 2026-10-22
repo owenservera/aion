@@ -59,6 +59,7 @@ define({
         else if (ev.type === 'drive' && ev.event?.type === 'completion') out.info(`  ${ev.site}: reply ${ev.event.done ? 'settled' : 'timed out'} after ${fmtMs(ev.event.ms)}`);
         else if (ev.type === 'site.blocked') out.info(`${ev.site}: blocked — ${ev.reason ?? ''}`);
         else if (ev.type === 'site.failed') out.info(`${ev.site}: failed — ${ev.reason ?? ''}`);
+        else if (ev.type === 'site.unverified') out.info(`${ev.site}: unverified — ${ev.reason ?? ''}`);
         else if (ev.type === 'site.ok') out.info(`${ev.site}: ok, session ${ev.sessionId ?? '(none)'}${ev.family ? `, family ${ev.family}` : ''}`);
         else if (ev.type === 'campaign.cooldown') out.info(`cooling down ${seconds(ev.ms)} before the next site`);
       },
@@ -79,7 +80,7 @@ define({
       if (!execute) o.result('plan only — no interaction performed (pass --execute to interact)');
       o.result(
         `campaign ${result.ok ? 'complete' : 'incomplete'} — ${totals.processed} site(s) processed`
-        + ` (${totals.ok} ok, ${totals.planned} planned, ${totals.blocked} blocked, ${totals.failed} failed, ${totals.skipped} skipped)`
+        + ` (${totals.ok} ok, ${totals.unverified ?? 0} unverified, ${totals.planned} planned, ${totals.blocked} blocked, ${totals.failed} failed, ${totals.skipped} skipped)`
         + `, ${fmtMs(Date.parse(result.finishedAt) - Date.parse(result.startedAt))}`,
       );
       o.line('');
@@ -104,6 +105,14 @@ define({
         o.line(o.c.dim(`no DevTools endpoint on port ${ctx.port}: start Chrome with --remote-debugging-port=${ctx.port}, or run "studio launch".`));
       }
       if (!execute) o.line(o.c.dim(`planned order: ${result.sites.map((s) => s.id).join(' -> ')}`));
+
+      // A capture whose reply does not contain the expected words is kept, but it is reported
+      // separately: the site answered something else (a greeting, a menu, a notice).
+      const unverified = result.sites.filter((s) => s.status === 'unverified');
+      if (unverified.length) {
+        o.line('');
+        for (const s of unverified) o.line(o.c.dim(`unverified: ${s.id} — ${s.reason}`));
+      }
     });
 
     // Stable exit codes: 5 no browser, 3 a site was blocked, 1 a site failed, 0 otherwise.
