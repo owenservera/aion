@@ -198,3 +198,19 @@ test('number and string key identities remain separate in continuity and drift r
   assert.equal(result.entities.filter((item) => item.sessionCount === 2).length, 2);
   assert.equal(result.typeDriftHints.length, 0, 'typed key groups must not generate cross-type drift');
 });
+
+test('type drift review never compares number and string key cohorts', async (t) => {
+  const { dir, add } = fixture(t);
+  add('num', 'app.example.com', [entity('thing:k:n:42', '42', 'Number', 100, {
+    keyType: 'number', type: 'thing', typeName: 'Thing',
+  })], { model: { types: [type] } });
+  add('text', 'app.example.com', [entity('other:k:42', '42', 'Text', 200, {
+    keyType: 'string', type: 'other', typeName: 'Thing',
+  })], { model: { types: [{ ...type, id: 'other' }] } });
+  const result = await buildSiteContinuity(dir, {
+    site: 'example.com', origin: 'https://app.example.com',
+  });
+  assert.equal(result.entities.length, 2);
+  assert.equal(result.stats.joinedEntities, 0);
+  assert.deepEqual(result.typeDriftHints, [], 'same display text is not cross-type evidence');
+});
