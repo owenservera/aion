@@ -181,7 +181,7 @@ async function dispatchBackspace(page) {
 // ---------------------------------------------------------------------------------------------
 // Typing
 // ---------------------------------------------------------------------------------------------
-export async function humanType(page, text, { pace = DEFAULT_PACE, human = true } = {}) {
+export async function humanType(page, text, { pace = DEFAULT_PACE, human = false } = {}) {
   const startedAt = Date.now();
   const p = paceOf(pace);
   const s = String(text == null ? '' : text);
@@ -197,6 +197,27 @@ export async function humanType(page, text, { pace = DEFAULT_PACE, human = true 
   const focus = await tryEval(page, ENSURE_FOCUS);
   if (!focus.ok) errors.push(`focus probe failed: ${focus.error}`);
   else if (!focus.value || !focus.value.ok) errors.push('no focusable composer found; keys may be discarded');
+
+  // Local-owner default: a single CDP insertion, followed by a read-only
+  // composer verification. No random pauses, fabricated typos or per-key sleeps.
+  // If insertion status is uncertain, do NOT inject again: a second write could
+  // double the draft. The caller receives an explicit failure instead.
+  if (!human) {
+    try {
+      await page.send('Input.insertText', { text: s });
+      stats.methodCounts.insertText++;
+    } catch (e) {
+      errors.push('bulk insertion not confirmed: ' + msg(e));
+    }
+    const typed = await readComposerText(page);
+    const want = normText(s);
+    const probe = want.slice(-Math.min(28, want.length));
+    const ok = errors.length === 0 && !!probe && normText(typed).includes(probe);
+    if (!ok) errors.push('composer did not confirm inserted text; no automatic replay');
+    stats.durationMs = Date.now() - startedAt;
+    return { ok, typed, method: 'insertText', stats, errors,
+      reason: ok ? undefined : 'bulk insertion unconfirmed; inspect the composer before trying again' };
+  }
 
   // One deliberate slip in a longer text: people mistype, notice, and backspace.
   const typoAt = human && s.length >= 20 ? 6 + jitter([0, Math.max(0, Math.floor(s.length * 0.5) - 6)]) : -1;
