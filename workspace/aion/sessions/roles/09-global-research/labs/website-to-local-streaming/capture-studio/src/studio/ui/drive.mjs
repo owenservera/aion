@@ -29,7 +29,7 @@ const S = {
 let authExpired = false;
 function setAuthNote(on) {
   authExpired = on;
-  $('#connectionNote').textContent = on ? 'Studio authorization expired — reopen the original tokenized Studio URL from the local terminal.' : '';
+  $('#connectionNote').textContent = on ? 'Studio request rejected. Local mode needs no token; if token mode is enabled, reopen the startup URL.' : '';
 }
 async function api(path, { method = 'GET', body } = {}) {
   let res;
@@ -55,7 +55,7 @@ async function api(path, { method = 'GET', body } = {}) {
   return data;
 }
 function describe(e) {
-  if (e.status === 401 || e.status === 403) return 'Not authorised. Reopen the original tokenized Studio URL from the local terminal.';
+  if (e.status === 401 || e.status === 403) return 'Local Studio refused this request. Check its address and Origin settings; if token mode is enabled, reopen the startup URL.';
   if (e.status === 404) return 'Not found. This Studio build may not include Live drive, or the item no longer exists.';
   return e.message;
 }
