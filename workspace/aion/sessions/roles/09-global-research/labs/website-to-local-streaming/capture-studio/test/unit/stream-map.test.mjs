@@ -333,3 +333,179 @@ test('DOM-only block types that the family enum can represent keep their own ide
     assert.equal(validateStreamMap(map).ok, true);
   }
 });
+
+// ---------------------------------------------------------------------------------------------
+// ChatGPT survey labels (type=<json.type> event=<SSE event>). Synthetic values only.
+// ---------------------------------------------------------------------------------------------
+
+// The real ChatGPT frames are event=message with the protocol kind in json.type. toSse() above
+// names the SSE event after payload.type, which would be wrong for these labels, so this helper
+// takes the SSE event name explicitly. Each frame: { event?, json } or { event?, raw }.
+function chatgptFrames(frames, sid = 'syn-sid') {
+  const text = frames.map((f) => {
+    const ev = f.event ? `event: ${f.event}\n` : '';
+    const data = typeof f.raw === 'string' ? f.raw : JSON.stringify(f.json);
+    return `${ev}data: ${data}\n\n`;
+  }).join('');
+  const dec = new SseDecoder();
+  return [...dec.push(Buffer.from(text, 'utf8')), ...dec.end()].map((ev, i) => ({ ...ev, sid, seq: i }));
+}
+
+const CGPT_OPEN = {
+  event: 'message',
+  json: {
+    message: { id: 'syn-msg-cgpt-002', author: { role: 'assistant' }, content: { content_type: 'text', parts: [''] }, status: 'in_progress' },
+    conversation_id: 'syn-conv-cgpt-002',
+  },
+};
+const cgptAppend = (path, v) => ({ event: 'message', json: { p: path, o: 'append', v } });
+const cgptReplace = (path, v) => ({ event: 'message', json: { p: path, o: 'replace', v } });
+const P0 = '/message/content/parts/0';
+
+// Rule the timeline entry matched, read back from the map (so the test follows the map).
+const ruleWhen = (r, seq, sub) => {
+  const t = r.timeline.find((x) => x.seq === seq && (sub === undefined || x.sub === sub));
+  assert.ok(t, `no timeline entry for seq ${seq}`);
+  return chatgptMap.stream.ops[t.rule].when;
+};
+
+test('chatgpt map: the four original rules stay first and unchanged (appended rules cannot shadow them)', () => {
+  assert.deepEqual(chatgptMap.stream.ops.slice(0, 4), [
+    { when: { hasKey: 'message', type: null }, op: 'open', component: 'message' },
+    { when: { path: '/message/content/parts/*', o: 'append' }, op: 'append', component: 'paragraph', textPath: 'v' },
+    { when: { path: '/message/status' }, op: 'ignore' },
+    { when: { terminal: true, data: '[DONE]' }, op: 'finalize' },
+  ]);
+  assert.equal(validateStreamMap(chatgptMap).ok, true);
+});
+
+test('chatgpt: message_stream_complete finalizes and closes every open component', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([CGPT_OPEN, cgptAppend(P0, 'Made-up text.'), { event: 'message', json: { type: 'message_stream_complete', conversation_id: 'syn-conv-cgpt-002' } }]));
+  const last = r.timeline[r.timeline.length - 1];
+  assert.equal(last.op, 'finalize');
+  assert.deepEqual(ruleWhen(r, last.seq), { event: 'message', type: 'message_stream_complete' });
+  assert.equal(r.stats.finalized, true);
+  assert.equal(r.stats.openComponents, 0);
+  assert.ok(r.components.every((c) => c.closed !== null));
+  assert.equal(r.unmapped.length, 0);
+});
+
+test('chatgpt: without message_stream_complete the stream stays unfinished (truncation still visible)', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([CGPT_OPEN, cgptAppend(P0, 'Made-up text.')]));
+  assert.equal(r.stats.finalized, false);
+  assert.equal(r.components.find((c) => c.component === 'paragraph').closed, null);
+});
+
+test('chatgpt: non-content protocol types land in timeline as ignore with their own rule, never in unmapped', () => {
+  const types = ['message_marker', 'title_generation', 'input_message', 'resume_conversation_token', 'server_ste_metadata', 'conversation_detail_metadata', 'user_signal_metadata'];
+  for (const type of types) {
+    const r = applyStreamMap(chatgptMap, chatgptFrames([{ event: 'message', json: { type, synthetic: 'made-up' } }]));
+    assert.equal(r.unmapped.length, 0, type);
+    assert.equal(r.timeline.length, 1, type);
+    assert.equal(r.timeline[0].op, 'ignore', type);
+    assert.equal(r.timeline[0].component, null, type);
+    assert.deepEqual(ruleWhen(r, 0), { event: 'message', type }, type);
+    assert.equal(r.components.length, 0, type);
+  }
+});
+
+test('chatgpt: input_message echoes the user prompt and never becomes a component of the reply', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([
+    { event: 'message', json: { type: 'input_message', input: { parts: ['Synthetic user question?'] } } },
+  ]));
+  assert.equal(r.timeline[0].op, 'ignore');
+  assert.equal(r.components.length, 0);
+  assert.equal(r.unmapped.length, 0);
+});
+
+test('chatgpt: delta_encoding version frame is ignored', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([{ event: 'delta_encoding', json: { encoding: 'syn-delta', version: 1 } }]));
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.timeline[0].op, 'ignore');
+  assert.deepEqual(ruleWhen(r, 0), { event: 'delta_encoding' });
+});
+
+test('chatgpt: metadata-path deltas (any op) and update_time/end_turn are ignored, not unmapped', () => {
+  const metaFrames = [
+    cgptAppend('/message/metadata/model_dil_v2/fallbackMarkdown', 'syn md'),
+    cgptAppend('/message/metadata/model_dil_v2/constants', 'syn-const'),
+    cgptReplace('/message/metadata/conversation_followup_suggestions_eligible', true),
+    cgptAppend('/message/metadata', { syn: true }),
+    cgptReplace('/message/metadata/model_dil_v2/code', 'syn'),
+    cgptAppend('/message/metadata/streaming_parent_revision', 'syn-rev'),
+    cgptReplace('/message/update_time', 1700000000),
+    cgptReplace('/message/end_turn', true),
+  ];
+  const r = applyStreamMap(chatgptMap, chatgptFrames(metaFrames));
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.timeline.length, metaFrames.length);
+  assert.ok(r.timeline.every((t) => t.op === 'ignore'));
+  assert.equal(r.components.length, 0);
+});
+
+test('chatgpt: a /message/content/parts/0 append still builds the paragraph between metadata frames', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([
+    CGPT_OPEN,
+    cgptAppend(P0, 'Alpha '),
+    cgptAppend('/message/metadata/model_dil_v2/constants', 'syn-const'),
+    cgptAppend(P0, 'Beta.'),
+  ]));
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(byKey(r.components, 'syn-msg-cgpt-002:0').text, 'Alpha Beta.');
+});
+
+test('chatgpt: an unknown-shape event stays unmapped and its reason names type and event', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([
+    { event: 'message', json: { synthetic: 'no type key here' } },
+    { event: 'message', json: { type: 'syn_new_kind', value: 'x' } },
+    { event: 'message', json: { p: '/message/weird', o: 'replace', v: 'x' } },
+  ]));
+  assert.equal(r.unmapped.length, 3);
+  assert.match(r.unmapped[0].reason, /^no_rule_matched: type=- event=message$/);
+  assert.match(r.unmapped[1].reason, /^no_rule_matched: type=syn_new_kind event=message$/);
+  assert.match(r.unmapped[2].reason, /^no_rule_matched: type=- event=message path=\/message\/weird o=replace$/);
+  assert.equal(r.components.length, 0);
+});
+
+test('chatgpt: full synthetic sequence yields one paragraph, finalized, no unmapped events', () => {
+  const frames = [
+    { event: 'delta_encoding', json: { encoding: 'syn-delta', version: 1 } },
+    { event: 'message', json: { type: 'input_message', input: { parts: ['Synthetic user question?'] } } },
+    { event: 'message', json: { type: 'message_marker', marker: 'syn-marker' } },
+    CGPT_OPEN,
+    cgptAppend(P0, 'Hello from '),
+    { event: 'message', json: { v: 'a made-up ' } },
+    { event: 'message', json: { o: 'patch', v: [
+      { p: '/message/status', o: 'replace', v: 'in_progress' },
+      { p: P0, o: 'append', v: 'stream. ' },
+    ] } },
+    { event: 'message', json: { v: 'Second sentence.' } },
+    cgptAppend('/message/metadata/model_dil_v2/fallbackMarkdown', 'syn md'),
+    cgptReplace('/message/metadata/conversation_followup_suggestions_eligible', true),
+    cgptReplace('/message/update_time', 1700000000),
+    cgptReplace('/message/end_turn', true),
+    { event: 'message', json: { type: 'title_generation', title: 'Synthetic title' } },
+    { event: 'message', json: { type: 'message_stream_complete', conversation_id: 'syn-conv-cgpt-002' } },
+  ];
+  const r = applyStreamMap(chatgptMap, chatgptFrames(frames));
+  const paragraphs = r.components.filter((c) => c.component === 'paragraph');
+  assert.equal(paragraphs.length, 1);
+  assert.equal(paragraphs[0].text, 'Hello from a made-up stream. Second sentence.');
+  assert.equal(paragraphs[0].componentKey, 'syn-msg-cgpt-002:0');
+  assert.equal(r.stats.finalized, true);
+  assert.equal(r.stats.openComponents, 0);
+  assert.equal(r.stats.unmapped, 0);
+  assert.equal(r.unmapped.length, 0);
+  // 14 frames, one of which is a patch envelope with 2 sub-operations: 15 timeline entries.
+  assert.equal(r.timeline.length, 15);
+  assert.equal(r.stats.ignored, 9);
+  assert.equal(r.stats.mapped, 6);
+  assert.equal(r.timeline[r.timeline.length - 1].op, 'finalize');
+});
+
+test('chatgpt: the full synthetic sequence is deterministic', () => {
+  const frames = [CGPT_OPEN, cgptAppend(P0, 'Alpha. '), cgptReplace('/message/update_time', 1), { event: 'message', json: { type: 'message_stream_complete' } }];
+  const a = applyStreamMap(chatgptMap, chatgptFrames(frames));
+  const b = applyStreamMap(chatgptMap, chatgptFrames(frames));
+  assert.equal(JSON.stringify(a), JSON.stringify(b));
+});

@@ -96,6 +96,37 @@ const CHATGPT_PATH_OPS = {
       { when: { path: '/message/content/parts/*', o: 'append' }, op: 'append', component: 'paragraph', textPath: 'v' },
       { when: { path: '/message/status' }, op: 'ignore' },
       { when: { terminal: true, data: '[DONE]' }, op: 'finalize' },
+      // ---- Rules below come from a read-only survey of 28 saved ChatGPT sessions. Labels are
+      // "type=<json.type> event=<SSE event>". They are appended AFTER the four rules above, so
+      // first-match-wins guarantees that no event the rules above already matched changes.
+      // Tags: "survey-observed" = the label was counted in the survey; "semantics inferred" = the
+      // meaning is read from the name, not confirmed against the site.
+      // survey-observed, semantics inferred: the name says the stream ended. Seen once per
+      // conversation stream (42 sessions). Finalize closes every open component.
+      { when: { event: 'message', type: 'message_stream_complete' }, op: 'finalize' },
+      // survey-observed, semantics inferred: non-content protocol events, no reply text.
+      { when: { event: 'message', type: 'message_marker' }, op: 'ignore' },
+      { when: { event: 'message', type: 'title_generation' }, op: 'ignore' },
+      // survey-observed. It echoes the USER prompt, not the assistant reply, so it must never
+      // build a component of the reply. Ignored on purpose.
+      { when: { event: 'message', type: 'input_message' }, op: 'ignore' },
+      // survey-observed, semantics inferred: session/telemetry bookkeeping, no reply text.
+      { when: { event: 'message', type: 'resume_conversation_token' }, op: 'ignore' },
+      { when: { event: 'message', type: 'server_ste_metadata' }, op: 'ignore' },
+      { when: { event: 'message', type: 'conversation_detail_metadata' }, op: 'ignore' },
+      { when: { event: 'message', type: 'user_signal_metadata' }, op: 'ignore' },
+      // survey-observed, semantics inferred: version negotiation frame (no json.type). The engine
+      // checks for a path-op shape (p/o/v) before rules run, so this rule only applies to frames
+      // without those keys.
+      { when: { event: 'delta_encoding' }, op: 'ignore' },
+      // survey-observed, semantics inferred: delta frames that describe the message rather than
+      // carry its text. "*" is a prefix match, so this covers every /message/metadata/... pointer
+      // (any op). Known limit: a bare { v } continues the last pointer, so a bare continuation
+      // right after one of these frames is ignored instead of appended. Not seen in the survey.
+      { when: { path: '/message/metadata*' }, op: 'ignore' },
+      // survey-observed, semantics inferred: timestamp and end-of-turn flags.
+      { when: { path: '/message/update_time' }, op: 'ignore' },
+      { when: { path: '/message/end_turn' }, op: 'ignore' },
     ],
   },
   dom: { componentMap: DOM_COMPONENT_MAP },
