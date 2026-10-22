@@ -59,6 +59,18 @@ All 46 test bodies were run from GitHub-fetched exact source/test blobs in an is
 **Sprint 2 — Lifecycle & Recovery**: shared uncertainty/lease/reconnect/delete status language and state-safe recovery across Chat, Drive and Sessions. No automatic resend; contract ownership remains Core.
 
 
+## Sprint 2 — Lifecycle & Recovery receipt (2026-10-22)
+
+**Status:** Source delivered; **62/62** exact-source UI contract bodies passed in a deterministic V8 harness. No native Node/Windows/browser or independent QA acceptance. [Full evidence and commits](SPRINT-02-RECOVERY.md).
+
+**Delivered:** Chat session selection epoch and strict poll-scoping; missing-conversation recovery; send response kept with its originating conversation even if another conversation is selected; Drive job selection epoch, stale/unknown job recovery, and accurate Chat-vs-Drive lease owner instructions; local Studio network failure status and saved Session/Knowledge panel reset on invalid/unauthorized/missing selection. No changes to send, lease, CDP, backend, raw evidence or model/learning contracts.
+
+**Regression scope:** 6 Studio, 18 Knowledge, 6 Search, 7 Integration, 9 Handoff and 16 Recovery UI checks. GitHub source read back before execution; all assertions ran, 0 failures. A V8 fixture pass does not imply native test-runner or live product acceptance.
+
+**Remaining acceptance:** Native Node `node --test`, real local Studio keyboard/mobile, missing session and lease-owner checks, independent QA. Manual Send again remains a deliberate action and has not been end-to-end accepted.
+
+**Next sprint:** Sprint 3 — Evidence Explorer. Refresh Core's latest temporal and identity contract; work only on read-only provenance/graph/drift comparison UI.
+
 ## Continuous pull after Sprint 1
 
-Proceed to Sprint 2 only after updating this receipt and the standing UI queue. Do not preempt ongoing Core or Knowledge & Learning work. GitHub records do not automatically wake other agents.
+Sprint 1 and Sprint 2 source receipts have been written; pull Sprint 3 from this five-sprint plan only after refreshing latest Core/QA contracts. Physical QA acceptance remains separate. Do not preempt ongoing Core or Knowledge & Learning work. GitHub records do not automatically wake other agents.
