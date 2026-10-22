@@ -230,10 +230,43 @@
     // Keep the outermost element per attribute name.
     const set = new Set(cands.map((c) => c.el));
     const outer = cands.filter((c) => { for (let p = c.el.parentElement; p; p = p.parentElement) if (set.has(p) && cands.find((x) => x.el === p && x.attr === c.attr)) return false; return true; });
-    // The attribute name used by the most candidates with >= 2 distinct roles wins.
+    // Group choice is text-aware: candidate count alone let a group of identical hidden labels outrank real messages.
     const byAttr = new Map();
     for (const c of outer) { if (!byAttr.has(c.attr)) byAttr.set(c.attr, []); byAttr.get(c.attr).push(c); }
-    const best = [...byAttr.values()].filter((g) => new Set(g.map((c) => c.role)).size >= 2 || g.length >= 2).sort((a, b) => b.length - a.length)[0] || [];
+    const eligible = [...byAttr.entries()].filter(([, g]) => new Set(g.map((c) => c.role)).size >= 2 || g.length >= 2);
+    // Scoring text: innerText; textContent only for an empty, non-hidden element (never for hidden ones).
+    const scoreText = (el) => {
+      const inner = (el.innerText || '').trim();
+      if (inner) return inner;
+      const hidden = el.hidden === true || el.getAttribute('aria-hidden') === 'true';
+      return hidden ? '' : (el.textContent || '').trim();
+    };
+    const st = new Map(outer.map((c) => [c, scoreText(c.el)]));
+    const isSubstantive = (s) => s.length >= 20 || s.split(/\s+/).filter(Boolean).length >= 4;
+    const norm = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+    const scored = eligible.map(([attr, g]) => {
+      const lens = g.map((c) => st.get(c).length).sort((a, b) => a - b);
+      return {
+        attr, g,
+        roles: new Set(g.map((c) => c.role)).size,
+        count: g.length,
+        substantive: g.filter((c) => isSubstantive(st.get(c))).length,
+        median: lens[Math.floor((lens.length - 1) / 2)],
+        unique: new Set(g.map((c) => norm(st.get(c)))).size / g.length,
+      };
+    }).filter((s) => s.substantive >= 1);
+    let best;
+    if (scored.length) {
+      // Lexicographic: >=2 roles, more substantive, more unique text, longer median, more candidates, name.
+      scored.sort((a, b) => ((b.roles >= 2) - (a.roles >= 2)) || (b.substantive - a.substantive) || (b.unique - a.unique) || (b.median - a.median) || (b.count - a.count) || (a.attr < b.attr ? -1 : a.attr > b.attr ? 1 : 0));
+      const g = scored[0].g;
+      // Hidden decoration: text under 3 chars repeated by a candidate with a different role. Dropped only if a substantive candidate remains.
+      const keep = g.filter((c) => !(st.get(c).length < 3 && g.some((o) => o !== c && o.role !== c.role && norm(st.get(o)) === norm(st.get(c)))));
+      best = keep.some((c) => isSubstantive(st.get(c))) ? keep : g;
+    } else {
+      // No substantive candidate anywhere: previous behaviour (most candidates, first in document order).
+      best = eligible.map(([, g]) => g).sort((a, b) => b.length - a.length)[0] || [];
+    }
     return best.slice(0, 500).map((c, i) => {
       const idAttr = [...c.el.attributes].find((a) => /(^|-)(message|turn|item)?-?id$/.test(a.name) && a.name !== 'id');
       const text = (c.el.innerText || c.el.textContent || '').trim();
