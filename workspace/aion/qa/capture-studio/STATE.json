@@ -7,7 +7,7 @@
   "initial_pending_qa_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
   "last_completed_sprint": "02-bounded-source-and-v8",
   "next_sprint": "03-identity-time-reconstruction",
-  "next_mission": "Pin newest source and perform independent temporal/raw/event-time regression against L4/L5 time-travel gaps: nonmonotonic seq timestamps [100,300,200], Knowledge UI as-of graph/model vs continuity, event-time versus pinned learner revision. Retest Sprint 2 Core split-token fix in real Node on checkout when available; no live browser send.",
+  "next_mission": "QA Sprint 3 temporal event-time and model-version truth: nonmonotonic timestamp replay, knowledge UI as-of consistency; pending Sprint 2 native source review of Core stream-guard and host lease recovery; do not duplicate shipped W4 source fixes.",
   "product_path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio",
   "developer_handoff": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/QA-NEXT-TESTS.md",
   "no_product_code_edits": true,
@@ -16,7 +16,7 @@
   "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision. Sprint1 evidence is at 5eefb2e; prior physical LOC audit remains pinned to 34e1a913 and is not a current-source measurement. Sprint 2 independently source-exercised V8 mocks only, not native Node; 34e1a913 LOC remains historical.",
   "last_recon_date": "2026-10-22",
   "recon_baseline_sha": "49095348141646ba8d90bfc27c30e8fa0d1c6eda",
-  "last_observed_main_sha": "02310fe5ae913c23a56fd16144b518b78eb0b4a6",
+  "last_observed_main_sha": "60e698d7fe909ea19857fe6623fa07440d00946a",
   "roadmap": "workspace/aion/qa/capture-studio/ROADMAP.md",
   "historical_executed_qa": {
     "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
@@ -40,7 +40,7 @@
   },
   "current_recon_executed_tests": 0,
   "steering_authority": "owner-authorized unilateral QA-owned records and roadmap updates; no other-lane code edits or quality gates",
-  "latest_scanned_product_head": "02310fe5ae913c23a56fd16144b518b78eb0b4a6",
+  "latest_scanned_product_head": "57f38386 (partial product scope; team continues committing)",
   "next_parallel_build": {
     "status": "queued_not_started",
     "core": "workspace/aion/ops/capture-studio-core/SPRINT-03.md",
@@ -146,8 +146,24 @@
     "native_node_test_executed": false,
     "live_browser_executed": false,
     "files_product_modified": 0,
-    "critical_open": "Core W4 pre-disk split-token redaction QA issue 64",
+    "critical_open": "Core W4 mitigated by new streaming guards in source; native Node/CDP/host and abnormal-close verification still outstanding",
     "development_handoff": "GitHub issue 43 comment id 6347302646; not ACKed",
-    "independent_acceptance": false
+    "independent_acceptance": false,
+    "post_fix_reconciliation": {
+      "commits": [
+        "5993f882",
+        "57f38386"
+      ],
+      "new_guard_module": "src/capture/stream-guard.mjs",
+      "qa_v8_retest": {
+        "credential_scenarios_excluded": 6,
+        "benign_stream_preserved": 1,
+        "ws_frame_credential_excluded": 1,
+        "method": "Exact source with ASCII Buffer shim",
+        "native_node": false
+      },
+      "classification": "SOURCE_MITIGATION_DELIVERED_NATIVE_AND_LIVE_ACCEPTANCE_PENDING",
+      "issue64": "OPEN_PENDING_PROOF"
+    }
   }
 }
