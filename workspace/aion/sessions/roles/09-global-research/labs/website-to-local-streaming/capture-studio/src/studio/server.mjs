@@ -1,6 +1,6 @@
-// Studio: a loopback-only local web UI + JSON API over the recorder, sessions and profiles.
-// Security: binds 127.0.0.1 only; random access token (exchanged once for an HttpOnly,
-// SameSite=Strict cookie); Host and Origin checks to defeat DNS rebinding / cross-site requests.
+// Studio: loopback-only local web UI + JSON API. Localhost opens without a token by default.
+// Opt-in token mode retains the HttpOnly SameSite cookie; both modes keep loopback binding,
+// Host and Origin checks, which need no user interaction.
 import http from 'node:http';
 import { readFileSync, createReadStream, mkdtempSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
@@ -29,7 +29,8 @@ import { createConversationApi, defaultConversationRuntime } from './conversatio
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
-export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token = randomBytes(18).toString('base64url'), rawOptions, drive, campaign, conversationRuntime, conversationRuntimeFactory = defaultConversationRuntime } = {}) {
+export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token = randomBytes(18).toString('base64url'), accessMode = process.env.CAPTURE_STUDIO_ACCESS_MODE ?? 'local', rawOptions, drive, campaign, conversationRuntime, conversationRuntimeFactory = defaultConversationRuntime } = {}) {
+  if (!['local', 'token'].includes(accessMode)) throw new Error('CAPTURE_STUDIO_ACCESS_MODE must be local or token');
   conversationRuntime ??= await conversationRuntimeFactory({ paths, profileStore, familyStore, port: cdpPort });
   const conversationApi = createConversationApi({ runtime: conversationRuntime });
   // Persistent learning state (role models, corrections, calibration) lives in the data dir.
@@ -66,6 +67,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
 
   const tokenBuf = Buffer.from(token);
   const authed = (req) => {
+    if (accessMode === 'local') return true; // Only the loopback listener is exposed.
     const cookie = /(?:^|;\s*)studio_token=([^;]+)/.exec(req.headers.cookie ?? '')?.[1];
     const given = Buffer.from(cookie ?? req.headers['x-studio-token'] ?? '');
     return given.length === tokenBuf.length && timingSafeEqual(given, tokenBuf);
@@ -77,7 +79,7 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       const host = (req.headers.host ?? '').toLowerCase();
       if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(host)) return send(res, 421, { error: 'bad host' });
       if (req.headers.origin && ![`http://127.0.0.1:${port}`, `http://localhost:${port}`].includes(req.headers.origin)) return send(res, 403, { error: 'bad origin' });
-      if (url.pathname === '/' && url.searchParams.get('token') === token) {
+      if (accessMode === 'token' && url.pathname === '/' && url.searchParams.get('token') === token) {
         res.writeHead(302, { 'set-cookie': `studio_token=${token}; HttpOnly; SameSite=Strict; Path=/`, location: '/' });
         return res.end();
       }
@@ -345,7 +347,8 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
     try { await conversationRuntime.close(); await driveApi.close(); if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); }
     finally { await hub.close(); await new Promise((resolve) => server.close(resolve)); }
   })();
-  return { server, recorder, conversationRuntime, integrations: hub, port: actualPort, token, url: `http://127.0.0.1:${actualPort}/?token=${token}`, close };
+  return { server, recorder, conversationRuntime, integrations: hub, port: actualPort, token, accessMode,
+    url: accessMode === 'token' ? `http://127.0.0.1:${actualPort}/?token=${token}` : `http://127.0.0.1:${actualPort}/`, close };
 }
 
 function listDatasets(s) {
