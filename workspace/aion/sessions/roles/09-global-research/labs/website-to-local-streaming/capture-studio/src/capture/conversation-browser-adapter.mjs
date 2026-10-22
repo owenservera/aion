@@ -23,7 +23,7 @@ export async function readUserTurns(page) {
 }
 
 export function createConversationBrowserAdapter({ paths, profileStore, familyStore, port, siteAdapter, targetId,
-  freshTab, conversationId, ownerToken, maxBytes = 256 * 1024 * 1024, dependencies = {} } = {}) {
+  freshTab, conversationId, ownerToken, maxBytes = 0, dependencies = {} } = {}) {
   const d = { listTargets, listSessions, Recorder, fetch: globalThis.fetch, evaluate, findComposer, focusComposer,
     typeText, sendMessage, sendState, readTranscript, waitForCompletion, readUserTurns, detectAuthWall, detectSiteFailure,
     sleep, readinessTimeoutMs: 20000, readinessPollMs: 200, fetchTimeoutMs: 10000, connectGraceMs: 2000, ...dependencies };
