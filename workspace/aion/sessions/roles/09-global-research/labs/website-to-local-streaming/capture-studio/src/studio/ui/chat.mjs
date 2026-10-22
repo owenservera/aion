@@ -119,7 +119,7 @@ export function reasonText(code) {
 export function uncertaintyText(code) { return code ? (UNCERTAINTY[code] ?? 'Studio reported: ' + word(code) + '.') : ''; }
 export function finishErrorText(err) { return err ? (FINISH_ERRORS[err] ?? String(err)) : ''; }
 export function explainError({ status, code, message } = {}) {
-  if (status === 401 || status === 403) return 'Not authorised. Reopen the original tokenized Studio URL from the local terminal.';
+  if (status === 401 || status === 403) return 'Local Studio refused this request. Check its address and Origin settings; if you enabled token mode, reopen the URL shown at startup.';
   const c = code ?? (isCode(message) ? message : null);
   if (c && ERROR_TEXT[c]) return ERROR_TEXT[c];
   if (c) return 'Studio reported: ' + word(c).toLowerCase() + '.';
@@ -442,7 +442,7 @@ function boot() {
   }
   function setAuth(on) {
     S.authExpired = on;
-    $('#connectionNote').textContent = on ? 'Studio authorization expired — reopen the original tokenized Studio URL from the local terminal.' : '';
+    $('#connectionNote').textContent = on ? 'Studio request rejected. Local mode needs no token; if token mode is enabled, reopen the URL shown at startup.' : '';
   }
   const describe = (e) => explainError({ status: e.status, code: e.data?.code, message: e.message });
   // Plain text, plus a link node when the error has somewhere to go (for example the busy browser -> /drive).
