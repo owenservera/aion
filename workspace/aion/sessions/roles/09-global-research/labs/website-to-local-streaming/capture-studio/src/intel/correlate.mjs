@@ -81,7 +81,9 @@ export function correlateRendered(subjects, elements, { minScore = 0.35 } = {}) 
     const near = scored.filter((x) => scored[0].score - x.score <= 0.025);
     // Among equally complete matches choose the smallest actual text container.
     const best = near.sort((a, b) => (a.element.text?.length ?? Infinity) - (b.element.text?.length ?? Infinity) || b.score - a.score)[0];
-    const second = scored.find((x) => x.element.id !== best.element.id && !(x.element.text ?? '').includes(best.element.text ?? '\u0000') && !(best.element.text ?? '').includes(x.element.text ?? '\u0000'));
+    // An exact text tie is a real competitor (ambiguous), so the containment filter below must not hide it.
+    // Only nested-but-different texts (child block vs its container) are excluded as competitors.
+    const second = scored.find((x) => x.element.id !== best.element.id && ((!!x.element.text && x.element.text === best.element.text) || (!(x.element.text ?? '').includes(best.element.text ?? '\u0000') && !(best.element.text ?? '').includes(x.element.text ?? '\u0000'))));
     hyps.push({ kind: 'rendered_as', t: Number.isFinite(s.t0) && Number.isFinite(best.element.firstT) ? Math.max(s.t0, best.element.firstT) : null, from: { [s.kind]: s.id }, to: { element: best.element.id }, score: +best.score.toFixed(3), features: { ...best.features, candidateCount: scored.length, scoreMargin: +(best.score - (second?.score ?? 0)).toFixed(3) }, status: second && best.score - second.score < 0.08 ? 'ambiguous' : best.score >= 0.6 ? 'likely' : 'weak', alternatives: scored.filter((x) => x !== best).slice(0, 3).map((x) => ({ element: x.element.id, score: +x.score.toFixed(3) })) });
   }
   // Conflicts: one element claimed (likely) by several different subjects.

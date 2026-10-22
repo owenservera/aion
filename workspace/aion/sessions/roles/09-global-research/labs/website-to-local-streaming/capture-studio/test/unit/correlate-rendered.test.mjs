@@ -45,19 +45,19 @@ test('(2a) two elements sharing a repeated phrase with different tails yield amb
   assert.equal(h.alternatives[0].element, 'el-2');
 });
 
-test('(2b) SURPRISING: identical duplicate elements are NOT flagged ambiguous (status likely, margin reads 1)', () => {
-  // CURRENT behaviour: the "second" candidate is excluded when one text contains the other,
-  // and identical texts contain each other. So a true duplicate gets status 'likely', and
-  // scoreMargin equals the best score (1) instead of 0. The tie resolves to the first id.
+test('(2b) identical duplicate elements are ambiguous (margin 0), not likely', () => {
+  // Previously this was a DEFECT: identical texts contain each other, so the containment filter
+  // hid the second candidate, status came out 'likely' and scoreMargin read 1. An exact text tie
+  // is a real competitor; the tie still resolves to the first id (el-1), but it is flagged.
   const PHRASE = 'Repeated synthetic phrase about the harbour lamp and the tide.';
   const [h] = correlateRendered(
     [{ id: 'subj-2b', kind: 'entity', text: PHRASE, t0: 1000, t1: 2000 }],
     [{ id: 'el-1', text: PHRASE, firstT: 1000, lastT: 2000 }, { id: 'el-2', text: PHRASE, firstT: 1000, lastT: 2000 }],
   );
-  assert.equal(h.status, 'likely');
+  assert.equal(h.status, 'ambiguous');
   assert.equal(h.to.element, 'el-1');
   assert.equal(h.alternatives[0].element, 'el-2');
-  near(h.features.scoreMargin, 1, 'scoreMargin (misleading)');
+  near(h.features.scoreMargin, 0, 'scoreMargin (exact tie)');
 });
 
 test('(3) a streaming prefix of the final text still links by containment', () => {
