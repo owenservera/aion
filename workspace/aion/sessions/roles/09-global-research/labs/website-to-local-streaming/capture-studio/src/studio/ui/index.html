@@ -704,6 +704,11 @@ async function openSession(id) {
     <div style="margin:8px 0">${esc(m.browser || '')}, profile ${esc(m.profile?.name)} v${m.profile?.version}, ended: ${esc(m.endReason || m.status)}${m.integrity ? `, integrity ${m.integrity.ok ? '<span class="c-l3">verified</span>' : '<span class="c-gap">warnings</span>'}` : ''}</div>
     <div class="row"><button id="bGoKnowledge">Explore knowledge</button><button id="bDerive">Rebuild datasets</button><button id="bVerify">Check integrity</button><a href="/api/sessions/${encodeURIComponent(id)}/transcript"><button>Download transcript</button></a></div>
     <h3>Export</h3><div class="row">${datasets.map((ds) => `<span>${esc(ds)}: ${['jsonl', 'json', 'csv', 'md'].map((f) => `<a href="/api/sessions/${encodeURIComponent(id)}/export?dataset=${encodeURIComponent(ds)}&format=${f}">${f}</a>`).join(' ')}</span>`).join('') || '<span style="color:var(--muted)">Rebuild datasets first.</span>'}</div>
+    <h3>Records <span class="small-note" style="font-weight:400">read-only</span></h3>
+    <div class="panel pad" id="recPanel">
+      <div class="row" style="margin-bottom:8px"><label>Dataset <select id="recPicker" aria-label="Saved dataset to read">${recordPickerOptions(datasets)}</select></label><span class="small-note">First ${REC_PAGE} rows of a saved dataset. Nothing is written from this panel.</span></div>
+      <div id="recOut" role="status" aria-live="polite"></div>
+    </div>
     <h3>Time travel</h3><div class="row"><input type="range" id="tt" min="0" max="1000" value="1000" style="flex:1"><span id="ttLabel" class="mono"></span></div><div id="ttOut" style="margin-top:8px"></div>
     <div id="sessionKnowledgeStatus" role="status" class="small-note"></div>
     <h3>Continuity across sessions</h3>
@@ -740,6 +745,10 @@ async function openSession(id) {
     }
   });
   $('#bCopy').onclick = () => navigator.clipboard.writeText($('#receipt').textContent).then(() => toast('Receipt copied'));
+  const recDefault = datasets[0] ?? REC_EXPECTED[0];
+  $('#recPicker').value = recDefault;
+  $('#recPicker').onchange = () => loadRecords(id, datasets, requestSeq, $('#recPicker').value);
+  loadRecords(id, datasets, requestSeq, recDefault);
   const t0 = Date.parse(m.createdAt), t1 = Date.parse(m.endedAt || new Date().toISOString());
   const tt = $('#tt'), lab = $('#ttLabel');
   const tAt = () => t0 + (t1 - t0) * tt.value / 1000;
@@ -752,6 +761,52 @@ async function openSession(id) {
   return true;
 }
 
+
+/* ---------------- records (read-only view of saved datasets) ---------------- */
+const REC_PAGE = 50, REC_CELL_MAX = 200, REC_MAX_COLS = 12, REC_EXPECTED = ['family-ai-chat-message'];
+let recordsSeq = 0;
+function recordPickerOptions(datasets) {
+  const names = [...new Set([...datasets, ...REC_EXPECTED])];
+  return names.map((n) => '<option value="' + esc(n) + '">' + esc(n) + (datasets.includes(n) ? '' : ' (not derived yet)') + '</option>').join('');
+}
+function recordCell(v) {
+  const text = v === undefined ? '' : v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v);
+  if (text.length <= REC_CELL_MAX) return esc(text);
+  return esc(text.slice(0, REC_CELL_MAX)) + ' <span class="pill" style="color:var(--muted)">truncated, real length ' + text.length + ' chars</span>';
+}
+function renderRecordTable(rows, hasMore) {
+  if (!rows.length) return '<div class="empty">No rows in this dataset.</div>';
+  const objs = rows.map((r) => r !== null && typeof r === 'object' && !Array.isArray(r) ? r : { value: r });
+  const cols = [];
+  for (const r of objs) for (const k of Object.keys(r)) if (!cols.includes(k)) cols.push(k);
+  const shownCols = cols.slice(0, REC_MAX_COLS);
+  const count = hasMore ? 'showing ' + objs.length + ' of more than ' + objs.length + ' rows (API limit ' + REC_PAGE + '; total not reported)'
+    : objs.length + ' row' + (objs.length === 1 ? '' : 's');
+  const colNote = cols.length > REC_MAX_COLS ? '; showing ' + REC_MAX_COLS + ' of ' + cols.length + ' columns' : '';
+  return '<p class="small-note">' + esc(count + colNote) + '</p>' +
+    '<div class="panel scroll" style="max-height:40vh"><table><thead><tr>' + shownCols.map((k) => '<th>' + esc(k) + '</th>').join('') + '</tr></thead><tbody>' +
+    objs.map((r) => '<tr>' + shownCols.map((k) => '<td>' + (Object.prototype.hasOwnProperty.call(r, k) ? recordCell(r[k]) : '') + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table></div>';
+}
+async function loadRecords(id, datasets, sessionSeq, name) {
+  const seq = ++recordsSeq;
+  const current = () => (seq === recordsSeq && sessionSeq === S.sessionRequestSeq && S.sessionId === id) ? $('#recOut') : null;
+  let out = current(); if (!out) return;
+  if (!datasets.includes(name)) {
+    // Missing dataset: no request and no write action; the API would only return an empty list.
+    out.innerHTML = '<div class="empty">“' + esc(name) + '” has not been derived yet for this recording. This panel only reads saved datasets.</div>';
+    return;
+  }
+  out.innerHTML = '<div class="empty">Loading ' + esc(name) + '…</div>';
+  try {
+    const rows = await api('sessions/' + encodeURIComponent(id) + '/dataset/' + encodeURIComponent(name) + '?limit=' + (REC_PAGE + 1));
+    out = current(); if (!out) return;
+    if (!Array.isArray(rows)) throw new Error('Studio did not return dataset rows.');
+    out.innerHTML = renderRecordTable(rows.slice(0, REC_PAGE), rows.length > REC_PAGE);
+  } catch (e) {
+    out = current(); if (out) out.innerHTML = '<div class="feedback-error" role="alert">Could not read ' + esc(name) + ': ' + esc(e.message) + '</div>';
+  }
+}
 
 /* Read-only rendering of Core's read-through continuity contract. */
 function formatEvidenceTime(t) {
