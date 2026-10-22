@@ -187,14 +187,14 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         writable();
         revision(expectedRevision);
         if (confirm !== true) throw error('CONFIRM_REQUIRED');
-        // One message per conversation once a send is observed or in flight. After an unobserved
-        // (uncertain / needs-reconciliation / blocked) attempt, a NEW key is a deliberate resend;
-        // the same key never reaches here (it returned the original above).
-        const last = snapshot.attempts.at(-1);
-        const resend = !recovered && !!last && ['uncertain', 'needs-reconciliation'].includes(last.phase) && !!snapshot.sessionId; // never after a restart recovery
-        const spent = snapshot.attempts.some((a) => a.phase !== 'blocked' || a.typingStartedAt);
-        if (snapshot.attempts.some((a) => a.send?.state === 'observed' || ['preparing', 'dispatching'].includes(a.phase)) || (spent && !resend) || snapshot.attempts.length >= 50) throw error('ONE_TURN_LIMIT');
-        if (!['ready', 'blocked'].includes(snapshot.state) && !(resend && snapshot.state === 'needs-reconciliation')) throw error('NOT_READY');
+        // A new idempotency key is NOT authorization to repeat a potentially
+        // dispatched action. Unknown delivery and partial draft remain blocked
+        // even if a later read-only reconciliation sees no matching page turn.
+        // A proven pre-typing rejection ('blocked' without typing) remains
+        // eligible for one fresh attempt after the user clears the draft.
+        const spent = snapshot.attempts.some((a) => a.phase !== 'blocked' || !!a.typingStartedAt);
+        if (spent || snapshot.attempts.length >= 50) throw error('ONE_TURN_LIMIT');
+        if (!['ready', 'blocked'].includes(snapshot.state)) throw error('NOT_READY');
         const attempt = { id: randomUUID(), key, payloadDigest, phase: 'preparing', createdAt: now(), updatedAt: now(),
           boundary: null, send: { state: 'not-attempted', observationSource: null }, reply: { state: 'unknown' }, evidence: { state: 'recording' } };
         snapshot.attempts.push(attempt); snapshot.state = 'busy'; save();
