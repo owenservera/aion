@@ -12,6 +12,7 @@ import { discoverModel, modelSummary } from '../intel/discover.mjs';
 import { resolveModel } from '../intel/identity.mjs';
 import { correlateRendered, correlateActions } from '../intel/correlate.mjs';
 import { buildGraph } from '../intel/graph.mjs';
+import { InvariantViolation, NSP_SCHEMA } from '../core/invariants.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
 
 export async function derive(session, profile, { onProgress, families, learner } = {}) {
@@ -115,18 +116,32 @@ export async function derive(session, profile, { onProgress, families, learner }
     // successful empty result, even though Dataset.push([]) creates no file.
     session.kv.set('KNOWLEDGE_STATUS', { ...knowledgeRun, status: 'complete',
       completedAt: new Date().toISOString(), entityCount: entities.length,
-      typeCount: model.types.length, entitiesDatasetPresent: entities.length > 0 });
-    knowledge = { types: model.types.length, entities: entities.length, edges: graph.edges.size, corpusSamples: corpusResult.stats.samples, corpusDropped: Object.values(corpusResult.stats.dropped).reduce((a, b) => a + b, 0), unmodelledGroups: model.unmodelled.length };
+      typeCount: model.types.length, entitiesDatasetPresent: entities.length > 0,
+      graphIntegrity: graph.invariants.length ? 'partial' : 'complete',
+      graphInvariantViolations: graph.invariants.length,
+      graphQuarantinedEntities: graph.quarantinedEntities });
+    knowledge = { types: model.types.length, entities: entities.length, edges: graph.edges.size,
+      graphIntegrity: graph.invariants.length ? 'partial' : 'complete',
+      graphInvariantViolations: graph.invariants.length,
+      graphQuarantinedEntities: graph.quarantinedEntities,
+      corpusSamples: corpusResult.stats.samples,
+      corpusDropped: Object.values(corpusResult.stats.dropped).reduce((a, b) => a + b, 0),
+      unmodelledGroups: model.unmodelled.length };
   } catch (e) {
-    knowledge = { error: String(e?.message ?? e), stage };
+    knowledge = { error: String(e?.message ?? e), stage,
+      ...(e instanceof InvariantViolation ? { invariant: e.receipt } : {}) };
     resetEntities();
     session.kv.set('MODEL', knowledge);
     session.kv.set('GRAPH', null);
     session.kv.set('HYPOTHESES', null);
     session.kv.set('KNOWLEDGE_STATUS', { ...knowledgeRun, status: 'failed',
-      completedAt: new Date().toISOString(), stage, error: knowledge.error });
+      completedAt: new Date().toISOString(), stage, error: knowledge.error,
+      ...(knowledge.invariant ? { invariant: knowledge.invariant } : {}) });
   }
   receipt.knowledge = knowledge;
+  receipt.nsp = { schema: NSP_SCHEMA, graphInvariantViolations: knowledge.graphInvariantViolations ?? 0,
+    graphQuarantinedEntities: knowledge.graphQuarantinedEntities ?? 0,
+    ...(knowledge.invariant ? { invariant: knowledge.invariant } : {}) };
   session.kv.set('RECEIPT', receipt);
   return { records: n, summary, report, receipt, knowledge, familyCounts, recordCounts: Object.fromEntries([...recordSets].map(([k, d]) => [k, d.count])) };
 }
