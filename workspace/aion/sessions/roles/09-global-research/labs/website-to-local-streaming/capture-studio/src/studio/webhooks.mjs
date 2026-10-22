@@ -17,8 +17,8 @@ export class Webhooks {
   register(input) {
     object(input);
     if (this.closed) throw problem(503, 'Webhooks are closing');
-    if (this.hooks.size >= 16) throw problem(429, 'At most 16 local webhooks may be registered');
-    if (input.confirm !== true) throw problem(400, 'confirm:true is required to enable outbound local deliveries');
+    // A registration POST is the explicit local-owner operation; no redundant
+    // confirm checkbox or artificial 16-hook cap. Delivery remains 127.0.0.1/[::1] only.
     let url;
     try { url = new URL(text(input.url, 'url', 2048)); } catch { throw problem(400, 'Invalid webhook URL'); }
     if (!['http:', 'https:'].includes(url.protocol) || !['127.0.0.1', '[::1]'].includes(url.hostname)
