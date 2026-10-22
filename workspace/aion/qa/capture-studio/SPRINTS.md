@@ -12,7 +12,7 @@ W1–W18 are **historical engineering objectives and QA acceptance questions**, 
 
 | Sprint | Outcome / worklog mapping | Independent QA deliverable | Acceptance / stop line | Status |
 |---|---|---|---|---|
-| **1 — Truth, ownership and eligibility** | Rebaseline W1–W18 against current code; newest conversation/drive/campaign/knowledge interfaces; owner consolidation decision and AX exchange | Source-traced contract map, reproducible static probes, ranked findings, owner/consumer handoff, updated steering state | Evidence distinguishes reply-match, derived, accepted; no unapproved Dispatch; exact SHA and limited scope declared | **STARTED: 2026-10-22** |
+| **1 — Truth, ownership and eligibility** | Rebaseline W1–W18 against current code; newest conversation/drive/campaign/knowledge interfaces; owner consolidation decision and AX exchange | Source-traced contract map, reproducible static probes, ranked findings, owner/consumer handoff, updated steering state | Evidence distinguishes reply-match, derived, accepted; no unapproved Dispatch; exact SHA and limited scope declared | **SOURCE AUDIT COMPLETE 2026-10-22; runtime acceptance pending** |
 | **2 — Browser effects and capture safety** | W4, W6, W17 plus newly shipped driving lease/send/cancel, field/masking and streaming | Independent adversarial tests/diagnosis: no double-send, unknown outcomes, exact tab binding, cancellation, split credential masking, truncated/gap accounting | No mistaken observed/accepted claims, no automatic duplicate side effects; unresolved Windows/browser conditions explicitly blocked | QUEUED |
 | **3 — Identity, time and reconstruction** | W1–W3, W7–W10, W14–W15 | Deterministic identity/tenant/typed-key, rare-shape, graph stateAt, edge retractions, origin isolation, replay and correlation cases | No false cross-scope merges; source-linked historical values; source fidelity verified where executed | QUEUED |
 | **4 — Knowledge and learning** | W5, W9, W11–W13, W18 optional | Reversible correction/promotion review, replay pinning, scope contamination, held-out before/after and false-match cases, evidence eligibility | Distinguish builder delivery from 7 L4 + 7 L5 independently accepted criteria; don't auto promote unaccepted families | QUEUED |
@@ -20,7 +20,7 @@ W1–W18 are **historical engineering objectives and QA acceptance questions**, 
 
 ### Work ownership and dependencies
 
-- 🟦 **Core/build integrator:** capture, drive runtime/server/CLI, raw store, family acceptance, derivation wiring. The earlier named Core agent is owner-reported paused; other manager source commits do not mean that agent resumed.
+- 🟦 **Core/build integrator:** capture, drive runtime/server/CLI, raw store, family acceptance, derivation wiring. Core's new five-sprint plan states the owner explicitly resumed that lane for its named Sprint 1 scope; earlier paused notes are historical. This QA plan neither dispatches nor pauses Core.
 - 🟪 **UI:** Chat/Drive/Knowledge client interactions and navigation; never build duplicate server logic inside UI.
 - 🟩 **Knowledge & Learning:** versioned learner, scoped correction and eligible-evidence ingestion. Independent L4/L5 acceptance remains QA-only.
 - 🟧 **Systems:** algorithm, safety and UX architecture recommendations, read-only unless separately authorized.
@@ -29,7 +29,7 @@ W1–W18 are **historical engineering objectives and QA acceptance questions**, 
 
 ### Active queue (keep no more than three)
 
-1. **NOW:** Finish Sprint 1 source-truth and eligibility finding; preserve evidence with exact SHA and affected call paths.
+1. **DONE (source only):** Sprint 1 source-truth and eligibility finding recorded at pinned SHA, ten V8 source probes; independent product tests pending.
 2. **NEXT:** Sprint 2 no-double-send, capture coverage and secret-handling adversarial verification, using offline fixtures before owner-directed live.
 3. **PARKED DEPENDENCY:** Get Development's exchange owner to register/ACK Studio consolidation; fix outdated Planning AION-X08. This plan is not such an ACK.
 
