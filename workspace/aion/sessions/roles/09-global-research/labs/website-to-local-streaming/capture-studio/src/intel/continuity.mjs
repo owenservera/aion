@@ -80,7 +80,8 @@ function safeJoin(entity, site, origin, keyField) {
 function reviewTypeDrift(records, stats) {
   const groups = new Map();
   for (const r of records) {
-    const k = JSON.stringify([r.origin, r.keyField, String(r.key)]);
+    // Matching display text does not make numeric and textual identities equal.
+    const k = JSON.stringify([r.origin, r.keyField, r.keyType, String(r.key)]);
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(r);
   }
@@ -226,10 +227,12 @@ export async function buildSiteContinuity(sessionsDir, {
       // Isolate legacy collision rows even inside a single stored session.
       // Join on the key value itself when present: old and new EID hash formats differ,
       // so the EID must not partition otherwise-identical keyed entities.
+      // Older entities without persisted keyType belong to their own
+      // compatibility cohort, not the number/string cohorts.
+      const keyType = e.keyType === 'number' || e.keyType === 'string'
+        ? e.keyType : 'legacy-untyped';
       const groupKey = joinable
-        ? JSON.stringify(e.key != null
-          ? ['key', site, origin, e.type, keyField, String(e.key)]
-          : ['key', site, origin, e.type, keyField, String(e.key), e.eid])
+        ? JSON.stringify(['key', site, origin, e.type, keyField, keyType, String(e.key)])
         : JSON.stringify(['session', meta.id, e.eid, occurrence]);
       let item = groups.get(groupKey);
       if (!item) {
@@ -241,6 +244,7 @@ export async function buildSiteContinuity(sessionsDir, {
           eid: e.eid, type: e.type ?? null, typeName: e.typeName ?? null,
           scope: e.scope ?? null, origin: joinable ? origin : null,
           key: e.key ?? null, keyField: joinable ? keyField : null,
+          keyType,
           fieldNames: new Set(), identityBasis: joinable ? 'exact-site-type-key'
             : legacyCollision ? 'session-local-legacy-collision'
               : e.method === 'provisional' ? 'provisional-missing-key' : 'session-local',
@@ -273,7 +277,8 @@ export async function buildSiteContinuity(sessionsDir, {
     const times = revisions.map((rv) => rv.t).filter((t) => t !== null);
     const result = {
       id: item.id, eid: item.eid, type: item.type, typeName: item.typeName,
-      scope: item.scope, origin: item.origin, key: item.key, keyField: item.keyField,
+      scope: item.scope, origin: item.origin, key: item.key,
+      keyField: item.keyField, keyType: item.keyType,
       identityBasis: item.identityBasis,
       confidence: visibleSessionIds.length > 1 ? null : item.confidence,
       confidenceBasis: visibleSessionIds.length > 1 ? 'cross-session confidence not calibrated'
@@ -293,6 +298,7 @@ export async function buildSiteContinuity(sessionsDir, {
       driftRecords.push({
         id: result.id, eid: result.eid, type: result.type, typeName: result.typeName,
         origin: item.origin, key: result.key, keyField: item.keyField,
+        keyType: item.keyType,
         sessions: visibleSessionIds, fields: [...item.fieldNames].sort(),
         evidence: { session: source.session, seq: source.seq, sid: source.sid,
           domId: source.domId, t: source.t },
@@ -309,7 +315,8 @@ export async function buildSiteContinuity(sessionsDir, {
   return {
     site, origin, asOf: requestedAt, entities: returned, typeDriftHints, stats,
     limitations: [
-      'Automatic joins require an exact target origin, site, model key field, type, keyed value and eid; this does not prove tenant equality inside one origin.',
+      'Automatic joins require an exact origin, site, type, key field and typed key value; this does not prove tenant equality inside one origin.',
+      'Legacy untyped key rows remain a distinct compatibility cohort until rederived; their numeric-vs-string identity cannot be proven.',
       'User-facing continuity views are scoped to the selected recording origin; an omitted origin requests a broader internal site-wide audit.',
       'Possible type-drift hints are unconfirmed structural comparisons, not identity matches or calibrated probabilities; they never change joined entities.',
       'Keyless and missing/ambiguous keyed observations remain separate across sessions; missing observations are not deletions.',
