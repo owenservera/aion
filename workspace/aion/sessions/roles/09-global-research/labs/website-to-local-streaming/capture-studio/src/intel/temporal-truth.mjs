@@ -105,7 +105,9 @@ export function temporalPerspective({ query, source, journal, interpret, derivat
   const q = normalizeTemporalQuery(query);
   const evidence = observationBoundary(source, q.eventAsOf);
   const selected = q.lens === 'observed' ? { status: 'not-applicable', revision: null, savedAt: null } : selectTemporalModel(journal, q);
-  const eligible = evidence.state === 'observed' || evidence.state === 'partial';
+  const notYetKnown = q.lens === 'as-known' && evidence.provenance?.observedAt != null &&
+    evidence.provenance.observedAt > q.knowledgeAsOf;
+  const eligible = (evidence.state === 'observed' || evidence.state === 'partial') && !notYetKnown;
   const mayInterpret = eligible && selected.status === 'selected' && typeof interpret === 'function';
   const prediction = mayInterpret ? interpret(selected.snapshot) : null;
   const metadataValid = !!(derivation && selected.status === 'selected' &&
@@ -122,10 +124,11 @@ export function temporalPerspective({ query, source, journal, interpret, derivat
     evidence, model: { status: selected.status, revision: selected.revision ?? null,
       savedAt: selected.savedAt ?? null, ...((selected.reason) ? { reason: selected.reason } : {}) },
     interpretation: mayInterpret ? { status: 'recomputed-with-pinned-model', value: prediction } :
-      { status: 'unavailable', reason: !eligible ? 'NO_OBSERVED_EVIDENCE' : selected.reason ?? 'NO_PINNED_INTERPRETER' },
+      { status: 'unavailable', reason: notYetKnown ? 'EVIDENCE_NOT_YET_KNOWN' : !eligible ? 'NO_OBSERVED_EVIDENCE' : selected.reason ?? 'NO_PINNED_INTERPRETER' },
     historicalBelief: historicalDerivation ? 'derivation-metadata-present-not-independently-verified' : 'not-proven',
     limitations: [
       ...(evidence.state !== 'observed' ? ['source-coverage-not-complete'] : []),
+      ...(notYetKnown ? ['evidence-after-knowledge-time'] : []),
       ...(selected.status === 'unavailable' ? ['model-history-unavailable'] : []),
       ...(!historicalDerivation && q.lens === 'as-known' ? ['archived-derivation-not-proven'] : []),
     ],
