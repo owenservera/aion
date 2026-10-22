@@ -43,3 +43,36 @@ For every confirmed defect: pinned source SHA, actual runtime, reproduction inpu
 4. Characterize large-history cost and remaining Windows/CDP acceptance gap.
 
 No new test failures or passes are asserted by this roadmap/records-only update. **Next:** targeted cross-session plus graph verification from [LAUNCH.md](LAUNCH.md); retain owner-led grouped defect handoff and non-blocking development.
+
+## 2026-10-23 — real-data survey, fidelity defects and fixes (offline)
+
+Scope: offline only; owner decision 2026-10-23 defers fresh controlled captures. Code observed at `4106b785`. Vocabulary: Build / Integrated / Locally demonstrated on synthetic data / Observed on saved real sessions (read-only). Nothing below is live-site, real-Chrome or Windows evidence, and none of it is independently accepted.
+
+### A. Real-data findings (read-only survey, 107 saved sessions, counts only)
+
+Scripts `scripts/fidelity-survey.mjs` and `scripts/proto-field-search.mjs` (commits `3ec67e46`, `7cd1fb50`): 107 ok, 0 errors, no writes detected, 29 with finished status. Evidence for every item: **Observed on saved real sessions (read-only)**.
+
+- **RD-10a — ChatGPT dialect.** 28 sessions match `chatgpt-path-ops`. After the map update (`56eed0dc`), about 590 previously unmapped real protocol events are recognised; 374 redacted-shape and 14 type-less events remain unmapped. Map semantics are inferred. Status: Build.
+- **RD-10b — join links nothing on real ChatGPT data.** 0 verified / partial / near_match of 60 ChatGPT assistant turns across 11 sessions (68 assistant turns in 19 sessions were diagnosed in total; the other 8 are Claude). Every saved ChatGPT turn is exactly 13 characters (the hidden heading label), so the saved DOM came from the old turn extractor. The generic text-aware ranking fix (`7b7e3306`, `src/capture/page-agent.js`) is verified only on synthetic DOM structures; its effect on the real page is UNVERIFIED until a fresh capture. Status: finding observed; fix Locally demonstrated on synthetic data only.
+- **RD-10c — claude.ai transport and reply lead.** Conversation traffic is application/connect+proto, partly gzip-compressed (decoder `ac87148d`). No server-sent-events reply stream was found in the 8 Claude sessions with DOM turns. Reply text is carried partly in protobuf string field path `1.1.5.9` (top-5 in 8 of 8 sessions; best aggregation unionAll; median token Dice 0.66; presence coverage 0.71–0.73). Only about 2 distinct conversations exist in the sample (7 of 8 sessions repeat one prompt). LEAD, not an established parse. The claude typed-events map cannot match claude.ai.
+- **RD-10d — stream-arm fallback.** 29 of 47 stream-arm attempts in one Claude session failed and fell back to whole-body capture (small JSON responses).
+
+### B. Defects found by the native-shape fidelity suite (`2062f9f4`) and fixed
+
+Evidence: Locally demonstrated on synthetic data (suite: 6 of 6 variants faithful at stream, components and page layers; 3 cut variants correctly non-final).
+
+- **NS-1 — ChatGPT snapshot message id.** Fixed in `82a83ffa`: ChatGPT-style snapshot frames supply the message id (`source 'snapshot'`, not written to `doc.meta`).
+- **NS-2 — block pairing.** Fixed in `99242658`: blocks pair by rank order.
+- **NS-3 — block finality.** Fixed in `99242658`: blocks inherit message finality.
+
+### C. Reply-ranking bug (found by the acceptance lane)
+
+- **AL-1 — `texts()` ranked identifiers above short replies.** Fixed in `3796e1b2` (rank reply content before identifiers). Evidence: Locally demonstrated on synthetic data. Not independently accepted.
+
+### D. RF-1 — CRLF split across chunks
+
+- **RF-1 — exact byte spans when CRLF is split across chunks.** Fixed in `ba251fab`; resolved in the replay-fidelity suite (`034d0e21`: 10 of 10 finished synthetic sessions byte- and event-faithful). Evidence: Locally demonstrated on synthetic data.
+
+### E. Open
+
+Open items mirror the ROADMAP 2026-10-23 block and `STATE.json` `session_2026_10_23.open`. These records are not acceptance receipts.

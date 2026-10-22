@@ -16,7 +16,7 @@
   "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision. Sprint1 evidence is at 5eefb2e; prior physical LOC audit remains pinned to 34e1a913 and is not a current-source measurement. Sprint 2 independently source-exercised V8 mocks only, not native Node; 34e1a913 LOC remains historical.",
   "last_recon_date": "2026-10-22",
   "recon_baseline_sha": "49095348141646ba8d90bfc27c30e8fa0d1c6eda",
-  "last_observed_main_sha": "60e698d7fe909ea19857fe6623fa07440d00946a",
+  "last_observed_main_sha": "4106b78581df514a20604eb54cee1ec23c54bb97",
   "roadmap": "workspace/aion/qa/capture-studio/ROADMAP.md",
   "historical_executed_qa": {
     "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
@@ -165,5 +165,89 @@
       "classification": "SOURCE_MITIGATION_DELIVERED_NATIVE_AND_LIVE_ACCEPTANCE_PENDING",
       "issue64": "OPEN_PENDING_PROOF"
     }
+  },
+  "session_2026_10_23": {
+    "date": "2026-10-23",
+    "scope": "offline only; owner decision 2026-10-23: fresh controlled captures deferred",
+    "code_head_observed": "4106b78581df514a20604eb54cee1ec23c54bb97",
+    "stated_commit_range": "617f1067..5bcbc5bf",
+    "commits_on_main_after_5bcbc5bf_cited": ["ac87148d", "56eed0dc", "7b7e3306", "3ec67e46", "7cd1fb50", "4106b785"],
+    "records_panel_commit_before_base": "1b3904d1",
+    "evidence_vocabulary": ["Build", "Integrated", "Locally demonstrated on synthetic data", "Observed on saved real sessions (read-only)"],
+    "independently_accepted": "none",
+    "unit_suite": {
+      "command": "bun run test",
+      "tests": 759,
+      "pass": 758,
+      "fail": 0,
+      "todo_pre_existing": 1,
+      "basis": "last full run recorded in session; not re-run in this QA edit"
+    },
+    "qa_suites": {
+      "replay_fidelity": {
+        "synthetic_sessions_finished": 10,
+        "faithful": 10,
+        "unfinished_excluded": 2,
+        "todo_open": ["S1-F1"]
+      },
+      "native_shape_fidelity": {
+        "variants": 6,
+        "faithful": 6,
+        "cut_variants_non_final": 3
+      }
+    },
+    "real_data_survey": {
+      "method": "read-only scripts/fidelity-survey.mjs and scripts/proto-field-search.mjs; counts only; no text recorded; no writes detected",
+      "saved_sessions": 107,
+      "ok": 107,
+      "errors": 0,
+      "finished_status": 29,
+      "chatgpt_path_ops_sessions": 28,
+      "chatgpt_events_newly_recognised_approx": 590,
+      "chatgpt_events_redacted_shape_unmapped": 374,
+      "chatgpt_events_typeless_unmapped": 14,
+      "chatgpt_sessions_with_dom_turns": 11,
+      "chatgpt_assistant_turns_checked": 60,
+    "sessions_with_dom_turns_all_hosts": 19,
+    "assistant_turns_checked_all_hosts": 68,
+    "claude_assistant_turns_checked": 8,
+      "chatgpt_join_links_verified_partial_near": 0,
+      "claude_sessions_with_dom_turns": 8,
+      "claude_sse_reply_streams_found": 0,
+      "claude_reply_lead_field_path": "1.1.5.9",
+      "claude_reply_lead_top5_sessions": "8 of 8",
+      "claude_reply_lead_median_token_dice": 0.66,
+      "claude_reply_lead_presence_coverage": "0.71-0.73",
+      "claude_distinct_conversations_approx": 2,
+      "claude_stream_arm_attempts": 47,
+      "claude_stream_arm_failures": 29
+    },
+    "findings": [
+      "CHATGPT_DIALECT_PATH_OPS_MATCHED_28_SESSIONS",
+      "CHATGPT_UNMAPPED_EVENTS_REDUCED_NOT_ELIMINATED",
+      "STREAM_DOM_JOIN_ZERO_LINKS_REAL_CHATGPT",
+      "DOM_TURNS_FROM_OLD_EXTRACTOR_13_CHARACTER_TURNS",
+      "TURN_EXTRACTOR_FIX_VERIFIED_SYNTHETIC_ONLY",
+      "CLAUDE_TRANSPORT_CONNECT_PROTO_PARTLY_GZIP",
+      "CLAUDE_NO_SSE_REPLY_STREAM_FOUND",
+      "CLAUDE_TYPED_EVENTS_MAP_NO_MATCH",
+      "CLAUDE_REPLY_PATH_1_1_5_9_LEAD_NOT_ESTABLISHED",
+      "CLAUDE_STREAM_ARM_FALLBACK_29_OF_47",
+      "PERF_LONGEST_STALL_114_146MS_MISSES_100MS_TARGET_SYNTHETIC",
+      "PERF_NO_REAL_CHROME_MEASUREMENT"
+    ],
+    "open": [
+      "NO_LIVE_REAL_SITE_RUN_AFTER_CHANGES",
+      "NO_REAL_CHROME_PERFORMANCE_NUMBER",
+      "TURN_EXTRACTOR_REAL_PAGE_EFFECT_UNVERIFIED",
+      "CLAUDE_REPLY_RECONSTRUCTION_NOT_ESTABLISHED",
+      "LONGEST_STALL_100MS_TARGET_NOT_MET_SYNTHETIC",
+      "INDEPENDENT_ACCEPTANCE_NONE_L4_L5_0_OF_7_UNCHANGED",
+      "AX_0022_0023_ABSENT_FROM_EXCHANGE_JSONL",
+      "ISSUE_64_CREDENTIAL_MASKING_OPEN",
+      "LOCAL_RAW_DEFAULT_BYPASSES_STREAM_CREDENTIAL_GUARDS_BY_DESIGN_ISSUE_65",
+      "S1_F1_FAMILY_BUILD_NO_ACCEPTANCE_VERDICT_REQUIREMENT_OPEN",
+      "FRESH_CONTROLLED_CAPTURES_DEFERRED_BY_OWNER_2026_10_23"
+    ]
   }
 }

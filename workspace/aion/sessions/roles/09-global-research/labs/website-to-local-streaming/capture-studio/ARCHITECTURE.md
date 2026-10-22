@@ -1,6 +1,6 @@
 # Capture Studio — Master Architecture and Development Roadmap
 
-**Owner:** AION Global Research 09 · **Updated:** 2026-10-21 · **Product contract:** [UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md](../UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md)
+**Owner:** AION Global Research 09 · **Updated:** 2026-10-23 · **Product contract:** [UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md](../UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md)
 
 This is the single architecture and roadmap document for the tool. It separates what is **verified**, what is **source only**, and what is **not built**. Nothing here has run on the owner's Windows PC or against chatgpt.com yet.
 
@@ -118,30 +118,78 @@ Intelligence levels: (1) deterministic heuristics; (2) adaptive statistical lear
 
 A known limitation, verified: connections opened before attach are invisible to CDP. The coverage note states this, and a user-requested "reload to capture from start" action exists.
 
+### 2026-10-23 update — offline work since 617f1067
+
+Owner decision 2026-10-23: offline work only; fresh controlled captures are deferred. Code observed at main `4106b785` (working tree clean). Evidence labels: **Build** = source exists; **Integrated** = wired into derive, API or UI; **Locally demonstrated on synthetic data** = run locally on synthetic fixtures or in-process; **Observed on saved real sessions (read-only)** = counts only. Nothing below is a live-site, real-Chrome or Windows result, and nothing is independently accepted.
+
+Commit note: the stated range `617f1067..5bcbc5bf` does not cover every commit cited here. Commits on main after `5bcbc5bf` are `ac87148d`, `56eed0dc`, `7b7e3306`, `3ec67e46`, `7cd1fb50` and `4106b785`; items 4–7 and 10 below cite them. The Records panel commit `1b3904d1` predates the `617f1067` base.
+
+1. **Event identity** (`23c43e2c`): the reducer stamps `n`; event id is `sid#seq.n` (`src/replay/event-id.mjs`). Locally demonstrated on synthetic data (unit tests).
+2. **Stable join keys** (`bc1be28e`, `82a83ffa`): DOM blocks carry `ord`; assembled stream blocks carry `key = messageId:index` and `parentIndex`. Message id comes from `message_start`, `response.created`, an `item_id` fallback, or the first full-document snapshot (`source 'snapshot'`, not written to `doc.meta`). Locally demonstrated on synthetic data.
+3. **Stream-to-DOM join** (`bd42ade3`, `183a463f`, `99242658`; `src/intel/join.mjs`): statuses verified / partial / near_match / ambiguous / text_mismatch / unlinked_stream / unlinked_dom; role, markdown, entity and citation normalisation; blocks pair by rank order and inherit message finality; identical duplicate DOM elements are ambiguous. Synthetic fixtures only. Locally demonstrated on synthetic data.
+4. **Derive steps and routes** (`61b880fd`, `bc2e946e`, `a81b82c5`): guarded, deterministic `STREAM_DOM_JOIN` (160-character stream preview and sid), `STREAM_COMPONENTS` (stream map applied), and an acceptance label (`acceptance.json`; label only, not used by family builds). Routes `/join`, `/components`, `/acceptance`. Integrated; the session record gives no separate test count for these steps.
+5. **Stream-to-component maps** (`f6ae8750`, `56eed0dc`; `src/profiles/stream-map.mjs`): claude-typed-events, chatgpt-path-ops (ignore and finalize rules derived from a survey; semantics inferred) and openai-responses. Build.
+6. **Decoders and capture bounds** (`ba251fab`, `ac87148d`, `07664233`): exact byte spans when CRLF is split across chunks (RF-1; Locally demonstrated on synthetic data); zero-dependency schema-less protobuf decoder (`src/decode/protobuf.mjs`); Connect/gRPC frames inflate (gzip, deflate, deflate-raw via `node:zlib`) and expose proto strings; live-only 2 MiB JSON cap with an oversize marker (derive is uncapped); streaming byte cap splits at the boundary; pre-raw arming buffer bounded. Build, except RF-1.
+7. **Capture-path performance** (`f88d116f`, `ef66536f`, `07664233`, `4106b785`): live shape observation moved off the append path (deferred, time-sliced, sampled under load); events dataset was already buffered; DOM block normalisation cached per report. Measured on synthetic in-process runs only:
+   - the saturation lab is too noisy to claim a p99 gain (CV 23–40%);
+   - realistic chat scenario (paced SSE, DOM bursts, 6 MB JSON burst; n=3): event-loop p99 about 27–33 ms and queue-age p99 about 65–92 ms, within targets;
+   - **longest single stall 114–146 ms misses the 100 ms target** (reference with capture disabled, i.e. the load generator alone: 24–53 ms; this is not a before/after of a fix);
+   - remaining stall owners at the 5 s persist tick: gatherEvidence 41–56 ms, profiler 6–22 ms, SHAPES kv write 13–18 ms.
+
+   No real-Chrome performance number exists. Locally demonstrated on synthetic data; the 100 ms target is not met.
+8. **UI** (`1b3904d1`, `4bfdf814`, `e87a4672`): read-only Records panel, Stream-to-page panel, Page components panel, and cursor-paged events scrubbing. Build: source and vm-stub tests only; no browser run.
+9. **Tests**: `bun run test` (node --test unit suite) reports 759 tests, 758 pass, 0 fail and 1 pre-existing todo at the last full run. QA suites outside the unit suite: replay-fidelity (`617f1067`, 10/10 reported in `034d0e21`) shows 10 of 10 finished synthetic sessions byte- and event-faithful, with 2 sessions having an unfinished stream correctly excluded and one open todo (S1-F1: family build does not require an acceptance verdict). native-shape-fidelity (`2062f9f4`) shows 6 of 6 variants faithful at stream, components and page layers, with 3 cut variants correctly non-final. Locally demonstrated on synthetic data.
+
+Defect fixes and their commits are listed in `workspace/aion/qa/capture-studio/FINDINGS.md` (2026-10-23 section).
+
 ## 6. Capability matrix (16 families)
 
-States: NOT IMPLEMENTED · SOURCE IMPLEMENTED · TESTED SYNTHETIC (headless Chromium + fixtures) · TESTED REAL WEBSITE · VERIFIED WINDOWS.
+States: NOT IMPLEMENTED · SOURCE IMPLEMENTED · TESTED SYNTHETIC (headless Chromium + fixtures) · TESTED SAVED REAL SESSIONS (read-only survey) · TESTED REAL WEBSITE · VERIFIED WINDOWS.
+
+`TESTED SAVED REAL SESSIONS (read-only survey)` means counts computed read-only over the owner's saved sessions, with no live run and no text recorded. It is not a real-website test. `TESTED REAL WEBSITE` and `VERIFIED WINDOWS` stay empty.
 
 | # | Capability | State |
 | --- | --- | --- |
 | 1 | Point at an active site | TESTED SYNTHETIC |
 | 2 | Learn by watching (actions, navigation) | TESTED SYNTHETIC |
-| 3 | Discover data layers (L1/L2/L3, a11y, media) | TESTED SYNTHETIC |
+| 3 | Discover data layers (L1/L2/L3, a11y, media) | TESTED SYNTHETIC; TESTED SAVED REAL SESSIONS (read-only survey): Connect/protobuf transport observed in claude.ai traffic (reply-field path is a lead, not a parse) |
 | 4 | Identify data shapes | TESTED SYNTHETIC (v1); v2 SOURCE IMPLEMENTED |
 | 5 | Nested and mixed structures (blocks, tagged unions, maps) | TESTED SYNTHETIC (blocks, unit-tested unions) |
-| 6 | Entities, fields, relationships | SOURCE IMPLEMENTED (v2) |
+| 6 | Entities, fields, relationships | SOURCE IMPLEMENTED (v2); stream-to-DOM join TESTED SYNTHETIC; TESTED SAVED REAL SESSIONS (read-only survey): join linked 0 of 60 ChatGPT assistant turns in 11 sessions (old DOM extractor) |
 | 7 | Suggested capture rules | TESTED SYNTHETIC |
-| 8 | Visual inspect and fine-tune | SOURCE IMPLEMENTED (API + model ops); UI not yet updated for v2, families or model editor |
+| 8 | Visual inspect and fine-tune | SOURCE IMPLEMENTED (API + model ops); UI not yet updated for v2, families or model editor. Read-only Records, Stream-to-page and Page components panels: Build (source + vm-stub tests, no browser run) |
 | 9 | Live evolving preview | SOURCE IMPLEMENTED (preview and draft API) |
-| 10 | Full-fidelity recording | TESTED SYNTHETIC |
-| 11 | Streaming semantics | TESTED SYNTHETIC |
+| 10 | Full-fidelity recording | TESTED SYNTHETIC (split-CRLF exact byte spans fixed, RF-1; replay-fidelity 10 of 10 finished synthetic sessions) |
+| 11 | Streaming semantics | TESTED SYNTHETIC; dialect detection TESTED SAVED REAL SESSIONS (read-only survey): chatgpt-path-ops matched 28 sessions; claude.ai connect+proto traffic is not matched by the claude typed-events map |
 | 12 | Adaptive site profiles (versioned, rollback, drift) | TESTED SYNTHETIC (profiles, families); drift repair SOURCE |
 | 13 | Calibration and quality scoring | SOURCE IMPLEMENTED |
-| 14 | Search, replay, time travel | SOURCE IMPLEMENTED (API); partially exercised by E2E |
+| 14 | Search, replay, time travel | TESTED SYNTHETIC (replay-fidelity: 10 of 10 finished synthetic sessions faithful); cursor-paged events scrubbing Build (vm-stub only) |
 | 15 | Local ownership and interoperability | TESTED SYNTHETIC (datasets, exports) |
-| 16 | Privacy, permissions, resource control | TESTED SYNTHETIC |
+| 16 | Privacy, permissions, resource control | TESTED SYNTHETIC; default local-raw capture mode bypasses stream credential guards by design, per owner direction in issue #65; issue #64 open |
 
 No row is TESTED REAL WEBSITE or VERIFIED WINDOWS yet.
+
+### Real-data findings and open items (2026-10-23)
+
+**Observed on saved real sessions (read-only).** Read-only survey scripts (`scripts/fidelity-survey.mjs`, `scripts/proto-field-search.mjs`) over the owner's 107 saved sessions: 107 ok, 0 errors, no writes detected, 29 with finished status. Only counts were recorded; no text, URLs or session ids.
+
+- **ChatGPT dialect:** real ChatGPT uses the path-ops dialect (28 sessions matched `chatgpt-path-ops`). After the map update about 590 previously unmapped protocol events are recognised; 374 redacted-shape and 14 type-less events remain unmapped.
+- **Stream-to-DOM join links nothing on real ChatGPT data:** 0 verified, partial or near-match links across the 60 ChatGPT assistant turns in 11 sessions that have saved DOM turns (the survey diagnosed 68 assistant turns in 19 sessions in total; the other 8 turns are Claude, whose protocol produces no stream message to join). The saved DOM turns came from the old turn extractor; every saved ChatGPT turn is exactly 13 characters (a hidden heading label). The extractor fix (generic, text-aware ranking) is verified only on synthetic DOM structures. Its effect on the real page is unverified until a fresh capture.
+- **claude.ai:** conversation traffic is `application/connect+proto`, partly gzip-compressed. No server-sent-events reply stream was found in the 8 Claude sessions with DOM turns, and the claude typed-events map cannot match claude.ai. Reply text is carried partly in protobuf string field path `1.1.5.9` (top-5 in 8 of 8 sessions; best aggregation unionAll; median token Dice 0.66; presence coverage 0.71–0.73). This is a **lead, not an established parse**: the sample holds only about 2 distinct conversations (7 of 8 sessions repeat one prompt).
+- **Stream arm:** 29 of 47 stream-arm attempts in one Claude session fell back to whole-body capture (small JSON responses).
+
+**Open list (not verified):**
+
+- Any live run on a real site after these changes.
+- Real-Chrome performance (no number exists).
+- The turn-extractor effect on the real ChatGPT page.
+- Claude reply reconstruction.
+- The 100 ms longest-stall target (synthetic: 114–146 ms, missed).
+- Independent acceptance: none; L4/L5 0/7 unchanged.
+- Development / Track B acknowledgement of the Studio consolidation: AX-0022/0023 still absent from `EXCHANGE.jsonl`.
+- Issue #64 (credential masking): open. The default capture mode is local-raw, which bypasses the stream credential guards by design per owner direction in issue #65.
+- S1-F1 (family build does not require an acceptance verdict): OPEN.
+- Owner decision 2026-10-23: offline work only; fresh controlled captures deferred.
 
 ## 7. Roadmap (intelligence-first order)
 
