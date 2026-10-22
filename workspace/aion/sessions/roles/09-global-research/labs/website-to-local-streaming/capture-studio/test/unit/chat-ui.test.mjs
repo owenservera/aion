@@ -75,8 +75,12 @@ test('controls are labelled, placeholder is the plain composer text, and hit are
   assert.match(html, /button, select, input\[type=text\], textarea, summary, a\.hit \{ min-height: 44px; \}/);
   assert.match(html, /\.pick \{[^}]*min-height: 44px/);
   assert.match(html, /:focus-visible/);
-  for (const label of ['Open a new tab', 'Use a tab I already have open', 'Connect and start recording', 'Send message…', 'Send now', 'Finish capture', 'Also close the tab Studio opened', 'Check again (read-only)', 'Switch to Chrome', 'Resolve draft in Chrome', 'Calibrate sites', 'Recover request status', 'Check status'])
+  for (const label of ['Open a new tab', 'Use a tab I already have open', 'Connect and start recording', 'Finish capture', 'Also close the tab Studio opened', 'Check again (read-only)', 'Send again', 'Copy my message', 'Resolve draft in Chrome', 'Calibrate sites'])
     assert.ok(html.includes(label), label);
+  // One inline Send. The old confirmation dialog, the re-post recovery and the Switch-to-Chrome button are gone.
+  assert.match(html, /<button type="button" class="primary" id="btnSend" disabled>Send<\/button>/);
+  for (const gone of ['Send message…', 'Send now', 'Don’t send', 'confirmPanel', 'confirmBox', 'Recover request status', 'Check status', 'Discard this request', 'btnSwitch'])
+    assert.ok(!html.includes(gone), gone + ' was removed');
   assert.match(html, /We can’t confirm your message was sent\. Studio will not send it again\./);
   assert.match(html, /@media \(min-width: 1100px\)[\s\S]*340px/);
   // Progressive disclosure: Details is collapsed on narrow screens and only forced open on wide ones by script.
@@ -86,15 +90,14 @@ test('controls are labelled, placeholder is the plain composer text, and hit are
   assert.doesNotMatch(html.slice(html.indexOf('<style>'), html.indexOf('</style>')), /(?<![-(])min-width:\s*(?!0\b)\d{3,}px/);
   assert.match(html, /@media \(max-height: 640px\) \{ \.composer \{ position: static;/);
   assert.ok(!html.includes('Send the same request again'), 'ambiguous resend label removed');
-  assert.match(html, /uses the same request ID and does not repeat an already registered send/);
+  assert.ok(!html.includes('same request ID'), 'no same-ID re-post wording remains');
 });
 
-test('keyboard contract: Enter is a newline, Ctrl/Cmd+Enter opens confirmation, Esc closes only confirmation', () => {
-  assert.match(source, /e\.key === 'Enter' && \(e\.ctrlKey \|\| e\.metaKey\)\) \{ e\.preventDefault\(\); openConfirm\(\); \}/);
-  assert.match(source, /e\.key === 'Escape' && S\.confirmOpen/);
-  const keydown = source.slice(source.indexOf("$('#prompt').addEventListener('keydown'"), source.indexOf("document.addEventListener('keydown'"));
-  assert.doesNotMatch(keydown, /sendNow/, 'Ctrl+Enter never sends');
-  assert.equal((source.match(/sendNow\(/g) ?? []).length, 3, 'definition plus exactly two click handlers');
+test('keyboard contract: Enter is a newline and no keyboard shortcut sends', () => {
+  assert.doesNotMatch(source, /addEventListener\('keydown'/, 'no key handler at all: Enter stays a plain newline');
+  assert.doesNotMatch(source, /ctrlKey|metaKey/, 'no Ctrl/Cmd+Enter send shortcut');
+  assert.doesNotMatch(source, /confirmOpen|openConfirm|closeConfirm|confirmBox/, 'confirmation step removed');
+  assert.match(source, /\$\('#btnSend'\)\.addEventListener\('click', sendMessage\)/);
 });
 
 test('existing pages stay: default view is Capture, /drive remains, Chat is linked additively', () => {
@@ -248,7 +251,7 @@ test('service reason codes become plain sentences and unknown codes stay visible
   assert.match(ui.uncertaintyText('partial-draft-possible'), /Nothing is known to have been sent/);
   assert.match(ui.finishErrorText('CAPTURE_STOP_FAILED'), /recording stopped/);
   assert.match(ui.explainError({ status: 409, code: 'STALE_REVISION', message: 'STALE_REVISION' }), /nothing was sent/);
-  assert.match(ui.explainError({ status: 409, message: 'DRIVE_LEASE_BUSY' }), /Live drive/);
+  assert.equal(ui.explainError({ status: 409, message: 'DRIVE_LEASE_BUSY' }), 'A Chat conversation or a drive job holds the browser. Finish it in Chat or in Live drive.');
   assert.match(ui.explainError({ status: 409, message: 'ONE_TURN_LIMIT' }), /one message per conversation/);
   assert.match(ui.explainError({ status: 500, message: 'WEIRD_THING' }), /weird thing/);
   assert.equal(ui.explainError({ status: 400, message: 'Message was too long' }), 'Message was too long');
@@ -293,10 +296,10 @@ test('HTTP ambiguity: network loss, 5xx and unreadable replies keep the key; 4xx
   assert.equal(ui.isAmbiguous({ status: 200, malformed: true }), true);
   for (const status of [400, 401, 403, 404, 409, 422]) assert.equal(ui.isAmbiguous({ status }), false, String(status));
   assert.notEqual(ui.newKey(), ui.newKey());
-  // No automatic retry: one POST site for turns, and the same-key recovery is a button handler only.
-  assert.match(source, /\$\('#btnRecover'\)\.addEventListener\('click', \(\) => sendNow\(true\)\)/);
+  assert.equal(ui.isAmbiguous({ status: 408 }), true, 'request timeout is ambiguous');
+  // No automatic retry: exactly one POST site for turns, and no timer ever reaches it.
   assert.equal((source.match(/'\/turns'/g) ?? []).length, 1);
-  assert.doesNotMatch(source, /setTimeout\([^)]*sendNow/);
+  assert.doesNotMatch(source, /setTimeout\([^)]*(sendMessage|sendAgain)/);
 });
 
 test('polling: about 1s while active, slower when idle, stops when closed', () => {
@@ -332,4 +335,384 @@ test('conversation labels, target hints and phase words are plain and honest', (
   assert.match(ui.targetHint({ site: 'claude', recorderOwner: { sessionId: 's', kind: 'unknown' } }), /already being recorded/i);
   assert.match(ui.targetHint({ site: null }), /doesn’t support/);
   assert.equal(ui.targetHint({ site: 'claude', visibility: 'unknown', recorderOwner: null, ownedByStudio: false }), '');
+});
+
+
+/* ---------------- Chat UI hardening: unknown outcomes, honest status, rendering, contrast ---------------- */
+const fnBody = (name) => { const i = source.indexOf(name); assert.ok(i >= 0, name); return source.slice(i, source.indexOf('\n  }\n', i)); };
+const unknownSnap = (extra = {}) => ready({ ...extra });
+const pend = (extra = {}) => ({ convId: 'c1', key: 'k1', prompt: 'hello', expectedRevision: 3, priorTurnId: null, ...extra });
+
+test('no code path posts to /turns except the one explicit send; the same-key re-post is gone', () => {
+  assert.equal((source.match(/\/turns/g) ?? []).length, 1, 'one reference to the turns route');
+  const send = fnBody('async function sendMessage()');
+  assert.match(send, /'\/turns', \{ method: 'POST', body \}/);
+  assert.match(send, /key: newKey\(\)/);
+  assert.match(send, /if \(!snap \|\| S\.submitting \|\| S\.pending\) return;/, 'never while a request is pending or unknown');
+  // sendMessage is reached only from the Send button and the user-clicked Send again.
+  assert.equal((source.match(/\bsendMessage\(/g) ?? []).length, 2, 'definition plus sendAgain');
+  assert.equal((source.match(/addEventListener\('click', sendMessage\)/g) ?? []).length, 1);
+  assert.match(source, /\$\('#btnSendAgain'\)\.addEventListener\('click', sendAgain\)/);
+  assert.doesNotMatch(source, /\bretry\b(?! by itself)|btnRecover|btnDiscard|btnStatus|Recover request status/);
+  assert.ok(!html.includes('Recover request status'));
+  // Reconcile is its own read-only route and never the turns route.
+  const rec = fnBody('async function reconcile(');
+  assert.doesNotMatch(rec, /turns/);
+  assert.match(rec, /\/reconcile', \{ method: 'POST', body: \{ expectedRevision: Number\(S\.snap\.revision\) \} \}/);
+});
+
+test('unknown send outcome keeps the composer locked; only a read-only check that finds nothing, or Send again, releases it', () => {
+  const snap = unknownSnap();
+  // Network loss / 5xx / timeout / unreadable reply => unknown, not "Not sent".
+  for (const err of [{ status: 0 }, { status: 502 }, { status: 408 }, { status: 200, malformed: true }]) assert.equal(ui.isAmbiguous(err), true);
+  assert.equal(ui.pendingUnknown(pend(), snap), true);
+  assert.equal(ui.pendingUnknown(pend(), snap, true), false, 'a request still in flight is not "unknown"');
+  assert.equal(ui.pendingUnknown(pend({ convId: 'other' }), snap), false);
+  // The catch branch for an unknown outcome keeps the pending request (and so the lock) and never prints "Not sent".
+  const send = fnBody('async function sendMessage()');
+  const ambiguous = send.slice(send.indexOf('if (isAmbiguous(e))'), send.indexOf('} else {', send.indexOf('if (isAmbiguous(e))')));
+  assert.match(ambiguous, /savePending\(\)/);
+  assert.doesNotMatch(ambiguous, /clearPending|Not sent/);
+  // Composer is locked while pending is unknown.
+  assert.match(source, /prompt\.readOnly = locked \|\| S\.submitting/);
+  assert.match(source, /const check = canSend\(snap, \{ prompt: prompt\.value, busy: S\.submitting \|\| locked \}\)/);
+  // A check releases only when no turn was registered and the service itself is not uncertain.
+  assert.equal(ui.checkFoundNoMessage(pend(), snap), true);
+  assert.equal(ui.checkFoundNoMessage(pend(), ready({ turn: { id: 't9', phase: 'observed', send: { state: 'observed' } } })), false, 'a registered turn is never released');
+  assert.equal(ui.checkFoundNoMessage(pend(), ready({ state: 'needs-reconciliation' })), false);
+  assert.equal(ui.checkFoundNoMessage(pend(), ready({ turn: { id: 'u', phase: 'uncertain', send: { state: 'uncertain' } } })), false);
+  assert.equal(ui.checkFoundNoMessage(pend({ priorTurnId: 'a1' }), ready({ turn: blockedTurn() })), true, 'an older blocked, never-sent turn does not hold the lock');
+  assert.equal(ui.checkFoundNoMessage(null, snap), false);
+  // Banner copy and guidance.
+  const v = ui.uncertainView(snap, { pending: true, detail: 'Could not reach the Studio.' });
+  assert.match(v.headline, /^We can’t confirm your message was sent\. Studio will not send it again\.$/);
+  assert.match(v.lines.join(' '), /No confirmation came back.*Could not reach the Studio/);
+  assert.match(v.lines.join(' '), /can appear twice/);
+  assert.equal(ui.chromeGuidance(snap, true), 'Open the tab in Chrome to see whether it was sent.');
+  assert.match(ui.chromeGuidance(ready({ binding: { title: 'ChatGPT' } }), true), /^Open the tab in Chrome to see whether it was sent\. It’s the tab “ChatGPT”/);
+  // Send again: one click, new key through the same single send path, hidden for a service-side uncertain turn.
+  const again = fnBody('function sendAgain()');
+  assert.match(again, /clearPending\(\)/);
+  assert.match(again, /isUncertain\(S\.snap\)\) return/);
+  assert.match(again, /sendMessage\(\)/);
+  assert.match(source, /\$\('#btnSendAgain'\)\.hidden = !\(pend && !server\)/);
+  assert.match(html, /id="btnSendAgain" hidden>Send again<\/button>/);
+  // The tab guidance is plain text, not a control.
+  assert.match(html, /<p id="chromeGuide">Open the tab in Chrome to see whether it was sent\.<\/p>/);
+  assert.doesNotMatch(html, /<button[^>]*>\s*Switch to Chrome/);
+});
+
+test('rejections: 409 advice is per code; Not sent is printed only when the service said not-attempted', () => {
+  const rej = (status, code, data = {}) => ui.sendRejection(Object.assign(new Error(code), { status, data: { code, ...data } }));
+  const stale = rej(409, 'STALE_REVISION');
+  assert.match(stale.text, /Your message is still in the box\./);
+  assert.match(stale.text, /Press Send if you still want to send it\./);
+  for (const code of ['ONE_TURN_LIMIT', 'CONVERSATION_FINISHED', 'CONVERSATION_NOT_WRITABLE', 'DRIVE_LEASE_BUSY']) {
+    const r = rej(409, code);
+    assert.doesNotMatch(r.text, /still in the box|Press Send|confirm again|Confirm again|send again/i, code);
+    assert.match(r.text, /^Studio rejected this request\. /, code);
+  }
+  assert.match(rej(409, 'ONE_TURN_LIMIT').text, /one message per conversation/);
+  assert.match(rej(409, 'CONVERSATION_FINISHED').text, /has been finished/);
+  assert.match(rej(409, 'CONVERSATION_NOT_WRITABLE').text, /can’t send/);
+  const busy = rej(409, 'DRIVE_LEASE_BUSY');
+  assert.match(busy.text, /A Chat conversation or a drive job holds the browser\. Finish it in Chat or in Live drive\./);
+  assert.deepEqual(busy.link, { href: '/drive', text: 'Open Live drive' });
+  assert.equal(stale.link, null);
+  assert.doesNotMatch(stale.text, /^Not sent/);
+  assert.match(rej(409, 'STALE_REVISION', { send: { state: 'not-attempted' } }).text, /^Not sent\. /);
+  assert.doesNotMatch(source, /'Not sent: '/, 'the old unconditional prefix is gone');
+  // The link is added as a DOM node, not markup.
+  assert.match(source, /n\.append\(' ', el\('a', \{ href: link\.href, text: link\.text \}\)\)/);
+});
+
+test('Finish is one click; early finish is relabelled; the result shows chip, reasons and the saved session', () => {
+  const live = ready({ turn: { id: 't', phase: 'observed', send: { state: 'observed' } }, reply: { state: 'streaming', text: 'Hi' } });
+  assert.deepEqual(ui.finishControl(live), { label: 'Finish anyway (capture will be incomplete)', early: true, disabled: false });
+  assert.equal(ui.finishControl(ready({ turn: live.turn, reply: { state: 'ready' } })).label, 'Finish capture');
+  assert.equal(ui.finishControl(ready()).early, false);
+  assert.equal(ui.finishControl(ready({ state: 'closed' })).disabled, true);
+  assert.equal(ui.finishControl(live, { working: true }).disabled, true);
+  assert.match(source, /\$\('#btnFinish'\)\.addEventListener\('click', finish\)/, 'no arming step');
+  assert.doesNotMatch(source, /Armed|armed|aria-pressed/);
+  assert.equal(ui.finishOutcome(live), null, 'no outcome while recording');
+  const done = ready({
+    state: 'closed', capture: { state: 'incomplete' },
+    evidence: { gates: [{ id: 'G3', state: 'unknown' }, { id: 'G4', state: 'passed' }, { id: 'G7', state: 'failed', reason: 'DRAFT_PRESENT' }, { id: 'G6' }] },
+  });
+  const out = ui.finishOutcome(done);
+  assert.deepEqual(out.chip, ['Capture incomplete', 't-warn']);
+  assert.equal(out.accepted, false);
+  assert.deepEqual(out.reasons, ['Reply finished: unknown', 'Page text and network data agree: failed (There’s text in the chat box)', 'Data extracted: unknown']);
+  assert.match(ui.finishOutcome(ready({ state: 'closed', capture: { state: 'rejected' } })).reasons[0], /didn’t report which check/);
+  const ok = ui.finishOutcome(ready({ state: 'closed', capture: { state: 'accepted' }, evidence: { gates: [{ id: 'G3', state: 'passed' }] } }));
+  assert.equal(ok.accepted, true); assert.deepEqual(ok.reasons, []);
+  // Finish bar itself: heading takes focus once, saved-session link opens a new tab and says so.
+  assert.match(html, /<h3 id="finishHeading" tabindex="-1"/);
+  assert.match(html, /id="finishLinks"/);
+  assert.match(source, /if \(out && S\.finishFocus\) \{ S\.finishFocus = false; \$\('#finishHeading'\)\.focus\(\); \}/);
+  assert.match(source, /newTabLink\('\/#session=' \+ encodeURIComponent\(sid\), 'Open saved session'\)/);
+  assert.match(source, /newTabLink\('\/#session=' \+ encodeURIComponent\(sid\), 'Open session'\)/);
+  assert.match(source, /el\('span', \{ class: 'sr', text: ' \(new tab\)' \}\)/);
+});
+
+test('status is honest: completion-unknown chip, stage headline, partial-text note, ready announcement', () => {
+  assert.deepEqual(ui.completionChip('unknown'), ['Network completion: unknown', 't-warn']);
+  assert.deepEqual(ui.completionChip(undefined), ['Network completion: unknown', 't-warn']);
+  assert.deepEqual(ui.completionChip('end-marker-seen'), ['Network completion: end marker seen', 't-info']);
+  assert.notEqual(ui.completionChip('end-marker-seen')[1], 't-ok', 'never styled as success');
+  assert.equal(ui.sourceChip('network')[0], 'Source: network stream');
+  assert.equal(ui.sourceChip('differ')[1], 't-warn');
+  assert.equal(ui.sourceChip(undefined)[0], 'Source: unknown');
+  // Chips sit beside each other in the reply and in the top chip row for a ready reply.
+  assert.match(source, /syncChips\(\$\('#replyChips'\), \[sourceChip\(reply\.source\), completionChip\(reply\.completion\)\]\)/);
+  assert.match(source, /snap\.reply\.state === 'ready' && !completionKnown\(snap\.reply\.completion\)\) out\.push\(completionChip/);
+  assert.match(html, /id="replyChips"/);
+  assert.doesNotMatch(html, /id="replyMeta"/, 'the muted note line is gone');
+  const sent = { id: 't', phase: 'observed', send: { state: 'observed' } };
+  assert.equal(ui.stageInfo(ready({ turn: sent, reply: { state: 'streaming' } })).text, 'Step 4 of 5: Reply streaming');
+  assert.equal(ui.stageInfo(null).text, 'Step 1 of 5: Connect to a site');
+  assert.equal(ui.stageInfo(ready()).text, 'Step 3 of 5: Write your message');
+  assert.equal(ui.stageInfo(draftBlocked()).text, 'Step 2 of 5: Chat box not ready');
+  assert.equal(ui.stageInfo(ready({ turn: sent, reply: { state: 'ready' } })).text, 'Step 5 of 5: Reply ready. Still recording');
+  assert.equal(ui.stageInfo(ready(), { pending: true }).text, 'Step 3 of 5: Send not confirmed');
+  assert.equal(ui.stageInfo(ready(), { submitting: true }).text, 'Step 3 of 5: Sending your message');
+  assert.equal(ui.stageInfo(ready({ state: 'closed' })).text, 'Step 5 of 5: Capture finished');
+  assert.equal(ui.replyMayBePartial({ state: 'interrupted' }), true);
+  assert.equal(ui.replyMayBePartial({ state: 'unknown' }), true);
+  assert.equal(ui.replyMayBePartial({ state: 'streaming' }), false);
+  assert.equal(ui.PARTIAL_TEXT, 'Text may be partial. Finish capture to keep what was recorded.');
+  // Ready announcement: source and completion, once, in the single polite region. Streaming text is never announced.
+  const rd = ready({ turn: sent, reply: { state: 'ready', source: 'network', completion: 'unknown' } });
+  assert.equal(ui.replyReadyText(rd), 'Reply ready. Source: network stream. Network completion: unknown');
+  assert.equal(ui.replyReadyText(ready({ turn: sent, reply: { state: 'streaming', text: 'abc' } })), '');
+  assert.match(html, /id="announce" role="status" aria-live="polite"/);
+  assert.equal((html.match(/aria-live="polite"/g) ?? []).length, 1, 'one polite live region');
+  assert.match(source, /parts\.push\(ready \|\| replyChip/);
+});
+
+test('reply text updates in place; count and age are shown; nothing is rendered as HTML', () => {
+  assert.equal(ui.replyCountText(1204, 3000), '1204 chars, updated 3s ago');
+  assert.equal(ui.replyCountText(1, 0), '1 char, updated just now');
+  assert.equal(ui.replyCountText(10), '10 chars');
+  assert.equal(ui.ago(75000), '1 min ago');
+  assert.doesNotMatch(source, /innerHTML|insertAdjacentHTML|outerHTML|document\.write/);
+  const set = fnBody('function setNodeText(');
+  assert.match(set, /appendData\(next\.slice\(prev\.length\)\)/, 'streamed growth appends to the same text node');
+  assert.match(set, /textNode\.data = next/);
+  assert.match(source, /const setText = \(node, text\) => \{ if \(node\.textContent !== text\) node\.textContent = text; \}/);
+  assert.match(source, /if \(have\.length !== want\.length \|\| want\.some\(\(n, i\) => n !== have\[i\]\)\) holder\.replaceChildren\(\.\.\.want\)/, 'blocks are only re-parented when their order changes');
+  assert.doesNotMatch(fnBody('function renderTranscript('), /replyBlocks'\)\.replaceChildren|holder\.replaceChildren\(\.\.\.\(blocks/);
+});
+
+test('structure: composer steps aside after the one send, banner focus once, links and copy button', () => {
+  assert.match(source, /\$\('#composer'\)\.hidden = messageStarted\(snap\)/);
+  // The banner is focused once per transition: keyed, and not also a role=alert (no double announcement).
+  assert.match(html, /<div class="banner" id="uncertain" tabindex="-1" aria-labelledby="uncertainHead" hidden>/);
+  assert.equal((source.match(/banner\.focus\(\)/g) ?? []).length, 1);
+  assert.match(source, /if \(unc && S\.bannerFocus !== focusKey\) \{ S\.bannerFocus = focusKey; banner\.focus\(\); \}/);
+  // Tab list empty state links to Studio; DRIVE_LEASE_BUSY links to /drive.
+  assert.match(source, /el\('a', \{ class: 'hit', href: '\/', text: 'Open Studio' \}\)/);
+  assert.deepEqual(ui.errorLink('DRIVE_LEASE_BUSY'), { href: '/drive', text: 'Open Live drive' });
+  assert.equal(ui.errorLink('STALE_REVISION'), null);
+  // Copy my message: from in-memory state only, no network and no storage read at click time.
+  const copy = fnBody('async function copyMine()');
+  assert.match(copy, /S\.pending\?\.prompt \|\| S\.sentPrompt/);
+  assert.doesNotMatch(copy, /fetch|api\(|store\.get|\$\('#prompt'\)/);
+  assert.match(source, /\$\('#btnCopy'\)\.addEventListener\('click', copyMine\)/);
+  assert.match(html, /id="btnCopy" hidden>Copy my message<\/button>/);
+});
+
+test('chip tones use text-safe tokens that reach 4.5:1 in light and dark, without touching the global palette', () => {
+  const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  const hexOf = (m) => [1, 3, 5].map((i) => parseInt(m.slice(i, i + 2), 16));
+  const lum = (m) => { const [r, g, b] = hexOf(m).map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const mix = (a, b, p) => '#' + hexOf(a).map((v, i) => Math.round(v * p + hexOf(b)[i] * (1 - p)).toString(16).padStart(2, '0')).join('');
+  const rootBlock = css.slice(css.indexOf(':root'), css.indexOf('@media (prefers-color-scheme: dark)'));
+  const darkBlock = css.slice(css.indexOf('@media (prefers-color-scheme: dark)'), css.indexOf('* { box-sizing'));
+  const tokens = (block) => Object.fromEntries([...block.matchAll(/--chip-(ok|info|warn|bad|mute):\s*(#[0-9A-Fa-f]{6})/g)].map((m) => [m[1], m[2]]));
+  const get = (block, name) => block.match(new RegExp('--' + name + ':\\s*(#[0-9A-Fa-f]{6})'))[1];
+  for (const [label, block] of [['light', rootBlock], ['dark', darkBlock]]) {
+    const t = tokens(block); assert.deepEqual(Object.keys(t).sort(), ['bad', 'info', 'mute', 'ok', 'warn'], label);
+    const paper = get(block, 'paper'), panel = get(block, 'panel'), hover = get(block, 'hover');
+    const backgrounds = [paper, panel, hover, mix(get(block, 'l1'), panel, 0.08), mix(get(block, 'act'), panel, 0.07), mix(get(block, 'gap'), panel, 0.06)];
+    for (const [name, color] of Object.entries(t)) for (const bg of backgrounds) assert.ok(ratio(color, bg) >= 4.5, `${label} ${name} ${color} on ${bg}: ${ratio(color, bg).toFixed(2)}`);
+  }
+  // Chip classes use the new tokens only; the shared palette values are unchanged.
+  assert.match(css, /\.t-ok \{ color: var\(--chip-ok\); \} \.t-info \{ color: var\(--chip-info\); \} \.t-warn \{ color: var\(--chip-warn\); \} \.t-bad \{ color: var\(--chip-bad\); \} \.t-mute \{ color: var\(--chip-mute\); \}/);
+  assert.match(css, /--act: #C2721B;/); assert.match(css, /--ok: #2E8C6E;/); assert.match(css, /--l1: #2F6FB3;/);
+});
+
+
+/* ---------------- Page wiring against a minimal DOM fake (no browser, no DOM library) ---------------- */
+test('every element chat.mjs looks up exists in chat.html: required via $, optional via opt*, and error-slot selectors', () => {
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  const required = [...source.matchAll(/\$\('#([A-Za-z0-9_-]+)'\)/g)].map((m) => m[1]);
+  const optional = [...source.matchAll(/\bopt(?:Text|Hidden)?\('#([A-Za-z0-9_-]+)'/g)].map((m) => m[1]);
+  const literal = [...source.matchAll(/'#([A-Za-z0-9_-]+)'/g)].map((m) => m[1]); // includes selectors passed to setError/reconcile
+  assert.ok(required.length > 30);
+  assert.ok(optional.length >= 1, 'the optional-element helper is in use');
+  for (const id of new Set([...required, ...optional, ...literal])) assert.ok(ids.has(id), 'missing #' + id);
+  for (const gone of ['btnDont', 'confirmBox', 'btnSendNow', 'btnSwitch', 'switchNote', 'btnStatus', 'pendingError', 'btnRecover', 'btnDiscard'])
+    assert.ok(!source.includes(gone) && !html.includes(gone), gone + ' stays gone');
+  // Optional helpers are only for informational notes; every control that is clicked or typed into is required.
+  for (const id of optional) assert.doesNotMatch(id, /^btn|^prompt$|^composer$|^site$/, id + ' is a control and must be required');
+});
+
+class FakeEl {
+  constructor(tag = 'div', id = '') {
+    Object.assign(this, { tag, id, children: [], dataset: {}, listeners: {}, attrs: {}, hidden: false, disabled: false, readOnly: false, value: '', textContent: '', open: false, checked: false, className: '' });
+  }
+  append(...kids) { this.children.push(...kids); }
+  replaceChildren(...kids) { this.children = kids; }
+  addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); }
+  setAttribute(k, v) { this.attrs[k] = v; }
+  focus() {}
+  async dispatch(type, event = {}) { for (const fn of this.listeners[type] ?? []) await fn({ preventDefault() {}, ...event }); }
+}
+const textNode = () => ({ data: '', appendData(s) { this.data += s; } });
+
+// Serves one ready conversation. The first POST to /turns fails like a lost connection; later ones are accepted.
+function fakeStudio({ failFirstTurn = true } = {}) {
+  const posts = [];
+  let turnCalls = 0;
+  const snapshot = ready();
+  const sent = ready({ revision: 4, turn: { id: 't1', phase: 'observed', send: { state: 'observed' } }, reply: { state: 'waiting', text: '', source: 'page', completion: 'unknown' } });
+  const answer = (status, body) => ({ ok: status < 400, status, statusText: '', text: async () => JSON.stringify(body) });
+  const fetchStub = async (url, init = {}) => {
+    const method = init.method ?? 'GET', p = String(url).replace(/^\/api\/v1/, '');
+    if (method === 'POST') posts.push({ path: p, body: init.body ? JSON.parse(init.body) : null });
+    if (p === '/conversation-targets') return answer(200, { sites: [{ id: 'chatgpt' }], targets: [] });
+    if (p === '/conversations' && method === 'GET') return answer(200, { conversations: [{ id: 'c1', state: 'ready', site: 'chatgpt', revision: 3 }] });
+    if (p === '/conversations/c1' && method === 'GET') return answer(200, { conversation: snapshot });
+    if (p === '/conversations/c1/reconcile') return answer(200, { conversation: snapshot });
+    if (p === '/conversations/c1/turns') {
+      turnCalls++;
+      if (failFirstTurn && turnCalls === 1) throw new TypeError('network down');
+      return answer(200, { conversation: sent });
+    }
+    return answer(404, { error: 'not found' });
+  };
+  return { posts, fetchStub, turnPosts: () => posts.filter((x) => x.path.endsWith('/turns')), otherPosts: () => posts.filter((x) => !x.path.endsWith('/turns')) };
+}
+const settle = async () => { for (let i = 0; i < 25; i++) await new Promise((r) => setImmediate(r)); };
+
+let bootCount = 0;
+// Installs the globals the page needs, evaluates a fresh copy of chat.mjs (which boots itself), and always restores them.
+async function withPage({ omit = [], failFirstTurn = true } = {}, body) {
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]).filter((id) => !omit.includes(id));
+  const byId = new Map(ids.map((id) => [id, new FakeEl('div', id)]));
+  const windowListeners = {}, warnings = [], unhandled = [];
+  const store = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
+  const studio = fakeStudio({ failFirstTurn });
+  const fakeDocument = {
+    hidden: false,
+    getElementById: (id) => byId.get(id) ?? null,
+    querySelector: (sel) => (sel.startsWith('#') ? byId.get(sel.slice(1)) ?? null : null),
+    querySelectorAll: (sel) => (sel === 'input[name=mode]' ? ['modeNew', 'modeExisting'].map((id) => byId.get(id)) : []),
+    createElement: (tag) => new FakeEl(tag),
+    createTextNode: () => textNode(),
+    addEventListener() {},
+  };
+  const saved = Object.fromEntries(['document', 'window', 'fetch', 'sessionStorage', 'localStorage'].map((k) => [k, Object.getOwnPropertyDescriptor(globalThis, k)]));
+  const realWarn = console.warn, onUnhandled = (e) => unhandled.push(e);
+  process.on('unhandledRejection', onUnhandled);
+  Object.assign(globalThis, {
+    document: fakeDocument, fetch: studio.fetchStub, sessionStorage: store(), localStorage: store(),
+    window: { matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener: (t, f) => { windowListeners[t] = f; } },
+  });
+  console.warn = (...a) => warnings.push(a.join(' '));
+  try {
+    const href = new URL('../../src/studio/ui/chat.mjs?fake=' + (++bootCount), import.meta.url).href;
+    await import(href);
+    await settle();
+    return await body({ byId, studio, warnings, unhandled, el: (id) => byId.get(id) });
+  } finally {
+    windowListeners.pagehide?.(); // stops the poll timer
+    console.warn = realWarn;
+    process.off('unhandledRejection', onUnhandled);
+    for (const [k, d] of Object.entries(saved)) { if (d) Object.defineProperty(globalThis, k, d); else delete globalThis[k]; }
+  }
+}
+
+test('initialising the page against a DOM fake wires every control and does not throw', async () => {
+  await withPage({}, async ({ el, studio, warnings, unhandled }) => {
+    for (const id of ['btnConnect', 'btnTabs', 'btnSend', 'btnSendAgain', 'btnCopy', 'btnReconcile', 'btnCheck', 'btnFinish', 'btnNew'])
+      assert.equal(el(id).listeners.click?.length, 1, id + ' has exactly one click handler');
+    assert.ok(el('prompt').listeners.input?.length >= 1);
+    assert.equal(el('prompt').listeners.keydown, undefined, 'no keyboard shortcut sends');
+    // The whole flow ran: sites loaded, the open conversation was fetched and rendered.
+    assert.equal(el('site').children.length, 1);
+    assert.match(el('stageLine').textContent, /^Step 3 of 5: Write your message$/);
+    assert.equal(el('btnSend').disabled, true, 'empty message: Send is off');
+    assert.equal(el('uncertain').hidden, true);
+    assert.equal(el('btnSendAgain').hidden, true);
+    assert.deepEqual(unhandled, []);
+    assert.deepEqual(warnings, [], 'nothing optional is missing');
+    assert.deepEqual(studio.posts, [], 'booting never posts anything');
+  });
+});
+
+test('one Send click posts one turn; an unknown outcome shows the banner; Check again posts only /reconcile; nothing re-posts by itself', async () => {
+  await withPage({}, async ({ el, studio }) => {
+    el('prompt').value = 'hello';
+    await el('prompt').dispatch('input');
+    assert.equal(el('btnSend').disabled, false);
+    await el('btnSend').dispatch('click');
+    await settle();
+    assert.equal(studio.turnPosts().length, 1, 'exactly one POST /turns for one click');
+    assert.equal(studio.turnPosts()[0].body.prompt, 'hello');
+    assert.equal(studio.turnPosts()[0].body.confirm, true);
+    // Unknown outcome: banner, plain Chrome hint, Check again and a deliberate Send again; composer locked.
+    assert.equal(el('uncertain').hidden, false);
+    assert.equal(el('uncertainHead').textContent, 'We can’t confirm your message was sent. Studio will not send it again.');
+    assert.match(el('chromeGuide').textContent, /Chrome/);
+    assert.equal(el('btnSendAgain').hidden, false);
+    assert.equal(el('prompt').readOnly, true);
+    assert.equal(el('btnSend').disabled, true);
+    await settle(); await settle();
+    assert.equal(studio.turnPosts().length, 1, 'no automatic re-post while the outcome is unknown');
+    // Check again is read-only: it reaches /reconcile and never /turns.
+    const before = studio.posts.length;
+    await el('btnReconcile').dispatch('click');
+    await settle();
+    assert.deepEqual(studio.posts.slice(before).map((x) => x.path), ['/conversations/c1/reconcile']);
+    assert.equal(studio.turnPosts().length, 1);
+    assert.equal(studio.posts.slice(before)[0].body.confirm, undefined);
+    assert.equal(studio.posts.slice(before)[0].body.prompt, undefined);
+  });
+});
+
+test('Send again posts a NEW idempotency key and keeps the same text; the first key is never reused', async () => {
+  await withPage({}, async ({ el, studio }) => {
+    el('prompt').value = 'hello';
+    await el('btnSend').dispatch('click');
+    await settle();
+    assert.equal(studio.turnPosts().length, 1);
+    const first = studio.turnPosts()[0].body.key;
+    assert.ok(first && typeof first === 'string');
+    await el('btnSendAgain').dispatch('click');
+    await settle();
+    const turns = studio.turnPosts();
+    assert.equal(turns.length, 2, 'one deliberate extra post');
+    assert.notEqual(turns[1].body.key, first, 'a new key');
+    assert.equal(turns[1].body.prompt, 'hello');
+    assert.equal(turns.filter((t) => t.body.key === first).length, 1, 'the first key was posted exactly once');
+    assert.equal(el('uncertain').hidden, true, 'the second send was accepted');
+  });
+});
+
+test('a missing optional note is skipped and logged once; a missing required control fails loudly', async () => {
+  await withPage({ omit: ['oneTurnNote'] }, async ({ warnings, unhandled, el }) => {
+    assert.match(el('stageLine').textContent, /Step 3 of 5/, 'the page still finished wiring');
+    assert.deepEqual(unhandled, []);
+    assert.equal(warnings.filter((w) => w.includes('#oneTurnNote')).length, 1, 'logged exactly once');
+  });
+  await assert.rejects(withPage({ omit: ['btnSendAgain'] }, async () => {}), TypeError, 'a required control throws at boot, which this test catches');
+});
+
+test('chat.mjs never renders HTML strings: no innerHTML, insertAdjacentHTML, outerHTML or document.write', () => {
+  assert.doesNotMatch(source, /innerHTML|insertAdjacentHTML|outerHTML|document\.write/);
+  assert.match(source, /textContent/);
 });

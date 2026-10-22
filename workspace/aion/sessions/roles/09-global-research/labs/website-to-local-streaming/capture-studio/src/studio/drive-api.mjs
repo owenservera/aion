@@ -117,9 +117,15 @@ export function createDriveApi({ dataDir, port = 9222, drive = driveSite, campai
         }
       }
       job.state = controller.signal.aborted ? 'cancelled' : job.progress.some((p) => p.state === 'failed') ? 'failed' : 'done';
-    } catch {
+    } catch (e) {
       job.state = controller.signal.aborted ? 'cancelled' : 'failed';
-      job.error = controller.signal.aborted ? null : 'Drive job failed; no automatic retry was attempted';
+      // A lease conflict means another client already owns the browser. Say who, because the fix is
+      // to finish that work, not to retry this job.
+      job.error = controller.signal.aborted ? null
+        : e?.code === 'DRIVE_LEASE_BUSY'
+          ? 'The capture browser is in use by ' + (e.holder?.kind === 'conversation' ? 'a Chat conversation' : 'another job')
+            + '. Finish it there, then start this run again. Nothing was sent.'
+          : 'Drive job failed; no automatic retry was attempted';
     } finally {
       if (controller.signal.aborted) job.state = 'cancelled';
       for (const p of job.progress) if (['pending', 'running'].includes(p.state)) { p.state = 'skipped'; p.reason = 'Job stopped before completion'; }

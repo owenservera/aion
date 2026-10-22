@@ -91,6 +91,17 @@ test('deferred current driver retains concurrency lock until cleanup, with no ac
   assert.equal(next.status, 202); await completed(request, next.body.job.id);
 });
 
+test('a browser lease held by a Chat conversation is named in the job error, not flattened', async (t) => {
+  const { request } = harness(t, { drive: async () => { throw Object.assign(new Error('busy'), { code: 'DRIVE_LEASE_BUSY', holder: { kind: 'conversation', id: 'c1' } }); } });
+  const created = await request('jobs', 'POST', { mode: 'drive', sites: ['chatgpt'], dryRun: false, confirm: true });
+  assert.equal(created.status, 202);
+  const job = await completed(request, created.body.job.id);
+  assert.equal(job.state, 'failed');
+  assert.match(job.error, /Chat conversation/, 'says who holds the browser');
+  assert.match(job.error, /Nothing was sent/);
+  assert.doesNotMatch(job.error, /no automatic retry was attempted/, 'the generic text is not used for a known conflict');
+});
+
 test('campaign cancellation finishes current site then skips remaining sites without resend', async (t) => {
   const started = deferred(), cleanup = deferred(), sites = [];
   t.after(() => cleanup.resolve());

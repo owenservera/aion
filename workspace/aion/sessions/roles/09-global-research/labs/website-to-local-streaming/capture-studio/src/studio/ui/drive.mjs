@@ -238,11 +238,12 @@ function updateControls() {
 }
 
 /* ---------------- starting a job ---------------- */
-function numberField(id) {
+// undefined = the field was left empty (omit it); null = the field holds an invalid value.
+function numberField(id, min = 0) {
   const raw = $(id).value.trim();
   if (!raw) return undefined;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : undefined;
+  return Number.isFinite(n) && Number.isInteger(n) && n >= min ? n : null;
 }
 async function launch(dryRun) {
   const t = currentTargets();
@@ -252,7 +253,13 @@ async function launch(dryRun) {
   if (!dryRun) body.confirm = true;
   const prompt = $('#prompt').value.trim();
   if (prompt) body.prompt = prompt;
-  const timeout = numberField('#timeout'), cooldown = numberField('#cooldown');
+  const timeout = numberField('#timeout', 1), cooldown = numberField('#cooldown', 0);
+  if (timeout === null || cooldown === null) {
+    $('#formError').textContent = timeout === null
+      ? 'The timeout must be a whole number of at least 1 millisecond.'
+      : 'The cooldown must be a whole number of 0 milliseconds or more.';
+    return;
+  }
   if (timeout !== undefined) body.timeout = timeout;
   if (cooldown !== undefined) body.cooldown = cooldown;
   S.busy = true; $('#formError').textContent = '';
@@ -312,7 +319,10 @@ function summaryText(job) {
 }
 function rowChip(p, job) {
   if (p.state === 'pending') return chip('v-pending', 'Waiting');
-  if (p.state === 'running') return chip('v-running', 'Running now');
+  // A row can still say 'running' after the job stopped; never present that as live.
+  if (p.state === 'running') return job.state === 'running'
+    ? chip('v-running', 'Running now')
+    : chip('v-neutral', 'Interrupted, outcome unknown');
   if (p.state === 'skipped') return chip('v-skipped', 'Skipped');
   if (p.verdict) return verdictChip(p.verdict);
   if (p.state === 'failed') return chip('v-failed', 'Failed');
