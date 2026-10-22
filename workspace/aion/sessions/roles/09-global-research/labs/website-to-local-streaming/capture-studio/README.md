@@ -10,8 +10,7 @@ It can also drive an AI chat site for you — type one prompt, send it, read the
 the exchange — but only when you ask for it (`studio drive`, `studio campaign --execute`). Capture
 alone never touches the page.
 
-Nothing is uploaded. There is no server, no account, no telemetry and no runtime dependency outside
-Node.js itself. Captured data is private and lives **outside the repository** by default.
+Capture Studio itself writes evidence to your **local data directory outside the Git repository**. Its web server listens on localhost and does not include a cloud synchronization or telemetry service. Explicitly sending a prompt to an online AI provider is still a network action, and pushing the source repository to GitHub is separate from local evidence storage. Local raw mode can retain cookies/tokens in recorded evidence; keep the data directory off Git.
 
 - Design principles, capability matrix and roadmap: [`ARCHITECTURE.md`](ARCHITECTURE.md) (root) and
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (module map and data flow).
@@ -26,7 +25,7 @@ Node.js itself. Captured data is private and lives **outside the repository** by
 
 ### Chat: one explicit turn
 
-Open **Chat** at `/chat` after authenticating through the Studio tokenized URL. Connect a known
+Open **Chat** at `/chat` in the local Studio browser. No login token is needed in default local mode; an optional token mode is available. Connect a known
 site/tab, confirm a single send, poll its source-labelled reply, then **Finish capture**. A ready
 page-fallback reply retains network completion **unknown**, and capture remains **incomplete**,
 not verified or accepted. Uncertain sends are never
@@ -40,7 +39,7 @@ bun bin/studio.mjs chat chatgpt --prompt 'Hello' --execute --json # one actual s
 ```
 
 `--execute` explicitly authorizes a website send that may consume account quota/history.
-Prompts must be nonempty and at most 2000 characters. `--target ID` binds an existing tab;
+Prompts must be nonempty and at most 250,000 characters (the local HTTP request body also has a separate size limit). `--target ID` binds an existing tab;
 `--fresh` requests a Studio-owned tab. `--timeout 120` bounds local polling (1–900 seconds),
 not website generation. The one-shot CLI always finishes recording and leaves tabs open;
 it prints structured conversation/reply/capture evidence, not an unsupported acceptance claim.
@@ -68,8 +67,7 @@ Design rules that are enforced in code:
   `studio drive` and `campaign --execute`; a plain `record` or `capture` never touches the page.
 - **Honest coverage.** Gaps, pauses, masked spans, metadata-only streams and pre-attach blind spots
   are declared in the log and in the receipt, never hidden.
-- **Credentials never reach disk.** Cookie and auth headers are dropped, auth endpoints are
-  metadata-only, in-body tokens are masked in place and every mask is recorded on its chunk.
+- **High-fidelity local default.** `CAPTURE_STUDIO_CAPTURE_MODE=local-raw` preserves captured headers, request/response bodies, URLs and matching lifecycle metadata on your PC. This intentionally can include credentials in locally stored evidence. Set `CAPTURE_STUDIO_CAPTURE_MODE=filtered` to use the optional redaction and metadata-only rules. Both modes expose capture gaps honestly.
 - **Raw is immutable.** Every derived artifact can be rebuilt from the raw log with `derive`.
 
 ## Requirements
@@ -85,7 +83,7 @@ Design rules that are enforced in code:
 cd <capture-studio>
 
 node bin/studio.mjs doctor          # check Node, Chrome, DevTools, data folder, learner, profiles
-node bin/studio.mjs start           # open the capture browser + the studio UI (prints a tokenized URL)
+node bin/studio.mjs start           # open the capture browser + local Studio UI (no token by default)
 ```
 
 `start` launches a **separate Chrome profile** (its own window, its own sign-ins) with DevTools
@@ -313,12 +311,9 @@ rules behind them are in [`docs/HUMAN-INTERACTION.md`](docs/HUMAN-INTERACTION.md
 
 ## Studio web UI and the `/api/v1` API
 
-`studio start` / `studio serve` runs a loopback-only web UI on `127.0.0.1:7878` (override with
-`--studio-port` or `CAPTURE_STUDIO_PORT`). It prints a **tokenized URL**; opening it exchanges the
-token for an `HttpOnly`, `SameSite=Strict` cookie. Requests must carry that cookie or an
-`x-studio-token` header, and the `Host`/`Origin` headers must match `127.0.0.1:<port>` or
-`localhost:<port>` — this is what defeats DNS rebinding and cross-site requests. The server refuses
-any non-loopback bind.
+`studio start` / `studio serve` runs a local web UI on `127.0.0.1:7878` (override with
+`--studio-port` or `CAPTURE_STUDIO_PORT`). **Default:** `CAPTURE_STUDIO_ACCESS_MODE=local` opens `http://127.0.0.1:7878/` with no token, cookie exchange or recurring login prompt.
+**Optional:** `CAPTURE_STUDIO_ACCESS_MODE=token` prints a one-time startup URL and exchanges it for an `HttpOnly`, `SameSite=Strict` cookie; clients can also supply `x-studio-token`. Both modes keep localhost-only binding and standard `Host` / `Origin` checks. No LAN listener is exposed.
 
 `GET /api/v1/openapi.json` returns an OpenAPI 3.1 description of the versioned routes.
 
