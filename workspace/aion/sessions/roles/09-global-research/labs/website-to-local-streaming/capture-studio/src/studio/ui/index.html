@@ -953,6 +953,20 @@ function renderKnowledgeDrift() {
   $('#knowledgeDrift').querySelectorAll('button[data-drift]').forEach((button) =>
     button.onclick = guard(() => openKnowledgeEntity(candidates[Number(button.dataset.drift)])));
 }
+/* A source permalink is available only when Core supplied a real recording and stream.
+   It does not convert a conversation send boundary or a page-only observation into a stream. */
+function recordedEvidenceHref(source) {
+  const session = source?.session, sid = source?.sid;
+  if (typeof session !== 'string' || !session || session.length > 128 || /[\\u0000-\\u001f\\u007f]/.test(session)) return null;
+  if (typeof sid !== 'string' || !sid || sid.length > 256 || /[\\u0000-\\u001f\\u007f]/.test(sid)) return null;
+  const parts = ['session=' + encodeURIComponent(session), 'view=streams', 'sid=' + encodeURIComponent(sid)];
+  const seq = source?.seq;
+  if ((typeof seq === 'number' && Number.isSafeInteger(seq) && seq >= 0) ||
+      (typeof seq === 'string' && /^\\d+$/.test(seq) && Number.isSafeInteger(Number(seq)))) {
+    parts.push('seq=' + encodeURIComponent(String(seq)));
+  }
+  return '/#' + parts.join('&');
+}
 function knowledgeSourceLinks(history) {
   const seen = new Set();
   const ids = knowledgeSafeList(history).map((r) => r.evidence?.session ?? r.session).filter((id) => {
@@ -992,17 +1006,11 @@ async function openKnowledgeEntity(entity) {
         '</td><td>' + esc(knowledgeSafeList(r.changed).join(', ') || 'Unspecified') +
         (knowledgeSafeList(r.removed).length ? '<div class="c-gap">Explicitly removed: ' + esc(r.removed.join(', ')) + '</div>' : '') +
         '</td><td>' + esc(r.provenanceBasis || 'Recorded revision') + '</td><td>' +
-        (r.session && r.sid ? '<button class="knowledge-link" data-observation="' + i + '">Open stream</button>' : 'No stream reference') + '</td></tr>').join('') +
+        (recordedEvidenceHref(r) ? '<a class="knowledge-link" href="' + esc(recordedEvidenceHref(r)) + '">Open stream</a>' : 'No exact stream reference') + '</td></tr>').join('') +
       '</tbody></table></div>' + (history.length > 150 ? '<p class="small-note">Latest 150 revisions shown; full history available through Core API.</p>' : '') +
       '<h3>Source recordings</h3>' + knowledgeSourceLinks(history) +
       (String(e.key ?? e.typeName ?? '').trim() ? '<div class="knowledge-toolbar"><button id="knowledgeSearch">Search captured text for this key/type</button></div>' : '');
     wireKnowledgeSources(history);
-    const displayed = history.slice(-150);
-    host.querySelectorAll('button[data-observation]').forEach((b) => b.onclick = guard(async () => {
-      const rv = displayed[Number(b.dataset.observation)];
-      if (!rv?.session || !rv.sid) return toast('This revision does not identify a saved source stream.');
-      await openRecordedEvidence({session:rv.session,sid:rv.sid,seq:rv.seq,t:rv.t});
-    }));
     const searchButton = host.querySelector?.('#knowledgeSearch');
     if (searchButton) searchButton.onclick = () => {
       const value = String(e.key ?? e.typeName ?? '').trim().slice(0, 200);
@@ -1211,12 +1219,16 @@ function parseSessionDeepLink(hash) {
   const raw = hash.slice(1);
   if (/%(?![0-9a-f]{2})/i.test(raw)) return null;
   const params = new URLSearchParams(raw);
-  if ([...params.keys()].some((key) => key !== 'session' && key !== 'view')) return null;
-  if (params.getAll('session').length !== 1 || params.getAll('view').length > 1) return null;
-  const id = params.get('session'), view = params.get('view') || 'sessions';
+  if ([...params.keys()].some((key) => !['session', 'view', 'sid', 'seq'].includes(key))) return null;
+  if (['session', 'view', 'sid', 'seq'].some((key) => params.getAll(key).length > 1) ||
+      params.getAll('session').length !== 1) return null;
+  const id = params.get('session'), view = params.get('view') || 'sessions', sid = params.get('sid'), rawSeq = params.get('seq');
   if (!id || id.length > 128 || /[\u0000-\u001f\u007f]/.test(id)) return null;
-  if (view !== 'sessions' && view !== 'knowledge') return null;
-  return { id, view };
+  if (!['sessions', 'knowledge', 'streams'].includes(view)) return null;
+  if ((sid !== null || rawSeq !== null) && view !== 'streams') return null;
+  if (sid !== null && (!sid || sid.length > 256 || /[\u0000-\u001f\u007f]/.test(sid))) return null;
+  if (rawSeq !== null && (sid === null || !/^\d+$/.test(rawSeq) || !Number.isSafeInteger(Number(rawSeq)))) return null;
+  return { id, view, sid, seq: rawSeq === null ? null : Number(rawSeq) };
 }
 let deepLinkEpoch = 0;
 async function openSessionDeepLink(hash) {
@@ -1241,6 +1253,43 @@ async function openSessionDeepLink(hash) {
   if (request.view === 'knowledge') {
     show('knowledge');
     $('#knowledgeState').textContent = 'Recording selected. Choose Explore knowledge to inspect derived evidence. The derivation may be incomplete or unverified.';
+  } else if (request.view === 'streams') {
+    // Verify the stream belongs to the exact saved session before displaying any bytes.
+    let rows;
+    try { rows = await loadStreams(); }
+    catch (e) {
+      if (epoch === deepLinkEpoch) notice.textContent = 'The recording opened, but its stream list could not be read: ' + e.message;
+      return false;
+    }
+    if (epoch !== deepLinkEpoch || S.sessionId !== request.id) return false;
+    if (request.sid && !rows.some((r) => r.sid === request.sid)) {
+      notice.textContent = 'Recording opened, but the linked stream is missing or outside the available stream list. No substitute stream was selected.';
+      return false;
+    }
+    show('streams', true);
+    if (request.sid) {
+      try {
+        const opened = await openStream(request.sid);
+        if (epoch !== deepLinkEpoch || S.sessionId !== request.id) return false;
+        if (!opened) throw new Error('Stream selection changed before evidence loaded.');
+        if (request.seq !== null) {
+          const key = String(request.seq);
+          const ev = [...$('#evBody').querySelectorAll('details.ev')].find((n) => n.dataset.seq === key);
+          const raw = [...$('#rawBody').querySelectorAll('span[data-seq]')].find((n) => n.dataset.seq === key);
+          const item = ev || raw;
+          if (item) { if (ev) ev.open = true; item.scrollIntoView?.({behavior:'auto',block:'center'}); }
+          else {
+            $('#evMeta').textContent += ' · linked sequence #' + key + ' not present in this bounded preview';
+            toast('Recording and stream opened; exact sequence is unavailable in the current preview.');
+          }
+        }
+      } catch (e) {
+        if (epoch !== deepLinkEpoch) return false;
+        show('sessions');
+        notice.textContent = 'Recording opened, but the linked stream could not be loaded: ' + e.message + '. No other stream was substituted.';
+        return false;
+      }
+    }
   }
   notice.hidden = true;
   notice.textContent = '';
