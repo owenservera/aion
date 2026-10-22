@@ -26,3 +26,16 @@ Own and maintain the **skills/** directory in this existing role workspace. Inde
 ## Memory context
 
 At launch and SITREP, read all four tiers in `workspace/aion/shared/agent-memory/` and every file under this role's `memory/` (including `Curated/BEST-PRACTICES.md`). Consult Immediate every interaction. Caveman one-line lessons: max signal, min tokens, no copied trackers. Propose systemic learning in `workspace/aion/shared/agent-communications/GLOBAL-MEMORY-CANDIDATES.md`; explicit owner approval is required before any global tier edit.
+
+
+## Native OpenCode entry (2026-10-22; source-wired, Windows unverified)
+
+The existing Chief Role 05 is now registered as the **project-native** OpenCode agent `.opencode/agents/aion-chief.md` and current-session slash command `.opencode/commands/chief.md`. These files use this role workspace for identity, memory and skills; no replacement or duplicate agent directory is authorized.
+
+From an AION repository checkout with configured OpenCode V2:
+
+- TUI: `/chief` for expanded SITREP, or `/chief <task>` to act on a specific request.
+- CLI: `opencode run --agent aion-chief "#AION @chief /sitrep ++"`
+- Local source verification: `node --test workspace/aion/sessions/roles/05-chief-of-chiefs/test/native-agent-wiring.test.mjs`; runtime discovery: `opencode debug agents`.
+
+This is an on-demand model/provider-neutral OpenCode profile, **not** the ChatGPT cloud conversation transplanted onto Windows or a permanent background process. No model entitlement, host deployment, local sync, live agent launch or runtime acceptance is proven by repository commits. Continue to use the current actual ChatGPT conversation for direct ChatGPT-side Chief work.
