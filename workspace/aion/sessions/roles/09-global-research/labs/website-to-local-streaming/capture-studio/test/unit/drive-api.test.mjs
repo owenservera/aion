@@ -166,3 +166,23 @@ test('Studio applies authentication before injected drive routing', async (t) =>
   const response = await fetch(url, { headers: { 'x-studio-token': studio.token } });
   assert.equal(response.status, 200); assert.deepEqual(await response.json(), { jobs: [] }); assert.equal(calls, 0);
 });
+
+test('local owner can drive HTTP loopback fixtures and query-bearing URLs', async (t) => {
+  const calls = [];
+  const { request } = harness(t, { drive: async (options) => {
+    calls.push(options);
+    return { ok: true, status: 'ok', reply: 'synthetic local fixture', reason: 'mock only' };
+  } });
+  const local = 'http://127.0.0.1:8943/fixture?mode=fast&case=one';
+  const created = await request('jobs', 'POST', {
+    mode: 'drive', sites: [local], dryRun: false, confirm: true, prompt: 'test only',
+  });
+  assert.equal(created.status, 202, JSON.stringify(created.body));
+  await completed(request, created.body.job.id);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].adapter.url, local);
+  const denied = await request('jobs', 'POST', {
+    mode: 'drive', sites: ['http://example.org/private'], dryRun: false, confirm: true,
+  });
+  assert.equal(denied.status, 400);
+});
