@@ -1,6 +1,6 @@
 // QA-only offline regressions. No browser, network, real credentials or live sends.
 // Run explicitly from AION checkout: node --test workspace/aion/qa/capture-studio/tests/sprint02-capture-safety.test.mjs
-// Current source at 2026-10-22/02310fe: controls should pass; split-secret and ambiguous-lease negatives are expected to reveal existing issues.
+// Original 02310fe baseline: split-secret negatives reproduced in V8. Later Core introduced a pre-disk guard: these tests work with both versions, and assess raw/excluded rather than assume mask characters.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -22,27 +22,32 @@ function captureChunks(parts) {
     profile: { capture: {} }, getPageUrl: () => 'https://example.test/page' });
   const state = { sid: 'test:synthetic', chunks: 0, bytes: 0 };
   for (const part of parts) network._chunk(state, Buffer.from(part, 'latin1'));
-  return Buffer.concat(records.filter((r) => r.k === 'chunk').map((r) => Buffer.from(r.b64, 'base64'))).toString('latin1');
+  // Current guard intentionally delays safe tail until stream Finish; simulate that exact flush
+  // without invoking DevTools or incorrectly treating a pending tail as successful capture.
+  if (state.guard && !state.credentialExcluded && typeof network._appendProtectedChunk === 'function')
+    network._appendProtectedChunk(state, state.guard.finish(), { finalSecurityTail: true });
+  return { raw: Buffer.concat(records.filter((r) => r.k === 'chunk').map((r) => Buffer.from(r.b64, 'base64'))).toString('latin1'),
+    excluded: records.some((r) => r.k === 'body.excluded'), records };
 }
 
 for (const [name, value] of Object.entries(fixture)) {
   test('pre-disk control: single chunk masks ' + name, () => {
     const after = captureChunks([value]);
-    assert.ok(after.includes('*'), 'synthetic credential must be masked');
-    assert.notEqual(after, value);
+    assert.ok(!after.raw.includes(value), 'synthetic credential must never enter raw append');
+    assert.ok(after.excluded || after.raw.includes('*'), 'guard must either exclude or mask with provenance');
   });
 }
 test('pre-disk boundary: split JSON credential must not survive in raw chunks', () => {
   const after = captureChunks(['{"api_key":', '"abcdef1234567890"}']);
-  assert.ok(!after.includes('abcdef1234567890'), 'two chunks must not reconstruct a readable credential');
+  assert.ok(!after.raw.includes('abcdef1234567890'), 'two chunks must not reconstruct a readable credential');
 });
 test('pre-disk boundary: split Bearer credential must not survive in raw chunks', () => {
   const after = captureChunks(['Bearer abcdefgh', 'ijklmnopqrstuvwxyz1234567890']);
-  assert.ok(!after.includes('abcdefghijklmnopqrstuvwxyz1234567890'), 'Bearer payload split must be masked');
+  assert.ok(!after.raw.includes('abcdefghijklmnopqrstuvwxyz1234567890'), 'Bearer payload split must not be persisted');
 });
 test('pre-disk boundary: three-way JWT must not survive in raw chunks', () => {
   const after = captureChunks(['eyJaaaaaaaaaa.bbbb', 'bbbbbb.ccccc', 'ccccc']);
-  assert.ok(!after.includes(fixture.jwt), 'JWT split must be masked before append');
+  assert.ok(!after.raw.includes(fixture.jwt), 'JWT split must not be persisted before append');
 });
 
 test('uncertain browser submission: fresh key blocked; original key read-only', async (t) => {
