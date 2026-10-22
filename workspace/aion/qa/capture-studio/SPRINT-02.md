@@ -89,3 +89,7 @@ QA-native Node fixture tests/sprint02-capture-safety.test.mjs was updated for de
 UI Sprint 2 recovery source closeout now reports 62/62 V8 interface checks; Knowledge/Learning reports TT1 temporal contract source and specialist Node receipt, while L4/L5 independent acceptance remains 0/7 each. Do not collide with their next owned work.
 
 Steering after reconciliation: avoid reassigning an already source-fixed W4. QA next prioritizes host lease/cancel and Sprint 3 temporal truth regressions. No browser sends were performed; Core/UI/L5 source changes were not QA edits.
+
+### Further live Core reconciliation (source delivered after the first QA retest)
+
+Additional active-team commits advanced the same W4 risk: `d38295cd` adds Core-owned deterministic HTTP/WS guard tests, `58f8052c` extends protection to parallel EventSource messages, `ea3f3570` bounds queued zero-length security frames, and `1dc5e6da` adds EventSource/empty-frame regression tests. These commits landed while the QA session was executing. **QA has not independently run these new tests**, reviewed every changed path or claimed acceptance; their source delivery further narrows the original gap. Core is already addressing W4 in its own lane, so QA should focus its next iteration on independently executing the entire updated guard/recorder suite and challenging abnormal termination and replay. Never reassign the already-implemented fix as if untouched.
