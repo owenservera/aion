@@ -1,5 +1,5 @@
 import { foldRevision } from './history.mjs';
-import { InvariantViolation, observeInvariant, NSP_SCHEMA } from '../core/invariants.mjs';
+import { InvariantViolation, assertInvariant, observeInvariant, NSP_SCHEMA } from '../core/invariants.mjs';
 import { stableStringify } from './similarity.mjs';
 
 // Canonical temporal evidence graph.
@@ -18,6 +18,16 @@ export class TemporalGraph {
 
   upsertEntity({ eid, type, typeName, key, attrs = {}, t, evidence, changed, removed = [] }) {
     let n = this.nodes.get(eid);
+    // Direct graph clients get the same protection as buildGraph's preflight:
+    // do not silently update a node using an incompatible type/typed key.
+    const incompatible = n && (
+      (n.type != null && type != null && n.type !== type)
+      || (n.key != null && key != null
+        && (typeof n.key !== typeof key || stableStringify(n.key) !== stableStringify(key))));
+    assertInvariant(!incompatible, 'NSP-004', {
+      boundary: 'upsert-entity', disposition: 'rejected', reason: 'entity-id-collision',
+      entityId: eid, source: { session: evidence?.session, seq: evidence?.seq, sid: evidence?.sid },
+    });
     if (!n) n = { eid, type, typeName, key, attrs: {}, history: [], firstT: null, lastT: null };
     const before = n.attrs;
     const removedFields = Array.isArray(removed)
