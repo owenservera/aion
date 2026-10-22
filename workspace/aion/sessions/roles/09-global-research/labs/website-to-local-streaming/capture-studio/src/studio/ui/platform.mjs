@@ -1,5 +1,5 @@
 // Platform dashboard for the optional /api/x capabilities.
-// Same-origin fetches only; the studio cookie authenticates every request.
+// Same-origin local Studio requests. Default local access needs no cookie; optional token mode uses one.
 // Captured text is rendered with textContent and DOM nodes, never as HTML.
 
 const state = { sessions: [], selected: '' };
