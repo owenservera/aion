@@ -220,8 +220,8 @@ ul.jobs button[aria-current="true"] { background: var(--hover); font-weight: 600
 
       <fieldset class="live-box">
         <legend>Live accounts</legend>
-        <label class="check" for="confirmLive"><input type="checkbox" id="confirmLive" aria-describedby="runHint"><span>I’m logged in; this sends one prompt per selected site</span></label>
-        <button type="button" class="live" id="btnLive" disabled aria-describedby="runHint">Execute on live accounts</button>
+        <p class="small-note">Clicking <b>Send to selected sites</b> is the explicit action to send one prompt per selected site. No extra checkbox or preliminary dry run is required.</p>
+        <button type="button" class="live" id="btnLive" disabled aria-describedby="runHint">Send to selected sites</button>
         <div class="small-note" id="runHint" role="status" style="margin-top:8px" aria-live="polite"></div>
       </fieldset>
 
