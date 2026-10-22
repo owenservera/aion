@@ -26,3 +26,7 @@ For each criterion record **source SHA**, **test/fixture**, **environment**, **e
 ## Sprint 01 evidence (builder only; no QA promotion)
 
 [Source-grounded L5 implementation, Node/V8 execution receipts, synthetic held-out measurements, file/LOC counts, and Core dependency list](EVIDENCE-SPRINT-01.md). The specialist has shipped part of A1–A7; **all fourteen L4/L5 checkboxes remain unchecked** until independent, criterion-specific QA receipts are recorded. In particular, an unconnected correction model is not evidence of improved production rederivation.
+
+## 2026-10-22 — TT1 specialist temporal contract (builder evidence, NOT independent QA)
+
+[Time Travel Sprint 01 evidence](EVIDENCE-TIME-TRAVEL-SPRINT-01.md) records `temporal-truth.mjs` and the sixteen deterministic native Node 22 passing unit tests at exact shipped blobs. K5/K6 and A2/A5/A7 have **partial builder implementation/evidence**, not independently accepted criterion fulfillment; K1–K7 remain **0/7**, A1–A7 **0/7**. No Core derived-output version pin, raw replay ordering correction, integrated learner rehydration, accepted-evidence gate, unified UI or independent runtime QA is claimed. Provenance and completeness are source metadata; the new module does not independently authenticate a caller's source or derived digest.
