@@ -71,7 +71,7 @@ export class Recorder extends EventEmitter {
     if (this.state === 'recording') throw new Error('Already recording.');
     this.paused = false;
     this.pausedCounts = {};
-    this._stopPromise = null;
+    this._stopPromise = null; this._runEndWritten = false;
     this._quotaHit = false;
     if (tabs !== undefined) this.tabs = tabs === 'all' ? 'all' : 'one';
     if (follow !== undefined) { this.follow = follow !== false; this.pauseNewTargets = this.follow; }
@@ -577,24 +577,48 @@ export class Recorder extends EventEmitter {
     await this.stop({ reason });
   }
 
+  // A failed stop is retryable: the cached rejected promise is dropped, the session metadata is
+  // marked 'incomplete' (never left 'recording'), and the recorder sits in 'stop_failed' (never
+  // 'stopping') so a later stop() re-runs the idempotent finalization steps.
   stop(options = {}) {
     if (this._stopPromise) return this._stopPromise;
-    if (this.state !== 'recording') return Promise.resolve(null);
-    this._stopPromise = this._stop(options);
-    return this._stopPromise;
+    if (this.state !== 'recording' && this.state !== 'stop_failed') return Promise.resolve(null);
+    const attempt = this._stop(options).catch((error) => {
+      if (this._stopPromise === attempt) this._stopPromise = null;
+      this._markStopFailed(error, options.reason);
+      throw error;
+    });
+    this._stopPromise = attempt;
+    return attempt;
+  }
+
+  _markStopFailed(error, reason = 'user_stop') {
+    this.state = 'stop_failed';
+    try { clearInterval(this.persistTimer); clearInterval(this.statusTimer); this.conn?.stopHeartbeat?.(); } catch { /* best effort */ }
+    try {
+      const meta = this.session?.meta;
+      if (meta && meta.status !== 'complete' && meta.status !== 'complete_with_integrity_warnings') {
+        meta.status = 'incomplete'; meta.endReason = `stop_failed:${reason}`;
+        meta.stopError = String(error?.message ?? error).slice(0, 200);
+        this.session.saveMeta();
+      }
+    } catch { /* metadata write is best effort here; the caller still receives the original error */ }
   }
 
   async _stop({ reason = 'user_stop' } = {}) {
-    if (this.state !== 'recording') return null;
+    if (this.state !== 'recording' && this.state !== 'stop_failed') return null;
     this.state = 'stopping';
     clearInterval(this.persistTimer); clearInterval(this.statusTimer);
     this.conn?.stopHeartbeat?.();
-    const open = this.net.openStreams();
-    this._append({
-      k: 'run.end', reason, openStreamsAtEnd: open, openStreamDetail: this.net.openStreamDetail?.() ?? undefined,
-      reconnects: this.reconnects,
-      coverage: open.length ? 'Streams listed in openStreamsAtEnd were still receiving data; their suffix is UNKNOWN.' : 'All observed streams reached a terminal state.',
-    });
+    if (!this._runEndWritten) {
+      const open = this.net.openStreams();
+      this._append({
+        k: 'run.end', reason, openStreamsAtEnd: open, openStreamDetail: this.net.openStreamDetail?.() ?? undefined,
+        reconnects: this.reconnects,
+        coverage: open.length ? 'Streams listed in openStreamsAtEnd were still receiving data; their suffix is UNKNOWN.' : 'All observed streams reached a terminal state.',
+      });
+      this._runEndWritten = true;
+    }
     // Final rendered-structure observation while still attached (feeds family records and shapes).
     if (this.profile.dom?.enabled !== false && this.page && !this.page.detached) {
       try { this.session.kv.set('DOM_INSPECT', await this.dom.inspect()); } catch (e) { this.session.kv.set('DOM_INSPECT', { error: String(e.message ?? e) }); }

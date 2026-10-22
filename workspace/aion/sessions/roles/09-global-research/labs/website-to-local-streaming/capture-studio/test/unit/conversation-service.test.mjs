@@ -277,7 +277,10 @@ test('finish stops once before closing safe Studio tab; blocks submit after fini
   const f = fixture(t); await f.connect(); await f.submit();
   const a = f.service.finish({ closeTab: true }); assert.equal(a, f.service.finish({ closeTab: true })); await a;
   assert.deepEqual(f.calls.slice(-2), ['stop', 'close']);
-  await rejects(f.submit(), 'CONVERSATION_FINISHED');
+  await rejects(f.submit({ key: 'new-key' }), 'CONVERSATION_FINISHED');
+  const replay = await f.submit(); // same key + payload: original turn, read-only, no second dispatch
+  assert.equal(replay.id, f.service.read().attempts[0].id); assert.equal(f.calls.filter((c) => c === 'submit').length, 1);
+  await rejects(f.submit({ prompt: 'different payload' }), 'IDEMPOTENCY_CONFLICT');
   assert.equal(f.service.read().attempts[0].evidence.state, 'incomplete');
   const restarted = createConversationService(f.options); await restarted.finish({ closeTab: true });
   assert.equal(f.calls.filter((c) => c === 'stop').length, 1); assert.equal(f.calls.filter((c) => c === 'close').length, 1);
@@ -302,5 +305,20 @@ test('restart during stop or close never repeats either action', async (t) => {
     const restarted = createConversationService(f.options); await restarted.finish({ closeTab: true });
     assert.deepEqual(f.calls, []); assert.equal(restarted.read().finish.phase, 'interrupted');
     await rejects(restarted.submit({ key: 'k', prompt: 'x', confirm: true, expectedRevision: restarted.read().revision }), 'CONVERSATION_FINISHED');
+  }
+});
+
+test('F1 service: coded notDispatched error records not-attempted, never uncertain; uncoded/ambiguous errors stay uncertain; one dispatch each', async (t) => {
+  for (const [error, send, phase] of [
+    [Object.assign(new Error('x'), { code: 'SEND_NOT_DISPATCHED', notDispatched: true }), 'not-attempted', 'needs-reconciliation'],
+    [Object.assign(new Error('x'), { notDispatched: true }), 'uncertain', 'uncertain'],
+    [Object.assign(new Error('x'), { code: 'SEND_NOT_DISPATCHED' }), 'uncertain', 'uncertain'],
+    [new Error('transport lost'), 'uncertain', 'uncertain'],
+  ]) {
+    const f = fixture(t, { async submit() { f.calls.push('submit'); throw error; } });
+    await f.connect(); const turn = await f.submit();
+    assert.equal(turn.send.state, send); assert.equal(turn.phase, phase); assert.equal(f.service.read().state, 'needs-reconciliation');
+    assert.equal(f.calls.filter((c) => c === 'submit').length, 1);
+    if (send === 'not-attempted') assert.equal(f.service.read().attempts[0].reason, 'SEND_NOT_DISPATCHED');
   }
 });

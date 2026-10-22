@@ -46,7 +46,8 @@ function validSnapshot(s, id) {
     try { const url = new URL(s.binding.origin); if (url.origin !== s.binding.origin || url.protocol !== 'https:') return false; } catch { return false; }
   }
   if (s.state !== 'disconnected' && !s.binding) return false;
-  if (s.attempts.filter((a) => a?.phase !== 'blocked' || a?.typingStartedAt).length > 1) return false;
+  // A deliberate resend (new key) after an unobserved attempt is allowed, so several attempts may exist; only one may be observed.
+  if (s.attempts.filter((a) => a?.send?.state === 'observed').length > 1) return false;
   return s.attempts.every((a) => typeof a.key === 'string' && a.key.length > 0 && typeof a.id === 'string'
     && /^[a-f0-9]{64}$/.test(a.payloadDigest) && phases.includes(a.phase)
     && Number.isFinite(Date.parse(a.createdAt)) && Number.isFinite(Date.parse(a.updatedAt))
@@ -163,7 +164,11 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
             snapshot.sessionId = sessionId; snapshot.capture.state = 'recording'; save();
           },
         }); }
-        catch { snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'attachment-failed'; save(); throw error('ATTACHMENT_FAILED'); }
+        catch (e) {
+          // Keep only a coded reason (never transport/URL/content text) so the failure is diagnosable.
+          snapshot.readiness = { ready: false, draft: { present: null, chars: null }, reason: /^[A-Z][A-Z0-9_]{0,79}$/.test(e?.code ?? '') ? e.code : 'ATTACH_FAILED' };
+          snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'attachment-failed'; save(); throw error('ATTACHMENT_FAILED');
+        }
         if (!exactBinding(snapshot.binding, attached?.binding) || attached.binding.ownedByStudio !== ownedByStudio || typeof attached?.sessionId !== 'string' || !attached.sessionId) {
           snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'attachment-binding-mismatch'; save(); throw error('INVALID_ATTACHMENT');
         }
@@ -175,14 +180,21 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
     submit({ key, prompt, expectedRevision, confirm } = {}, { registered } = {}) {
       return serial(async () => {
         if (typeof key !== 'string' || !key || key.length > 200 || typeof prompt !== 'string' || !prompt.trim() || prompt.length > 2000) throw error('INVALID_SUBMISSION');
-        writable();
         const payloadDigest = createHash('sha256').update(prompt, 'utf8').digest('hex');
         const original = snapshot.attempts.find((a) => a.key === key);
+        // Same key replays the original turn read-only, even after finish/restart; only NEW sends need a writable conversation.
         if (original) { if (original.payloadDigest !== payloadDigest) throw error('IDEMPOTENCY_CONFLICT'); registered?.(view()); return structuredClone(original); }
+        writable();
         revision(expectedRevision);
         if (confirm !== true) throw error('CONFIRM_REQUIRED');
-        if (snapshot.attempts.some((a) => a.phase !== 'blocked' || a.typingStartedAt) || snapshot.attempts.length >= 50) throw error('ONE_TURN_LIMIT');
-        if (!['ready', 'blocked'].includes(snapshot.state)) throw error('NOT_READY');
+        // One message per conversation once a send is observed or in flight. After an unobserved
+        // (uncertain / needs-reconciliation / blocked) attempt, a NEW key is a deliberate resend;
+        // the same key never reaches here (it returned the original above).
+        const last = snapshot.attempts.at(-1);
+        const resend = !recovered && !!last && ['uncertain', 'needs-reconciliation'].includes(last.phase) && !!snapshot.sessionId; // never after a restart recovery
+        const spent = snapshot.attempts.some((a) => a.phase !== 'blocked' || a.typingStartedAt);
+        if (snapshot.attempts.some((a) => a.send?.state === 'observed' || ['preparing', 'dispatching'].includes(a.phase)) || (spent && !resend) || snapshot.attempts.length >= 50) throw error('ONE_TURN_LIMIT');
+        if (!['ready', 'blocked'].includes(snapshot.state) && !(resend && snapshot.state === 'needs-reconciliation')) throw error('NOT_READY');
         const attempt = { id: randomUUID(), key, payloadDigest, phase: 'preparing', createdAt: now(), updatedAt: now(),
           boundary: null, send: { state: 'not-attempted', observationSource: null }, reply: { state: 'unknown' }, evidence: { state: 'recording' } };
         snapshot.attempts.push(attempt); snapshot.state = 'busy'; save();
@@ -219,8 +231,9 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         let observation;
         try { observation = await adapter.submit({ binding: structuredClone(snapshot.binding), turnId: attempt.id, payloadDigest }); }
         catch (e) {
-          if (e.code === 'SUBMISSION_STOPPED' && e.notDispatched === true) {
-            snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'partial-draft-possible'; attempt.reason = 'SUBMISSION_STOPPED';
+          if (e.notDispatched === true && /^[A-Z][A-Z0-9_]{0,79}$/.test(e.code ?? '')) {
+            // Adapter proved nothing was dispatched (stop latch or sendMessage refusal): never 'uncertain'.
+            snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'partial-draft-possible'; attempt.reason = e.code;
             updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); return structuredClone(attempt);
           }
           /* Unknown effect: never retry, even if the transport claims the send failed. */
@@ -275,6 +288,13 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
       return serial(() => {
         snapshot.reply = { state: reply.state, source: 'page', text: String(reply.text ?? ''), chars: String(reply.text ?? '').length, completion: 'unknown' };
         save(); return view();
+      });
+    },
+    addLimitation(text) {
+      return serial(() => {
+        const value = String(text ?? '').slice(0, 300);
+        if (value && !snapshot.limitations.includes(value)) { snapshot.limitations = [...snapshot.limitations, value].slice(-20); save(); }
+        return view();
       });
     },
     recordCapture(capture) {

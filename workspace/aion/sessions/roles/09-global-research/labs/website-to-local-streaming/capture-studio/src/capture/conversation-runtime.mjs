@@ -100,6 +100,29 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     })();
     return entry.finishing;
   }
+  // Failed-connect cleanup. Order matters: (1) the adapter finalizes any half-created session as
+  // incomplete and closes only a Studio-created tab with an exact id; (2) only then is the lease
+  // released, in every path (a failed connect never keeps the host's single driving lease);
+  // (3) anything left behind is written to the snapshot so the user is told. Never throws.
+  async function abortFailedConnect(entry, lease) {
+    try {
+      if (!entry) return;
+      clearTimeout(entry.timer);
+      let out = { captureFinalized: true, tab: 'none' };
+      if (typeof entry.adapter.abortConnect === 'function') {
+        try { out = await entry.adapter.abortConnect(); } catch { out = { captureFinalized: false, tab: 'kept' }; }
+      } else if (entry.adapter.mayOwnResources) out = { captureFinalized: false, tab: 'kept' };
+      const notes = [];
+      if (out?.tab === 'kept') notes.push('A browser tab opened by Studio for this failed connection could not be confirmed closed and was left open; close it manually');
+      else if (out?.tab === 'unconfirmed') notes.push('Studio asked the browser for a new tab but could not confirm it; a blank tab may have been left open - close it manually');
+      if (out?.captureFinalized === false) notes.push('Capture could not be finalized after the failed connection; the session is incomplete');
+      try { if (entry.service.read().sessionId) await entry.service.recordCapture({ state: 'incomplete', bytesWritten: entry.adapter.bytesWritten ?? 0 }); } catch {}
+      for (const note of notes) { try { await entry.service.addLimitation(note); } catch {} }
+    } finally {
+      try { lease.release(); } catch {}
+      if (entry) entry.lease = null;
+    }
+  }
   return {
     async targets() {
       active();
@@ -119,13 +142,29 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     },
     async list() { return [...new Set([...ids(), ...entries.keys()])].map((id) => view(load(id), true)).sort((a, b) => b.id.localeCompare(a.id)); },
     async get(id) { return view(load(id)); },
+    // Pure read: never loads/recovers an entry, never writes a snapshot, never throws. Anything that
+    // cannot be proven finished (corrupt/unreadable snapshot or directory) counts as active so no
+    // caller can steal or replay a session that may still be owned.
     isSessionActive(id) {
       if (!id) return false;
-      for (const key of new Set([...ids(), ...entries.keys()])) {
-        const entry = load(key), s = entry.service.read();
-        if (s.sessionId === id && !s.finish.captureStopped && s.finish.phase !== 'done') return true;
-      }
-      return false;
+      const finished = (s) => s.finish.captureStopped === true || s.finish.phase === 'done';
+      try {
+        const memory = new Map([...entries].map(([key, entry]) => [key, entry.service.read()]));
+        for (const [key, s] of memory) if (s.sessionId === id && !finished(s)) return true;
+        let owned;
+        for (const key of ids()) {
+          if (memory.has(key)) continue;
+          let s; try { s = JSON.parse(readFileSync(path.join(directory, `${key}.conversation.json`), 'utf8')); } catch { return true; }
+          if (!s || typeof s !== 'object' || !s.finish || typeof s.finish !== 'object') return true;
+          if (finished(s)) continue;
+          if (s.sessionId === id) return true;
+          if (!s.sessionId) { // attach/save window: the owner id lives only in the recorder's session metadata
+            owned ??= d.listSessions(paths.sessions);
+            if (owned.some((x) => x.id === id && x.conversationOwner?.conversationId === key)) return true;
+          }
+        }
+        return false;
+      } catch { return true; }
     },
     async connect(body = {}) {
       active();
@@ -158,21 +197,23 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
         }, Math.max(1, Date.parse(service.read().capture.endsAt) - Date.now())); entry.timer.unref?.();
         return view(entry);
       } catch (e) {
-        if (!entry?.adapter.mayOwnResources && !entry?.service.read().sessionId) lease.release();
+        await abortFailedConnect(entry, lease);
         throw Object.assign(outward(e), { conversationId: id });
       }
     },
     async submit(id, body = {}) {
       active(); const entry = load(id);
       const registered = entry.registration.then(async () => {
-        if (entry.recovered || entry.finishing) throw fail(409, 'CONVERSATION_NOT_WRITABLE');
         if (typeof body.key !== 'string' || !body.key || body.key.length > 200 || typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 2000) throw fail(400, 'INVALID_SUBMISSION');
         const s = entry.service.read(), original = s.attempts.find((a) => a.key === body.key);
+        // Idempotent replay is a pure read and is honoured even when the conversation is finished,
+        // restart-recovered or owned by another runtime: it never dispatches and never writes.
         if (original) {
-          if (original.payloadDigest !== createHash('sha256').update(body.prompt).digest('hex')) throw fail(409, 'IDEMPOTENCY_CONFLICT');
-          if (s.finish.requested) throw fail(409, 'CONVERSATION_FINISHED');
+          if (original.payloadDigest !== createHash('sha256').update(body.prompt, 'utf8').digest('hex')) throw fail(409, 'IDEMPOTENCY_CONFLICT');
           return view(entry, false, original);
         }
+        if (s.finish.requested || entry.finishing) throw fail(409, 'CONVERSATION_FINISHED');
+        if (entry.recovered) throw fail(409, 'CONVERSATION_NOT_WRITABLE');
         let resolve, reject;
         const ack = new Promise((yes, no) => { resolve = yes; reject = no; });
         const execution = entry.service.submit(body, { registered: () => resolve(view(entry)) });

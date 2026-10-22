@@ -373,3 +373,213 @@ test('fresh readiness reports outside redirect and auth gate safely as blocked',
   const auth = browserFixture({ freshTab: true, readinessDependencies: { detectAuthWall: async () => ({ blocked: true, reason: 'private raw URL' }) } });
   assert.equal((await auth.connect()).readiness.reason, 'AUTH_WALL'); await auth.adapter.stop();
 });
+
+// ---- F1/F3/F4/F5/F6/F7 coverage: injected fakes only, no browser, no network, no long timers ----
+const sha = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const leaseFree = (f) => { acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release(); };
+
+test('F1 adapter: proven not-dispatched send throws SEND_NOT_DISPATCHED; ambiguous results stay unobserved (uncertain path)', async () => {
+  const refusal = { ok: false, sent: false, dispatched: false, sendStatus: 'not-attempted', uncertain: false, reason: 'no draft' };
+  const f = browserFixture({ readinessDependencies: { sendMessage: async () => { f.calls.push(['send']); return refusal; } } });
+  await f.connect(); await f.adapter.preflight(); await f.adapter.type({ prompt: 'new prompt', turnId: 'turn' });
+  await assert.rejects(f.adapter.submit(f.args), (e) => e.code === 'SEND_NOT_DISPATCHED' && e.notDispatched === true);
+  await f.adapter.stop();
+  for (const ambiguous of [{ dispatched: false }, { dispatched: false, sendStatus: 'not-attempted' }, { dispatched: false, uncertain: true, sendStatus: 'not-attempted' },
+    { dispatched: true, sendStatus: 'uncertain', uncertain: true }, { uncertain: true }, undefined]) {
+    const g = browserFixture({ readinessDependencies: { sendMessage: async () => ambiguous } });
+    await g.connect(); await g.adapter.preflight(); await g.adapter.type({ prompt: 'new prompt', turnId: 'turn' });
+    assert.equal(await g.adapter.submit(g.args), null, JSON.stringify(ambiguous)); // no coded notDispatched error => service records uncertain
+    await g.adapter.stop();
+  }
+});
+
+test('F1 runtime: adapter notDispatched => turn not-attempted/needs-reconciliation, never uncertain; ambiguous failure => uncertain', async (t) => {
+  const f = fixture(t), c = await f.connect();
+  f.adapters[0].submit = async () => { f.calls.push('submit'); throw Object.assign(new Error('SEND_NOT_DISPATCHED'), { code: 'SEND_NOT_DISPATCHED', notDispatched: true }); };
+  await f.submit(c);
+  let s; for (let n = 0; n < 200; n++) { s = await f.runtime.get(c.id); if (s.turn?.phase === 'needs-reconciliation') break; await new Promise(setImmediate); }
+  assert.equal(s.turn.send.state, 'not-attempted'); assert.equal(s.turn.phase, 'needs-reconciliation'); assert.equal(s.state, 'needs-reconciliation');
+  assert.equal(s.turn.reason, 'SEND_NOT_DISPATCHED'); assert.notEqual(s.turn.send.state, 'uncertain'); assert.equal(f.calls.filter((v) => v === 'submit').length, 1);
+  const g = fixture(t), d = await g.connect();
+  g.adapters[0].submit = async () => { g.calls.push('submit'); throw new Error('transport lost'); };
+  await g.submit(d); const u = await g.settle(d.id);
+  assert.equal(u.turn.send.state, 'uncertain'); assert.equal(g.calls.filter((v) => v === 'submit').length, 1);
+});
+
+class FailingRecorder {
+  constructor(shared) { Object.assign(this, { state: 'idle', conn: null }); this.shared = shared; this.page = { send: async (method, params) => { shared.calls.push([method, params]); return {}; } }; }
+  on() {}
+  tap() { return { close() {} }; }
+  async start(options) {
+    if (this.shared.createSession) {
+      this.session = { id: 'half-created', raw: { seq: 0, stats: { bytes: 0 }, close: async () => { this.shared.rawClosed++; } }, kv: new Map(),
+        meta: { status: 'recording' }, saveMeta: () => { this.shared.metas.push({ ...this.session.meta }); } };
+      options.onSessionCreated(this.session);
+    }
+    throw new Error('attach failed');
+  }
+}
+// Runtime + REAL adapter + real lease; only Recorder, fetch and CDP helpers are fake.
+function attachFixture(t, { fresh = true, createSession = true, closeOk = true } = {}) {
+  const shared = { calls: [], metas: [], rawClosed: 0, createSession };
+  const f = fixture(t, {
+    listTargets: async () => [{ id: 'owner-tab', type: 'page', url: 'https://chatgpt.com/' }],
+    createAdapter: (o) => createConversationBrowserAdapter({ ...o, profileStore: { load: () => ({}) }, dependencies: {
+      Recorder: class extends FailingRecorder { constructor() { super(shared); } },
+      listSessions: () => [], listTargets: async () => [{ id: 'owner-tab', url: 'https://chatgpt.com/' }],
+      fetch: async (url, init) => { shared.calls.push(['fetch', String(url), init?.method ?? 'GET']);
+        return String(url).includes('/json/new') ? { ok: true, json: async () => ({ id: 'created' }) } : { ok: closeOk }; },
+      readinessTimeoutMs: 200, connectGraceMs: 200, fetchTimeoutMs: 100 } }),
+  });
+  const body = fresh ? { freshTab: true, targetId: undefined } : {};
+  return { f, shared, body, fetches: () => shared.calls.filter(([n]) => n === 'fetch').map(([, u, m]) => `${m} ${u.replace(/^http:\/\/127\.0\.0\.1:\d+/, '')}`) };
+}
+const failedConnect = async (f, body) => { try { await f.connect(body); } catch (e) { return e; } assert.fail('connect should have failed'); };
+
+test('F3 failed attach after Studio tab creation: session incomplete, ONLY that tab closed, lease released, two failures leave no lease', async (t) => {
+  const a = attachFixture(t);
+  for (let round = 0; round < 2; round++) {
+    const e = await failedConnect(a.f, a.body);
+    assert.equal(e.code, 'ATTACHMENT_FAILED'); assert.ok(e.conversationId);
+    const s = await a.f.runtime.get(e.conversationId);
+    assert.equal(s.capture.state, 'incomplete'); assert.equal(s.state, 'needs-reconciliation');
+    assert.equal(s.limitations.some((l) => /left open/.test(l)), false); // tab confirmed closed => nothing to warn about
+    leaseFree(a.f); // no lease survived this failure (a DRIVE_LEASE_BUSY would throw here and on the next round)
+  }
+  assert.deepEqual(a.fetches().filter((l) => l.includes('/json/close')), ['GET /json/close/created', 'GET /json/close/created']);
+  assert.equal(a.fetches().some((l) => /owner-tab/.test(l)), false);
+  assert.equal(a.shared.metas.at(-1).status, 'incomplete'); assert.equal(a.shared.metas.at(-1).endReason, 'conversation_attachment_failed');
+  assert.equal(a.shared.rawClosed, 2); assert.equal(a.shared.calls.some(([n]) => n === 'Page.navigate'), false);
+});
+
+test('F3 lease is still held while the adapter cleans up, and released only afterwards', async (t) => {
+  const f = fixture(t, { createAdapter: () => {
+    const adapter = { mayOwnResources: true, async connect() { throw new Error('boom'); },
+      async abortConnect() { f.calls.push('abort'); assert.throws(() => acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }), /lease is held/); return { captureFinalized: true, tab: 'closed' }; } };
+    return adapter; } });
+  const e = await failedConnect(f, { freshTab: true, targetId: undefined });
+  assert.equal(e.code, 'ATTACHMENT_FAILED'); assert.deepEqual(f.calls, ['abort']); leaseFree(f);
+});
+
+test('F3 unconfirmed tab close keeps the tab, still releases the lease and tells the user via limitation', async (t) => {
+  const a = attachFixture(t, { closeOk: false });
+  const e = await failedConnect(a.f, a.body); leaseFree(a.f);
+  const s = await a.f.runtime.get(e.conversationId);
+  assert.ok(s.limitations.some((l) => /left open/.test(l) && /manually/.test(l)));
+  assert.equal(s.capture.state, 'incomplete');
+  assert.deepEqual(a.fetches().filter((l) => l.includes('/json/close')), ['GET /json/close/created']);
+  assert.equal((await failedConnect(a.f, a.body)).code, 'ATTACHMENT_FAILED'); // lease was free for the next attempt
+});
+
+test('F3 owner/selected tab: failed attach never closes, navigates or clears it, still finalizes and frees the lease', async (t) => {
+  const a = attachFixture(t, { fresh: false });
+  const e = await failedConnect(a.f, { targetId: 'owner-tab' }); leaseFree(a.f);
+  assert.equal(a.fetches().length, 0); assert.equal(a.shared.calls.length, 0);
+  assert.equal(a.shared.metas.at(-1).status, 'incomplete'); assert.equal(a.shared.rawClosed, 1);
+  const s = await a.f.runtime.get(e.conversationId); assert.equal(s.capture.state, 'incomplete');
+  assert.equal(s.limitations.some((l) => /left open/.test(l)), false);
+});
+
+test('F3 fresh tab failure before any session exists still closes the created tab and frees the lease', async (t) => {
+  const a = attachFixture(t, { createSession: false });
+  await failedConnect(a.f, a.body); leaseFree(a.f);
+  assert.deepEqual(a.fetches(), ['PUT /json/new?about:blank', 'GET /json/close/created']); assert.equal(a.shared.metas.length, 0);
+});
+
+test('F4 never-resolving tab-create fetch fails fast with BROWSER_HTTP_TIMEOUT and reports an unconfirmed tab', async () => {
+  const f = browserFixture({ freshTab: true, readinessDependencies: { fetch: () => new Promise(() => {}), fetchTimeoutMs: 50 } });
+  const started = Date.now();
+  await assert.rejects(f.connect(), (e) => e.code === 'BROWSER_HTTP_TIMEOUT');
+  assert.ok(Date.now() - started < 1500);
+  assert.deepEqual(await f.adapter.abortConnect(), { captureFinalized: true, tab: 'unconfirmed', targetId: null });
+});
+
+test('F4 hung attach step hits total CONNECT_TIMEOUT and the Studio-created tab is closed', async () => {
+  const closes = [];
+  class HungRecorder { constructor() { this.state = 'idle'; } on() {} start() { return new Promise(() => {}); } }
+  const f = browserFixture({ freshTab: true, readinessDependencies: { Recorder: HungRecorder, readinessTimeoutMs: 30, connectGraceMs: 20, fetchTimeoutMs: 50,
+    fetch: async (url) => { if (String(url).includes('/json/close/')) closes.push(String(url)); return { ok: true, json: async () => ({ id: 'created' }) }; } } });
+  const started = Date.now();
+  await assert.rejects(f.connect(), (e) => e.code === 'CONNECT_TIMEOUT');
+  assert.ok(Date.now() - started < 1500);
+  assert.equal((await f.adapter.abortConnect()).tab, 'closed');
+  assert.ok(closes.length >= 1 && closes.every((u) => u.endsWith('/json/close/created')));
+});
+
+test('F5 recorder stop failure: meta incomplete with endReason, not stuck at stopping, second stop() really retries', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'conversation-stop-')); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const recorder = new Recorder({ sessionsDir: root }), saved = [];
+  recorder.state = 'recording';
+  recorder.session = { meta: { status: 'recording' }, saveMeta() { saved.push({ ...this.meta }); } };
+  let underlying = 0;
+  recorder._stop = async function () { underlying++; this.state = 'stopping'; if (underlying === 1) throw new Error('flush failed'); this.state = 'idle'; return { id: 'done' }; };
+  await assert.rejects(recorder.stop({ reason: 'conversation_finish' }), /flush failed/);
+  assert.equal(recorder.state, 'stop_failed'); assert.notEqual(recorder.state, 'stopping');
+  assert.equal(recorder.session.meta.status, 'incomplete'); assert.equal(recorder.session.meta.endReason, 'stop_failed:conversation_finish');
+  assert.equal(saved.at(-1).status, 'incomplete');
+  assert.deepEqual(await recorder.stop({ reason: 'conversation_finish' }), { id: 'done' });
+  assert.equal(underlying, 2); assert.equal(recorder.state, 'idle');
+});
+
+test('F5 adapter stop() after a failed recorder stop retries the recorder instead of caching the failure', async () => {
+  let stops = 0;
+  class StoppyRecorder extends FailingRecorder {
+    async start(options) { this.session = { id: 'ok-session', raw: { seq: 10, stats: { bytes: 1 }, close: async () => {} }, kv: new Map(), meta: {}, saveMeta() {} };
+      options.onSessionCreated(this.session); this.state = 'recording'; return this.session; }
+    async stop() { stops++; if (stops === 1) { this.state = 'stop_failed'; throw new Error('stop failed'); } this.state = 'idle'; return { verify: { ok: true } }; }
+  }
+  const f = browserFixture({ readinessDependencies: { Recorder: class extends StoppyRecorder { constructor() { super({ calls: [] }); } } } });
+  await f.connect();
+  await assert.rejects(f.adapter.stop(), /stop failed/);
+  assert.equal(f.adapter.mayOwnResources, true); // still owned: a failed stop must not look finalized
+  await f.adapter.stop();
+  assert.equal(stops, 2); assert.equal(f.adapter.mayOwnResources, false); assert.deepEqual(f.adapter.integrity, { ok: true });
+});
+
+test('F6 finished conversation: same key + payload returns the original turn read-only; other key/payload rejected', async (t) => {
+  const f = fixture(t), c = await f.connect(); const first = await f.submit(c); f.releaseReply.resolve(); await f.settle(c.id);
+  await f.runtime.finish(c.id);
+  const file = path.join(f.paths.root, 'conversations', `${c.id}.conversation.json`), before = sha(file), calls = [...f.calls];
+  const replay = await f.submit(c); // key 'one' / 'private prompt'
+  assert.equal(replay.turn.id, first.turn.id); assert.equal(replay.turn.send.state, 'observed');
+  await assert.rejects(f.submit(c, { prompt: 'changed' }), (e) => e.status === 409 && e.code === 'IDEMPOTENCY_CONFLICT');
+  await assert.rejects(f.submit(c, { key: 'two' }), (e) => e.status === 409 && e.code === 'CONVERSATION_FINISHED');
+  assert.equal(sha(file), before); assert.deepEqual(f.calls, calls); assert.equal(f.calls.filter((v) => v === 'submit').length, 1);
+});
+
+test('F6 restart-recovered conversation: same key replays original read-only, new keys stay non-writable, nothing written or dispatched', async (t) => {
+  const f = fixture(t, { ownerIsAlive: () => false }), c = await f.connect(); const first = await f.submit(c); f.releaseReply.resolve(); await f.settle(c.id);
+  const restarted = createConversationRuntime({ paths: f.paths, port: 19222, dependencies: f.dependencies });
+  t.after(() => restarted.close());
+  const recovered = await restarted.get(c.id); assert.equal(recovered.state, 'needs-reconciliation');
+  const file = path.join(f.paths.root, 'conversations', `${c.id}.conversation.json`), before = sha(file), calls = [...f.calls];
+  const replay = await restarted.submit(c.id, { key: 'one', prompt: 'private prompt', confirm: true, expectedRevision: recovered.revision });
+  assert.equal(replay.turn.id, first.turn.id);
+  await assert.rejects(restarted.submit(c.id, { key: 'one', prompt: 'changed', confirm: true, expectedRevision: recovered.revision }), (e) => e.code === 'IDEMPOTENCY_CONFLICT' && e.status === 409);
+  await assert.rejects(restarted.submit(c.id, { key: 'fresh', prompt: 'x', confirm: true, expectedRevision: recovered.revision }), (e) => e.code === 'CONVERSATION_NOT_WRITABLE' && e.status === 409);
+  assert.equal(sha(file), before); assert.deepEqual(f.calls, calls);
+});
+
+test('F7 isSessionActive is a pure read: file bytes unchanged even when load() would have rewritten the snapshot', async (t) => {
+  const f = fixture(t, { ownerIsAlive: () => false }), c = await f.connect();
+  const file = path.join(f.paths.root, 'conversations', `${c.id}.conversation.json`);
+  const disk = JSON.parse(fs.readFileSync(file, 'utf8')); disk.state = 'attaching'; fs.writeFileSync(file, JSON.stringify(disk, null, 2));
+  const fresh = () => createConversationRuntime({ paths: f.paths, port: 19222, dependencies: f.dependencies });
+  const before = sha(file), reader = fresh();
+  assert.equal(reader.isSessionActive(c.sessionId), true); assert.equal(reader.isSessionActive('unrelated-session'), false);
+  assert.equal(reader.isSessionActive(''), false); assert.equal(sha(file), before);
+  await fresh().get(c.id); assert.notEqual(sha(file), before); // control: the old load() path really did rewrite
+});
+
+test('F7 corrupt or unreadable snapshot counts as active (never stolen), is not rewritten and does not throw', async (t) => {
+  const f = fixture(t), directory = path.join(f.paths.root, 'conversations');
+  for (const content of ['{ not json', 'null', '{}', '[]']) {
+    const file = path.join(directory, 'broken.conversation.json'); fs.writeFileSync(file, content);
+    const reader = createConversationRuntime({ paths: f.paths, port: 19222, dependencies: f.dependencies }), before = sha(file);
+    assert.doesNotThrow(() => reader.isSessionActive('any-session'));
+    assert.equal(reader.isSessionActive('any-session'), true, content); assert.equal(sha(file), before);
+  }
+  fs.rmSync(path.join(directory, 'broken.conversation.json'));
+  const reader = createConversationRuntime({ paths: f.paths, port: 19222, dependencies: f.dependencies });
+  assert.equal(reader.isSessionActive('any-session'), false);
+});
