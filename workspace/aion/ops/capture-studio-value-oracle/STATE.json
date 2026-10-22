@@ -100,7 +100,7 @@
     "private_transcript_uploads": 0,
     "other_team_source_edits": 0
   },
-  "next": "Launch fresh VALUE-ORACLE chat with LAUNCH.md using High effort; then build V1.1-V1.4 minimal read-only Outcome Packet prototype against synthetic saved evidence, verify, commit and measure. Do not dispatch peers before concrete interface needs.",
+  "next": "Begin VALUE-ORACLE V1 Outcome Packet to prove a useful post-capture result; separate Windows owner smoke/acceptance. Do not restart security backlog unless a friction issue is measured.",
   "notes": [
     "SCAFFOLDED_NOT_LAUNCHED is deliberate: GitHub folders do not start conversations/agents.",
     "GitHub issue proposals are not acknowledged work until a real receiving agent confirms.",
@@ -117,5 +117,58 @@
     "source_edits_outside_role": 0,
     "first_working_outcome_packet": false,
     "source_execution_claimed": false
+  },
+  "last_local_first_sweep": {
+    "date": "2026-10-22",
+    "document": "workspace/aion/ops/capture-studio-value-oracle/LOCAL-FIRST-SWEEP-2026-10-22.md",
+    "status": "first-party audit complete; local-first source improvements committed; Windows/live acceptance pending",
+    "changes_directly_made": [
+      {
+        "commit": "135b78429a588f693a13f02809c1416e965ef44f",
+        "effect": "Studio no-login localhost access"
+      },
+      {
+        "commit": "499ae71d343fdf902d8ef8d2b4829428537e0ad5",
+        "effect": "Backwards compatible explicit-token auth"
+      },
+      {
+        "commit": "270afc470b8d48ab8122985bed99e130f84c6756",
+        "effect": "Explicit-token legacy conversation fixture"
+      },
+      {
+        "commit": "5dcabc70d0d46cfac03842a62f5d81daf13e2722",
+        "effect": "Explicit-token legacy Chat UI fixture"
+      },
+      {
+        "commit": "e1bef26b3111715579362a8cfdad4ac3733e70a5",
+        "effect": "Five new Node integration regression tests committed, not executed"
+      },
+      {
+        "commit": "4489e2d7fa9982eff460b2ea778ec068c0456475",
+        "effect": "API manifest/call schema agrees with loopback-local access and webhook simplification"
+      }
+    ],
+    "concurrent_lanes": "Other active AION agents committed local-raw capture mode, long prompts, Drive one-click, localhost fixture URLs, webhook simplifications, UI text and QA direction. Consult pinned doc and refresh main.",
+    "observed_manual_user_work_saved": null,
+    "current_node_suite_executed": false,
+    "isolated_source_checks": {
+      "passed": 13,
+      "failed": 0,
+      "environment": "GitHub-fetched server syntactically compiled as transformed JS; source/policy structural checks, NOT live HTTP and NOT Node runtime test"
+    },
+    "product_local_pc_live_verified": false,
+    "unknowns": [
+      "No full GitHub checkout in sandbox",
+      "No owner's Windows Chrome runtime",
+      "No actual provider transmission or Windows data directory verified",
+      "Changes made concurrently: verify current main before new file edits"
+    ],
+    "remaining_high_leverage": [
+      "Connect saved session to a useful Outcome Packet",
+      "Windows local smoke: direct Studio start, capture, derive, use",
+      "Improve Chrome existing-tab reuse; reduce duplicate login",
+      "Review Velocity ACL startup latency on actual PC",
+      "Update stale auth/capture documentation and tool readouts if present"
+    ]
   }
 }
