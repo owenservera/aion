@@ -75,3 +75,9 @@ GitHub is the durable record; issues or files are not automatic agent wakeups. C
 - **Core contract consumed:** authenticated read-only session model/graph/continuity and search endpoints. UI has not modified Core API or source.
 - **Safety:** no inference of same account from same origin, no silent type-drift merge, no invented deletion/retraction and rejected links omitted from active visual map. Mock/fixture checks are not live validation.
 
+
+## Five-sprint UI delivery — 2026-10-22
+
+**Authoritative workplan:** [Five-sprint sequence](FIVE-SPRINT-WORKPLAN.md). **Sprint 1:** connected Chat/Drive → saved Session → derived Knowledge source-delivered, 46/46 V8 client checks. **Sprint 2:** [Lifecycle & Recovery](SPRINT-02-RECOVERY.md) source-delivered, 62/62 exact-source V8 contract checks including the 16 new recovery scenarios. Native Node, local Windows/browser and independent QA are pending for both.
+
+**Active next build:** Sprint 3 Evidence Explorer (exact recorded provenance where available, side-by-side review-only drift comparison; no auto-merge or correction). Older Sprint 02 Knowledge and Sprint 03 Integration files remain historical source receipts and do not supersede this current five-sprint queue. No Playwright/Puppeteer, live sends, backend writes or agent wakeups were performed by the UI agent in Sprint 2.
