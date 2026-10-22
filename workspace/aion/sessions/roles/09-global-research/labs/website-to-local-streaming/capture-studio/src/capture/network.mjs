@@ -38,6 +38,9 @@ export class NetworkRecorder extends EventEmitter {
     this.maxStreamBytes = options.maxStreamBytes ?? profile?.capture?.maxStreamBytes ?? 0;
     this.armRetries = options.armRetries ?? profile?.capture?.armRetries ?? 1;
     this.armRetryDelayMs = options.armRetryDelayMs ?? 60;
+    // Per-stream memory budget for chunks held while Network.streamResourceContent is pending.
+    // Overflow stops buffering for that stream and is recorded as body.truncated (arming_buffer_overflow).
+    this.maxPendingArmBytes = options.maxPendingArmBytes ?? profile?.capture?.maxPendingArmBytes ?? 8 * 1024 * 1024;
   }
 
   setProfile(p) {
@@ -45,6 +48,7 @@ export class NetworkRecorder extends EventEmitter {
     this.privacy = capturePrivacy(p);
     this.stats.captureMode = this.privacy.mode;
     if (this.options.maxStreamBytes === undefined) this.maxStreamBytes = p?.capture?.maxStreamBytes ?? this.maxStreamBytes;
+    if (this.options.maxPendingArmBytes === undefined) this.maxPendingArmBytes = p?.capture?.maxPendingArmBytes ?? this.maxPendingArmBytes;
   }
 
   _sid(tag, requestId) { return `${tag}:${requestId}`; }
@@ -200,6 +204,9 @@ export class NetworkRecorder extends EventEmitter {
       // Chunks that raced the arming response are written after bufferedData, preserving byte order.
       for (const d of st.pendingData ?? []) this._chunk(st, d.buf, d.extra);
       st.pendingData = null;
+      st.pendingBytes = 0;
+      // Bytes after the overflow point were never buffered, so everything after it is a gap: marked, not resumed.
+      if (st.pendingOverflow) { this._truncateStream(st, 'arming_buffer_overflow', this.maxPendingArmBytes, st.pendingOverflow.bytes); st.pendingOverflow = null; }
       if (st.finishedWhileArming) this._finalize(st.finishedWhileArming.session, st, st.finishedWhileArming.p);
     }
   }
@@ -244,15 +251,26 @@ export class NetworkRecorder extends EventEmitter {
     this.append(rec);
   }
 
+  // The cap counts bytes already admitted plus the filtered-mode tail held by the guard. A chunk that
+  // crosses the cap is split at the boundary: the head up to the cap is admitted, the rest is dropped.
+  // Whole chunks are never admitted past the cap.
   _chunk(st, buf, extra = {}) {
     if (st.credentialExcluded) return;
-    if (this.maxStreamBytes && st.bytes + (st.guard?.pending.length ?? 0) >= this.maxStreamBytes) {
-      if (!st.truncated) { st.truncated = true; this.stats.truncatedStreams++;
-        this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes, cap: this.maxStreamBytes, reason: 'max_stream_bytes' }); }
-      st.guard?.discard();
-      st.droppedByCap = (st.droppedByCap ?? 0) + buf.length;
-      return;
+    // A truncated stream (byte cap or arming overflow) never resumes: later bytes are a gap, not continuation.
+    if (st.truncated) return this._truncateStream(st, 'max_stream_bytes', this.maxStreamBytes, buf.length);
+    if (this.maxStreamBytes && buf.length) {
+      const room = this.maxStreamBytes - (st.bytes + (st.guard?.pending.length ?? 0));
+      if (room <= 0) return this._truncateStream(st, 'max_stream_bytes', this.maxStreamBytes, buf.length);
+      if (buf.length > room) {
+        this._admit(st, buf.subarray(0, room), extra);
+        if (st.credentialExcluded) return; // body.excluded already states that the remaining bytes are unavailable
+        return this._truncateStream(st, 'max_stream_bytes', this.maxStreamBytes, buf.length - room);
+      }
     }
+    this._admit(st, buf, extra);
+  }
+
+  _admit(st, buf, extra = {}) {
     if (this.privacy.localRaw) {
       st.chunks++; st.bytes += buf.length;
       this.stats.chunks++; this.stats.bytes += buf.length;
@@ -262,14 +280,41 @@ export class NetworkRecorder extends EventEmitter {
     this._appendProtectedChunk(st, (st.guard ??= new ChunkCredentialGuard()).push(buf), extra);
   }
 
+  // Single writer of loss for a body cut by the byte cap or the arming budget. The first loss in a
+  // stream writes body.truncated with the exact persisted byte count; later losses only add to
+  // droppedByCap, so persisted + droppedByCap always equals the bytes received. The filtered-mode tail
+  // still held by the guard is discarded (unchanged behaviour) and reported as withheldBytes, so the
+  // marker never overstates what was persisted.
+  _truncateStream(st, reason, cap, droppedLen) {
+    const withheld = st.guard?.pending.length ?? 0;
+    if (!st.truncated) {
+      st.truncated = true; this.stats.truncatedStreams++;
+      this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes, cap, reason, ...(withheld ? { withheldBytes: withheld } : {}) });
+    }
+    st.guard?.discard();
+    st.droppedByCap = (st.droppedByCap ?? 0) + droppedLen + withheld;
+  }
+
   _onData(tag, p) {
     const st = this.reqs.get(this._sid(tag, p.requestId));
     if (!st || st.ignored || !st.body) return;
     if (p.data) {
       const buf = Buffer.from(p.data, 'base64'), extra = { ct: p.timestamp, enc: p.encodedDataLength };
-      if (st.arming) (st.pendingData ??= []).push({ buf, extra }); else this._chunk(st, buf, extra);
+      if (st.arming) this._bufferWhileArming(st, buf, extra); else this._chunk(st, buf, extra);
     }
     else if (!st.armed) st.unarmedDataEvents = (st.unarmedDataEvents ?? 0) + 1; // bytes are in bufferedData or the retrospective body
+  }
+
+  // Chunks that arrive while arming is pending are held until arming settles, within a per-stream budget.
+  // On overflow, buffering stops for good: the buffered prefix is still written in order, and the loss is
+  // recorded when the arm settles (see _onResponse). Nothing is dropped without a marker.
+  _bufferWhileArming(st, buf, extra) {
+    if (st.pendingOverflow || (st.pendingBytes ?? 0) + buf.length > this.maxPendingArmBytes) {
+      st.pendingOverflow = { bytes: (st.pendingOverflow?.bytes ?? 0) + buf.length };
+      return;
+    }
+    (st.pendingData ??= []).push({ buf, extra });
+    st.pendingBytes = (st.pendingBytes ?? 0) + buf.length;
   }
 
   _onFinished(session, tag, p) {
@@ -442,9 +487,12 @@ export class NetworkRecorder extends EventEmitter {
     this.stats.wsFrames++;
     if ([0, 8, 9, 10].includes(f.opcode)) this.stats.wsControlFrames++;
     st.frames = (st.frames ?? 0) + 1;
-    if (this.maxStreamBytes && (st.bytes ?? 0) >= this.maxStreamBytes) {
+    // Frames are protocol units and cannot be split: a frame that would cross the cap is omitted whole
+    // (ws.frame_meta droppedByCap), and the stream stays truncated for every later frame.
+    if (this.maxStreamBytes && (st.truncated || (st.bytes ?? 0) + size > this.maxStreamBytes)) {
+      const withheld = st.frameGuard?.bytes ?? 0;
       if (!st.truncated) { st.truncated = true; this.stats.truncatedStreams++;
-        this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes ?? 0, cap: this.maxStreamBytes, reason: 'max_stream_bytes' }); }
+        this.append({ k: 'body.truncated', sid: st.sid, bytes: (st.bytes ?? 0) - withheld, cap: this.maxStreamBytes, reason: 'max_stream_bytes', ...(withheld ? { withheldBytes: withheld } : {}) }); }
       for (const dropped of st.frameGuard?.discard() ?? [])
         this.append({ k: 'ws.frame_meta', sid: st.sid, dir: dropped.frame.dir, opcode: dropped.frame.opcode,
           ct: dropped.frame.ct, size: dropped.bytes, policy: 'metadata_only:security_tail_truncated' });
