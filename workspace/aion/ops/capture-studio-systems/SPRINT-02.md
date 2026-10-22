@@ -1,6 +1,6 @@
 # Systems Sprint 02 — Capture Completeness, Provenance and Resource Behavior
 
-**Date:** 2026-10-22. **Lane:** Systems / Algorithms / Usability (advisory). **Source-at-start:** main `02310fe5ae913c23a56fd16144b518b78eb0b4a6` (L5 docs latest at 16:44Z); product capture code last materially updated by `375659c91d6a` (same date). **Evidence:** first-party GitHub source, existing builder tests and existing QA/Core/L5 receipts; **no new tests executed**, no owner-PC/browser access, no sends, no product source edits. **Parent:** [SPRINTS.md](SPRINTS.md); previous [SPRINT-01.md](SPRINT-01.md). Source anchors below point to main; consult source SHA when using over time.
+**Date:** 2026-10-22. **Lane:** Systems / Algorithms / Usability (advisory). **Source-at-start:** main `02310fe5ae913c23a56fd16144b518b78eb0b4a6` (L5 docs latest at 16:44Z); product capture code last materially updated by `375659c91d6a` (same date). **Evidence:** first-party GitHub source, existing builder tests and existing QA/Core/L5 receipts; **no new tests executed**, no owner-PC/browser access, no sends, no product source edits. **Parent:** [SPRINTS.md](SPRINTS.md); previous [SPRINT-01.md](SPRINT-01.md). Source anchors below are pinned to the immutable assessed product-source SHA.
 
 ## Executive verdict
 
