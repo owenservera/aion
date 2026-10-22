@@ -43,26 +43,42 @@ const tryJson = (t) => {
 // Byte-level line splitter honoring \n, \r\n and \r (as the SSE spec requires).
 // ---------------------------------------------------------------------------------------------
 export class LineSplitter {
-  constructor() { this.buf = Buffer.alloc(0); this.offset = 0; this.pendingCR = false; }
+  constructor() { this.buf = Buffer.alloc(0); this.offset = 0; }
+  // A CR that is the last byte of the available data is NOT consumed: its line stays held in buf
+  // until the next byte shows whether an LF follows (so a CRLF split across chunks keeps the exact
+  // span of the LF) or the stream ends (finish()).
   push(chunk) {
     const lines = [];
-    let data = this.buf.length ? Buffer.concat([this.buf, chunk]) : chunk;
-    let base = this.offset;
+    const data = this.buf.length ? Buffer.concat([this.buf, chunk]) : chunk;
+    const base = this.offset;
     let start = 0;
     for (let i = 0; i < data.length; i++) {
       const b = data[i];
-      if (this.pendingCR) { this.pendingCR = false; if (b === NL && i === start) { start = i + 1; continue; } }
-      if (b === NL || b === CR) {
-        lines.push({ line: data.subarray(start, i), start: base + start, end: base + i + 1 });
-        if (b === CR) { if (i + 1 < data.length) { if (data[i + 1] === NL) { i++; lines[lines.length - 1].end++; } } else this.pendingCR = true; }
-        start = i + 1;
-      }
+      if (b !== NL && b !== CR) continue;
+      if (b === CR && i + 1 === data.length) break;
+      const crlf = b === CR && data[i + 1] === NL;
+      const end = i + (crlf ? 2 : 1);
+      lines.push({ line: data.subarray(start, i), start: base + start, end: base + end });
+      if (crlf) i++;
+      start = end;
     }
     this.buf = Buffer.from(data.subarray(start));
     this.offset = base + start;
     return lines;
   }
   rest() { return this.buf.length ? { line: this.buf, start: this.offset, end: this.offset + this.buf.length } : null; }
+  // End of stream: a held CR-terminated line is complete (CR terminates a line), so it is returned
+  // as a normal line with its exact span. Returns [] when nothing is held or the held bytes do not
+  // end in CR (callers then use rest(), exactly as before).
+  finish() {
+    const n = this.buf.length;
+    if (!n || this.buf[n - 1] !== CR) return [];
+    const start = this.offset, end = this.offset + n;
+    const line = this.buf.subarray(0, n - 1);
+    this.buf = Buffer.alloc(0);
+    this.offset = end;
+    return [{ line, start, end }];
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -204,7 +220,11 @@ export class SseDecoder {
       this._bomDone = true;
       if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) buf = buf.subarray(3);
     }
-    for (const { line, start, end } of this.lines.push(buf)) {
+    this._feed(this.lines.push(buf), out);
+    return out;
+  }
+  _feed(lines, out) {
+    for (const { line, start, end } of lines) {
       if (this.cur.start === null) this.cur.start = start;
       if (line.length === 0) { const e = this._dispatch(end); if (e) out.push(e); continue; }
       const s = line.toString('utf8');
@@ -218,12 +238,12 @@ export class SseDecoder {
       else if (field === 'retry') this.cur.retry = /^\d+$/.test(value) ? Number(value) : value;
       else (this.cur.unknown[field] ??= []).push(value);
     }
-    return out;
   }
   end() {
     const out = [];
-    const r = this.lines.rest();
-    if (r) out.push(...this.push(Buffer.from('\n')));
+    const held = this.lines.finish();
+    if (held.length) this._feed(held, out);
+    else if (this.lines.rest()) out.push(...this.push(Buffer.from('\n')));
     if (this.cur.start !== null) {
       const e = this._dispatch(this.lines.offset);
       if (e) { e.incomplete = true; out.push(e); }
@@ -297,8 +317,9 @@ export class NdjsonDecoder {
   }
   end() {
     const out = [];
-    const r = this.lines.rest();
-    if (r) out.push(...this._line(r, true));
+    const held = this.lines.finish();
+    if (held.length) { for (const l of held) out.push(...this._line(l)); }
+    else { const r = this.lines.rest(); if (r) out.push(...this._line(r, true)); }
     if (this.hold) { out.push(this._mk(this.hold.text, this.hold.start, this.hold.end, { incomplete: true })); this.hold = null; }
     return out;
   }
