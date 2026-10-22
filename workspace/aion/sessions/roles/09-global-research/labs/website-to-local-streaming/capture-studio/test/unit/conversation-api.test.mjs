@@ -27,7 +27,7 @@ async function fixture(t) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'conversation-api-'));
   const paths = dataPaths(root); ensureDataDirs(paths);
   const runtime = fake();
-  const studio = await startStudio({ paths, profileStore: new ProfileStore(paths.profiles), port: 0, token: 'fixture-token', conversationRuntime: runtime });
+  const studio = await startStudio({ paths, profileStore: new ProfileStore(paths.profiles), port: 0, token: 'fixture-token', accessMode: 'token', conversationRuntime: runtime });
   t.after(async () => { await studio.close(); rmSync(root, { recursive: true, force: true }); });
   async function request(route, method = 'GET', body, headers = {}) {
     if (headers.host) {
