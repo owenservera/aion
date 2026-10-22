@@ -259,6 +259,7 @@ textarea.json { width: 100%; min-height: 50vh; font-family: var(--mono); font-si
     <section class="view" id="v-sessions">
       <h2>Sessions</h2>
       <p class="lede">Saved recordings on this computer. Choosing one makes Streams, Shapes and Search look at it instead of the live recording.</p>
+      <div id="deepLinkNotice" role="status" aria-live="polite" class="small-note" hidden></div>
       <div class="split">
         <div class="panel scroll"><div class="session-tools"><label for="sessionFilter">Filter <input id="sessionFilter" type="search" placeholder="Title, website or session ID" autocomplete="off"></label><output id="sessionCount" aria-live="polite"></output><button id="refreshSessions">Refresh</button></div><table id="sessions"><tbody><tr><td class="empty">Open Sessions to load recordings.</td></tr></tbody></table></div>
         <div id="sessionDetail"><div class="empty">Choose a session.</div></div>
@@ -670,9 +671,9 @@ async function openSession(id) {
       $('#sessionDetail').innerHTML = '<div class="feedback-error" role="alert">' +
         (e.status === 404 ? 'This recording is no longer available. It may have been deleted.' : 'Could not open session: ' + esc(e.message)) + '</div>';
     }
-    return;
+    return false;
   }
-  if (requestSeq !== S.sessionRequestSeq) return;
+  if (requestSeq !== S.sessionRequestSeq) return false;
   const m = d.meta;
   const datasets = Array.isArray(d.datasets) ? d.datasets : [];
   $('#sessionDetail').innerHTML = `<div class="panel pad">
@@ -726,6 +727,7 @@ async function openSession(id) {
     const st = await api(`sessions/${id}/at?t=${Math.round(tAt())}`);
     $('#ttOut').innerHTML = `<div style="color:var(--muted)">${st.streams.length} streams, ${st.dom.length} visible page blocks, ${st.gaps.length} gaps at this moment</div>` + st.streams.filter((x) => x.assembledTexts?.length).slice(0, 4).map((x) => `<div class="panel pad" style="margin-top:6px"><div class="mono" style="color:var(--muted)">${esc(x.endpoint)} (${esc(x.status)})</div>${esc(x.assembledTexts[0].text.slice(0, 600))}</div>`).join('');
   });
+  return true;
 }
 
 
@@ -1180,11 +1182,50 @@ $('#searchForm').onsubmit = guard(async (e) => {
 
 connectLive();
 loadTargets();
-/* Deep link from Live drive: /#session=<id> opens that saved session. */
-{
-  const m = /^#session=(.+)$/.exec(location.hash);
-  if (m) { try { const id = decodeURIComponent(m[1]); show('sessions'); guard(openSession)(id); } catch { /* malformed link: ignore */ } }
+/* Safe saved-recording navigation used by Chat, Live drive and the main Studio.
+   No capture, derivation, site send or implicit acceptance is triggered here. */
+function parseSessionDeepLink(hash) {
+  if (typeof hash !== 'string' || !hash.startsWith('#session=')) return null;
+  const raw = hash.slice(1);
+  if (/%(?![0-9a-f]{2})/i.test(raw)) return null;
+  const params = new URLSearchParams(raw);
+  if ([...params.keys()].some((key) => key !== 'session' && key !== 'view')) return null;
+  if (params.getAll('session').length !== 1 || params.getAll('view').length > 1) return null;
+  const id = params.get('session'), view = params.get('view') || 'sessions';
+  if (!id || id.length > 128 || /[\u0000-\u001f\u007f]/.test(id)) return null;
+  if (view !== 'sessions' && view !== 'knowledge') return null;
+  return { id, view };
 }
+let deepLinkEpoch = 0;
+async function openSessionDeepLink(hash) {
+  const epoch = ++deepLinkEpoch, request = parseSessionDeepLink(hash);
+  if (typeof hash !== 'string' || !hash.startsWith('#session=')) return false;
+  show('sessions');
+  const notice = $('#deepLinkNotice');
+  notice.hidden = false;
+  if (!request) {
+    notice.textContent = 'Invalid recording link. Choose a saved recording below; no linked evidence was loaded.';
+    return false;
+  }
+  notice.textContent = 'Opening the linked saved recording…';
+  const loaded = await openSession(request.id);
+  if (epoch !== deepLinkEpoch) return false;
+  if (!loaded) {
+    notice.textContent = 'Could not open the linked recording. It may be missing or access may have expired. Choose a saved recording below.';
+    return false;
+  }
+  if (request.view === 'knowledge') {
+    show('knowledge');
+    $('#knowledgeState').textContent = 'Recording selected. Choose Explore knowledge to inspect derived evidence. The derivation may be incomplete or unverified.';
+  }
+  notice.hidden = true;
+  notice.textContent = '';
+  return true;
+}
+if (location.hash.startsWith('#session=')) guard(openSessionDeepLink)(location.hash);
+window.addEventListener('hashchange', () => {
+  if (location.hash.startsWith('#session=')) guard(openSessionDeepLink)(location.hash);
+});
 setInterval(() => { if (S.recording && S.view === 'streams') loadStreams().catch(() => {}); }, 2000);
 </script>
 </body>
