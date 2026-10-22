@@ -1,4 +1,5 @@
 import { foldRevision } from './history.mjs';
+import { InvariantViolation, observeInvariant, NSP_SCHEMA } from '../core/invariants.mjs';
 import { stableStringify } from './similarity.mjs';
 
 // Canonical temporal evidence graph.
@@ -11,17 +12,20 @@ import { stableStringify } from './similarity.mjs';
 // Unknown/evolving schemas are fine: entity state is whatever attributes were observed.
 // stateAt(t) replays revisions to reconstruct the semantic state at any moment.
 export class TemporalGraph {
-  constructor() { this.nodes = new Map(); this.edges = new Map(); this.changes = []; this.types = new Map(); }
+  constructor() { this.nodes = new Map(); this.edges = new Map(); this.changes = []; this.types = new Map(); this.invariants = []; this.quarantinedEntities = 0; }
 
   addType(t) { this.types.set(t.id, { id: t.id, name: t.name, key: t.key?.field ?? null, confidence: t.confidence, fields: t.fields.map((f) => ({ name: f.name, type: f.type, role: f.role, roleConfidence: f.roleConfidence })) }); }
 
   upsertEntity({ eid, type, typeName, key, attrs = {}, t, evidence, changed, removed = [] }) {
     let n = this.nodes.get(eid);
-    if (!n) { n = { eid, type, typeName, key, attrs: {}, history: [], firstT: null, lastT: null }; this.nodes.set(eid, n); }
+    if (!n) n = { eid, type, typeName, key, attrs: {}, history: [], firstT: null, lastT: null };
     const before = n.attrs;
     const removedFields = Array.isArray(removed)
       ? removed.filter((name) => typeof name === 'string' && name.length > 0) : [];
-    n.attrs = foldRevision({ ...n.attrs }, { values: attrs, removed: removedFields });
+    const nextAttrs = foldRevision({ ...n.attrs }, { values: attrs, removed: removedFields,
+      evidence }); // validate first, then publish the newly created node
+    n.attrs = nextAttrs;
+    if (!this.nodes.has(eid)) this.nodes.set(eid, n);
     if (Number.isFinite(t)) {
       n.firstT = n.firstT === null ? t : Math.min(n.firstT, t);
       n.lastT = n.lastT === null ? t : Math.max(n.lastT, t);
@@ -103,7 +107,11 @@ export class TemporalGraph {
   rank(options = {}) { return rankGraphNodes(this, options); }
 
   toJSON() {
-    return { types: [...this.types.values()], nodes: [...this.nodes.values()], edges: [...this.edges.values()], stats: { nodes: this.nodes.size, edges: this.edges.size, changes: this.changes.length, byKind: countBy([...this.edges.values()], 'kind'), byStatus: countBy([...this.edges.values()], 'status') } };
+    return { types: [...this.types.values()], nodes: [...this.nodes.values()], edges: [...this.edges.values()],
+      invariants: { schema: NSP_SCHEMA, violations: this.invariants },
+      stats: { nodes: this.nodes.size, edges: this.edges.size, changes: this.changes.length,
+        invariantViolations: this.invariants.length, quarantinedEntities: this.quarantinedEntities,
+        byKind: countBy([...this.edges.values()], 'kind'), byStatus: countBy([...this.edges.values()], 'status') } };
   }
 }
 
@@ -114,17 +122,59 @@ const nFromHistory = (history) => history.reduce((state, rev) => foldRevision(st
 export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps = [], session }) {
   const g = new TemporalGraph();
   for (const t of model.types) g.addType(t);
-  const keyIndex = new Map(); // typeId|key -> eid
+
+  // Preflight ALL entity IDs before materializing any node. Two incompatible
+  // entities sharing one EID would otherwise silently overwrite each other.
+  // Quarantine both identities, not just whichever was encountered second.
+  // The raw observations and unmodified entity dataset stay available.
+  const signatures = new Map(), collisions = new Map();
   for (const r of resolutions) for (const e of r.entities) {
+    const signature = JSON.stringify([e.type, e.scope, e.method, e.keyType ?? null, e.key]);
+    const prior = signatures.get(e.eid);
+    if (prior && (prior.signature !== signature || e.method !== 'key')) {
+      const set = collisions.get(e.eid) ?? new Set([prior.entity]);
+      set.add(e); collisions.set(e.eid, set);
+    } else if (!prior) signatures.set(e.eid, { signature, entity: e });
+  }
+  for (const [eid, entities] of [...collisions].sort(([a], [b]) => String(a).localeCompare(String(b)))) {
+    const first = [...entities][0];
+    const receipt = observeInvariant(false, 'NSP-004', {
+      boundary: 'build-graph', disposition: 'isolated', reason: 'entity-id-collision',
+      entityId: eid, count: entities.size,
+      source: { session: first.anchor?.session ?? session?.id,
+        sid: first.anchor?.sid, seq: first.anchor?.seq },
+    });
+    g.invariants.push(receipt);
+    g.quarantinedEntities += entities.size;
+  }
+  const quarantined = new Set(collisions.keys());
+  const usable = resolutions.map((r) => ({
+    ...r, entities: r.entities.filter((e) => !quarantined.has(e.eid)),
+  }));
+  const keyIndex = new Map(); // typeId|key -> eid
+  for (const r of usable) for (const e of r.entities) {
     let first = true;
     for (const rev of e.revisions) {
-      g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key, attrs: rev.values ?? (first ? e.attrs : {}), t: rev.t, changed: rev.changed, removed: rev.removed ?? [], evidence: { session: rev.session ?? session?.id, seq: rev.seq, sid: rev.sid, domId: rev.domId, t: rev.t } });
-      first = false;
+      try {
+        g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key,
+          attrs: rev.values ?? (first ? e.attrs : {}), t: rev.t, changed: rev.changed,
+          removed: rev.removed ?? [], evidence: { session: rev.session ?? session?.id, seq: rev.seq,
+            sid: rev.sid, domId: rev.domId, t: rev.t } });
+        first = false;
+      } catch (error) {
+        if (!(error instanceof InvariantViolation)) throw error;
+        // Reject only this contradictory revision. Preserve valid graph history.
+        g.invariants.push(error.receipt);
+      }
     }
     if (!e.revisions.length) g.upsertEntity({ eid: e.eid, type: e.type, typeName: e.typeName, key: e.key, attrs: e.attrs, t: e.first });
-    // Current state = folded state; also carry the entity's identity confidence.
+    // Reconstruct only accepted revisions; never reintroduce a rejected value
+    // from the supplied entity's final attrs.
     const node = g.nodes.get(e.eid);
-    node.attrs = e.revisions.some((r) => r.removed?.length) ? nFromHistory(node.history) : e.attrs; node.confidence = e.confidence; node.confidenceBasis = e.confidenceBasis; node.idBasis = e.idBasis; node.anchor = e.anchor;
+    if (!node) continue;
+    node.attrs = nFromHistory(node.history);
+    node.confidence = e.confidence; node.confidenceBasis = e.confidenceBasis;
+    node.idBasis = e.idBasis; node.anchor = e.anchor;
     if (e.key !== null && e.method === 'key') {
       const key = JSON.stringify([e.type, e.scope, e.keyType ?? typeof e.attrs?.[model.types.find((t) => t.id === e.type)?.key?.field], e.key]);
       const matches = keyIndex.get(key) ?? []; matches.push(e.eid); keyIndex.set(key, matches);
@@ -133,7 +183,7 @@ export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps =
   // Instance-level reference edges from type-level inclusion dependencies.
   for (const rel of model.relationships) {
     if (rel.kind !== 'references') continue;
-    const src = resolutions.find((r) => r.type === rel.from);
+    const src = usable.find((r) => r.type === rel.from);
     for (const e of src?.entities ?? []) {
       // Reference values may change. Never backdate final-state foreign keys to entity birth.
       const revisions = e.revisions?.length ? e.revisions : [{ t: e.first, values: e.attrs }];
@@ -152,7 +202,7 @@ export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps =
   // Composition at instance level: same observation, nested path.
   for (const rel of model.relationships) {
     if (rel.kind !== 'contains') continue;
-    const parent = resolutions.find((r) => r.type === rel.from), child = resolutions.find((r) => r.type === rel.to);
+    const parent = usable.find((r) => r.type === rel.from), child = usable.find((r) => r.type === rel.to);
     if (!parent || !child) continue;
     const bySeq = new Map();
     for (const e of parent.entities) for (const rv of e.occurrences ?? e.revisions) if (rv.seq !== null && rv.seq !== undefined) {
@@ -167,7 +217,7 @@ export function buildGraph({ model, resolutions, renderedHyps = [], actionHyps =
         evidence: { relationship: rel.id, session: rv.session ?? session?.id, sid: rv.sid, seq: rv.seq, location: rv.location }, t: rv.t });
     }
   }
-  for (const h of renderedHyps) if (h.to) g.relate({ kind: 'rendered_as', from: h.from.entity ?? `stream:${h.from.stream}`, to: `dom:${h.to.element}`, confidence: h.score, status: h.status === 'likely' ? 'hypothesis' : h.status, evidence: h.features, t: h.t ?? null });
+  for (const h of renderedHyps) if (h.to && (!h.from.entity || g.nodes.has(h.from.entity))) g.relate({ kind: 'rendered_as', from: h.from.entity ?? `stream:${h.from.stream}`, to: `dom:${h.to.element}`, confidence: h.score, status: h.status === 'likely' ? 'hypothesis' : h.status, evidence: h.features, t: h.t ?? null });
   for (const h of actionHyps) g.relate({ kind: 'preceded', from: `action:${h.from.actionSeq}`, to: `stream:${h.to.sid}`, confidence: h.score, status: h.status === 'likely' ? 'hypothesis' : h.status, evidence: { ...h.features, scoredRelation: h.relation, score: h.score }, t: h.t ?? null });
   return g;
 }
