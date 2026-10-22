@@ -57,7 +57,7 @@ define({
   summary: 'Preview, or explicitly send one conversation turn and finish its capture',
   description: 'Default is an offline dry-run. --execute connects, submits once, polls local snapshots for a bounded time, and finishes recording without closing the tab. No retries or persistent CLI recorder.',
   flags: {
-    prompt: { type: 'string', valueName: 'TEXT', desc: 'Required prompt, at most 2000 characters' },
+    prompt: { type: 'string', valueName: 'TEXT', desc: 'Required prompt, at most 250000 characters' },
     execute: { type: 'boolean', desc: 'Confirm one real website send (may consume account quota)' },
     'dry-run': { type: 'boolean', desc: 'Preview without browser access, even with --execute' },
     timeout: { type: 'number', default: 120, valueName: 'SECONDS', desc: 'Local polling budget, 1–900 seconds' },
