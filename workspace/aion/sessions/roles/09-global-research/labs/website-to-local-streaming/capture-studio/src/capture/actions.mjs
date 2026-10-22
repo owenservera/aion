@@ -359,6 +359,8 @@ export async function readTranscript(page, adapter = null, { exclude = [] } = {}
   const r = await tryEval(page, String.raw`(() => { ${IN_PAGE}
     const turns = [];
     const seen = new Set();
+    // The prompt we sent is not an answer. Its own text must not count as new content.
+    const EXCLUDED = ${JSON.stringify(excluded)};
     const push = (role, text) => {
       const t = String(text || '').trim();
       if (!t) return;
@@ -370,24 +372,59 @@ export async function readTranscript(page, adapter = null, { exclude = [] } = {}
     // The COUNT is how many elements matched, NOT how many distinct texts they had: the
     // calibration prompt always produces the same words, so a new answer can be byte-identical
     // to the previous one and must still be counted as new content.
+    // The LAST is the last element with real text: a message is often followed by empty wrapper
+    // elements, and taking the literal last one returned an empty reply (Claude) or a button
+    // label (Qwen).
     const collect = (els) => {
-      const shown = els.filter((el) => vis(el));
-      for (const el of shown) push('assistant', txt(el));
-      const lastEl = shown[shown.length - 1];
-      return { count: shown.length, last: lastEl ? txt(lastEl) : '' };
+      const composer = live();
+      // The composer's own region is not the answer: Claude's send control is labelled "Reply"
+      // and lives inside the composer's form, so it matched the answer container and was read
+      // back instead of the reply.
+      // The region is the composer's own form ONLY. A loose class match (any ancestor whose
+      // class mentions "composer") excluded ChatGPT's whole transcript, because its thread
+      // layout carries a Tailwind class that mentions data-composer-expand-toggle.
+      const composerForm = composer && composer.closest ? composer.closest('form') : null;
+      const inComposer = (el) => {
+        if (composer && (el === composer || el.contains(composer) || composer.contains(el))) return true;
+        if (composerForm && composerForm.contains(el)) return true;
+        return !!(el.closest && el.closest('[data-testid="chat-input"], [data-testid="chat-input-container"]'));
+      };
+      // The prompt we sent is not an answer either, in any container: z.ai rendered the
+      // question inside its answer container and it was read back as the reply. The prompt is
+      // STRIPPED rather than the whole block dropped, because ChatGPT renders one turn as
+      // "Tú dijiste: <prompt> ChatGPT dijo: <answer>" and the answer must survive.
+      // Only the forward direction is safe: the calibration ANSWER is a substring of the
+      // PROMPT ("...nothing else: alpha bravo ... lima"), so comparing the other way round
+      // would throw the real answer away.
+      const stripPrompt = (text) => {
+        let flat = String(text || '').replace(/\s+/g, ' ').trim();
+        if (!flat) return '';
+        for (const x of EXCLUDED) {
+          if (flat.includes(x)) flat = flat.split(x).join(' ').replace(/\s+/g, ' ').trim();
+        }
+        return flat;
+      };
+      const shown = els.filter((el) => vis(el) && !inComposer(el));
+      const texts = shown.map((el) => stripPrompt(txt(el))).filter((t) => t.length >= 4);
+      for (const t of texts) push('assistant', t);
+      const meaningful = texts.filter((t) => t.length >= 8);
+      return {
+        count: meaningful.length,
+        last: meaningful.length ? meaningful[meaningful.length - 1] : (texts[texts.length - 1] ?? ''),
+      };
     };
 
     const authored = [...document.querySelectorAll('[data-message-author-role]')];
     if (authored.length) {
       const asstEls = authored.filter((el) => {
         const role = el.getAttribute('data-message-author-role');
-        return (role === 'user' || role === 'assistant') && vis(el);
+        return role === 'assistant' && vis(el);
       });
-      for (const el of asstEls) push(el.getAttribute('data-message-author-role'), txt(el));
-      const asstOnly = asstEls.filter((el) => el.getAttribute('data-message-author-role') === 'assistant');
-      if (asstOnly.length) {
-        const lastEl = asstOnly[asstOnly.length - 1];
-        return { turns: turns, last: txt(lastEl), count: asstOnly.length, reason: 'data-message-author-role' };
+      const asstTexts = asstEls.map((el) => txt(el));
+      for (const t of asstTexts) push('assistant', t);
+      const meaningful = asstTexts.filter((t) => t.length >= 8);
+      if (meaningful.length) {
+        return { turns: turns, last: meaningful[meaningful.length - 1], count: meaningful.length, reason: 'data-message-author-role' };
       }
     }
     turns.length = 0; seen.clear();
@@ -438,7 +475,10 @@ export async function readTranscript(page, adapter = null, { exclude = [] } = {}
     }
     if (turns.length) {
       const lastA = [...turns].reverse().find((t) => t.role === 'assistant');
-      return { turns: turns, last: lastA?.text ?? '', count: turns.length, reason: 'turn-scoped containers' };
+      // Only a USER turn matched: the answer container is unknown for this site, so the generic
+      // fallback has to run. Returning here produced an empty reply.
+      if (lastA) return { turns: turns, last: lastA.text, count: turns.length, reason: 'turn-scoped containers' };
+      turns.length = 0; seen.clear();
     }
 
     const composer = live();
@@ -446,18 +486,38 @@ export async function readTranscript(page, adapter = null, { exclude = [] } = {}
     if (!root) return { turns: [], last: '', reason: 'no document body' };
     // Chrome is not the answer: a sidebar or a header (Kimi's "New chat / My Kimi / Plugins" menu)
     // is navigation, not the reply.
-    const CHROME = 'nav,aside,header,footer,[role="navigation"],[role="banner"],[role="complementary"],[class*="sidebar"],[class*="side-bar"],[class*="navigation"],[class*="menu"],[class*="header"],[class*="toolbar"],[class*="breadcrumb"]';
+    // The ancestor test uses TAGS and ROLES only. Matching class names on ancestors killed the
+    // answer on ChatGPT, whose transcript container sits under a Tailwind class that contains a
+    // chrome word; the class-based test is applied to the element itself instead.
+    const CHROME_ANCESTOR = 'nav,aside,header,footer,[role="navigation"],[role="banner"],[role="complementary"]';
+    const CHROME_SELF = '[class*="sidebar"],[class*="side-bar"],[class*="navigation"],[class*="menu"],[class*="toolbar"],[class*="breadcrumb"]';
     // A status placeholder is not an answer: Qwen shows "Thinking" while it works.
     const STATUS = /^(thinking|thinking\.{0,3}|generating|generating\.{0,3}|loading|loading\.{0,3}|working|stop|stopping|cancel|思考中|正在思考|思考\.{0,3}|生成中|正在生成|加载中|\.{0,3})$/i;
     // The prompt we sent is not an answer. Its own text must not count as new content.
-    const EXCLUDED = ${JSON.stringify(excluded)};
     const blocks = [];
     const seenText = new Set();
     const BLOCK_SEL = 'p,li,pre,blockquote,h1,h2,h3,h4,td';
+    // The answer is ABOVE the composer: the footer notice ("ChatGPT can make mistakes",
+    // Kimi's copyright line) sits below it and was read back as the reply.
+    let composerTop = Infinity;
+    let composerForm = null;
+    try {
+      if (composer) {
+        const cr = composer.getBoundingClientRect();
+        if (cr.height > 0) composerTop = cr.top + window.scrollY;
+        composerForm = composer.closest ? composer.closest('form') : null;
+      }
+    } catch (e) { composerTop = Infinity; }
     for (const el of root.querySelectorAll(BLOCK_SEL + ',div')) {
-      if (composer && (el === composer || el.contains(composer))) continue;
+      if (composer && (el === composer || el.contains(composer) || composer.contains(el))) continue;
+      if (composerForm && composerForm.contains(el)) continue;
       if (!vis(el)) continue;
-      if (el.closest(CHROME)) continue;
+      if (composerTop !== Infinity) {
+        const top = el.getBoundingClientRect().top + window.scrollY;
+        if (top >= composerTop) continue;
+      }
+      if (el.closest(CHROME_ANCESTOR)) continue;
+      if (el.matches(CHROME_SELF)) continue;
       if (el.closest('nav,aside,header,footer,script,style')) continue;
       // Interactive chrome (a "Reply" button, a link) is not the answer: on a page with no
       // recognised assistant container this fallback used to return the last button label.
@@ -470,23 +530,52 @@ export async function readTranscript(page, adapter = null, { exclude = [] } = {}
       if (t.length < 8) continue;
       const flat = t.replace(/\s+/g, ' ').trim();
       if (STATUS.test(flat)) continue;
-      // The prompt we sent is not an answer: its own text must not count as new content.
-      if (EXCLUDED.some((x) => flat === x || flat.includes(x) || x.includes(flat))) continue;
+      // The prompt we sent is stripped out of the text rather than the whole block dropped:
+      // ChatGPT renders one turn as "Tú dijiste: <prompt> ChatGPT dijo: <answer>".
+      let stripped = flat;
+      for (const x of EXCLUDED) {
+        if (stripped.includes(x)) stripped = stripped.split(x).join(' ').replace(/\s+/g, ' ').trim();
+      }
+      if (stripped.length < 8) continue;
       // The same text can appear in nested wrappers (z.ai renders the prompt seven times);
       // that is one piece of content, not seven.
       if (seenText.has(flat)) continue;
       seenText.add(flat);
-      blocks.push({ t: t, top: el.getBoundingClientRect().top + window.scrollY });
+      blocks.push({ t: stripped, top: el.getBoundingClientRect().top + window.scrollY });
     }
     blocks.sort((a, b) => a.top - b.top);
     // The answer is the last thing said: keep the tail of the transcript, not the whole page.
     const tail = blocks.slice(-8).map((b) => b.t).join('\n').slice(-12000);
     const last = blocks.length ? blocks[blocks.length - 1].t : '';
-    if (tail) return { turns: [{ role: 'assistant', text: tail }], last: last, count: blocks.length, reason: 'generic text blocks (no assistant container matched)' };
-    return { turns: [], last: '', count: 0, reason: 'no assistant text found' };
+    if (tail) return { turns: [{ role: 'assistant', text: tail }], last: last, texts: blocks.map((b) => b.t), count: blocks.length, reason: 'generic text blocks (no assistant container matched)' };
+    return { turns: [], last: '', texts: [], count: 0, reason: 'no assistant text found' };
   })()`);
-  if (!r.ok) return { turns: [], last: '', count: 0, reason: `transcript read failed: ${r.error}` };
-  return { turns: r.value?.turns ?? [], last: r.value?.last ?? '', count: r.value?.count ?? 0, reason: r.value?.reason ?? 'unknown' };
+  if (!r.ok) return { turns: [], last: '', texts: [], count: 0, reason: `transcript read failed: ${r.error}` };
+  return { turns: r.value?.turns ?? [], last: r.value?.last ?? '', texts: r.value?.texts ?? [], count: r.value?.count ?? 0, reason: r.value?.reason ?? 'unknown' };
+}
+
+// The calibration prompt names the words it wants: "Reply with exactly these 12 words separated
+// by single spaces and nothing else: alpha bravo ... lima". The answer can therefore be looked
+// for in the visible text, instead of guessing which element holds it.
+export function expectedWordsFromPrompt(prompt) {
+  const p = String(prompt ?? '');
+  const m = p.match(/nothing else:\s*([a-z0-9 ]+?)\s*$/i);
+  if (!m) return null;
+  const words = m[1].trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return words.length >= 3 ? words : null;
+}
+
+// Does a text contain every expected word, in order?
+export function containsWords(text, words) {
+  if (!Array.isArray(words) || !words.length) return false;
+  const flat = String(text ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+  let at = 0;
+  for (const w of words) {
+    const i = flat.indexOf(w, at);
+    if (i < 0) return false;
+    at = i + w.length;
+  }
+  return true;
 }
 
 export async function isStreaming(page, adapter = null) {
@@ -547,6 +636,7 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
   let lastStreamingAt = 0;
   let evidence = 'none';
   let text = '';
+  let texts = [];
   const base = baseline == null ? null : norm(baseline);
 
   for (;;) {
@@ -559,6 +649,7 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     // block, and it is what must change: a page that still shows its greeting has not answered.
     const newest = tr.last || last?.text || '';
     text = newest || last?.text || '';
+    if (tr.texts?.length) texts = tr.texts;
 
     if (text && text !== lastText) { lastText = text; lastChangeAt = now; }
     if (stream.streaming) lastStreamingAt = now;
@@ -577,10 +668,10 @@ export async function waitForCompletion(page, adapter = null, { timeoutMs = 1200
     const grew = baseCount === null || (tr.count ?? 0) > baseCount;
     const changed = grew || (base === null || norm(text) !== base);
     if (!stream.streaming && text && changed && quietFor >= stableMs) {
-      return { done: true, ms: Date.now() - startedAt, text, reason: `settled: no change for ${quietFor} ms` };
+      return { done: true, ms: Date.now() - startedAt, text, texts, reason: `settled: no change for ${quietFor} ms` };
     }
     if (now - startedAt >= timeoutMs) {
-      return { done: false, ms: Date.now() - startedAt, text, reason: `timeout after ${timeoutMs} ms (${evidence}${stream.streaming ? ', still streaming' : ''}${changed ? '' : '; no new content since the send'})` };
+      return { done: false, ms: Date.now() - startedAt, text, texts, reason: `timeout after ${timeoutMs} ms (${evidence}${stream.streaming ? ', still streaming' : ''}${changed ? '' : '; no new content since the send'})` };
     }
     await sleep(pollMs);
   }
@@ -997,6 +1088,16 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     result.done = wait.done;
     if (wait.failed) { errors.push(wait.reason); result.reason = 'site-failure'; return; }
     if (!wait.done) { errors.push(wait.reason); result.reason = 'timeout'; return; }
+
+    // The reply is whichever visible text actually contains the answer the prompt asked for.
+    // Picking "the last block" gave a footer notice on ChatGPT and a nav item on z.ai.
+    const words = expectedWordsFromPrompt(result.prompt);
+    if (words) {
+      const texts = wait.texts ?? [];
+      const hit = [...texts].reverse().find((t) => containsWords(t, words));
+      if (hit) result.reply = hit;
+      result.verified = !!hit;
+    }
     result.ok = true;
   };
 

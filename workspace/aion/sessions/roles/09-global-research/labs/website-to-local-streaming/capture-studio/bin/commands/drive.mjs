@@ -3,6 +3,7 @@ import path from 'node:path';
 import { EXIT } from '../../src/config.mjs';
 import { ADAPTER_IDS, getAdapter, listAdapters } from '../../src/profiles/sites/index.mjs';
 import { driveSite } from '../../src/capture/actions.mjs';
+import { expectedAnswer, replyMatchesExpectation } from '../../src/capture/campaign.mjs';
 import { define } from '../lib/registry.mjs';
 import { notFound, envError, usageError, oneLine, truncate, fmtMs } from '../lib/ui.mjs';
 
@@ -101,9 +102,16 @@ define({
     }
 
     const reply = oneLine(result.reply);
+    // The default prompt asks for 12 exact words, so the reply can be checked objectively. A
+    // reply that settled but does not contain them is not the answer (a greeting, a menu, a
+    // notice) and is reported as unverified rather than as a successful drive.
+    const expect = expectedAnswer(prompt);
+    const check = expect ? replyMatchesExpectation(result.reply, expect) : null;
+    const verified = check ? check.ok : null;
     out.emit(result, (o) => {
-      o.result(`${result.site}  ${result.sessionId ?? '(not recorded)'}  ${fmtMs(result.ms)}  ${result.ok ? 'ok' : `failed: ${result.reason ?? first}`}`);
+      o.result(`${result.site}  ${result.sessionId ?? '(not recorded)'}  ${fmtMs(result.ms)}  ${result.ok ? (verified === false ? 'unverified' : 'ok') : `failed: ${result.reason ?? first}`}`);
       o.result(`reply: ${reply ? truncate(reply, 120) : '(empty)'}`);
+      if (check && !check.ok) o.line(`  check: ${check.reason}`);
       if (result.target?.url) o.line(`  tab ${result.target.url}`);
       for (const e of result.errors ?? []) if (e !== result.reason) o.line(`  note: ${e}`);
     });
