@@ -15,6 +15,7 @@ Capture Studio itself writes evidence to your **local data directory outside the
 - Design principles, capability matrix and roadmap: [`ARCHITECTURE.md`](ARCHITECTURE.md) (root) and
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (module map and data flow).
 - Review findings and worklog: [`ASSESSMENT-AND-WORKLOG.md`](ASSESSMENT-AND-WORKLOG.md).
+- Single-PC defaults and de-securitization decisions: [`docs/LOCAL-FIRST.md`](docs/LOCAL-FIRST.md).
 - Live-test runbook on Windows PowerShell: [`docs/LIVE-TEST.md`](docs/LIVE-TEST.md).
 - The interaction layer (pacing, measured CDP key-event rules, the typing harness):
   [`docs/HUMAN-INTERACTION.md`](docs/HUMAN-INTERACTION.md).
