@@ -1,3 +1,5 @@
+> **Owner-directed workplan, 2026-10-22:** [Five-sprint plan](SPRINTS.md) · [Worklog](WORKLOG.md) · [Sprint 1 report](SPRINT-01.md). Sprint 1 source investigation completed; Sprints 2–5 queued and not autonomously running. The SYS1–SYS6 list below is historical completion, not the active work request. No product edits, independent QA or live interactions are authorized by this Systems plan.
+
 # Capture Studio Systems / Algorithms / Usability — Active investigation queue
 
 **Issued by:** QA / Steering, owner-authorized team activation 2026-10-21. **Source checkpoint:** `cc536481aaab466fd7e6cbe00b63f007027dd588`. **Status:** SYS1–SYS6 completed as source investigation on 2026-10-21; independent runtime QA remains outside Systems.
