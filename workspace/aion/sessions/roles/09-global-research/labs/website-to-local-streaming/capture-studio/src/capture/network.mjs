@@ -11,7 +11,8 @@
 //      profile allows, Network.getResponseBody is attempted at loadingFinished (marked retrospective).
 //   3. WebSocket frames and browser-parsed EventSource messages are recorded as separate views.
 import { EventEmitter } from 'node:events';
-import { redactHeaders, redactUrl, isSensitiveUrl, scrubSecrets, scrubText } from './redact.mjs';
+import { redactHeaders, redactUrl, isSensitiveUrl, scrubText } from './redact.mjs';
+import { ChunkCredentialGuard, FrameCredentialGuard } from './stream-guard.mjs';
 import { inScope } from '../profiles/profiles.mjs';
 
 export class NetworkRecorder extends EventEmitter {
@@ -90,6 +91,7 @@ export class NetworkRecorder extends EventEmitter {
       if (st.ignored || !st.body) continue;
       if (!st.sid.startsWith(`${tag}:`)) continue;
       st.armed = false; st.reattachOrphan = true;
+      if (st.guard?.discard()) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_tail_devtools_reconnect' });
       orphaned.push(st.sid);
       this.append({ k: 'body.excluded', sid: st.sid, reason: 'devtools_reconnect_stream_not_resumable' });
     }
@@ -111,6 +113,7 @@ export class NetworkRecorder extends EventEmitter {
     let n = 0;
     for (const [sid, st] of [...this.reqs]) {
       if (!sid.startsWith(`${entry.tag}:`)) continue;
+      if (st.guard?.discard()) this.append({ k: 'body.excluded', sid, reason: 'security_tail_target_detached' });
       if (!st.ignored) this.append({ k: 'fail', sid, errorText: 'target detached', canceled: false, chunks: st.chunks ?? 0, bytes: st.bytes ?? 0 });
       this.reqs.delete(sid);
       n++;
@@ -124,13 +127,15 @@ export class NetworkRecorder extends EventEmitter {
     // Redirects reuse the requestId: close the previous hop explicitly.
     const prev = this.reqs.get(sid);
     if (prev && p.redirectResponse) {
+      if (prev.guard?.discard()) this.append({ k: 'body.excluded', sid, reason: 'security_tail_unfinished_redirect' });
       this.append({ k: 'res', sid, status: p.redirectResponse.status, mime: p.redirectResponse.mimeType, headers: redactHeaders(p.redirectResponse.headers), redirect: true });
       this.append({ k: 'done', sid, redirectedTo: redactUrl(url) });
     }
     const pol = this._policy(url, p.type, tag);
     this.stats.requests++;
     if (!pol.capture) { this.stats.outOfScope++; this.reqs.set(sid, { sid, ignored: true }); return; }
-    const st = { sid, url, body: pol.body, reason: pol.reason, armed: false, chunks: 0, bytes: 0, session };
+    const st = { sid, url, body: pol.body, reason: pol.reason, armed: false, chunks: 0, bytes: 0, session,
+      guard: pol.body ? new ChunkCredentialGuard() : null };
     this.reqs.set(sid, st);
     if (!pol.body) this.stats.metadataOnly++;
     if (pol.reason === 'credential_policy') this.stats.sensitiveExcluded++;
@@ -198,19 +203,37 @@ export class NetworkRecorder extends EventEmitter {
     throw last;
   }
 
+  // Only this method can write response body chunks. The guard withholds a tail
+  // across DevTools events so an incomplete credential marker is never persisted.
+  _appendProtectedChunk(st, result, extra = {}) {
+    if (result.excluded) {
+      st.credentialExcluded = true;
+      this.stats.sensitiveExcluded++;
+      this.append({ k: 'body.excluded', sid: st.sid, reason: result.reason, securityGuard: 'stream-v1',
+        coverage: 'A credential marker or uninspectable input was found before persistence. Remaining body bytes are unavailable.' });
+      return;
+    }
+    const { bytes, redactions = [] } = result;
+    if (!bytes?.length) return;
+    st.chunks++; st.bytes += bytes.length;
+    this.stats.chunks++; this.stats.bytes += bytes.length;
+    this.stats.redactions += redactions.length;
+    const rec = { k: 'chunk', sid: st.sid, n: bytes.length, b64: bytes.toString('base64'),
+      ...extra, securityDelayed: true };
+    if (redactions.length) rec.redactions = redactions;
+    this.append(rec);
+  }
+
   _chunk(st, buf, extra = {}) {
-    if (this.maxStreamBytes && st.bytes >= this.maxStreamBytes) {
-      if (!st.truncated) { st.truncated = true; this.stats.truncatedStreams++; this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes, cap: this.maxStreamBytes, reason: 'max_stream_bytes' }); }
+    if (st.credentialExcluded) return;
+    if (this.maxStreamBytes && st.bytes + (st.guard?.pending.length ?? 0) >= this.maxStreamBytes) {
+      if (!st.truncated) { st.truncated = true; this.stats.truncatedStreams++;
+        this.append({ k: 'body.truncated', sid: st.sid, bytes: st.bytes, cap: this.maxStreamBytes, reason: 'max_stream_bytes' }); }
+      st.guard?.discard();
       st.droppedByCap = (st.droppedByCap ?? 0) + buf.length;
       return;
     }
-    const { bytes, redactions } = scrubSecrets(buf);
-    st.chunks++; st.bytes += bytes.length;
-    this.stats.chunks++; this.stats.bytes += bytes.length;
-    if (redactions.length) this.stats.redactions += redactions.length;
-    const rec = { k: 'chunk', sid: st.sid, n: bytes.length, b64: bytes.toString('base64'), ...extra };
-    if (redactions.length) rec.redactions = redactions;
-    this.append(rec);
+    this._appendProtectedChunk(st, (st.guard ??= new ChunkCredentialGuard()).push(buf), extra);
   }
 
   _onData(tag, p) {
@@ -232,17 +255,37 @@ export class NetworkRecorder extends EventEmitter {
   }
 
   async _finalize(session, st, p) {
+    // Do not claim safe trailing bytes until completion is confirmed.
+    if (st.armed && st.guard && !st.truncated && !st.credentialExcluded)
+      this._appendProtectedChunk(st, st.guard.finish(), { finalSecurityTail: true });
+    else if (st.guard) st.guard.discard();
     if (st.body && !st.armed && this.profile.capture?.retrospectiveFallback !== false) {
       try {
         const r = await session.send('Network.getResponseBody', { requestId: p.requestId });
         const buf = Buffer.from(r.body ?? '', r.base64Encoded ? 'base64' : 'utf8');
         this.stats.retrospective++;
-        const { bytes, redactions } = scrubSecrets(buf);
-        const rec = { k: 'body', sid: st.sid, n: bytes.length, b64: bytes.toString('base64'), retrospective: true };
-        if (redactions.length) rec.redactions = redactions;
-        this.append(rec);
+        // Retrospective is a completed body, but it must still use the bounded
+        // fail-closed guard. A large/ambiguous body is metadata-only.
+        const guard = new ChunkCredentialGuard();
+        const first = guard.push(buf);
+        const last = first.excluded ? first : guard.finish();
+        if (first.excluded || last.excluded) {
+          this.stats.sensitiveExcluded++;
+          this.append({ k: 'body.excluded', sid: st.sid, reason: first.reason ?? last.reason,
+            securityGuard: 'stream-v1', retrospective: true });
+        } else {
+          const bytes = Buffer.concat([first.bytes, last.bytes]);
+          const redactions = [...first.redactions, ...last.redactions.map((x) => ({
+            ...x, offset: x.offset + first.bytes.length }))];
+          this.stats.redactions += redactions.length;
+          const rec = { k: 'body', sid: st.sid, n: bytes.length, b64: bytes.toString('base64'),
+            retrospective: true, securityGuard: 'stream-v1' };
+          if (redactions.length) rec.redactions = redactions;
+          this.append(rec);
+        }
       } catch (e) {
-        this.append({ k: 'body.unavailable', sid: st.sid, error: String(e.message ?? e) });
+        // Do not persist arbitrary exception messages from a CDP body read.
+        this.append({ k: 'body.unavailable', sid: st.sid, reason: 'retrospective_body_unavailable' });
       }
     }
     this.append({
@@ -257,6 +300,7 @@ export class NetworkRecorder extends EventEmitter {
     const st = this.reqs.get(this._sid(tag, p.requestId));
     if (!st) return;
     if (st.ignored) { this.reqs.delete(st.sid); return; }
+    if (st.guard?.discard()) this.append({ k: 'body.excluded', sid: st.sid, reason: 'security_tail_unfinished_failure' });
     this.append({ k: 'fail', sid: st.sid, ct: p.timestamp, errorText: p.errorText, canceled: !!p.canceled, blockedReason: p.blockedReason, chunks: st.chunks, bytes: st.bytes });
     this.reqs.delete(st.sid);
   }
