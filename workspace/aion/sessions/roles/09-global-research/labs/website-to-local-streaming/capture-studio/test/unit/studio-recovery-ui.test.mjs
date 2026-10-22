@@ -141,9 +141,9 @@ test('Drive polling 404 does not imply the job stopped and no auto-run begins',(
   assert.match(drive,/if \(ACTIVE\.has\(next\.state\)\) S\.stopRequested = next\.id;/);
 });
 test('Home, Chat and Drive use explicit authorization recovery and no automatic resend on missing status',()=>{
-  assert.match(studio,/authorization expired — reopen the original tokenized Studio URL/);
-  assert.match(chat,/authorization expired — reopen the original tokenized Studio URL/);
-  assert.match(drive,/authorization expired — reopen the original tokenized Studio URL/);
+  assert.match(studio,/Local mode needs no token/);
+  assert.match(chat,/Local mode needs no token/);
+  assert.match(drive,/Local mode needs no token/);
   assert.match(chat,/const stillOn = \(id\) => S\.snap\?\.id === id/);
   assert.match(drive,/The last displayed state is stale/);
 });
