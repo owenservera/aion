@@ -2,21 +2,21 @@
   "schema": "aion.capture-studio.independent-qa.state.v1",
   "owner": "ChatGPT QA + team steering/alignment + light roadmap",
   "mode": "independent_qa_and_nonblocking_team_steering",
-  "status": "RECON_COMPLETE_CURRENT_IMPL_QA_PENDING",
+  "status": "2026_10_22_FULL_REBASELINE_SOURCE_AUDITED_RUNTIME_QA_PENDING",
   "initialized": "2026-10-21",
   "initial_pending_qa_sha": "73d65909bc3bc9f6709364e6b4873c3a9918ba3e",
   "last_completed_sprint": null,
   "next_sprint": "targeted-temporal-graph-and-cross-session-continuity",
-  "next_mission": "Independently retest latest Core origin-scoped continuity, missing-key identity alias, successful-empty derivation, graph temporal history, CLI/API contracts, and UI evidence/drift rendering. Reconcile incoming Core Sprint 03 and UI Sprint 02 changes; do not gate development.",
+  "next_mission": "Independently verify current SHA conversation/drive safety, capture clean-data G1-G7 and browser noninterference; reconcile Studio consolidation exchange/Development acknowledgement; preserve Core pause.",
   "product_path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio",
   "developer_handoff": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/QA-NEXT-TESTS.md",
   "no_product_code_edits": true,
   "developer_continues_without_qa_gate": true,
   "source_coverage_verified": false,
   "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision.",
-  "last_recon_date": "2026-10-21",
+  "last_recon_date": "2026-10-22",
   "recon_baseline_sha": "49095348141646ba8d90bfc27c30e8fa0d1c6eda",
-  "last_observed_main_sha": "ac5c9129faf34459f5dcd6053983d4a6cae2d39b",
+  "last_observed_main_sha": "34e1a913248c717c7f3d7c54f4be30bc9b23a098",
   "roadmap": "workspace/aion/qa/capture-studio/ROADMAP.md",
   "historical_executed_qa": {
     "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
@@ -40,11 +40,73 @@
   },
   "current_recon_executed_tests": 0,
   "steering_authority": "owner-authorized unilateral QA-owned records and roadmap updates; no other-lane code edits or quality gates",
-  "latest_scanned_product_head": "64f1ee89a6a7e46628f037e74bfbcc6a1f662de3",
+  "latest_scanned_product_head": "34e1a913248c717c7f3d7c54f4be30bc9b23a098",
   "next_parallel_build": {
     "status": "queued_not_started",
     "core": "workspace/aion/ops/capture-studio-core/SPRINT-03.md",
     "ui": "workspace/aion/ops/capture-studio-ui/SPRINT-02.md",
     "systems": "workspace/aion/ops/capture-studio-systems/ASSESSMENT-01.md"
+  },
+  "latest_global_sitrep": "workspace/aion/qa/capture-studio/SITREP-2026-10-22-FF.md",
+  "source_metrics": {
+    "pin": "34e1a913248c717c7f3d7c54f4be30bc9b23a098",
+    "measured": true,
+    "code_js_mjs_html_files": 165,
+    "physical_loc": 40510,
+    "code_without_test_eval_files": 135,
+    "code_without_test_eval_loc": 35089,
+    "tracked_product_files": 205,
+    "per_primary_classification": {
+      "L1": [
+        16,
+        5594
+      ],
+      "L2": [
+        6,
+        1251
+      ],
+      "L3": [
+        16,
+        5579
+      ],
+      "L4": [
+        5,
+        1219
+      ],
+      "L5": [
+        3,
+        630
+      ],
+      "L6": [
+        4,
+        1159
+      ],
+      "L7": [
+        9,
+        3977
+      ],
+      "foundation": [
+        76,
+        15680
+      ],
+      "test": [
+        27,
+        4832
+      ],
+      "evaluation": [
+        3,
+        589
+      ]
+    },
+    "scope": "Only Capture Studio JS/MJS/HTML. Config/docs excluded; mutually exclusive primary classification."
+  },
+  "integration_checkpoint": {
+    "decision": "OWNER_CONSOLIDATE_ON_CAPTURE_STUDIO",
+    "decision_record": "workspace/aion/qa/capture-studio/INTEGRATION-ROADMAP.md",
+    "development_exchange": "AX-0022/0023 drafts not in EXCHANGE.jsonl",
+    "current_product": "Conversation runtime, Chat/Drive UI and live-drive sources committed",
+    "latest_local_live_status": "Earlier connect/readiness stall; current-head live proof not verified",
+    "core_agent": "paused_owner_reported",
+    "qa_acceptance": "pending"
   }
 }
