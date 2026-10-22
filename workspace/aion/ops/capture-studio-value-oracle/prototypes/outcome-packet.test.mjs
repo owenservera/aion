@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, existsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { generatePacket, renderMarkdown, verifyPacket, writeOutputs } from './outcome-packet.mjs';
 const fixturePath = new URL('./fixtures/demo.json', import.meta.url);
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
 const copy = () => structuredClone(fixture);
 const packet = () => generatePacket(copy(), 'fixture.json');
-const local = path.resolve(new URL('./outcome-packet.mjs', import.meta.url).pathname);
+const local = path.resolve(fileURLToPath(new URL('./outcome-packet.mjs', import.meta.url)));
 
 test('positive: explicit saved summary, decision, actions and unknowns', () => {
   const p = packet();
