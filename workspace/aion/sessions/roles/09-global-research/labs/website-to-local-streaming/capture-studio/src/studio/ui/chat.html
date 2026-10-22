@@ -246,12 +246,12 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
 
     <form class="panel composer" id="composer" novalidate aria-label="Message composer">
       <label for="prompt" class="lab">Message</label>
-      <textarea id="prompt" rows="3" maxlength="2000" placeholder="Write a message to this website" aria-describedby="sendHint sendNote"></textarea>
+      <textarea id="prompt" rows="3" maxlength="250000" placeholder="Write a message to this website" aria-describedby="sendHint sendNote"></textarea>
       <div class="note" id="sendHint" role="status" style="margin-top:4px"></div>
       <div class="row" style="margin-top:8px">
         <button type="button" class="primary" id="btnSend" disabled>Send</button>
       </div>
-      <p class="note" id="sendNote" style="margin:6px 0 0">Sends 1 message with your logged-in account. It uses quota and adds to this chat’s history. One message per conversation. Up to 2000 characters. Enter adds a new line.</p>
+      <p class="note" id="sendNote" style="margin:6px 0 0">Sends 1 message with your logged-in account. It uses quota and adds to this chat’s history. One message per conversation. Up to 250,000 characters. Enter adds a new line.</p>
       <div class="err" id="sendError" role="alert" style="margin-top:6px"></div>
     </form>
   </main>
