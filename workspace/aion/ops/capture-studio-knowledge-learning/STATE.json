@@ -2,7 +2,7 @@
   "schema": "aion.capture-studio.knowledge-learning.worker.v1",
   "created": "2026-10-21",
   "baseline_sha": "1990a5243c07e125f40c76669c0b12a1f58cc437",
-  "status": "TT1_DELIVERED_KH01_TO_KH04_HANDOFF_SOURCE_VERIFIED_LOCAL_NODE_PENDING",
+  "status": "ISSUE_70_PROFILE_REVIEW_SOURCE_DELIVERED_6_NATIVE_TESTS_PENDING_INTEGRATION_QA",
   "mission": "Drive L4 Knowledge & Relationships and L5 Learning & Adaptation toward criterion-based independently accepted 100%",
   "acceptance": {
     "knowledge": {
@@ -18,7 +18,7 @@
     },
     "note": "zero means no independently accepted criterion in this worker record yet, not zero existing capability"
   },
-  "next": "Pause broad L4/L5 builds for first local L0/L1 evidence; run four synthetic L4 handoff cases on pinned Windows checkout when QA schedules L4, classify failures and implement only their targeted owning fixes.",
+  "next": "Issue #70: have complete checkout run test/unit/profile-adaptation.test.mjs and profile-evidence.test.mjs; Core #68 must supply validated acceptance+partition+SHAPES reader and pin learner revision; then run targeted local L4/QA. Do not call issue complete.",
   "owner": "Knowledge & Learning worker",
   "steering": "QA",
   "avoid_concurrent_core_writes": true,
@@ -256,5 +256,62 @@
       "learning_total": 7
     },
     "committed_source_only": true
+  },
+  "issue_70": {
+    "number": 70,
+    "parent": 67,
+    "date": "2026-10-23",
+    "baseline_sha": "3b2ea42f8da3c34f845569dc5a5b96402d8d7dea",
+    "evidence": "workspace/aion/ops/capture-studio-knowledge-learning/ISSUE-70-DELIVERY-2026-10-23.md",
+    "commits": [
+      "8363ab5e6f7502e772e8c440a905addc86af0247",
+      "7f8e7ed7ddbe84b274b8fab0736fbcfe984be590",
+      "f3bf5cdbc535a3e8ef178ec8081f23d94a36a403",
+      "26ffc5e341164cc19a8f153db477aa504c9f8448",
+      "539955d719e0dd177f9e4ea6dc594a261c31f395"
+    ],
+    "source": [
+      {
+        "path": "src/intel/profile-evidence.mjs",
+        "blob": "2519d5c0ff56f4273cde04ed67a8af78fdc7cec2",
+        "loc": 90
+      }
+    ],
+    "tests": [
+      {
+        "path": "test/unit/profile-evidence.test.mjs",
+        "blob": "b48ca15d6c8bb99647be7aeb46938d2cd647e1fb",
+        "native_node": "v22.16.0",
+        "passed": 6,
+        "failed": 0,
+        "environment": "isolated exact two-file Node test runtime"
+      },
+      {
+        "path": "test/unit/profile-adaptation.test.mjs",
+        "blob": "01ce88628ac36c7ea258e917543cc33590b91d60",
+        "native_node": null,
+        "expected_tests": 2,
+        "execution": "committed not run; complete repo required"
+      }
+    ],
+    "core_contracts_reused": [
+      "acceptance G1-G7 capture_accepted",
+      "exact-origin partition",
+      "SHAPES.groups fields and suggestions",
+      "existing ScopedLearner/LearnerJournal",
+      "Core ChatGPT pathops/proto feature/stream roles"
+    ],
+    "missing": [
+      "Core family intake does not use accepted capture producer",
+      "Full-repo adapted learner test not run",
+      "Core derive lacks pinned learner revision contract",
+      "Actual accepted saved-session heldout results unmeasured"
+    ],
+    "independent_qa": {
+      "knowledge": 0,
+      "learning": 0,
+      "denominator_each": 7
+    },
+    "live_windows": false
   }
 }
