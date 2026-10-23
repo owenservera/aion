@@ -19,6 +19,7 @@ import { ProfileStore } from '../profiles/profiles.mjs';
 import { FamilyStore } from '../families/families.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
 import { derive } from '../replay/derive.mjs';
+import { evaluateAcceptance, writeAcceptance, readAcceptance } from './acceptance.mjs';
 import { driveSite } from './actions.mjs';
 
 // The fixed calibration prompt: 12 words, deterministic, so a captured reply can be checked
@@ -161,8 +162,9 @@ function resultFor(id, patch = {}) {
 // Derive one recorded session, then consolidate the site family from the whole store.
 // Returns flags + a note; never throws.
 // ---------------------------------------------------------------------------------------------
-async function deriveAndConsolidate({ sessionId, adapter, targetUrl, paths }) {
-  const out = { derived: false, family: null, signature: null, note: '' };
+async function deriveAndConsolidate({ sessionId, adapter, targetUrl, paths, conversation = null }) {
+  const out = { derived: false, family: null, signature: null,
+    acceptance: 'unassessed', note: '' };
   const notes = [];
   if (!sessionId) { notes.push('no session was recorded'); out.note = notes.join('; '); return out; }
 
@@ -183,6 +185,28 @@ async function deriveAndConsolidate({ sessionId, adapter, targetUrl, paths }) {
 
   if (!out.derived) { out.note = notes.join('; '); return out; }
 
+  // The normal derive only knows the saved raw evidence; its G1–G3 context
+  // gates are explicitly not checked. Promote only after *observed* calibration
+  // and completion context can be supplied by the drive, never from SHAPES.
+  try {
+    const session = Session.open(paths.sessions, sessionId);
+    if (conversation) {
+      const doc = await evaluateAcceptance({ session, conversation });
+      writeAcceptance(session, doc);
+    }
+    const stored = readAcceptance(session); // Verifies raw digest and G1–G7.
+    out.acceptance = stored.verdict;
+    if (stored.verdict !== 'capture_accepted') {
+      notes.push(`family withheld: G1–G7 verdict ${stored.verdict} (${(stored.reasons ?? []).slice(0, 3).join('; ')})`);
+      out.note = notes.join('; ');
+      return out;
+    }
+  } catch (error) {
+    notes.push(`family withheld: acceptance evaluation failed (${msg(error)})`);
+    out.note = notes.join('; ');
+    return out;
+  }
+
   const builder = await familyBuilder();
   if (!builder) {
     notes.push('family build skipped: src/families/build.mjs is unavailable');
@@ -196,6 +220,12 @@ async function deriveAndConsolidate({ sessionId, adapter, targetUrl, paths }) {
       sessionsDir: paths.sessions, host: host || null, site: adapter?.id ?? null,
       profilesDir: paths.profiles, minSessions: 1,
     });
+    if (!(built.coverage?.eligible > 0) || !built.shapes.length) {
+      notes.push('family withheld: no eligible exact-origin shape groups');
+      notes.push(...(built.warnings ?? []).slice(0, 2));
+      out.note = notes.join('; ');
+      return out;
+    }
     const written = builder.writeFamily({ familiesDir: paths.families, built });
     out.family = built.family?.id ?? null;
     out.signature = built.family?.signature ?? null;
@@ -328,27 +358,32 @@ export async function runCampaign({
       results.push({ ...siteResult, status: 'failed', reason: first ? `${why}: ${first}` : why });
       emit({ type: 'site.failed', site: id, reason: why });
     } else {
-      // Recorded and answered: make the knowledge and the family from it.
+      // Check the calibration answer BEFORE publishing a family. A completed
+      // capture is useful raw evidence even when the reply is unrelated.
+      const expect = expectedAnswer(prompt);
+      const match = expect ? replyMatchesExpectation(siteResult.reply, expect) : null;
+      if (match) siteResult.verified = match.ok;
+      const conversation = match?.ok && driven.done === true
+        ? { prompt, expectedReplyWords: expectedWords,
+            completionRule: { requireDone: true, stableObserved: driven.done === true } }
+        : null;
       const built = await deriveAndConsolidate({
-        sessionId: siteResult.sessionId, adapter, targetUrl: driven?.target?.url ?? targetUrl, paths,
+        sessionId: siteResult.sessionId, adapter, targetUrl: driven?.target?.url ?? targetUrl,
+        paths, conversation,
       });
       siteResult.derived = built.derived;
       siteResult.family = built.family;
       siteResult.signature = built.signature;
+      siteResult.acceptance = built.acceptance;
       const notes = [`reply settled (${String(siteResult.reply ?? '').trim().length} chars)`];
       if (!built.derived) notes.push(built.note || 'not derived');
-      else if (!built.family) notes.push(built.note || 'family not built');
+      else if (!built.family) notes.push(built.note || 'family not published');
       siteResult.reason = notes.filter(Boolean).join('; ');
       siteResult.ms = Date.now() - siteStarted;
 
-      // Fidelity check: the calibration prompt asks for 12 exact words. A reply that does not
-      // contain them is not the answer, however plausible it looks (a greeting, a sidebar menu
-      // or a redirect notice all "settle" without answering). Such a capture is recorded and
-      // kept, but it is not counted as a successful interaction.
-      const expect = expectedAnswer(prompt);
+      // Calibration correctness is independent from capture/knowledge acceptance.
+      // Never label an incorrect fixed-answer reply as site success.
       if (expect) {
-        const match = replyMatchesExpectation(siteResult.reply, expect);
-        siteResult.verified = match.ok;
         if (!match.ok) {
           siteResult.reason += `; ${match.reason}`;
           totals.unverified++;
@@ -372,7 +407,7 @@ export async function runCampaign({
       // must be set here, not only on the pushed copy (else a verified drive is stored as 'failed').
       siteResult.status = 'ok';
       results.push({ ...siteResult });
-      emit({ type: 'site.ok', site: id, sessionId: siteResult.sessionId, derived: siteResult.derived, family: siteResult.family, signature: siteResult.signature });
+      emit({ type: 'site.ok', site: id, sessionId: siteResult.sessionId, derived: siteResult.derived, acceptance: siteResult.acceptance, family: siteResult.family, signature: siteResult.signature });
     }
 
     // Persist progress per site, so a later run resumes instead of repeating a real interaction.
