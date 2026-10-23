@@ -34,6 +34,14 @@ A UI "Make useful" action can invoke this one-shot read-only consumer for the *s
 
 UI team owns invocation/UX if approved. Core owns session/acceptance APIs; QA owns independent L4 acceptance. No cross-team edit or active assignment is implied by this note.
 
+## Runnable synthetic saved-session demonstration (no real captures)
+
+```powershell
+node workspace/aion/ops/capture-studio-value-oracle/prototypes/demo-saved-session-runner.mjs
+```
+
+This uses **injected synthetic Core-reader doubles** and creates a disposable `aion-oracle-71-synthetic-*` directory under the OS temporary folder, with `sessions/synthetic-session-001` and `output/source-transcript.json`, `outcome-packet.md`, `outcome-packet.json`, and QA L4 files. Expected: **6 original DOM references verified**, `acceptance.verdict=unassessed` (no canonical raw digest), proposed actions unexecuted, no provider/browser/GitHub actions. This is *not* a demonstration that real Core acceptance or Windows saved-session imports work; the real command above is the subsequent required step.
+
 ## Run and check (focus on evidence/abstention)
 
 ```powershell
