@@ -12,6 +12,21 @@ Under that harness, the original capture engine remains: immutable raw evidence,
 
 New-chat creation and later interaction use that same DevTools connection: open a Studio-owned tab, navigate to a fresh chat, submit once, and pin only a newly created `/c/<id>` that was not already open. Private ChatGPT backend calls, Playwright, and Puppeteer are not the path. An uncertain send is never retried.
 
+## Next phase — one UI for every AI webapp
+
+**Owner direction, 2026-10-23.** The next phase is one Studio interface for all of the owner's AI webapp chats, using the `vivim-final` chat shell as the interaction reference. It is not a second product and it does not replace this vision.
+
+The current Studio UI is split across `src/studio/ui/index.html`, `chat.html`, `drive.html`, `live.html`, and `platform.html`. The next phase replaces that split, for conversation work, with one shell:
+
+- one provider rail and one conversation list across every connected webapp, not one page per site;
+- one transcript and one composer, with the active provider and exact thread visible;
+- the same Read, new-chat, send, and follow-up actions already defined for ChatGPT, extended per provider only where that provider's page supports them;
+- capture, search, and export remain available from that shell. They do not become separate applications.
+
+`vivim-final` is owned source and may be adapted where it helps: its sidebar, conversation list, composer add-ons, and multi-provider layout. Its SDK, private `/api/providers` catalog, and websocket runtime are not imported as a second harness. Studio stays the only browser driver. A provider that is not signed in, or whose page cannot be identified, shows that state in the same shell. It is not hidden and it is not replaced by another chat.
+
+This phase starts only after the ChatGPT new-chat and idle-capture work lands. It does not drop exact-thread checks, uncertain-send protection, or deferred full capture.
+
 ## Evidence boundary
 
 This page separates **source**, **offline tests**, **live browser connectivity**, and **authenticated harness acceptance**. Dedicated Studio Chrome connectivity has been demonstrated. No authenticated create, send, and follow-up has been accepted. The milestone detail below is the implementation order, not a claim that the full surface exists.
