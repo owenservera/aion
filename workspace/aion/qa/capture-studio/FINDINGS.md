@@ -6,6 +6,17 @@
 
 # Capture Studio — Independent QA Findings Index
 
+## 2026-10-23 development closeout (lead-executed, not independent acceptance)
+
+- Integrated: bounded gRPC/Connect protobuf feature snapshots flow through decoded events, reducer role coverage, derived events/STREAM_ROLES, and the read-only scoreboard. Binary structure is not a proven chat role.
+- Integrated: inspection-cap accounting and conservative withholding of roles when unexamined content could hide contradictory evidence; persisted role schema/classifier version is 3.
+- Verified locally on synthetic data: `bun run test` — 999 tests, 998 pass, 0 fail, 1 TODO. Fidelity suites — 10/10 complete replay fixtures, 6/6 native-shape variants; 58 pass, 0 fail, 1 known TODO.
+- Origin partition helper is tested but primary-origin family derivation is NOT wired. The unfinished library-consumer patch regressed a fidelity control and was excluded; patch/test preserved under `%TEMP%/opencode/capture-studio-closeout-wip/`.
+- Automatic map induction remains unpublished: correctness/privacy defects; reviewed saved-stream text agreement was 1/44, not evidence of native fidelity.
+- Saved-session baseline stopped during session 62/99; final derive/library/site/type run is unfinished. Earlier 8.2% role coverage predates conservative withholding and is not a current metric.
+- Raw-content and recording-session content hashes were unchanged at the last explicit comparison (414 raw files; 180 files across eight recording sessions). No fresh captures or real-site sends were performed.
+- This closeout grants no M1/live acceptance; existing QA-S1-F1 and issue #64 remain unresolved under their existing policies.
+
 **Current status (2026-10-21 recon):** Sprint 02 longitudinal continuity, temporal graph code changes and UI explorer are **IMPLEMENTED IN SOURCE, PENDING CURRENT-SHA INDEPENDENT QA**. QA recon observed main `4909534` without executing tests. See [ROADMAP.md](ROADMAP.md) and [STATE.json](STATE.json). Historical initial W3 target `73d6590` remains relevant to regression history, not the current implementation checkpoint.
 
 ## Earlier code-executed W3 findings (pre-fix source `86ca565`)
