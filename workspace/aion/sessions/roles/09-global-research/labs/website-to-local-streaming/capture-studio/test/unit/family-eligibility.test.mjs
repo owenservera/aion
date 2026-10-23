@@ -89,6 +89,10 @@ test('real offline G1–G7 evaluation makes one synthetic session eligible for a
   assert.equal(b.coverage.eligible, 1);
   assert.equal(b.coverage.outOfOriginGroups, 1, 'foreign-origin telemetry shape is excluded');
   assert.equal(b.shapes.length, 1);
+  assert.match(b.family.sources[0].rawDigest, /^[0-9a-f]{64}$/);
+  assert.match(b.family.sources[0].shapesDigest, /^[0-9a-f]{64}$/);
+  assert.deepEqual(b.family.sources[0].seqRange, [1, 4]);
+  assert.equal(b.family.sources[0].verdict, 'capture_accepted');
   assert.ok(b.shapes[0].fields.some((f) => f.path === '$.delta.text'));
   assert.equal(b.shapes[0].fields.some((f) => f.path === '$.telemetry'), false);
   const saved = writeFamily({ familiesDir: paths.families, built: b });
