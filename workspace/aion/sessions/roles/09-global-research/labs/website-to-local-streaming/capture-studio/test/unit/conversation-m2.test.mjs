@@ -83,7 +83,7 @@ test('M2 actual adapter + actual fast insertion + flushed recorder evidence: SIT
   const f = fixture(t), c = await f.connect();
   await f.submit(c); const first = await f.settled(c.id);
   assert.equal(first.turn.send.state, 'observed'); assert.equal(first.reply.text, 'synthetic answer 1');
-  assert.equal(first.turn.completion.state, 'unknown'); assert.equal(first.capture.state, 'recording');
+  assert.equal(first.turn.completion.state, 'unknown'); assert.equal(first.capture.state, 'idle');
   assert.ok(first.turn.readiness.evidence.samples.every((sample) => sample.sequence > first.turn.send.evidence.sequence));
   await f.submit(first, 'follow-up'); const second = await f.settled(c.id);
   assert.equal(second.reply.text, 'synthetic answer 2'); assert.notEqual(first.turn.id, second.turn.id);
@@ -147,7 +147,7 @@ test('M2 late old reply revision detected by fresh preflight invalidates readine
   await f.submit(first, 'follow-up');
   const blocked = await until(async () => { const state = await f.runtime.get(c.id); return state.turn?.phase === 'blocked' ? state : null; });
   assert.equal(blocked.turns[0].readiness.state, 'unknown');
-  assert.equal(blocked.turns[0].reply.text, 'synthetic revised answer');
+  assert.equal(blocked.turns[0].reply.text, 'synthetic answer 1'); // the closed turn log is not rewritten after its capture stops
   assert.equal(f.state.insertions, 1); assert.equal(f.state.sends, 1);
 });
 

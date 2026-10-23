@@ -33,7 +33,7 @@ The Studio shell is one left rail about 240px wide, one transcript, and the comp
 
 A provider that is not signed in, or whose page cannot be identified, shows that state in the same shell. It is not hidden and it is not replaced by another chat.
 
-This phase starts only after the ChatGPT new-chat and idle-capture work lands. It does not drop exact-thread checks, uncertain-send protection, or deferred full capture.
+The ChatGPT new-chat transition and idle-capture deferral are now in source. A fresh Studio tab stays unbound until CDP observes a new `/c/<id>`, and connect does not arm full capture until an explicit send. Focused create tests passed 90/90, and the full unit suite passed 1,194 with 0 failures and 1 existing TODO. This is not a live new-chat acceptance. This phase still does not drop exact-thread checks, uncertain-send protection, or the ability to capture a real turn.
 
 **Studio seam, 2026-10-23.** Grow `/chat` (`src/studio/ui/chat.html` and `chat.mjs`) in place. Do not add a conversation page or a second browser. `/`, `/drive`, `/live/view`, and `/platform` stay tools reached from the shell.
 

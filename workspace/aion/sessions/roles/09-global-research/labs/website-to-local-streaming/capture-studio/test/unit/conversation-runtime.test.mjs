@@ -194,8 +194,9 @@ function browserFixture({ freshTab = false, readinessDependencies = {} } = {}) {
     dependencies: {
       Recorder: FakeRecorder, listSessions: () => [], listTargets: async () => [{ id: freshTab ? 'created' : 'selected', url: `${origin}${freshTab ? '/' : `/c/${id}`}` }],
       fetch: async (url, options) => { calls.push(['fetch', url, options]); return { ok: true, json: async () => ({ id: 'created' }) }; },
-      evaluate: async (_, expression) => expression === 'location.pathname' ? `/c/${id}` : origin, findComposer: async () => ({ found: true }), focusComposer: async () => ({ ok: true }),
-      readTurnPage: async () => ({ origin, pathname: `/c/${id}`, messages: users.flatMap((text, index) => [
+      evaluate: async (_, expression) => expression === 'location.pathname' ? (freshTab ? '/' : `/c/${id}`) : origin, findComposer: async () => ({ found: true }), focusComposer: async () => ({ ok: true }),
+      tracePage: (method, params) => calls.push([method, params]),
+      readTurnPage: async () => ({ origin, pathname: freshTab ? '/' : `/c/${id}`, messages: users.flatMap((text, index) => [
         { id: `fixture-user-${index}`, role: 'user', text }, { id: `fixture-reply-${index}`, role: 'assistant', text: index ? 'page answer' : 'old answer' }]),
         draft: { text: draft, chars: draftChars }, controls: { observed: true, state: 'idle', idleControlPresent: true, stopPresent: false, composerEnabled: true } }),
       sendState: async () => ({ evalOk: true, draftChars }), readUserTurns: async () => [...users],
@@ -206,7 +207,11 @@ function browserFixture({ freshTab = false, readinessDependencies = {} } = {}) {
       detectAuthWall: async () => ({ blocked: false }), detectSiteFailure: async () => ({ failed: false }),
       ...readinessDependencies,
     } });
-  const connect = () => adapter.connect(binding, { bind: (b) => calls.push(['bind', b]), ownSession: (id) => calls.push(['own-session', id]) });
+  const connect = async () => {
+    const result = await adapter.connect(binding, { bind: (b) => calls.push(['bind', b]), ownSession: (id) => calls.push(['own-session', id]) });
+    if (result.deferredCapture) await adapter.armCapture();
+    return result;
+  };
   const args = { binding, turnId: 'turn', payloadDigest: createHash('sha256').update('new prompt').digest('hex') };
   return { adapter, connect, calls, records, args, get recorder() { return rec; },
     setUsers: (v) => { users = v; }, setOrigin: (v) => { origin = v; }, setDraft: (v) => { draftChars = v; draft = 'x'.repeat(v); } };
@@ -221,15 +226,16 @@ test('browser seam existing target never navigates/clears, foregrounds exact rec
   await f.adapter.stop();
 });
 
-test('browser seam fresh tab capture/owner binding is armed before navigating its own tab', async () => {
+test('browser seam fresh tab navigates its own tab before any recorder arm', async () => {
   const f = browserFixture({ freshTab: true }); const result = await f.connect();
-  assert.equal(result.binding.targetId, 'created');
+  assert.equal(result.binding.targetId, 'created'); assert.equal(result.deferredCapture, true); assert.equal(result.sessionId, null);
   const names = f.calls.map(([name]) => name);
-  assert.ok(names.indexOf('bind') < names.indexOf('start')); assert.ok(names.indexOf('own-session') < names.indexOf('Page.navigate'));
+  assert.ok(names.indexOf('bind') < names.indexOf('Page.navigate'));
+  assert.ok(names.indexOf('Page.navigate') < names.indexOf('start'));
   const started = f.calls.find(([name]) => name === 'start')[1];
-  assert.equal(started.profile, 'chatgpt'); assert.equal(started.owner.conversationId, 'conversation');
+  assert.equal(started.exactTarget, true); assert.equal(started.follow, false); assert.equal(started.profile, 'chatgpt');
   assert.equal(f.calls.find(([name]) => name === 'fetch')[1].endsWith('/json/new?about:blank'), true);
-  await f.adapter.stop();
+  await f.adapter.stopTurnCapture(); await f.adapter.stop();
 });
 
 test('browser seam only records exact newly added user prompt as page evidence, never timing/network proof', async () => {
@@ -470,8 +476,8 @@ test('F3 failed attach after Studio tab creation: session incomplete, ONLY that 
   }
   assert.deepEqual(a.fetches().filter((l) => l.includes('/json/close')), ['GET /json/close/created', 'GET /json/close/created']);
   assert.equal(a.fetches().some((l) => /owner-tab/.test(l)), false);
-  assert.equal(a.shared.metas.at(-1).status, 'incomplete'); assert.equal(a.shared.metas.at(-1).endReason, 'conversation_attachment_failed');
-  assert.equal(a.shared.rawClosed, 2); assert.equal(a.shared.calls.some(([n]) => n === 'Page.navigate'), false);
+  assert.equal(a.shared.metas.length, 0); assert.equal(a.shared.rawClosed, 0); // idle connect never armed the recorder
+  assert.equal(a.shared.calls.some(([n]) => n === 'Page.navigate'), false);
 });
 
 test('F3 lease is still held while the adapter cleans up, and released only afterwards', async (t) => {
@@ -497,7 +503,7 @@ test('F3 owner/selected tab: failed attach never closes, navigates or clears it,
   const a = attachFixture(t, { fresh: false });
   const e = await failedConnect(a.f, { targetId: 'owner-tab' }); leaseFree(a.f);
   assert.equal(a.fetches().length, 0); assert.equal(a.shared.calls.length, 0);
-  assert.equal(a.shared.metas.at(-1).status, 'incomplete'); assert.equal(a.shared.rawClosed, 1);
+  assert.equal(a.shared.metas.length, 0); assert.equal(a.shared.rawClosed, 0);
   const s = await a.f.runtime.get(e.conversationId); assert.equal(s.capture.state, 'incomplete');
   assert.equal(s.limitations.some((l) => /left open/.test(l)), false);
 });

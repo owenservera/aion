@@ -25,6 +25,24 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
   mkdirSync(directory, { recursive: true });
   const entries = new Map(); let closed = false;
   const active = () => { if (closed) throw fail(503, 'RUNTIME_CLOSED'); };
+  const THREAD_REF = /^chatgpt-c:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  async function collectThreadDenylist(site) {
+    const refs = new Set();
+    const accept = (ref) => { if (THREAD_REF.test(ref ?? '')) refs.add(ref); };
+    if (threadSupported(site)) for (const t of await tabs()) accept(parseThread(site, t.url)?.ref);
+    for (const priorId of ids()) {
+      let prior; try { prior = JSON.parse(readFileSync(path.join(directory, `${priorId}.conversation.json`), 'utf8')); }
+      catch { throw fail(409, 'CORRUPT_OR_UNREADABLE_SNAPSHOT'); }
+      accept(prior?.binding?.thread?.ref);
+    }
+    return [...refs];
+  }
+  function scheduleBudget(entry) {
+    if (entry.timer || entry.recovered) return;
+    entry.timer = setTimeout(() => {
+      entry.service.recordCapture({ limitReason: 'duration-budget' }).then(() => finishEntry(entry)).catch(() => {});
+    }, d.maxDurationMs); entry.timer.unref?.();
+  }
   // An unreachable DevTools endpoint is an environment condition, not an internal error.
   const tabs = async () => { try { return await d.listTargets({ port }); } catch { throw fail(503, 'BROWSER_UNAVAILABLE'); } };
   const validId = (id) => /^[a-z0-9][a-z0-9_-]{0,127}$/i.test(id ?? '');
@@ -89,7 +107,14 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       let writes = Promise.resolve(), ended = false;
       const publish = (update) => {
         if (ended || entry.finishing || update.turnId !== attempt.id) return Promise.resolve();
-        writes = writes.then(() => entry.service.recordReply(update)); return writes;
+        writes = writes.then(async () => {
+          const saved = await entry.service.recordReply(update);
+          if (update.state === 'ready' || update.state === 'interrupted' || update.state === 'unknown') {
+            await entry.adapter.stopTurnCapture?.().catch(() => {});
+            await entry.service.recordCapture({ state: 'idle' }).catch(() => {});
+          }
+          return saved;
+        }); return writes;
       };
       try {
         const result = await entry.adapter.readReply(publish, { turnId: attempt.id, payloadDigest: attempt.payloadDigest,
@@ -241,10 +266,13 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       const siteAdapter = await d.getAdapter(body.site);
       if (!siteAdapter?.url) throw fail(400, 'SITE_ADAPTER_UNAVAILABLE');
       let origin = new URL(siteAdapter.url).origin;
-      // Fresh Studio-owned tab = unverified identity, never a send/fence escape. Existing ChatGPT tab = the
-      // thread must be a supported /c/<uuid> path or the conversation can be browsed but never send.
-      let thread = null, identity = { state: 'unverified', reason: freshTab ? 'UNSUPPORTED_PATH' : 'SITE_UNSUPPORTED' };
-      if (!freshTab) {
+      // Fresh Studio-owned tab = unbound NEW_CHAT until a new /c UUID is pinned. Existing home,
+      // project or other non-/c tabs stay unverified and can never send.
+      let thread = null, identity = { state: 'unverified', reason: 'SITE_UNSUPPORTED' }, threadDenylist;
+      if (freshTab) {
+        identity = { state: 'unbound', reason: 'NEW_CHAT' };
+        threadDenylist = await collectThreadDenylist(body.site);
+      } else {
         const target = (await tabs()).find((t) => t.id === body.targetId);
         if (!target) throw fail(404, 'TARGET_NOT_FOUND');
         const matched = await d.getAdapter(target.url);
@@ -276,10 +304,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
           context: { site: body.site, owner: { pid: process.pid, token: lease.token, port }, capture: { endsAt: new Date(Date.now() + d.maxDurationMs).toISOString(), maxBytes: d.maxBytes, bytesWritten: 0, limitReason: null } } });
         entry = { service, adapter, lease, registration: Promise.resolve(), work: Promise.resolve(), recovered: false };
         entries.set(id, entry);
-        await service.connect({ targetId: body.targetId ?? `pending-${id}`, origin, ownedByStudio: freshTab, thread, identity, expectedRevision: service.read().revision });
-        entry.timer = setTimeout(() => {
-          entry.service.recordCapture({ limitReason: 'duration-budget' }).then(() => finishEntry(entry)).catch(() => {});
-        }, Math.max(1, Date.parse(service.read().capture.endsAt) - Date.now())); entry.timer.unref?.();
+        await service.connect({ targetId: body.targetId ?? `pending-${id}`, origin, ownedByStudio: freshTab, thread, identity, ...(freshTab ? { threadDenylist } : {}), expectedRevision: service.read().revision });
         return view(entry);
       } catch (e) {
         await abortFailedConnect(entry, lease);
@@ -307,13 +332,20 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
         }
         if (s.finish.requested || entry.finishing) throw fail(409, 'CONVERSATION_FINISHED');
         if (entry.recovered) throw fail(409, 'CONVERSATION_NOT_WRITABLE');
+        scheduleBudget(entry); // The duration clock starts at explicit send, not at idle connect.
         let resolve, reject;
         const ack = new Promise((yes, no) => { resolve = yes; reject = no; });
         const execution = entry.service.submit(body, { registered: (_, attempt) => resolve(view(entry, false, attempt)) });
         entry.work = execution.then(async (attempt) => {
-          // A cross-conversation replay is inspection only, never a new observer or browser action.
-          if (attempt.send.state === 'observed' && !entry.finishing && entry.service.read().attempts.some((a) => a.id === attempt.id)) await observeReply(entry, attempt);
+          // Reply attribution starts only after a bound, observed delivery. A creation send that
+          // never pinned does not reach send.state observed, so it does not read a reply.
+          try {
+            if (attempt.send.state === 'observed' && !entry.finishing && entry.service.read().attempts.some((a) => a.id === attempt.id)) await observeReply(entry, attempt);
+          } finally {
+            if (!entry.finishing) await entry.adapter.stopTurnCapture?.().catch(() => {});
+          }
         }).catch(async (e) => {
+          await entry.adapter.stopTurnCapture?.().catch(() => {});
           reject(outward(e));
         });
         execution.catch((e) => reject(outward(e)));

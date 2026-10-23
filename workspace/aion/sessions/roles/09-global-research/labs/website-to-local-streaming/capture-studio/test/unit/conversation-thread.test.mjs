@@ -303,9 +303,9 @@ test('runtime: existing ChatGPT tab without a supported thread path is unverifie
   assert.equal(f.calls.some((n) => ['preflight', 'type', 'submit', 'read'].includes(n)), false);
 });
 
-test('runtime: fresh Studio-owned tab remains unverified and cannot escape durable exact-thread admission', async (t) => {
+test('runtime: fresh Studio-owned tab is unbound NEW_CHAT and cannot send until creation preflight proves no thread', async (t) => {
   const f = fixture(t), c = await f.connect({ targetId: undefined, freshTab: true });
-  assert.equal(c.identity.state, 'unverified'); assert.equal(c.binding.thread, undefined);
+  assert.equal(c.identity.state, 'unbound'); assert.equal(c.identity.reason, 'NEW_CHAT'); assert.equal(c.binding.thread, undefined);
   await assert.rejects(f.submit(c), (e) => e.code === 'THREAD_IDENTITY_UNVERIFIED'); await f.runtime.finish(c.id);
   assert.equal(f.calls.filter((n) => n === 'submit').length, 0);
 });

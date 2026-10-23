@@ -190,6 +190,14 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
       if (turn) threadJournal().invalidateReadiness({ turnId: id, expectedRevision: turn.revision });
     }
   }
+  async function ensureCapture() {
+    if (typeof adapter.armCapture !== 'function') return;
+    const sessionId = await adapter.armCapture();
+    if (typeof sessionId !== 'string' || !sessionId) throw error('CAPTURE_NOT_ACTIVE');
+    if (snapshot.sessionId !== sessionId) { snapshot.sessionId = sessionId; snapshot.capture.state = 'recording'; save(); }
+  }
+  const creatingNow = () => snapshot.identity?.state === 'unbound' && snapshot.identity?.reason === 'NEW_CHAT' && !snapshot.binding?.thread && snapshot.binding?.ownedByStudio === true;
+  const deniedRef = (ref) => !Array.isArray(snapshot.threadDenylist) || snapshot.threadDenylist.includes(ref);
   function effectPermit(a, phase, page) {
     const turns = threadJournal().read().turns;
     if (page) for (const prior of turns) {
@@ -226,6 +234,90 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
   }
   if (recovered) save();
 
+  async function submitCreation({ key, prompt, payloadDigest, registered }) {
+    if (snapshot.attempts.length !== 0) throw error('CREATION_UNCERTAIN');
+    const attempt = { id: randomUUID(), key, payloadDigest, phase: 'preparing', createdAt: now(), updatedAt: now(), creation: true,
+      boundary: null, send: { state: 'not-attempted', observationSource: null }, reply: { state: 'unknown', source: 'page', text: '', completion: 'unknown' }, evidence: { state: 'recording' } };
+    const finish = () => { save(); const viewAttempt = view().attempts.find((a) => a.key === key); registered?.(view(), viewAttempt); return viewAttempt; };
+    const prove = () => {
+      delete attempt.typingStartedAt;
+      attempt.preEffect = { turnId: attempt.id, payloadDigest, kind: 'pre-effect-blocked', source: 'actuator-audit',
+        reference: `service-preflight:${attempt.id}`, typing: 'not-executed', dispatch: 'not-executed' };
+      attempt.reason = 'PREEXISTING_THREAD';
+      snapshot.readiness = { ready: false, draft: { present: null, chars: null }, reason: 'PREEXISTING_THREAD' };
+      snapshot.state = 'blocked'; snapshot.uncertainty = null;
+      updateAttempt(attempt, 'blocked', 'not-attempted');
+    };
+    const uncertain = (reason) => {
+      attempt.preEffect = null; attempt.reason = reason;
+      snapshot.readiness = { ready: false, draft: { present: null, chars: null }, reason };
+      snapshot.uncertainty = reason; snapshot.state = 'needs-reconciliation';
+      updateAttempt(attempt, 'uncertain', 'uncertain');
+    };
+    await ensureCapture();
+    let preflight;
+    try { preflight = await adapter.preflight(structuredClone(snapshot.binding), { priorTurns: [] }); }
+    catch (e) {
+      if (e?.code !== 'PREEXISTING_THREAD') throw error(/^[A-Z][A-Z0-9_]{0,79}$/.test(e?.code ?? '') ? e.code : 'PREFLIGHT_FAILED');
+      snapshot.attempts.push(attempt); prove(); return finish();
+    }
+    const threadless = preflight?.creation?.threadless === true && !preflight?.targetThread && !preflight?.pageThread;
+    const controls = preflight?.controls;
+    const idle = controls?.observed === true && ['idle', 'terminal'].includes(controls.state) && controls.idleControlPresent === true && controls.stopPresent === false && controls.composerEnabled === true;
+    const draftOk = preflight?.draft?.present === false && preflight?.draft?.chars === 0 && preflight?.ready === true;
+    const boundaryOk = Number.isSafeInteger(preflight?.boundary?.sequence) && preflight.boundary.sequence >= 0 && Number.isSafeInteger(preflight?.boundary?.transcriptCount) && preflight.boundary.transcriptCount >= 0;
+    if (preflight?.targetThread || preflight?.pageThread) { snapshot.attempts.push(attempt); prove(); return finish(); }
+    if (!threadless || !idle || !draftOk || !boundaryOk || !exactBinding(snapshot.binding, preflight?.binding)) throw error('THREAD_IDENTITY_UNVERIFIED');
+    attempt.boundary = { sequence: preflight.boundary.sequence, transcriptCount: preflight.boundary.transcriptCount };
+    snapshot.attempts.push(attempt); snapshot.state = 'busy'; save();
+    const stopEarly = () => {
+      if (!submissionStopped) return false;
+      if (!attempt.typingStartedAt) { prove(); attempt.reason = 'SUBMISSION_STOPPED'; return true; }
+      uncertain(attempt.typingStartedAt ? 'partial-draft-possible' : 'CREATION_UNPINNED'); return true;
+    };
+    if (stopEarly()) return finish();
+    attempt.typingStartedAt = now(); save();
+    try {
+      await adapter.type({ binding: structuredClone(snapshot.binding), turnId: attempt.id, prompt, creation: true,
+        beforeEffect: () => { if (submissionStopped) throw Object.assign(error('SUBMISSION_STOPPED'), { notTyped: true }); } });
+    } catch (e) {
+      if ((e?.code === 'PREEXISTING_THREAD' || e?.code === 'SUBMISSION_STOPPED') && e.notTyped === true) { prove(); if (e.code === 'SUBMISSION_STOPPED') attempt.reason = 'SUBMISSION_STOPPED'; return finish(); }
+      uncertain('CREATION_UNPINNED'); return finish();
+    }
+    if (stopEarly()) return finish();
+    updateAttempt(attempt, 'dispatching', 'submitting'); save();
+    let report;
+    try {
+      report = await adapter.submit({ binding: structuredClone(snapshot.binding), turnId: attempt.id, payloadDigest, creation: true,
+        beforeEffect: () => { if (submissionStopped) throw Object.assign(error('SUBMISSION_STOPPED'), { notDispatched: true }); } });
+    } catch (e) {
+      if (e?.notDispatched === true && e?.code === 'PREEXISTING_THREAD' && !attempt.typingStartedAt) { prove(); return finish(); }
+      uncertain('CREATION_UNPINNED'); return finish();
+    }
+    const target = report?.targetThread, page = report?.pageThread;
+    const same = target && page && validThread(target) && target.ref === page.ref && target.id === page.id;
+    if (report?.creation !== true || report?.dispatched !== true || !same || deniedRef(target.ref)) { uncertain('CREATION_UNPINNED'); return finish(); }
+    try {
+      const pinned = typeof adapter.pinThread === 'function' ? await adapter.pinThread(target, snapshot.threadDenylist) : null;
+      if (!pinned?.thread || pinned.thread.ref !== target.ref) { uncertain('CREATION_UNPINNED'); return finish(); }
+      snapshot.binding = { ...snapshot.binding, thread: pinned.thread };
+      snapshot.identity = { state: 'bound', reason: null }; save();
+      const reservation = threadJournal().reserve({ key, payloadDigest, conversationId: id });
+      if (!reservation.admitted) throw error('THREAD_FENCED');
+      if (typeof adapter.adoptTurn === 'function') adapter.adoptTurn(attempt.id, reservation.turn.id);
+      attempt.id = reservation.turn.id; attempt.journal = reservation.turn; save();
+      attempt.journal = threadJournal().markTyping({ turnId: attempt.id, expectedRevision: attempt.journal.revision,
+        boundary: { ...attempt.boundary, sessionId: snapshot.sessionId } });
+      attempt.journal = threadJournal().markDispatching({ turnId: attempt.id, expectedRevision: attempt.journal.revision });
+      const observation = await adapter.reconcile({ binding: structuredClone(snapshot.binding), turnId: attempt.id, payloadDigest, boundary: structuredClone(attempt.boundary) });
+      if (!observe(attempt, observation)) { unknown(attempt, 'ACK_LOST'); updateAttempt(attempt, 'uncertain', 'uncertain'); snapshot.uncertainty = 'send-acknowledgement-lost'; snapshot.state = 'needs-reconciliation'; }
+    } catch (e) {
+      if (e?.code === 'PERSISTENCE_FAILED_REOPEN_REQUIRED' || e?.code === 'JOURNAL_PERSISTENCE_FAILED_REOPEN_REQUIRED') throw e;
+      uncertain('CREATION_UNPINNED');
+    }
+    return finish();
+  }
+
   return {
     id, file,
     threadKey: () => threadJournal().threadKey,
@@ -233,7 +325,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
     // Local snapshots only, with no browser/adapter calls. A clone prevents caller mutation.
     read: () => view(),
     stopSubmission() { submissionStopped = true; },
-    connect({ targetId, origin, ownedByStudio = false, thread = null, identity, expectedRevision } = {}) {
+    connect({ targetId, origin, ownedByStudio = false, thread = null, identity, threadDenylist, expectedRevision } = {}) {
       return serial(async () => {
         writable(); revision(expectedRevision);
         if (snapshot.state !== 'disconnected') throw error('ALREADY_CONNECTED');
@@ -242,8 +334,11 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         // The runtime decides identity from the live target URL; the service only stores and enforces it.
         const resolved = identity ?? (thread ? { state: 'bound', reason: null } : { state: 'unbound', reason: 'NOT_PROVIDED' });
         if (!validThread(thread) || !validIdentity(resolved, thread)) throw error('INVALID_BINDING');
+        if (threadDenylist !== undefined && !Array.isArray(threadDenylist)) throw error('INVALID_BINDING');
+        const threadRef = /^chatgpt-c:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
         snapshot.binding = { targetId, origin, ownedByStudio, ...(thread ? { thread } : {}) };
         snapshot.identity = { state: resolved.state, reason: resolved.reason ?? null };
+        if (Array.isArray(threadDenylist)) snapshot.threadDenylist = [...new Set(threadDenylist.filter((ref) => threadRef.test(ref)))];
         snapshot.state = 'attaching'; save();
         let attached;
         try { attached = await adapter.connect(structuredClone(snapshot.binding), {
@@ -261,13 +356,24 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
           snapshot.readiness = { ready: false, draft: { present: null, chars: null }, reason: /^[A-Z][A-Z0-9_]{0,79}$/.test(e?.code ?? '') ? e.code : 'ATTACH_FAILED' };
           snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'attachment-failed'; save(); throw error('ATTACHMENT_FAILED');
         }
-        if (!exactBinding(snapshot.binding, attached?.binding) || attached.binding.ownedByStudio !== ownedByStudio || typeof attached?.sessionId !== 'string' || !attached.sessionId) {
+        const deferred = attached?.deferredCapture === true && attached.sessionId == null;
+        if (!exactBinding(snapshot.binding, attached?.binding) || attached.binding.ownedByStudio !== ownedByStudio || (!deferred && (typeof attached?.sessionId !== 'string' || !attached.sessionId))) {
           snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'attachment-binding-mismatch'; save(); throw error('INVALID_ATTACHMENT');
         }
-        snapshot.sessionId = attached.sessionId; snapshot.capture.state = 'recording';
-        snapshot.readiness = attached.readiness ?? { ready: true, draft: { present: false, chars: 0 }, reason: null };
-        // An unverified thread is never ready for a send, whatever the page looks like.
-        if (snapshot.identity.state !== 'bound' && snapshot.readiness.ready) snapshot.readiness = { ...snapshot.readiness, ready: false, reason: 'THREAD_IDENTITY_UNVERIFIED' };
+        if (deferred) { snapshot.sessionId = null; snapshot.capture.state = 'idle'; }
+        else { snapshot.sessionId = attached.sessionId; snapshot.capture.state = 'recording'; }
+        const creating = snapshot.identity.state === 'unbound' && snapshot.identity.reason === 'NEW_CHAT' && !snapshot.binding.thread;
+        const creationReady = creating && attached.readiness?.ready === true && attached.readiness?.creation?.threadless === true
+          && attached.readiness.draft?.present === false && attached.readiness.draft?.chars === 0;
+        if (creating) {
+          snapshot.readiness = creationReady ? { ready: true, draft: { present: false, chars: 0 }, reason: null }
+            : { ready: false, draft: { present: attached.readiness?.draft?.present ?? null, chars: attached.readiness?.draft?.chars ?? null },
+              reason: /^[A-Z][A-Z0-9_]{0,79}$/.test(attached.readiness?.reason ?? '') ? attached.readiness.reason : 'NOT_CHECKED' };
+        } else {
+          snapshot.readiness = attached.readiness ?? { ready: true, draft: { present: false, chars: 0 }, reason: null };
+          // An unverified thread is never ready for a send, whatever the page looks like.
+          if (snapshot.identity.state !== 'bound' && snapshot.readiness.ready) snapshot.readiness = { ...snapshot.readiness, ready: false, reason: 'THREAD_IDENTITY_UNVERIFIED' };
+        }
         snapshot.state = snapshot.readiness.ready ? 'ready' : 'blocked'; save(); return view();
       });
     },
@@ -291,6 +397,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         writable();
         revision(expectedRevision);
         if (confirm !== true) throw error('CONFIRM_REQUIRED');
+        if (creatingNow()) return submitCreation({ key, prompt, payloadDigest, registered });
         // Fail closed before any browser action: an unverified thread (legacy snapshot or an existing tab whose
         // path is not a supported thread) can browse and finish, never send.
         if (snapshot.identity.state !== 'bound' || !snapshot.binding?.thread) throw error('THREAD_IDENTITY_UNVERIFIED');
@@ -300,6 +407,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         // A proven pre-typing rejection ('blocked' without typing) remains
         // eligible for one fresh attempt after the user clears the draft.
         if (snapshot.attempts.some((a) => !a.journal)) throw error('LEGACY_ATTEMPT_REQUIRES_RECONCILIATION');
+        await ensureCapture();
         const reservation = threadJournal().reserve({ key, payloadDigest, conversationId: id });
         if (!reservation.admitted) throw error('THREAD_FENCED');
         const attempt = { id: reservation.turn.id, key, payloadDigest, phase: 'preparing', createdAt: now(), updatedAt: now(), journal: reservation.turn,
