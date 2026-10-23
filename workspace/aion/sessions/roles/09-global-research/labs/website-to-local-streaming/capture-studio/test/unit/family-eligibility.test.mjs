@@ -213,3 +213,42 @@ test('Campaign leaves a wrongly calibrated synthetic reply derived but unpublish
   assert.notEqual(readAcceptance(Session.open(paths.sessions, s.id)).verdict, 'capture_accepted');
   assert.equal(existsSync(path.join(paths.families, 'chat.example.test', 'CURRENT')), false);
 });
+
+
+test('re-derive preserves accepted context only while raw+DOM bindings and current offline gates remain sound', async (t) => {
+  const { paths, profile } = area(t);
+  const s = await fixture(paths, { withShapes: false });
+  await derive(s, profile);
+  assert.equal(readAcceptance(s).verdict, 'capture_incomplete');
+  await accepted(s);
+  const original = readAcceptance(s);
+  await derive(s, profile);
+  const retained = readAcceptance(s);
+  assert.equal(retained.verdict, 'capture_accepted');
+  assert.equal(retained.contextualEvidence.kind, 'revalidated-prior-acceptance');
+  assert.equal(retained.binding.rawDigest, original.binding.rawDigest);
+  assert.equal(retained.binding.domDigest, original.binding.domDigest);
+  assert.ok(['G1', 'G2', 'G3'].every((id) => retained.gates[id].value === 'passed'));
+  const mutated = s.kv.get('DOM_TURNS');
+  mutated[1].text = 'An unrelated synthetic paragraph which changes the source projection';
+  s.kv.set('DOM_TURNS', mutated);
+  assert.equal(readAcceptance(s).verdict, 'unassessed', 'DOM edits invalidate the contextual binding');
+  await derive(s, profile);
+  assert.notEqual(readAcceptance(s).verdict, 'capture_accepted',
+    'fresh derive cannot carry the old context across changed DOM');
+});
+
+test('raw-equal but DOM-changed acceptance may never publish a family', async (t) => {
+  const { paths } = area(t);
+  const s = await fixture(paths);
+  await accepted(s);
+  const dom = s.kv.get('DOM_TURNS');
+  dom[1].text = 'Tampered rendered projection';
+  s.kv.set('DOM_TURNS', dom);
+  const verdict = readAcceptance(s);
+  assert.equal(verdict.verdict, 'unassessed');
+  assert.match(verdict.reasons.join(' '), /DOM_TURNS changed/);
+  const b = buildFamily({ sessionsDir: paths.sessions, host: 'chat.example.test' });
+  assert.equal(b.coverage.eligible, 0);
+  assert.equal(b.family.members.length, 0);
+});
