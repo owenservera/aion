@@ -196,7 +196,7 @@ suffix, `latest`, `latest~2` (third newest), `latest:claude.ai` (newest for that
 | Command | Purpose |
 | --- | --- |
 | `drive <site\|url> [--prompt TEXT] [--timeout S] [--no-record] [--dry-run]` | Send one prompt to a live site, record the exchange, read the reply back. |
-| `library build <host\|site> [--min N]` | Consolidate every derived session of a site into one family shape set and signature. |
+| `library build <host\|site> [--min N]` | Inspect saved sessions; publish a versioned family only from current G1–G7 `capture_accepted`, fully derived, exact-origin shapes. Unassessed evidence remains saved but withheld. |
 | `library show <host\|site\|id>` · `library list` | Inspect one consolidated family, or list every family. |
 | `campaign [ids...] [--execute] [--prompt TEXT] [--limit N] [--cooldown S] [--timeout S] [--no-resume]` | Walk the known sites in order, one at a time: plan only unless `--execute`, then drive, derive and build each family. |
 
