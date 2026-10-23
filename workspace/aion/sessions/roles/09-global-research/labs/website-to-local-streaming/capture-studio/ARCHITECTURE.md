@@ -1,17 +1,22 @@
-# Capture Studio — Master Architecture and Development Roadmap
+# Capture Studio — Governing vision
 
-**Owner:** AION Global Research 09 · **Updated:** 2026-10-23 · **Product contract:** [UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md](../UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md)
+**Status:** this is the only governing vision for Capture Studio. Queues, sprint plans, live-test notes, and the capability one-pager are subordinate. If they disagree with this page, this page wins. **Updated:** 2026-10-23.
 
-This is the single architecture and roadmap document for the tool. It separates **source**, **offline Windows tests**, **live browser connectivity**, and **authenticated harness acceptance**. Windows synthetic capture and dedicated-browser connectivity have been demonstrated; no authenticated conversation-runtime exchange has been demonstrated. The current checkpoint below supersedes older snapshots, not their historical receipts.
+## Vision
 
-## 1. Product in one line
+Capture Studio is an **agent harness whose model sessions are real AI-webapp conversations**, not provider API calls. ChatGPT is the first provider. The AION team is the **first workload**, not the product boundary.
 
-Point the studio at a website you are authorized to use. It then:
+The harness drives the full visible webapp surface through the existing loopback Chrome DevTools connection: discover chats, projects, and workspaces; create, open, resume, switch, rename, archive, and delete conversations; select model and mode; use attachments, tools, and artifacts; read history and streams; stop, edit, regenerate, and branch; then recover without replaying an uncertain action. A browser tab is an attachment to a conversation. It is not the conversation, and the list of open tabs is not the account chat list.
 
-- observes every available layer (raw bytes, protocol events, rendered page, your actions);
-- discovers that site's data model without site-specific rules;
-- learns from your corrections;
-- records honestly and replays, searches and exports what it captured.
+Under that harness, the original capture engine remains: immutable raw evidence, honest gaps, derived shapes, search, replay, and export. Capture is **deferred, not removed**. An open chat stays idle. An explicit send or full record arms the existing network and DOM capture for that operation, then stops it. A read or chat-list check is one DevTools query. Explicit `record` / `start` keeps full capture.
+
+New-chat creation and later interaction use that same DevTools connection: open a Studio-owned tab, navigate to a fresh chat, submit once, and pin only a newly created `/c/<id>` that was not already open. Private ChatGPT backend calls, Playwright, and Puppeteer are not the path. An uncertain send is never retried.
+
+## Evidence boundary
+
+This page separates **source**, **offline tests**, **live browser connectivity**, and **authenticated harness acceptance**. Dedicated Studio Chrome connectivity has been demonstrated. No authenticated create, send, and follow-up has been accepted. The milestone detail below is the implementation order, not a claim that the full surface exists.
+
+The capture capability list remains [UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md](../UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md). It describes the observation engine. It does not define a second product.
 
 ## 2. Principles
 

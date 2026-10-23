@@ -1,5 +1,7 @@
 # Design: Live drive in the Studio, and what "clean data" means
 
+**Subordinate to [../ARCHITECTURE.md](../ARCHITECTURE.md).** That file is the only governing vision. This design note does not override it.
+
 Status: design session 2026-10-22 (manager, after pausing the four build lanes). Nothing here is an
 acceptance claim. "Observed" = read in source or run on this machine today; "reported" = a lane said
 so and I did not re-verify; "hypothesis" = not checked.

@@ -1,5 +1,7 @@
 # Capture Studio — live test runbook (Windows PowerShell)
 
+**Subordinate to [../ARCHITECTURE.md](../ARCHITECTURE.md).** That file is the only governing vision. Gates here measure that vision; they do not redefine it.
+
 > **Current local-first handoff (2026-10-22):** Run [CORE L0/L1 handoff](CORE-LOCAL-HANDOFF-2026-10-22.md) before the older manual examples below. The legacy security notes describing mandatory token login, default credential redaction and human-key pacing no longer match the current local-raw/tokenless source. Use current source and `docs/LOCAL-FIRST.md` for defaults. The CORE handoff runner creates local evidence packets; it does **not** execute on your PC merely because it was committed.
 >
 > **Agent harness over real ChatGPT conversations (2026-10-23; AION team = first workload):** the dated capability assessment and the real-use acceptance gates RT-0..RT-9 are in [section 6](#6-agent-harness-over-real-chatgpt-conversations-assessment-and-acceptance-gates-2026-10-23). **No gate there is LIVE VERIFIED yet.** Section 6.6 records the revised product frame and milestones.

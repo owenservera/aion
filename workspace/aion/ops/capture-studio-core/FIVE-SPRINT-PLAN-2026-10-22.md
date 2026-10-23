@@ -1,5 +1,7 @@
 # CORE — Five-sprint worklog rebaseline
 
+**Subordinate to [capture-studio/ARCHITECTURE.md](../../sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/ARCHITECTURE.md).** That file is the only governing vision. The design note cited below does not override it.
+
 **Owner:** AION Capture Studio CORE. **Authorized:** user, 2026-10-22, "assess worklog queue for you and break into 5 sprints and begin sprint 1".
 **Source baseline:** `34e1a913248c717c7f3d7c54f4be30bc9b23a098` (2026-10-22 14:51 UTC). CORE worklog is `capture-studio/ASSESSMENT-AND-WORKLOG.md`, W1–W18; newer direction is `capture-studio/docs/DESIGN-live-drive-studio.md` §12–16 and QA `INTEGRATION-ROADMAP.md` §10: one canonical Studio capture/drive engine.
 **Interpretation:** User's explicit new Sprint 1 implementation instruction resumes CORE for the named work only, superseding earlier role notes saying CORE paused. It does not resume other lanes, authorize live sends or Chrome operation, or imply accepted functionality. Keep UI files with UI, L4/L5 specialist algorithms with their lane, independent QA with QA. No Playwright/Puppeteer.

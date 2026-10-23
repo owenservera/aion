@@ -1,6 +1,8 @@
 # Universal Website Capture Studio — Capability One-Pager
 
-**Vision:** Point the kit at an **active, user-authorized website**. As I navigate and interact normally, it observes what is available, recognizes meaningful **data shapes**, proposes an editable capture/record/parse model, and learns a reusable **site-specific profile**. Start with `chatgpt.com`; support other sites without redesigning the tool.
+**Subordinate to [capture-studio/ARCHITECTURE.md](capture-studio/ARCHITECTURE.md).** That file is the only governing vision: a webapp-conversation agent harness, with this capture engine underneath it. This page is not a second product vision.
+
+**Capture engine:** Point the kit at an **active, user-authorized website**. As I navigate and interact normally, it observes what is available, recognizes meaningful **data shapes**, proposes an editable capture/record/parse model, and learns a reusable **site-specific profile**. Start with `chatgpt.com`; support other sites without redesigning the tool.
 
 **Experience:** **Point → Discover → Show shapes → Suggest fields/relationships → Tweak → Live preview → Save profile → Record/replay/export.** Default to useful suggestions and one-click corrections—not a blank selector editor.
 
