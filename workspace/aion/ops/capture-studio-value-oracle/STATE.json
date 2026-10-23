@@ -225,16 +225,19 @@
     "delivered_paths": [
       "prototypes/saved-session-outcome.mjs",
       "prototypes/saved-session-outcome.test.mjs",
-      "prototypes/ISSUE-71-HANDOFF.md"
+      "prototypes/ISSUE-71-HANDOFF.md",
+      "prototypes/demo-saved-session-runner.mjs"
     ],
     "commits": [
       "5af407d11bd8a67681cda47a77628cce89091c02",
       "d8219f315ebab37f9f3aab8316e1872143c8751e",
-      "38a82260fa4627697eca8ecfc46024d053dcda2b"
+      "38a82260fa4627697eca8ecfc46024d053dcda2b",
+      "24db66dea2df82bf27633441e8ec3c8b6d365ac2"
     ],
     "verified_blobs": {
       "saved-session-outcome.mjs": "d2326b11216509f64f83ffadc9941dd285065f10",
-      "saved-session-outcome.test.mjs": "7edb3b24e6764a63b09ac9fb87b959c15e28e3a0"
+      "saved-session-outcome.test.mjs": "7edb3b24e6764a63b09ac9fb87b959c15e28e3a0",
+      "demo-saved-session-runner.mjs": "12843b963d2fc9212628c7b0a4bab60ffe6e3c64"
     },
     "tests": {
       "environment": "isolated Linux Node v22.16.0",
@@ -255,6 +258,14 @@
     "private_capture_uploads": 0,
     "other_lane_source_edits": 0,
     "post_to_github_private_capture": false,
-    "v2_v3": "not started"
+    "v2_v3": "not started",
+    "demo": {
+      "runner": "prototypes/demo-saved-session-runner.mjs",
+      "source": "synthetic Core doubles, NOT real Core",
+      "expected_verified_dom_refs": 6,
+      "acceptance": "unassessed",
+      "output": "disposable OS temp directory",
+      "native_node_execution": "PASS on isolated Linux Node 22.16.0"
+    }
   }
 }
