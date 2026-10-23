@@ -12,6 +12,7 @@ import { ProfileStore } from '../../src/profiles/profiles.mjs';
 import { Session } from '../../src/store/session.mjs';
 import { derive } from '../../src/replay/derive.mjs';
 import { ScopedLearner } from '../../src/intel/learn.mjs';
+import { buildStreamComponents } from '../../src/replay/stream-components.mjs';
 
 const SCHEMA = 'capture-studio.stream-components/1';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -197,4 +198,147 @@ test('GET /api/sessions/:id/components returns the kv, not_derived when underive
   assert.deepEqual(none.body, { status: 'not_derived' });
   const post = await fetch(`http://127.0.0.1:${studio.port}/api/sessions/${derived.id}/components`, { method: 'POST', body: '{}' });
   assert.equal(post.status, 405);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Signals in the kv. Synthetic only: made-up ids, codes and a distinctive message word.
+// ---------------------------------------------------------------------------------------------
+
+const SIG_WORD = 'zephyrquartz';
+const SIG_TEXT = `Synthetic ${SIG_WORD} notice.`;
+const P0 = '/message/content/parts/0';
+const SIG_KEYS = ['errorCount', 'statusCount', 'codes', 'sample'];
+
+// A reply with a shape-A error envelope between two text deltas, then [DONE].
+const errorReply = () => sseOf([
+  { message: { id: 'syn-msg-err-1', content: { parts: [''] } }, conversation_id: 'syn-conv-err' },
+  { p: P0, o: 'append', v: 'Synthetic reply. ' },
+  { v: { conversation_id: 'syn-conv-err', error: 'syn-error', error_code: 'syn_rate_limit', message: SIG_TEXT } },
+  { p: P0, o: 'append', v: 'Second.' },
+  '[DONE]',
+]);
+
+test('error stream: a reply with an interleaved error envelope keeps its paragraph, finalizes, and reports hadError', async (t) => {
+  const e = env(t);
+  const s = await seed(e.paths, [{ sid: 's-err', body: errorReply() }]);
+  await derive(s, e.profile, { learner: e.learner });
+  const doc = s.kv.get('STREAM_COMPONENTS');
+  const st = streamOf(doc, 's-err');
+  assert.equal(st.mapId, 'chatgpt-path-ops');
+  assert.equal(st.hadError, true);
+  assert.equal(st.unmappedCount, 0);
+  const para = st.components.find((c) => c.component === 'paragraph');
+  assert.equal(para.text, 'Synthetic reply. Second.');
+  assert.notEqual(para.closed, null, '[DONE] finalizes the part');
+  assert.equal(st.signals.errorCount, 1);
+  assert.equal(st.signals.statusCount, 0);
+  assert.deepEqual(st.signals.codes, [{ code: 'syn_rate_limit', count: 1 }]);
+  assert.equal(st.signals.sample.length, 1);
+  assert.equal(st.signals.sample[0].kind, 'error');
+  assert.equal(st.signals.sample[0].code, 'syn_rate_limit');
+  assert.equal(st.signals.sample[0].messageChars, SIG_TEXT.length);
+  assert.equal(doc.totals.streamsWithErrors, 1);
+  assert.equal(JSON.stringify(doc).includes(SIG_WORD), false, 'message text never reaches the kv');
+});
+
+test('no-error stream: hadError false, empty signal summary, streamsWithErrors 0; the kv shape is stable', async (t) => {
+  const e = env(t);
+  const s = await seed(e.paths, [{ sid: 's-claude', body: sseOf(fixture('claude-typedevents.json')) }]);
+  await derive(s, e.profile, { learner: e.learner });
+  const doc = s.kv.get('STREAM_COMPONENTS');
+  const st = streamOf(doc, 's-claude');
+  assert.equal(st.hadError, false);
+  assert.deepEqual(Object.keys(st.signals), SIG_KEYS);
+  assert.deepEqual(st.signals, { errorCount: 0, statusCount: 0, codes: [], sample: [] });
+  assert.equal(doc.totals.streamsWithErrors, 0);
+  assert.ok('streamsWithErrors' in doc.totals);
+  assert.equal('stats' in st, true, 'existing per-stream fields are kept');
+  assert.equal('unmappedSample' in st, true);
+});
+
+test('unknown-dialect stream: hadError is null (no map ran, so unknown) and it has no signal summary', async (t) => {
+  const e = env(t);
+  const s = await seed(e.paths, [{ sid: 's-unknown', body: sseOf([{ foo: 'bar' }]) }]);
+  await derive(s, e.profile, { learner: e.learner });
+  const doc = s.kv.get('STREAM_COMPONENTS');
+  const st = streamOf(doc, 's-unknown');
+  assert.equal(st.hadError, null);
+  assert.equal('signals' in st, false);
+  assert.equal(doc.totals.streamsWithErrors, 0);
+});
+
+test('signal summary: codes capped at 5 (count, then code order) and sample capped at 5 in input order', () => {
+  const events = Array.from({ length: 7 }, (_, i) => ({
+    sid: 'syn-cap', seq: i, n: i, json: { v: { error_code: `syn_code_${i}`, message: 'x'.repeat(i + 1) } },
+  }));
+  const doc = buildStreamComponents(new Map([['syn-cap', { events, omitted: 0 }]]));
+  const st = doc.streams[0];
+  assert.equal(st.mapId, 'chatgpt-path-ops');
+  assert.equal(st.hadError, true);
+  assert.equal(st.signals.errorCount, 7);
+  assert.equal(st.signals.codes.length, 5);
+  assert.deepEqual(st.signals.codes[0], { code: 'syn_code_0', count: 1 });
+  assert.equal(st.signals.sample.length, 5);
+  assert.deepEqual(st.signals.sample.map((x) => x.seq), [0, 1, 2, 3, 4]);
+  assert.equal(st.signals.sample[2].messageChars, 3);
+  assert.equal(doc.totals.streamsWithErrors, 1);
+});
+
+test('signal summary: a null code is counted as its own code entry', () => {
+  const events = [
+    // ADJUSTED in the correction turn: error is non-null so this is a real error with a null code.
+    { sid: 'syn-null', seq: 0, n: 0, json: { v: { error: 'syn-error', error_code: null, message: 'abc' } } },
+    { sid: 'syn-null', seq: 1, n: 1, json: { v: { error_code: 'syn_ok', message: 'de' } } },
+  ];
+  const doc = buildStreamComponents(new Map([['syn-null', { events, omitted: 0 }]]));
+  assert.deepEqual(doc.streams[0].signals.codes, [{ code: 'syn_ok', count: 1 }, { code: null, count: 1 }]);
+  assert.equal(doc.streams[0].signals.sample[0].code, null);
+});
+
+test('re-deriving an error stream writes byte-identical STREAM_COMPONENTS', async (t) => {
+  const e = env(t);
+  const s = await seed(e.paths, [{ sid: 's-err', body: errorReply() }]);
+  await derive(s, e.profile, { learner: e.learner });
+  const first = JSON.stringify(s.kv.get('STREAM_COMPONENTS'));
+  await derive(s, e.profile, { learner: e.learner });
+  assert.equal(JSON.stringify(s.kv.get('STREAM_COMPONENTS')), first);
+});
+
+// Real-shaped frames (correction): rendered with their SSE event names, which the survey rules read.
+const frameFixture = (name) => JSON.parse(readFileSync(path.join(FIXTURES, name), 'utf8')).frames;
+const framesSse = (frames) => frames.map((f) => `${f.event ? `event: ${f.event}\n` : ''}data: ${typeof f.raw === 'string' ? f.raw : JSON.stringify(f.json)}\n\n`).join('');
+
+test('real-shaped ChatGPT v1 fixture: one message and one paragraph, hadError false, no unmapped, no streams with errors', async (t) => {
+  const e = env(t);
+  const s = await seed(e.paths, [{ sid: 's-v1', body: framesSse(frameFixture('chatgpt-pathops-v1.json')) }]);
+  await derive(s, e.profile, { learner: e.learner });
+  const doc = s.kv.get('STREAM_COMPONENTS');
+  const st = streamOf(doc, 's-v1');
+  assert.equal(st.mapId, 'chatgpt-path-ops');
+  assert.equal(st.hadError, false);
+  assert.equal(st.unmappedCount, 0);
+  assert.equal(st.components.filter((c) => c.component === 'message').length, 1);
+  const paras = st.components.filter((c) => c.component === 'paragraph');
+  assert.equal(paras.length, 1);
+  assert.equal(paras[0].text, 'Synthetic made-up text.');
+  assert.notEqual(paras[0].closed, null, 'message_stream_complete finalizes the part');
+  assert.deepEqual(st.signals, { errorCount: 0, statusCount: 0, codes: [], sample: [] });
+  assert.equal(doc.totals.streamsWithErrors, 0);
+});
+
+test('real-shaped ChatGPT v1 fixture with an injected error frame: hadError true, paragraph still built', async (t) => {
+  const e = env(t);
+  const frames = frameFixture('chatgpt-pathops-v1.json');
+  const injected = [...frames.slice(0, 3), { event: 'message', json: { v: { conversation_id: 'syn-conv-v1-001', error: 'syn-error', error_code: 'syn_code_v1', message: SIG_TEXT } } }, ...frames.slice(3)];
+  const s = await seed(e.paths, [{ sid: 's-v1-err', body: framesSse(injected) }]);
+  await derive(s, e.profile, { learner: e.learner });
+  const doc = s.kv.get('STREAM_COMPONENTS');
+  const st = streamOf(doc, 's-v1-err');
+  assert.equal(st.hadError, true);
+  assert.equal(st.signals.errorCount, 1);
+  assert.deepEqual(st.signals.codes, [{ code: 'syn_code_v1', count: 1 }]);
+  assert.equal(st.components.find((c) => c.component === 'paragraph').text, 'Synthetic made-up text.');
+  assert.equal(st.unmappedCount, 0);
+  assert.equal(doc.totals.streamsWithErrors, 1);
+  assert.equal(JSON.stringify(doc).includes(SIG_WORD), false);
 });

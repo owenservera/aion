@@ -10,9 +10,17 @@
 //   delta.type   json.delta.type
 //   path         effective JSON-patch pointer for path-ops; a trailing "*" means prefix match
 //   o            effective path-op ("append" when omitted)
-//   hasKey       json has this top-level key
+//   hasKey       json has this key. A dotted path (e.g. "v.error_code") checks a nested key;
+//                a plain key checks the top level only (unchanged)
 //   terminal     ev.terminal === true
 //   data         raw SSE data string (e.g. "[DONE]")
+//   nonNull      a dotted path, or an array of them (ANY): the value exists and is not null, undefined or ""
+//   isObject     a dotted path whose value is a plain object (not an array, not a string)
+//   equals       { "dotted.path": "text" }: the value at the path is a string equal to "text" (case-insensitive)
+//
+// Op "open" may carry keyPath (dotted path, open only): the component key is the usable id found at
+// that path in the event itself (e.g. "v.message.id"); a message container is keyed by its id alone.
+// The id also becomes the message id that later block keys use.
 //
 // Stream-level fields: messageIdPath and blockIndexPath are dotted paths read from the operation
 // (the bare event payload, or one sub-operation of a path-op patch with its effective "p" filled
@@ -24,6 +32,17 @@
 // Path-op handling follows src/decode/delta.mjs: a bare { v } continues the previous pointer, and
 // an { o: "patch", v: [...] } envelope is expanded into its sub-operations (each keeps the parent
 // sid/seq/n and gets a `sub` index).
+//
+// Op "signal" (additive): an event that reports something about the stream (an error envelope,
+// or a status frame) rather than reply text. It never enters the timeline or the components. It is
+// listed in `signals` as { sid, seq, n, kind, code, messageChars, rule }. `code` is kept only when
+// it is a short token; message text is never copied, only its length (messageChars).
+//
+// Resolution: the first rule (in list order) whose `when` matches wins. One exception: an "append"
+// rule whose textPath is not a string does not claim the event; the search continues with the rules
+// after it. Such an event was unmapped before, so no timeline entry changes. This lets later rules
+// (open, ignore, signal) see a bare envelope that continued a text pointer. Signal rules stay after
+// the existing rules, so they cannot change what those rules already match.
 
 export const STREAM_MAP_SCHEMA = 'capture-studio.stream-map/1';
 
@@ -31,9 +50,15 @@ export const STREAM_MAP_SCHEMA = 'capture-studio.stream-map/1';
 const FAMILY_COMPONENTS = ['paragraph', 'heading', 'list', 'table', 'code', 'quote', 'image', 'file', 'link', 'citation', 'equation', 'rule', 'tool', 'unknown'];
 // Ops may also open 'message', the turn container (an entity, not a content block).
 const OP_COMPONENTS = [...FAMILY_COMPONENTS, 'message'];
-const OPS = ['open', 'append', 'close', 'finalize', 'ignore'];
-const WHEN_KEYS = ['event', 'type', 'block.type', 'delta.type', 'path', 'o', 'hasKey', 'terminal', 'data'];
+const OPS = ['open', 'append', 'close', 'finalize', 'ignore', 'signal'];
+const WHEN_KEYS = ['event', 'type', 'block.type', 'delta.type', 'path', 'o', 'hasKey', 'terminal', 'data', 'nonNull', 'isObject', 'equals'];
 const NULLABLE_WHEN = ['event', 'type', 'block.type', 'delta.type'];
+const SIGNAL_KINDS = ['error', 'status'];
+const DOTTED_PATH = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+const isDottedPath = (s) => typeof s === 'string' && DOTTED_PATH.test(s);
+// A signal code is kept only as a short token; anything else (long, spaced, numeric) becomes null.
+const CODE_TOKEN = /^[A-Za-z0-9_.:-]+$/;
+const codeToken = (v) => (typeof v === 'string' && v.length <= 64 && CODE_TOKEN.test(v) ? v : null);
 const DIALECTS = ['json-patch', 'json-merge-patch', 'path-ops', 'dotted-set', 'array-splice', 'put-merge', 'ot-ops', 'typed-events'];
 
 // DOM agent block types -> family component. Identity for the types shared with the family enum.
@@ -127,6 +152,26 @@ const CHATGPT_PATH_OPS = {
       // survey-observed, semantics inferred: timestamp and end-of-turn flags.
       { when: { path: '/message/update_time' }, op: 'ignore' },
       { when: { path: '/message/end_turn' }, op: 'ignore' },
+      // ---- Error signals. These fire only on a REAL error: a non-null error_code or a non-null error.
+      // Presence of the keys is NOT an error (the real message-open frames carry both as null), so a
+      // healthy frame can never match these rules. They sit BEFORE the message-open rules on purpose:
+      // a frame that carries a real error AND a message object must report the error, not just open.
+      // Known limit: a bare envelope that continues an ignore pointer (/message/status,
+      // /message/metadata*, update_time, end_turn) is ignored by that earlier rule, not reported.
+      // Shape A: bare { v } with no p/o.
+      { when: { nonNull: ['v.error_code', 'v.error'], o: 'append' }, op: 'signal', kind: 'error', codePath: 'v.error_code', textPath: 'v.message' },
+      // Shape B: path-op "add" with an empty path.
+      { when: { nonNull: ['v.error_code', 'v.error'], o: 'add', path: '' }, op: 'signal', kind: 'error', codePath: 'v.error_code', textPath: 'v.message' },
+      // ---- Message-open frames (value-type check of 27 saved sessions: types only, no values).
+      // The real frames carry the message object nested in v.message, with v.error and v.error_code
+      // both null. Shape A is a bare { v } (no p/o; o defaults to "append"). Shape B is an "add" at
+      // an empty path. A user-authored frame is ignored, so it never builds an assistant component.
+      // Its role is compared case-insensitively. Frames with any other role, or no role, open "message".
+      // The message container is keyed by v.message.id (keyPath); it has no block index.
+      { when: { isObject: 'v.message', o: 'append', equals: { 'v.message.author.role': 'user' } }, op: 'ignore' },
+      { when: { isObject: 'v.message', o: 'add', path: '', equals: { 'v.message.author.role': 'user' } }, op: 'ignore' },
+      { when: { isObject: 'v.message', o: 'append' }, op: 'open', component: 'message', keyPath: 'v.message.id' },
+      { when: { isObject: 'v.message', o: 'add', path: '' }, op: 'open', component: 'message', keyPath: 'v.message.id' },
     ],
   },
   dom: { componentMap: DOM_COMPONENT_MAP },
@@ -213,7 +258,11 @@ export function validateStreamMap(map) {
           let okType;
           if (NULLABLE_WHEN.includes(k)) okType = typeof v === 'string' || v === null;
           else if (k === 'terminal') okType = typeof v === 'boolean';
-          else if (k === 'hasKey' || k === 'path') okType = typeof v === 'string' && v.length > 0;
+          else if (k === 'hasKey') okType = typeof v === 'string' && v.length > 0 && (!v.includes('.') || DOTTED_PATH.test(v));
+          else if (k === 'path') okType = typeof v === 'string'; // "" is the empty pointer of a path-op add
+          else if (k === 'nonNull') okType = isDottedPath(v) || (Array.isArray(v) && v.length > 0 && v.every(isDottedPath));
+          else if (k === 'isObject') okType = isDottedPath(v);
+          else if (k === 'equals') okType = isObj(v) && Object.keys(v).length > 0 && Object.entries(v).every(([p, s]) => isDottedPath(p) && typeof s === 'string');
           else okType = typeof v === 'string'; // o, data
           if (!okType) errors.push(`${at}: when.${k} has an unsupported value`);
         }
@@ -223,7 +272,19 @@ export function validateStreamMap(map) {
       }
       if (r.op === 'open' && !r.component) errors.push(`${at}: open needs a component`);
       if (r.component !== undefined && !OP_COMPONENTS.includes(r.component)) errors.push(`${at}: component ${JSON.stringify(r.component)} is outside the ai-chat enum`);
-      if (r.textPath !== undefined && r.op !== 'append') errors.push(`${at}: textPath is only allowed on append`);
+      if (r.textPath !== undefined && r.op !== 'append' && r.op !== 'signal') errors.push(`${at}: textPath is only allowed on append and signal`);
+      if (r.op === 'signal') {
+        if (r.component !== undefined) errors.push(`${at}: signal rule must not set component`);
+        if (r.kind !== undefined && !SIGNAL_KINDS.includes(r.kind)) errors.push(`${at}: signal kind must be error or status`);
+        if (r.codePath !== undefined && !isDottedPath(r.codePath)) errors.push(`${at}: codePath must be a dotted identifier path`);
+        if (r.textPath !== undefined && !isDottedPath(r.textPath)) errors.push(`${at}: textPath must be a dotted identifier path`);
+      } else {
+        if (r.kind !== undefined) errors.push(`${at}: kind is only allowed on signal`);
+        if (r.codePath !== undefined) errors.push(`${at}: codePath is only allowed on signal`);
+      }
+      if (r.keyPath !== undefined && (r.op !== 'open' || !isDottedPath(r.keyPath))) {
+        errors.push(`${at}: keyPath is only allowed on open and must be a dotted identifier path`);
+      }
       if (r.op === 'append' && (typeof r.textPath !== 'string' || !r.textPath)) errors.push(`${at}: append needs a textPath`);
     });
   }
@@ -254,13 +315,35 @@ function unitsOf(json) {
 function ruleMatches(when, view, unit) {
   for (const [k, want] of Object.entries(when)) {
     if (k === 'hasKey') {
-      if (!isObj(unit) || !Object.prototype.hasOwnProperty.call(unit, want)) return false;
+      if (!isObj(unit)) return false;
+      if (want.includes('.')) {
+        if (getPath(unit, want) === undefined) return false;
+      } else if (!Object.prototype.hasOwnProperty.call(unit, want)) {
+        return false;
+      }
       continue;
     }
     if (k === 'path') {
       if (typeof view.path !== 'string') return false;
       const hit = want.endsWith('*') ? view.path.startsWith(want.slice(0, -1)) : view.path === want;
       if (!hit) return false;
+      continue;
+    }
+    if (k === 'nonNull') {
+      const paths = Array.isArray(want) ? want : [want];
+      const any = paths.some((p) => { const x = getPath(unit, p); return x !== undefined && x !== null && x !== ''; });
+      if (!any) return false;
+      continue;
+    }
+    if (k === 'isObject') {
+      if (!isObj(getPath(unit, want))) return false;
+      continue;
+    }
+    if (k === 'equals') {
+      for (const [p, s] of Object.entries(want)) {
+        const x = getPath(unit, p);
+        if (typeof x !== 'string' || x.toLowerCase() !== s.toLowerCase()) return false;
+      }
       continue;
     }
     const got = view[k];
@@ -303,6 +386,7 @@ function runMap(map, events) {
   const timeline = [];
   const unmapped = [];
   const components = [];
+  const signals = [];
   const st = { lastPath: null, messageId: null, finalized: false };
   const list = Array.isArray(events) ? events : [];
   let units = 0;
@@ -320,6 +404,20 @@ function runMap(map, events) {
     return null;
   };
 
+  // Privacy: the code is kept only as a token; the text is measured, never copied.
+  const emitSignal = (idx, u, ref) => {
+    const r = rules[idx];
+    const code = r.codePath === undefined ? null : codeToken(getPath(u, r.codePath));
+    const text = r.textPath === undefined ? undefined : getPath(u, r.textPath);
+    signals.push({
+      ...ref,
+      kind: r.kind ?? 'error',
+      code,
+      messageChars: typeof text === 'string' ? text.length : null,
+      rule: idx,
+    });
+  };
+
   for (const ev of list) {
     const e = isObj(ev) ? ev : {};
     const base = { sid: e.sid, seq: e.seq, n: e.n };
@@ -333,11 +431,8 @@ function runMap(map, events) {
       let o;
       if (pathLike) {
         p = u.p !== undefined ? u.p : st.lastPath;
-        if (typeof p !== 'string') { unmapped.push({ ...ref, reason: 'path_op_without_path' }); continue; }
-        st.lastPath = p;
         o = u.o === undefined ? 'append' : u.o;
       }
-      const scope = pathLike ? { ...u, p } : (isObj(u) ? u : {});
       const view = {
         event: e.event,
         type: isObj(u) ? u.type : undefined,
@@ -348,15 +443,38 @@ function runMap(map, events) {
         terminal: e.terminal === true,
         data: e.data,
       };
-      const idx = rules.findIndex((r) => ruleMatches(r.when, view, u));
-      if (idx < 0) { unmapped.push({ ...ref, reason: `no_rule_matched: ${describeView(view)}` }); continue; }
+      if (pathLike && typeof p === 'string') st.lastPath = p;
+      // First rule (list order) whose `when` matches. An append whose textPath is not a string does
+      // not claim the event, so the search continues after it (see header).
+      const resolve = () => {
+        for (let i = 0; i < rules.length; i++) {
+          const r = rules[i];
+          if (!ruleMatches(r.when, view, u)) continue;
+          if (r.op === 'append' && typeof getPath(u, r.textPath) !== 'string') continue;
+          return i;
+        }
+        return -1;
+      };
+      const idx = resolve();
+      if (idx < 0) {
+        const app = rules.findIndex((r) => r.op === 'append' && ruleMatches(r.when, view, u));
+        if (app >= 0) { matched++; unmapped.push({ ...ref, reason: 'textPath_not_string', rule: app }); }
+        else if (pathLike && typeof p !== 'string') unmapped.push({ ...ref, reason: 'path_op_without_path' });
+        else unmapped.push({ ...ref, reason: `no_rule_matched: ${describeView(view)}` });
+        continue;
+      }
       const rule = rules[idx];
       matched++;
+      const scope = pathLike ? { ...u, p } : (isObj(u) ? u : {});
+      if (rule.op === 'signal') { emitSignal(idx, u, ref); continue; }
 
-      const mid = messageIdOf(scope, stream);
+      // A keyed open takes its key from the event (v.message.id); other ops use the stream id path.
+      const keyed = rule.keyPath !== undefined;
+      const keyedId = keyed ? getPath(u, rule.keyPath) : undefined;
+      const mid = keyed ? (usableId(keyedId) ? String(keyedId) : undefined) : messageIdOf(scope, stream);
       if (mid !== undefined) st.messageId = mid;
       const bi = blockIndexOf(scope, stream);
-      const key = st.messageId != null && bi != null ? `${st.messageId}:${bi}` : null;
+      const key = keyed ? (mid ?? null) : (st.messageId != null && bi != null ? `${st.messageId}:${bi}` : null);
 
       switch (rule.op) {
         case 'ignore':
@@ -410,15 +528,18 @@ function runMap(map, events) {
     components: components.length,
     openComponents: components.filter((c) => c.closed === null).length,
     finalized: st.finalized,
+    signals: signals.length,
+    errorSignals: signals.filter((s) => s.kind === 'error').length,
+    hadError: signals.some((s) => s.kind === 'error'),
   };
-  return { timeline, components, unmapped, stats, matched };
+  return { timeline, components, unmapped, stats, matched, signals };
 }
 
 export function applyStreamMap(map, events) {
   const v = validateStreamMap(map);
   if (!v.ok) throw new Error(`invalid stream map: ${v.errors.join('; ')}`);
-  const { timeline, components, unmapped, stats } = runMap(map, events);
-  return { timeline, components, unmapped, stats };
+  const { timeline, components, unmapped, stats, signals } = runMap(map, events);
+  return { timeline, components, unmapped, stats, signals };
 }
 
 // Pick the built-in map whose rules match the most events. Ties, or no matches at all, give null.

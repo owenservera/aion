@@ -509,3 +509,352 @@ test('chatgpt: the full synthetic sequence is deterministic', () => {
   const b = applyStreamMap(chatgptMap, chatgptFrames(frames));
   assert.equal(JSON.stringify(a), JSON.stringify(b));
 });
+
+// ---------------------------------------------------------------------------------------------
+// Signals: error envelopes. Synthetic only: made-up ids, codes and a distinctive message word.
+// ---------------------------------------------------------------------------------------------
+
+const SIG_WORD = 'zephyrquartz';
+const SIG_MESSAGE = `Synthetic ${SIG_WORD} notice for a made-up reader.`;
+const ERR_V = { conversation_id: 'syn-conv-err-1', error: 'syn-error', error_code: 'syn_code_01', message: SIG_MESSAGE };
+const errA = (v) => ({ event: 'message', json: { v } }); // shape A: bare v, no p/o
+const errB = (v) => ({ event: 'message', json: { o: 'add', p: '', v } }); // shape B: add at empty path
+// ADJUSTED in the correction turn: error is now null too. A non-null error alone is a real error.
+const withoutCode = () => { const v = { ...ERR_V, error: null }; delete v.error_code; return v; };
+const SIG_KEYS = ['errorCount', 'statusCount', 'codes', 'sample'];
+
+test('signals: shape A error envelope after a text delta is a signal, not unmapped, and the reply continues', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([CGPT_OPEN, cgptAppend(P0, 'Alpha '), errA(ERR_V), cgptAppend(P0, 'Beta.')]));
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.signals.length, 1);
+  assert.equal(r.signals[0].kind, 'error');
+  assert.equal(r.signals[0].code, 'syn_code_01');
+  assert.equal(r.signals[0].messageChars, SIG_MESSAGE.length);
+  assert.equal(chatgptMap.stream.ops[r.signals[0].rule].op, 'signal');
+  assert.equal(byKey(r.components, 'syn-msg-cgpt-002:0').text, 'Alpha Beta.');
+  assert.equal(r.timeline.some((t) => t.seq === 2), false, 'a signal is not a timeline entry');
+});
+
+test('signals: shape A as the very first event (no pointer yet) is still a signal, not unmapped', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([errA(ERR_V)]));
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.signals.length, 1);
+  assert.equal(r.timeline.length, 0);
+});
+
+test('signals: shape B (add, empty path, object value) is a signal, matched by its own rule', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([CGPT_OPEN, cgptAppend(P0, 'Alpha.'), errB(ERR_V)]));
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.signals.length, 1);
+  assert.equal(r.signals[0].code, 'syn_code_01');
+  // ADJUSTED in the correction turn: the rule is keyed on a non-null error field, not key presence.
+  assert.deepEqual(chatgptMap.stream.ops[r.signals[0].rule].when, { nonNull: ['v.error_code', 'v.error'], o: 'add', path: '' });
+});
+
+test('signals: code is kept only as a short token; long, spaced, empty, numeric and null codes become null', () => {
+  const cases = [
+    ['syn_code-01:x.y', 'syn_code-01:x.y'],
+    ['a'.repeat(64), 'a'.repeat(64)],
+    ['a'.repeat(65), null],
+    ['has space', null],
+    ['', null],
+    [429, null],
+    [null, null],
+  ];
+  for (const [raw, want] of cases) {
+    for (const make of [errA, errB]) {
+      const r = applyStreamMap(chatgptMap, chatgptFrames([make({ ...ERR_V, error_code: raw })]));
+      assert.equal(r.unmapped.length, 0, JSON.stringify(raw));
+      assert.equal(r.signals.length, 1, JSON.stringify(raw));
+      assert.equal(r.signals[0].code, want, JSON.stringify(raw));
+    }
+  }
+});
+
+test('signals: an envelope without error_code is not a signal (the rule keys on error_code) and stays unmapped', () => {
+  // Shape A with no pointer yet: the path gate reports it before any rule could match.
+  const a = applyStreamMap(chatgptMap, chatgptFrames([errA(withoutCode())]));
+  assert.equal(a.signals.length, 0);
+  assert.equal(a.unmapped.length, 1);
+  assert.equal(a.unmapped[0].reason, 'path_op_without_path');
+  // Shape B: the add at an empty path matches no rule without error_code.
+  const b = applyStreamMap(chatgptMap, chatgptFrames([errB(withoutCode())]));
+  assert.equal(b.signals.length, 0);
+  assert.match(b.unmapped[0].reason, /^no_rule_matched: type=- event=message path= o=add$/);
+});
+
+test('signals: message text never appears in any output; messageChars is its length', () => {
+  for (const make of [errA, errB]) {
+    const r = applyStreamMap(chatgptMap, chatgptFrames([CGPT_OPEN, make(ERR_V)]));
+    assert.equal(JSON.stringify(r).includes(SIG_WORD), false);
+    assert.equal(r.signals[0].messageChars, SIG_MESSAGE.length);
+    assert.deepEqual(Object.keys(r.signals[0]).sort(), ['code', 'kind', 'messageChars', 'n', 'rule', 'seq', 'sid']);
+  }
+});
+
+test('signals: a normal reply with an interleaved error frame still builds the paragraph and finalizes; hadError true', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([
+    CGPT_OPEN,
+    cgptAppend(P0, 'Hello from '),
+    errA(ERR_V),
+    cgptAppend(P0, 'a made-up stream.'),
+    { event: 'message', json: { type: 'message_stream_complete', conversation_id: 'syn-conv-cgpt-002' } },
+  ]));
+  assert.equal(byKey(r.components, 'syn-msg-cgpt-002:0').text, 'Hello from a made-up stream.');
+  assert.equal(r.stats.finalized, true);
+  assert.equal(r.stats.openComponents, 0);
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.stats.signals, 1);
+  assert.equal(r.stats.errorSignals, 1);
+  assert.equal(r.stats.hadError, true);
+});
+
+test('signals: a stream with no error has hadError false and an empty signal list', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([CGPT_OPEN, cgptAppend(P0, 'Clean.'), { event: 'message', json: { type: 'message_stream_complete' } }]));
+  assert.deepEqual(r.signals, []);
+  assert.equal(r.stats.signals, 0);
+  assert.equal(r.stats.errorSignals, 0);
+  assert.equal(r.stats.hadError, false);
+});
+
+test('signals: a status-kind rule is reported with kind status and does not set hadError', () => {
+  const custom = structuredClone(chatgptMap);
+  custom.stream.ops.push({ when: { hasKey: 'v.state', o: 'add', path: '' }, op: 'signal', kind: 'status', codePath: 'v.state' });
+  assert.equal(validateStreamMap(custom).ok, true);
+  const r = applyStreamMap(custom, chatgptFrames([{ event: 'message', json: { o: 'add', p: '', v: { state: 'syn_busy' } } }]));
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.signals[0].kind, 'status');
+  assert.equal(r.signals[0].code, 'syn_busy');
+  assert.equal(r.signals[0].messageChars, null);
+  assert.equal(r.stats.errorSignals, 0);
+  assert.equal(r.stats.hadError, false);
+});
+
+test('signals: plain hasKey still checks only the top level; a dotted one checks the nested key', () => {
+  const custom = structuredClone(chatgptMap);
+  custom.stream.ops.push({ when: { hasKey: 'syn_top' }, op: 'signal', kind: 'status' });
+  const nested = applyStreamMap(custom, chatgptFrames([{ event: 'message', json: { nested: { syn_top: 1 } } }]));
+  assert.equal(nested.signals.length, 0);
+  assert.equal(nested.unmapped.length, 1);
+  const top = applyStreamMap(custom, chatgptFrames([{ event: 'message', json: { syn_top: 1 } }]));
+  assert.equal(top.signals.length, 1);
+});
+
+test('signals: a bare envelope continuing an ignore pointer (/message/status) is ignored by that earlier rule, not reported', () => {
+  // Pinned known limit: earlier survey rules keep first match. Change deliberately if the engine changes.
+  const r = applyStreamMap(chatgptMap, chatgptFrames([CGPT_OPEN, cgptReplace('/message/status', 'in_progress'), errA(ERR_V)]));
+  assert.equal(r.signals.length, 0);
+  assert.equal(r.timeline[r.timeline.length - 1].op, 'ignore');
+});
+
+test('signals: survey ignore rules still ignore their events and report no signals', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([
+    { event: 'message', json: { type: 'input_message', input: { parts: ['Synthetic question?'] } } },
+    { event: 'message', json: { type: 'message_marker', marker: 'syn-marker' } },
+    cgptReplace('/message/update_time', 1700000000),
+  ]));
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.signals.length, 0);
+  assert.ok(r.timeline.every((t) => t.op === 'ignore'));
+});
+
+test('signals: applyStreamMap output including signals is deterministic', () => {
+  const frames = [CGPT_OPEN, cgptAppend(P0, 'Alpha. '), errA(ERR_V), errB({ ...ERR_V, error_code: 'syn_code_02' }), cgptAppend(P0, 'Beta.')];
+  assert.equal(JSON.stringify(applyStreamMap(chatgptMap, chatgptFrames(frames))), JSON.stringify(applyStreamMap(chatgptMap, chatgptFrames(frames))));
+});
+
+test('signals: validateStreamMap accepts a valid signal rule and rejects each invalid one', () => {
+  const withRule = (rule) => { const m = structuredClone(chatgptMap); m.stream.ops.push(rule); return validateStreamMap(m); };
+  assert.equal(withRule({ when: { hasKey: 'v.syn_ok' }, op: 'signal', kind: 'status', codePath: 'v.state', textPath: 'v.message' }).ok, true);
+  const cases = [
+    [{ when: { hasKey: 'v.syn_c1' }, op: 'signal', component: 'paragraph' }, /signal rule must not set component/],
+    [{ when: { hasKey: 'v.syn_c2' }, op: 'signal', kind: 'warning' }, /signal kind must be error or status/],
+    [{ when: { hasKey: 'v.syn_c3' }, op: 'signal', codePath: 'v.error-code' }, /codePath must be a dotted identifier path/],
+    [{ when: { hasKey: 'v.syn_c4' }, op: 'signal', codePath: '1abc' }, /codePath must be a dotted identifier path/],
+    [{ when: { hasKey: 'v.syn_c5' }, op: 'signal', codePath: 'v..x' }, /codePath must be a dotted identifier path/],
+    [{ when: { hasKey: 'v.syn_c6' }, op: 'signal', textPath: 'v.mes sage' }, /textPath must be a dotted identifier path/],
+    [{ when: { hasKey: 'v.syn_c7' }, op: 'ignore', textPath: 'v.message' }, /textPath is only allowed on append and signal/],
+    [{ when: { hasKey: 'v.syn_c8' }, op: 'ignore', kind: 'error' }, /kind is only allowed on signal/],
+    [{ when: { hasKey: 'v..bad' }, op: 'signal' }, /when\.hasKey has an unsupported value/],
+  ];
+  for (const [rule, re] of cases) {
+    const v = withRule(rule);
+    assert.equal(v.ok, false, JSON.stringify(rule));
+    assert.ok(v.errors.some((e) => re.test(e)), `${JSON.stringify(rule)}: ${v.errors.join('; ')}`);
+  }
+});
+
+test('signals: applyStreamMap refuses an invalid signal rule', () => {
+  const bad = structuredClone(chatgptMap);
+  bad.stream.ops.push({ when: { hasKey: 'v.syn_bad' }, op: 'signal', kind: 'loud' });
+  assert.throws(() => applyStreamMap(bad, chatgptFrames([errA(ERR_V)])), /invalid stream map/);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Real-shaped frames (correction): message-open frames carry the message object in v.message with
+// null error fields. Null error fields are NOT errors. Synthetic ids, roles and text only.
+// ---------------------------------------------------------------------------------------------
+
+const V1 = load('chatgpt-pathops-v1.json').frames;
+const realV = (id, role) => ({
+  conversation_id: 'syn-conv-real-001',
+  error: null,
+  error_code: null,
+  message: { id, ...(role === undefined ? {} : { author: { role } }), content: { content_type: 'text', parts: [''] }, status: 'in_progress' },
+});
+const realA = (id, role) => ({ event: 'message', json: { c: 0, v: realV(id, role) } });
+const realB = (id, role) => ({ event: 'message', json: { c: 0, o: 'add', p: '', v: realV(id, role) } });
+
+test('real-shaped: null error fields on a message-open frame are not a signal and not unmapped; the frame opens a message', () => {
+  for (const make of [realA, realB]) {
+    const r = applyStreamMap(chatgptMap, chatgptFrames([make('syn-msg-null-1', 'assistant')]));
+    assert.equal(r.signals.length, 0);
+    assert.equal(r.unmapped.length, 0);
+    assert.equal(r.components.length, 1);
+    assert.equal(r.components[0].component, 'message');
+    assert.equal(r.components[0].componentKey, 'syn-msg-null-1');
+  }
+});
+
+test('real-shaped: a non-null error_code string is a signal (short token kept, messageChars only, no text)', () => {
+  for (const make of [errA, errB]) {
+    const r = applyStreamMap(chatgptMap, chatgptFrames([make({ ...realV('syn-msg-x', 'assistant'), error_code: 'syn_code_77', message: SIG_MESSAGE })]));
+    assert.equal(r.unmapped.length, 0);
+    assert.equal(r.signals.length, 1);
+    assert.equal(r.signals[0].code, 'syn_code_77');
+    assert.equal(r.signals[0].messageChars, SIG_MESSAGE.length);
+    assert.equal(JSON.stringify(r).includes(SIG_WORD), false);
+  }
+});
+
+test('real-shaped: a non-null error with error_code null is a signal with code null', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([errA({ ...ERR_V, error: 'syn-error', error_code: null })]));
+  assert.equal(r.signals.length, 1);
+  assert.equal(r.signals[0].code, null);
+});
+
+test('real-shaped: user-authored message-open frames are ignored (shape A and B, role matched case-insensitively)', () => {
+  for (const role of ['user', 'User']) {
+    for (const make of [realA, realB]) {
+      const r = applyStreamMap(chatgptMap, chatgptFrames([make('syn-msg-user-1', role)]));
+      assert.equal(r.components.length, 0, role);
+      assert.equal(r.timeline.length, 1, role);
+      assert.equal(r.timeline[0].op, 'ignore', role);
+      assert.equal(r.unmapped.length, 0, role);
+    }
+  }
+});
+
+test('real-shaped: assistant, absent, or other-role message-open frames open a message component', () => {
+  for (const role of ['assistant', 'system', 'tool', undefined]) {
+    for (const make of [realA, realB]) {
+      const r = applyStreamMap(chatgptMap, chatgptFrames([make('syn-msg-open-1', role)]));
+      assert.equal(r.components.length, 1, String(role));
+      assert.equal(r.components[0].component, 'message', String(role));
+      assert.equal(r.components[0].componentKey, 'syn-msg-open-1', String(role));
+    }
+  }
+});
+
+test('real-shaped: the message key comes from v.message.id and block keys inherit it', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames([realB('syn-msg-key-1', 'assistant'), cgptAppend(P0, 'Hi.')]));
+  assert.equal(byKey(r.components, 'syn-msg-key-1').component, 'message');
+  assert.equal(byKey(r.components, 'syn-msg-key-1:0').text, 'Hi.');
+});
+
+test('real-shaped: the v1 fixture yields one assistant message, one paragraph, finalized, hadError false, nothing unmapped', () => {
+  const r = applyStreamMap(chatgptMap, chatgptFrames(V1));
+  const messages = r.components.filter((c) => c.component === 'message');
+  const paragraphs = r.components.filter((c) => c.component === 'paragraph');
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].componentKey, 'syn-msg-v1-001');
+  assert.equal(paragraphs.length, 1);
+  assert.equal(paragraphs[0].componentKey, 'syn-msg-v1-001:0');
+  assert.equal(paragraphs[0].text, 'Synthetic made-up text.');
+  assert.equal(r.stats.finalized, true);
+  assert.equal(r.stats.openComponents, 0);
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(r.signals.length, 0);
+  assert.equal(r.stats.hadError, false);
+  assert.equal(r.components.length, 2, 'the user-authored frame built no component');
+});
+
+test('real-shaped: an error injected into the v1 sequence sets hadError, keeps the paragraph, and still finalizes', () => {
+  const injected = [...V1.slice(0, 3), errA({ conversation_id: 'syn-conv-v1-001', error: 'syn-error', error_code: 'syn_code_v1', message: SIG_MESSAGE }), ...V1.slice(3)];
+  const r = applyStreamMap(chatgptMap, chatgptFrames(injected));
+  assert.equal(r.stats.hadError, true);
+  assert.equal(r.signals.length, 1);
+  assert.equal(r.unmapped.length, 0);
+  assert.equal(byKey(r.components, 'syn-msg-v1-001:0').text, 'Synthetic made-up text.');
+  assert.equal(r.stats.finalized, true);
+  assert.equal(r.stats.openComponents, 0);
+});
+
+test('real-shaped: the v1 sequence is deterministic', () => {
+  const a = applyStreamMap(chatgptMap, chatgptFrames(V1));
+  const b = applyStreamMap(chatgptMap, chatgptFrames(V1));
+  assert.equal(JSON.stringify(a), JSON.stringify(b));
+});
+
+test('real-shaped: rule order is survey rules, then error signals, then user-ignore, then message-open', () => {
+  // A real error must win over a message object in the same frame, so the signal rules come first;
+  // they are guarded by nonNull, so a healthy frame (null error fields) can never match them.
+  const ops = chatgptMap.stream.ops;
+  const at = (pred) => ops.findIndex(pred);
+  const survey = at((r) => r.when.event === 'message' && r.when.type === 'message_stream_complete');
+  const firstSignal = at((r) => r.op === 'signal');
+  const userIgnore = at((r) => r.op === 'ignore' && r.when.isObject === 'v.message');
+  const open = at((r) => r.op === 'open' && r.when.isObject === 'v.message');
+  assert.ok(survey < firstSignal && firstSignal < userIgnore && userIgnore < open);
+  assert.deepEqual(ops.slice(-2).map((r) => r.op), ['open', 'open']);
+  assert.ok(ops.filter((r) => r.op === 'signal').every((r) => r.when.nonNull), 'every signal rule is guarded by nonNull');
+});
+
+test('real-shaped: validateStreamMap accepts nonNull, isObject and equals, and rejects malformed values', () => {
+  const withRule = (rule) => { const m = structuredClone(chatgptMap); m.stream.ops.push(rule); return validateStreamMap(m); };
+  assert.equal(withRule({ when: { nonNull: ['v.syn_n1', 'v.syn_n2'] }, op: 'signal' }).ok, true);
+  assert.equal(withRule({ when: { nonNull: 'v.syn_n3' }, op: 'signal' }).ok, true);
+  assert.equal(withRule({ when: { isObject: 'v.syn_o1' }, op: 'ignore' }).ok, true);
+  assert.equal(withRule({ when: { equals: { 'v.syn_e1.role': 'user' } }, op: 'ignore' }).ok, true);
+  const bad = [
+    [{ nonNull: 'v..x' }, /when\.nonNull has an unsupported value/],
+    [{ nonNull: [] }, /when\.nonNull has an unsupported value/],
+    [{ nonNull: ['v.ok', 'bad..'] }, /when\.nonNull has an unsupported value/],
+    [{ nonNull: 5 }, /when\.nonNull has an unsupported value/],
+    [{ isObject: 'v..x' }, /when\.isObject has an unsupported value/],
+    [{ equals: {} }, /when\.equals has an unsupported value/],
+    [{ equals: 'user' }, /when\.equals has an unsupported value/],
+    [{ equals: { 'v.a': 5 } }, /when\.equals has an unsupported value/],
+    [{ equals: { 'v..a': 'x' } }, /when\.equals has an unsupported value/],
+  ];
+  for (const [when, re] of bad) {
+    const v = withRule({ when, op: 'ignore' });
+    assert.equal(v.errors.some((e) => /unknown when key/.test(e)), false, JSON.stringify(when));
+    assert.equal(v.ok, false, JSON.stringify(when));
+    assert.ok(v.errors.some((e) => re.test(e)), `${JSON.stringify(when)}: ${v.errors.join('; ')}`);
+  }
+});
+
+test('real-shaped: validateStreamMap rejects keyPath on a non-open op and a malformed keyPath on open', () => {
+  const withRule = (rule) => { const m = structuredClone(chatgptMap); m.stream.ops.push(rule); return validateStreamMap(m); };
+  const notOpen = withRule({ when: { hasKey: 'v.syn_k1' }, op: 'ignore', keyPath: 'v.message.id' });
+  assert.equal(notOpen.ok, false);
+  assert.ok(notOpen.errors.some((e) => /keyPath is only allowed on open/.test(e)));
+  const malformed = withRule({ when: { hasKey: 'v.syn_k2' }, op: 'open', component: 'message', keyPath: 'v..id' });
+  assert.equal(malformed.ok, false);
+  assert.ok(malformed.errors.some((e) => /keyPath is only allowed on open/.test(e)));
+});
+
+test('a frame with a REAL error and a message object reports the error (signal rules precede message-open)', () => {
+  const map = chatgptMap;
+  const both = { sid: 's1', seq: 1, n: 0, t: 0, layer: 'L2', json: { c: 0, v: { conversation_id: 'c1', error: 'boom', error_code: 'rate_limit_exceeded', message: { id: 'm1', author: { role: 'assistant' } } } } };
+  const healthy = { sid: 's1', seq: 2, n: 0, t: 0, layer: 'L2', json: { c: 1, v: { conversation_id: 'c1', error: null, error_code: null, message: { id: 'm2', author: { role: 'assistant' } } } } };
+  const r = applyStreamMap(map, [both, healthy]);
+  assert.equal(r.signals.length, 1);
+  assert.equal(r.signals[0].code, 'rate_limit_exceeded');
+  assert.equal(r.signals[0].seq, 1);
+  assert.equal(r.stats.hadError, true);
+  // the healthy frame still opens its message and is not a signal
+  assert.ok(r.components.some((c) => c.component === 'message' && String(c.componentKey).includes('m2')));
+  assert.ok(!r.components.some((c) => String(c.componentKey).includes('m1')));
+});
