@@ -23,9 +23,24 @@ The current Studio UI is split across `src/studio/ui/index.html`, `chat.html`, `
 - the same Read, new-chat, send, and follow-up actions already defined for ChatGPT, extended per provider only where that provider's page supports them;
 - capture, search, and export remain available from that shell. They do not become separate applications.
 
-`vivim-final` is owned source and may be adapted where it helps: its sidebar, conversation list, composer add-ons, and multi-provider layout. Its SDK, private `/api/providers` catalog, and websocket runtime are not imported as a second harness. Studio stays the only browser driver. A provider that is not signed in, or whose page cannot be identified, shows that state in the same shell. It is not hidden and it is not replaced by another chat.
+`vivim-final` is owned source and may be adapted where it helps. The reference is the chat-column layout, not the live home page and not the slot runtime. `frontend/src/app/page.tsx` does not compose `ChatSidebar`, `ConversationList`, and `ComposerShell` into one shell. `ChatSurface` registers those pieces through the canvas slot SDK, and the thread slot is empty. Copy the shapes. Do not mount `page.tsx`, `ChatSurface`, `ChatSlotSurface`, or any `@/sdk/web` hook.
+
+The Studio shell is one left rail about 240px wide, one transcript, and the composer under the transcript. It is not vivim's right-hand composer column.
+
+- The provider rail is single-select. Studio supplies the providers and the selected id. Do not import vivim's checkbox list, workspace switcher, collections panel, or no-op toggles.
+- The conversation list is search, new chat, and rows with a provider chip, title, and active state. Selection, create, and delete are Studio callbacks. Do not import `useConversation` or `/api/conversations`.
+- The transcript is a scroll region with user and assistant messages. The composer is a textarea, send button, and optional model text. Model lists and send are Studio callbacks. Do not call `/api/providers`, `dispatchBehavior`, the ML prerouter, or `ws://localhost:9420/ws`.
+
+A provider that is not signed in, or whose page cannot be identified, shows that state in the same shell. It is not hidden and it is not replaced by another chat.
 
 This phase starts only after the ChatGPT new-chat and idle-capture work lands. It does not drop exact-thread checks, uncertain-send protection, or deferred full capture.
+
+**Studio seam, 2026-10-23.** Grow `/chat` (`src/studio/ui/chat.html` and `chat.mjs`) in place. Do not add a conversation page or a second browser. `/`, `/drive`, `/live/view`, and `/platform` stay tools reached from the shell.
+
+- The provider rail replaces the single site select. Its list is the existing conversation-target sites, with each adapter's label. The drive-site catalog is not a second provider list. A signed-out or unidentified provider stays visible.
+- The conversation list keeps the Studio lifecycle rows and gains the account chat index in the same list. Chat-index is ChatGPT-only and has no UI caller yet. Generalize that reader per provider. The open-tab list remains only the attach path.
+- One transcript pane combines the live turn and the explicit zero-send Read. The exact thread reference stays visible. Only ChatGPT `/c/<uuid>` is a durable thread today.
+- The composer keeps one explicit send. Create stays one fresh-tab connection through the existing DevTools path, not a second sender. Finish and transcript export stay actions on the shell. Dataset export and observe-only capture stay available from the main Studio page.
 
 ## Evidence boundary
 
