@@ -16,7 +16,7 @@
   "notes": "Initialization is not an independent acceptance result. Refresh main SHA at sprint start and pin tested revision. Sprint1 evidence is at 5eefb2e; prior physical LOC audit remains pinned to 34e1a913 and is not a current-source measurement. Sprint 2 independently source-exercised V8 mocks only, not native Node; 34e1a913 LOC remains historical.",
   "last_recon_date": "2026-10-22",
   "recon_baseline_sha": "49095348141646ba8d90bfc27c30e8fa0d1c6eda",
-  "last_observed_main_sha": "fc72fcb2ee4e3e365a27cc619ce04724c9154229",
+  "last_observed_main_sha": "75e7b882ee4e3e365a27cc619ce04724c9154229",
   "roadmap": "workspace/aion/qa/capture-studio/ROADMAP.md",
   "historical_executed_qa": {
     "implementation_sha": "8218e6ccd751af3abbc4a4d753f17a5116fc1ca3",
@@ -169,7 +169,7 @@
   "session_2026_10_23": {
     "date": "2026-10-23",
     "scope": "offline only; owner decision 2026-10-23: fresh controlled captures deferred",
-    "code_head_observed": "fc72fcb2ee4e3e365a27cc619ce04724c9154229",
+    "code_head_observed": "75e7b882ee4e3e365a27cc619ce04724c9154229",
     "stated_commit_range": "617f1067..5bcbc5bf",
     "commits_on_main_after_5bcbc5bf_cited": ["ac87148d", "56eed0dc", "7b7e3306", "3ec67e46", "7cd1fb50", "4106b785"],
     "records_panel_commit_before_base": "1b3904d1",
@@ -177,11 +177,11 @@
     "independently_accepted": "none",
     "unit_suite": {
       "command": "bun run test",
-      "tests": 781,
-      "pass": 780,
+      "tests": 817,
+      "pass": 816,
       "fail": 0,
       "todo_pre_existing": 1,
-      "basis": "bun run test at main fc72fcb2, run by the lead before committing; QA suites re-run at the same time"
+      "basis": "bun run test at main 75e7b882, run by the lead before committing; QA suites re-run at the same time"
     },
     "qa_suites": {
       "replay_fidelity": {
@@ -204,8 +204,11 @@
       "finished_status": 29,
       "chatgpt_path_ops_sessions": 28,
       "chatgpt_events_newly_recognised_approx": 590,
-      "chatgpt_events_redacted_shape_unmapped": 374,
-      "chatgpt_events_typeless_unmapped": 14,
+      "chatgpt_replay_sessions": 27,
+    "chatgpt_replay_unmapped_before_message_open_rules": 329,
+    "chatgpt_replay_unmapped_after": 3,
+    "chatgpt_false_error_signals_after": 0,
+      "chatgpt_unmapped_note": "the events labelled redacted-shape were message-open frames with null error fields; an earlier error-envelope inference from key names was wrong and corrected before commit",
       "chatgpt_sessions_with_dom_turns": 11,
       "chatgpt_assistant_turns_checked": 60,
     "sessions_with_dom_turns_all_hosts": 19,
