@@ -13,6 +13,7 @@ import { Session, listSessions } from '../store/session.mjs';
 import { FamilyStore } from './families.mjs';
 import { siteOf, ProfileStore } from '../profiles/profiles.mjs';
 import { buildProfile } from '../profiles/manage.mjs';
+import { readAcceptance } from '../capture/acceptance.mjs';
 
 const SIG_NOTE = 'family shape set v1';
 
@@ -49,6 +50,23 @@ function hostOf(session) {
   try { return new URL(session.meta?.target?.url).hostname.toLowerCase(); } catch { return ''; }
 }
 
+// A site slug / common hostname is not an identity or an account boundary.
+// Only an exact HTTP(S) page origin can be used for a published family shape.
+function pageOrigin(session) {
+  try {
+    const u = new URL(session.meta?.target?.url);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.origin : null;
+  } catch { return null; }
+}
+function endpointOrigin(endpoint) {
+  try {
+    const raw = String(endpoint ?? '');
+    const rest = raw.includes(' ') ? raw.slice(raw.indexOf(' ') + 1) : raw;
+    const u = new URL(rest);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.origin : null;
+  } catch { return null; }
+}
+
 // Sessions of one site (host or site slug), newest first, with the derived artifacts already
 // written by derive: SHAPES (endpoints + groups), ASSEMBLED dialects, knowledge status.
 export function collectSessions({ sessionsDir, host, site } = {}) {
@@ -62,6 +80,11 @@ export function collectSessions({ sessionsDir, host, site } = {}) {
     const haystack = [h, slug, String(s.meta?.site ?? '').toLowerCase()];
     if (wanted.length && !wanted.some((w) => haystack.some((x) => x && (x === w || x.endsWith(`.${w}`) || x.includes(w))))) continue;
     const shapes = s.kv.get('SHAPES', null);
+    const acceptance = readAcceptance(s); // Rechecks current raw digest and G1–G7 binding.
+    const knowledge = s.kv.get('KNOWLEDGE_STATUS', null);
+    const origin = pageOrigin(s);
+    const eligible = !!shapes && origin !== null && knowledge?.status === 'complete'
+      && acceptance.verdict === 'capture_accepted';
     const assembledKv = s.kv.get('ASSEMBLED', null) ?? {};
     const assembled = Object.fromEntries(Object.entries(assembledKv)
       .filter(([, a]) => a && typeof a === 'object' && a.endpoint)
@@ -70,13 +93,19 @@ export function collectSessions({ sessionsDir, host, site } = {}) {
       id: s.id,
       host: h,
       site: slug,
+      origin,
+      acceptance: acceptance.verdict,
+      eligible,
+      ineligibleReason: !shapes ? 'no-derived-shapes' : !origin ? 'no-exact-page-origin'
+        : knowledge?.status !== 'complete' ? 'knowledge-not-complete'
+          : acceptance.verdict !== 'capture_accepted' ? acceptance.verdict : null,
       createdAt: s.meta?.createdAt ?? null,
       profile: s.meta?.profile?.name ?? null,
       hasDerived: !!shapes,
       endpoints: shapes?.endpoints ?? [],
       groups: shapes?.groups ?? [],
       familyDetection: shapes?.families ?? [],
-      knowledge: s.kv.get('KNOWLEDGE_STATUS', null),
+      knowledge,
       assembled,
     });
   }
@@ -86,6 +115,7 @@ export function collectSessions({ sessionsDir, host, site } = {}) {
 // Merge per-session groups into one family shape set, grouped by (transport, endpoint path).
 function normaliseShapes(sessions) {
   const streams = new Map();
+  let outOfOriginGroups = 0;
   for (const s of sessions) {
     if (!s.hasDerived) continue;
     const epIndex = new Map(s.endpoints.map((e) => [e.endpoint, e]));
@@ -96,6 +126,10 @@ function normaliseShapes(sessions) {
       dialects.set(a.endpoint, set);
     }
     for (const g of s.groups) {
+      // SHAPES contains observations from all captured transports. Even a
+      // passing session cannot lend an analytics/CDN/unknown stream to the
+      // page's family. Retain the source SHAPES unchanged for investigation.
+      if (endpointOrigin(g.endpoint) !== s.origin) { outOfOriginGroups++; continue; }
       const ep = epIndex.get(g.endpoint) ?? null;
       const transport = dominantTransport(ep);
       const endpoint = pathPattern(g.endpoint ?? ep?.endpoint ?? '');
@@ -125,7 +159,7 @@ function normaliseShapes(sessions) {
       for (const r of ep?.resourceTypes ?? []) entry.resources.add(r);
     }
   }
-  return [...streams.values()]
+  return { shapes: [...streams.values()]
     .sort((a, b) => cmp(a.transport, b.transport) || cmp(a.endpoint, b.endpoint))
     .map((e) => ({
       transport: e.transport,
@@ -140,7 +174,8 @@ function normaliseShapes(sessions) {
         .map((c) => ({ path: c.path, groups: c.groups, avgItems: +(c.avgItems / Math.max(1, c.groups)).toFixed(1), keys: sorted(c.keys) })),
       deltas: sorted(e.deltas),
       resources: sorted(e.resources),
-    }));
+    })), outOfOriginGroups };
+
 }
 
 // Short stable hash over the normalised shape set. No timestamps, no session ids.
@@ -181,23 +216,34 @@ export function buildFamily({ sessionsDir, host, site, profilesDir = null, minSe
   const ref = host ?? site;
   const sessions = collectSessions({ sessionsDir, host, site });
   const derived = sessions.filter((s) => s.hasDerived);
-  const shapes = normaliseShapes(sessions);
+  const accepted = sessions.filter((s) => s.eligible);
+  // A family publication is one EXACT browser origin at a time. Multiple
+  // accepted origins remain inspectable but cannot silently pool account/site
+  // evidence just because they share a registrable hostname.
+  const origin = sorted(new Set(accepted.map((s) => s.origin)))[0] ?? null;
+  const contributing = accepted.filter((s) => s.origin === origin);
+  const { shapes, outOfOriginGroups } = normaliseShapes(contributing);
   const signature = familySignature(shapes);
 
-  const hosts = sorted(new Set(sessions.map((s) => s.host).filter(Boolean)));
+  const hosts = sorted(new Set(contributing.map((s) => s.host).filter(Boolean)));
   const primary = hosts[0] ?? String(site ?? host ?? 'site').toLowerCase();
   const id = slugHost(primary) || 'site';
   const siteName = (() => { try { return siteOf(primary); } catch { return ''; } })();
-  const family = { id, name: id, site: siteName, hosts, members: sessions.map((s) => s.id), signature };
+  const family = { id, name: id, site: siteName, origin, hosts, members: contributing.map((s) => s.id), signature };
 
   const warnings = [];
   if (!sessions.length) warnings.push(`no sessions for "${ref ?? '(any)'}" in ${sessionsDir}`);
   const noDerived = sessions.filter((s) => !s.hasDerived);
   for (const s of noDerived) warnings.push(`session ${s.id} has no SHAPES artifact (not derived)`);
   if (sessions.length && !derived.length) warnings.push(`none of the ${sessions.length} session(s) are derived`);
-  if (sessions.length && sessions.length < minSessions) warnings.push(`only ${sessions.length} session(s), below --min ${minSessions}`);
+  if (sessions.length && !contributing.length) warnings.push('no G1–G7 capture_accepted session with complete derivation and exact page origin; nothing eligible to publish');
+  if (outOfOriginGroups) warnings.push(`${outOfOriginGroups} derived groups withheld: endpoint origin differs from page origin or is unknown`);
+  const differentOrigins = accepted.filter((s) => s.origin !== origin);
+  if (differentOrigins.length) warnings.push(`${differentOrigins.length} accepted session(s) withheld from family: different exact page origin`);
+  if (sessions.length && contributing.length < minSessions) warnings.push(`only ${contributing.length} eligible session(s), below --min ${minSessions}`);
   if (derived.length && !shapes.length && !warnings.some((w) => w.includes('no shape groups'))) warnings.push('no shape groups in the derived sessions');
-  const draft = draftProfile(profilesDir, id, hosts);
+  const draft = contributing.length && shapes.length ? draftProfile(profilesDir, id, hosts)
+    : { profile: null, warning: null };
   if (draft.warning) warnings.push(draft.warning);
 
   const transports = sorted(new Set(shapes.map((s) => s.transport)));
@@ -205,7 +251,13 @@ export function buildFamily({ sessionsDir, host, site, profilesDir = null, minSe
     family,
     profile: draft.profile,
     shapes,
-    coverage: { sessions: sessions.length, withDerived: derived.length, streams: shapes.length, transports },
+    coverage: { sessions: sessions.length, withDerived: derived.length,
+      eligible: contributing.length, acceptedAcrossOrigins: accepted.length,
+      withheld: sessions.length - contributing.length,
+      outOfOriginGroups, streams: shapes.length, transports,
+      inspected: sessions.map((s) => ({ id: s.id, origin: s.origin, verdict: s.acceptance,
+        status: s.eligible && s.origin === origin ? 'included' : 'withheld',
+        reason: !s.eligible ? s.ineligibleReason : s.origin !== origin ? 'different-exact-origin' : null })) },
     warnings,
   };
 }
@@ -216,6 +268,13 @@ export function writeFamily({ familiesDir, built, family, profile, shapes, cover
   const b = built ?? null;
   const fam = family ?? b?.family;
   if (!fam?.id) throw new Error('writeFamily needs a family with an id');
+  const c = coverage ?? b?.coverage;
+  const groups = shapes ?? b?.shapes ?? [];
+  if (!c || !(c.eligible > 0) || !fam.members?.length || !fam.origin || !groups.length) {
+    const error = new Error('Family publication withheld: no accepted, exact-origin, source-linked shapes');
+    error.code = 'FAMILY_NOT_ELIGIBLE';
+    throw error;
+  }
   const store = new FamilyStore(familiesDir);
   const rec = store.save(fam.id, {
     ...fam,
