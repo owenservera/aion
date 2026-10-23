@@ -95,6 +95,14 @@ export function collectSessions({ sessionsDir, host, site } = {}) {
       site: slug,
       origin,
       acceptance: acceptance.verdict,
+      // Compact proof that downstream consumers can compare with the stored
+      // acceptance.json; never copy raw payloads or large gate evidence here.
+      acceptanceProof: acceptance.verdict === 'capture_accepted'
+        ? { evaluatorVersion: acceptance.evaluator?.version ?? null,
+            rawDigest: acceptance.binding?.rawDigest ?? null,
+            seqRange: acceptance.binding?.seqRange ?? null,
+            recipe: acceptance.binding?.recipe ?? null }
+        : null,
       eligible,
       ineligibleReason: !shapes ? 'no-derived-shapes' : !origin ? 'no-exact-page-origin'
         : knowledge?.status !== 'complete' ? 'knowledge-not-complete'
@@ -229,7 +237,13 @@ export function buildFamily({ sessionsDir, host, site, profilesDir = null, minSe
   const primary = hosts[0] ?? String(site ?? host ?? 'site').toLowerCase();
   const id = slugHost(primary) || 'site';
   const siteName = (() => { try { return siteOf(primary); } catch { return ''; } })();
-  const family = { id, name: id, site: siteName, origin, hosts, members: contributing.map((s) => s.id), signature };
+  const family = {
+    id, name: id, site: siteName, origin, hosts, members: contributing.map((s) => s.id), signature,
+    // Source references survive versioning and disambiguate which accepted raw
+    // evidence supported each inferred shape. No claim of account identity.
+    sources: contributing.map((s) => ({ sessionId: s.id, origin: s.origin,
+      verdict: s.acceptance, ...s.acceptanceProof })),
+  };
 
   const warnings = [];
   if (!sessions.length) warnings.push(`no sessions for "${ref ?? '(any)'}" in ${sessionsDir}`);
