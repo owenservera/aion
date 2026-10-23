@@ -234,7 +234,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
   }
   if (recovered) save();
 
-  async function submitCreation({ key, prompt, payloadDigest, registered }) {
+  async function submitCreation({ key, prompt, payloadDigest, registered, writer }) {
     if (snapshot.attempts.length !== 0) throw error('CREATION_UNCERTAIN');
     const attempt = { id: randomUUID(), key, payloadDigest, phase: 'preparing', createdAt: now(), updatedAt: now(), creation: true,
       boundary: null, send: { state: 'not-attempted', observationSource: null }, reply: { state: 'unknown', source: 'page', text: '', completion: 'unknown' }, evidence: { state: 'recording' } };
@@ -247,6 +247,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
       snapshot.readiness = { ready: false, draft: { present: null, chars: null }, reason: 'PREEXISTING_THREAD' };
       snapshot.state = 'blocked'; snapshot.uncertainty = null;
       updateAttempt(attempt, 'blocked', 'not-attempted');
+      writer?.release?.(); // Proven pre-effect (PREEXISTING_THREAD / not typed / not dispatched): the window closes.
     };
     const uncertain = (reason) => {
       attempt.preEffect = null; attempt.reason = reason;
@@ -310,7 +311,8 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         boundary: { ...attempt.boundary, sessionId: snapshot.sessionId } });
       attempt.journal = threadJournal().markDispatching({ turnId: attempt.id, expectedRevision: attempt.journal.revision });
       const observation = await adapter.reconcile({ binding: structuredClone(snapshot.binding), turnId: attempt.id, payloadDigest, boundary: structuredClone(attempt.boundary) });
-      if (!observe(attempt, observation)) { unknown(attempt, 'ACK_LOST'); updateAttempt(attempt, 'uncertain', 'uncertain'); snapshot.uncertainty = 'send-acknowledgement-lost'; snapshot.state = 'needs-reconciliation'; }
+      if (observe(attempt, observation)) writer?.release?.();
+      else { unknown(attempt, 'ACK_LOST'); updateAttempt(attempt, 'uncertain', 'uncertain'); snapshot.uncertainty = 'send-acknowledgement-lost'; snapshot.state = 'needs-reconciliation'; }
     } catch (e) {
       if (e?.code === 'PERSISTENCE_FAILED_REOPEN_REQUIRED' || e?.code === 'JOURNAL_PERSISTENCE_FAILED_REOPEN_REQUIRED') throw e;
       uncertain('CREATION_UNPINNED');
@@ -377,7 +379,8 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         snapshot.state = snapshot.readiness.ready ? 'ready' : 'blocked'; save(); return view();
       });
     },
-    submit({ key, prompt, expectedRevision, confirm } = {}, { registered } = {}) {
+    submit({ key, prompt, expectedRevision, confirm } = {}, { registered, writer } = {}) {
+      let acquired = false; // True only while the writer window THIS call opened is still held.
       return serial(async () => {
         if (typeof key !== 'string' || !key || key.length > 200 || typeof prompt !== 'string' || !prompt.trim() || prompt.length > 250000) throw error('INVALID_SUBMISSION');
         const payloadDigest = createHash('sha256').update(prompt, 'utf8').digest('hex');
@@ -397,7 +400,12 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         writable();
         revision(expectedRevision);
         if (confirm !== true) throw error('CONFIRM_REQUIRED');
-        if (creatingNow()) return submitCreation({ key, prompt, payloadDigest, registered });
+        // Short foreground writer window: opened before any browser-facing work of this turn and
+        // held until its delivery is observed, the turn proves no effect, or — for unresolved
+        // outcomes (unknown delivery, partial draft) — until reconcile/finish resolves it.
+        // Idempotent replays above never enter the window. Passive capture continues lease-free.
+        acquired = writer?.enter?.() ?? false;
+        if (creatingNow()) return submitCreation({ key, prompt, payloadDigest, registered, writer });
         // Fail closed before any browser action: an unverified thread (legacy snapshot or an existing tab whose
         // path is not a supported thread) can browse and finish, never send.
         if (snapshot.identity.state !== 'bound' || !snapshot.binding?.thread) throw error('THREAD_IDENTITY_UNVERIFIED');
@@ -424,7 +432,9 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
             && !attempt.typingStartedAt && attempt.phase === 'preparing' && attempt.send.state === 'not-attempted';
           if (preEffect) {
             blockPreEffect(attempt); snapshot.state = 'blocked'; snapshot.uncertainty = null;
-            attempt.reason = 'SUBMISSION_STOPPED'; updateAttempt(attempt, 'blocked', 'not-attempted'); save(); return true;
+            attempt.reason = 'SUBMISSION_STOPPED'; updateAttempt(attempt, 'blocked', 'not-attempted'); save();
+            writer?.release?.(); // Proven no effect: this turn's window closes with the attempt.
+            return true;
           }
           snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = attempt.typingStartedAt ? 'partial-draft-possible' : null;
           attempt.reason = 'SUBMISSION_STOPPED'; updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); return true;
@@ -472,14 +482,22 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
           }
           /* Unknown effect: never retry, even if the transport claims the send failed. */
         }
-        if (!observe(attempt, observation)) {
+        if (observe(attempt, observation)) writer?.release?.(); // Delivery observed: the effect window closes; reply observation stays read-only.
+        else {
           unknown(attempt, 'ACK_LOST');
           updateAttempt(attempt, 'uncertain', 'uncertain'); snapshot.uncertainty = 'send-acknowledgement-lost'; snapshot.state = 'needs-reconciliation';
         }
         save(); return view().attempts.find((a) => a.id === attempt.id);
+      }).catch((e) => {
+        // A pre-effect failure releases only a window this call opened; an already-open window
+        // belongs to an earlier unresolved turn and stays with it. Effect-bearing uncertainty
+        // (typing interrupted, journal fence, poisoned persistence) keeps the window open until
+        // reconcile or finish resolves it — the documented unknown-delivery hold.
+        if (acquired && !['TYPING_INTERRUPTED', 'THREAD_FENCED', 'PERSISTENCE_FAILED_REOPEN_REQUIRED', 'JOURNAL_PERSISTENCE_FAILED_REOPEN_REQUIRED'].includes(e?.code)) writer?.release?.();
+        throw e;
       });
     },
-    reconcile({ expectedRevision, assertion, turnId } = {}) {
+    reconcile({ expectedRevision, assertion, turnId } = {}, { writer } = {}) {
       return serial(async () => {
         revision(expectedRevision);
         if (assertion !== undefined) {
@@ -518,7 +536,10 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         let observation;
         try { observation = await adapter.reconcile({ binding: structuredClone(snapshot.binding), turnId: attempt.id, payloadDigest: attempt.payloadDigest, boundary: structuredClone(attempt.boundary) }); }
         catch { throw error('RECONCILIATION_UNAVAILABLE'); }
-        observe(attempt, observation); save(); return view();
+        // Reconciliation is read-only; when it resolves a previously uncertain delivery, the
+        // writer window this conversation held for that unresolved turn closes.
+        if (observe(attempt, observation)) writer?.release?.();
+        save(); return view();
       });
     },
     recordReply(reply) {

@@ -61,6 +61,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     const adapter = { async reconcile() { return null; }, async stop() { throw fail(409, 'RECOVERED_CAPTURE_INCOMPLETE'); } };
     const service = createConversationService({ dataDir: directory, id, adapter, recover: !readOnly, context: { restarted: true, recoveredSessionId: owned[0]?.id } });
     const entry = { service, adapter, recovered: true, readOnly, registration: Promise.resolve(), work: Promise.resolve(), lease: null };
+    entry.writer = writerWindow(entry);
     entries.set(id, entry); return entry;
   }
   // Pure snapshot read: never recovers, saves, attaches or touches the browser. Recovery is the
@@ -94,7 +95,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     return { id: s.id, revision: s.revision, state: s.state, site: s.site, binding: s.binding, sessionId: s.sessionId,
       turn: a ? turnView(a) : null, turns: s.attempts.map(turnView),
       identity: s.identity, recovery: { pending },
-      readiness: s.readiness, diagnostic: { finishPhase: s.finish.phase, finishError: s.finish.error ?? null, uncertainty: s.uncertainty },
+      readiness: s.readiness, writer: { active: !!entry.lease }, diagnostic: { finishPhase: s.finish.phase, finishError: s.finish.error ?? null, uncertainty: s.uncertainty },
       reply, capture, limitations: [...s.limitations, ...(entry.recovered ? ['Recovered snapshot only; interrupted capture ownership requires reconciliation, never automatic replay'] : []),
         ...(pending ? ['Stored snapshot read without recovery; the owning process is gone, so its state is stale until an explicit reconcile, finish or recover'] : [])] };
   }
@@ -145,7 +146,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       await entry.service.recordCapture({ state: 'incomplete', integrity: entry.adapter.integrity ?? null,
         bytesWritten: entry.adapter.bytesWritten ?? 0, limitReason: entry.adapter.limitReason ?? entry.service.read().capture.limitReason });
       // A failed stop leaves resources/lease owned. Do not pretend a later close/restart fixed it.
-      if (entry.service.read().finish.captureStopped || entry.service.read().finish.phase === 'done') entry.lease?.release();
+      if (entry.service.read().finish.captureStopped || entry.service.read().finish.phase === 'done') entry.writer?.release();
       return view(entry);
     })();
     return entry.finishing;
@@ -169,9 +170,31 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       try { if (entry.service.read().sessionId) await entry.service.recordCapture({ state: 'incomplete', bytesWritten: entry.adapter.bytesWritten ?? 0 }); } catch {}
       for (const note of notes) { try { await entry.service.addLimitation(note); } catch {} }
     } finally {
-      try { lease.release(); } catch {}
+      try { lease?.release(); } catch {}
       if (entry) entry.lease = null;
     }
+  }
+  // Short foreground writer window (the documented target model for the drive lease). The host's
+  // single driving lease is held only while this conversation can actually drive the page: from
+  // just before a turn's typing through delivery observation, and for as long as an unresolved
+  // unknown delivery or partial draft exists (including across a restart, where the next submit
+  // re-opens the window before the journal fence rejects it). Passive capture, Read, chat-index
+  // and reconcile stay lease-free. enter() returns false when a window is already open — an
+  // earlier unresolved turn owns it — and release() drops the handle even if the lease file no
+  // longer proves ownership, because the turn journal, not this handle, fences duplicate sends.
+  function writerWindow(entry) {
+    return {
+      enter() {
+        if (entry.lease) return false;
+        entry.lease = d.acquireLease({ port, root: d.leaseRoot, holder: { kind: 'conversation-writer', id: entry.service.id } });
+        return true;
+      },
+      release() {
+        const lease = entry.lease; entry.lease = null;
+        if (!lease) return;
+        try { lease.release(); } catch { /* Ownership unconfirmable: the directory is another live owner's or reclaimable after grace. */ }
+      },
+    };
   }
   return {
     async chatIndex(body) {
@@ -295,16 +318,25 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
           && prior.attempts?.some((a) => !a.journal && (a.phase !== 'blocked' || a.typingStartedAt))) throw fail(409, 'LEGACY_ATTEMPT_REQUIRES_RECONCILIATION');
         if (prior.binding?.origin === origin && prior.binding.thread?.ref === thread.ref && prior.attempts?.some((a) => a.journal)) peek(priorId).service.read();
       }
-      const id = randomUUID(), lease = d.acquireLease({ port, root: d.leaseRoot, holder: { kind: 'conversation', id } });
+      const id = randomUUID();
+      // Foreground driving windows on the host's single driving lease: (1) a fresh Studio-owned
+      // tab drives the browser during connect (tab creation + navigation) and releases the lease
+      // once the idle tab exists; (2) typing/dispatching drives the page inside the per-turn
+      // writer window, which stays open until delivery is observed or the turn's outcome is
+      // unresolved (writerWindow). An existing-tab attach arms read-only observation only (idle
+      // page attach, deferred capture) and takes no lease.
+      const lease = freshTab ? d.acquireLease({ port, root: d.leaseRoot, holder: { kind: 'conversation', id } }) : null;
       let entry;
       try {
         const adapter = d.createAdapter({ paths, profileStore, familyStore, port, siteAdapter, targetId: body.targetId,
-          freshTab, conversationId: id, ownerToken: lease.token, maxBytes: d.maxBytes });
+          freshTab, conversationId: id, ownerToken: lease?.token ?? null, maxBytes: d.maxBytes });
         const service = createConversationService({ dataDir: directory, id, adapter, io: d.io,
-          context: { site: body.site, owner: { pid: process.pid, token: lease.token, port }, capture: { endsAt: new Date(Date.now() + d.maxDurationMs).toISOString(), maxBytes: d.maxBytes, bytesWritten: 0, limitReason: null } } });
+          context: { site: body.site, owner: { pid: process.pid, token: lease?.token ?? null, port }, capture: { endsAt: new Date(Date.now() + d.maxDurationMs).toISOString(), maxBytes: d.maxBytes, bytesWritten: 0, limitReason: null } } });
         entry = { service, adapter, lease, registration: Promise.resolve(), work: Promise.resolve(), recovered: false };
+        entry.writer = writerWindow(entry);
         entries.set(id, entry);
         await service.connect({ targetId: body.targetId ?? `pending-${id}`, origin, ownedByStudio: freshTab, thread, identity, ...(freshTab ? { threadDenylist } : {}), expectedRevision: service.read().revision });
+        entry.writer.release(); // The idle fresh tab keeps no driving lease between turns.
         return view(entry);
       } catch (e) {
         await abortFailedConnect(entry, lease);
@@ -335,7 +367,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
         scheduleBudget(entry); // The duration clock starts at explicit send, not at idle connect.
         let resolve, reject;
         const ack = new Promise((yes, no) => { resolve = yes; reject = no; });
-        const execution = entry.service.submit(body, { registered: (_, attempt) => resolve(view(entry, false, attempt)) });
+        const execution = entry.service.submit(body, { registered: (_, attempt) => resolve(view(entry, false, attempt)), writer: entry.writer });
         entry.work = execution.then(async (attempt) => {
           // Reply attribution starts only after a bound, observed delivery. A creation send that
           // never pinned does not reach send.state observed, so it does not read a reply.
@@ -359,7 +391,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       if (entry.readOnly) throw fail(409, 'CONVERSATION_OWNED_BY_ANOTHER_RUNTIME');
       if (entry.finishing) await entry.finishing;
       try {
-        await entry.service.reconcile(body);
+        await entry.service.reconcile(body, { writer: entry.writer });
         const attempt = body.turnId ? entry.service.read().attempts.find((a) => a.id === body.turnId) : entry.service.read().attempts.at(-1);
         if (attempt?.send.state === 'observed') {
           // Explicit reconciliation may restart a completed read-only observer for this exact turn.
@@ -372,7 +404,9 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     async finish(id, body = {}) { try { return await finishEntry(load(id), body); } catch (e) { throw outward(e); } },
     async close() {
       closed = true;
-      await Promise.all([...entries.values()].filter((e) => !e.recovered && e.lease).map((entry) => finishEntry(entry)));
+      // Every live entry is finalized on close, lease or not: an idle connected conversation may
+      // hold no driving lease between turns, but its recorder still needs an explicit stop.
+      await Promise.all([...entries.values()].filter((e) => !e.recovered).map((entry) => finishEntry(entry)));
     },
   };
 }

@@ -33,11 +33,12 @@ function fixture(t, overrides = {}) {
   const paths = { root, sessions: path.join(root, 'sessions') }, calls = [], adapters = [];
   const site = { id: 'chatgpt', url: 'https://chatgpt.com/' };
   let observe = true, releaseReply = deferred();
+  let targets = [{ id: 'selected', type: 'page', url: 'https://chatgpt.com/c/11111111-1111-4111-8111-111111111111' }];
   const dependencies = {
     leaseRoot: path.join(root, 'leases'), listSessions: () => [],
     getAdapter: async (value) => value === 'chatgpt' || String(value).startsWith('https://chatgpt.com') ? site : null,
     // An existing ChatGPT tab must be a supported /c/<uuid> thread to be sendable (M1 thread identity).
-    listTargets: async () => [{ id: 'selected', type: 'page', url: 'https://chatgpt.com/c/11111111-1111-4111-8111-111111111111' }],
+    listTargets: async () => targets,
     createAdapter(options) {
       const adapter = {
         mayOwnResources: false, bytesWritten: 40, integrity: null,
@@ -62,7 +63,8 @@ function fixture(t, overrides = {}) {
   const connect = (body = {}) => runtime.connect({ site: 'chatgpt', targetId: 'selected', ...body });
   const submit = (c, body = {}) => runtime.submit(c.id, { key: 'one', prompt: 'private prompt', confirm: true, expectedRevision: c.revision, ...body });
   const settle = async (id) => { for (let n = 0; n < 200; n++) { const c = await runtime.get(id); if (c.reply.state === 'ready' || c.turn?.send.state === 'uncertain') return c; await new Promise(setImmediate); } throw new Error('Background job did not settle'); };
-  return { runtime, paths, dependencies, calls, adapters, connect, submit, settle, releaseReply, setObserve: (v) => { observe = v; } };
+  return { runtime, paths, dependencies, calls, adapters, connect, submit, settle, releaseReply, setObserve: (v) => { observe = v; },
+    setTargets: (v) => { targets = v; } };
 }
 
 test('§15 connect/submit promptly/poll/read-local/list-private/finish with lease', async (t) => {
@@ -93,7 +95,9 @@ test('concurrent duplicate keys register once; changed payload conflicts before 
 test('fresh tab can capture/finish but cannot submit without a tested exact creation identity', async (t) => {
   const f = fixture(t), c = await f.connect({ freshTab: true, targetId: undefined });
   assert.equal(c.binding.ownedByStudio, true); assert.equal(c.binding.targetId, 'fresh');
-  await assert.rejects(f.connect(), (e) => e.status === 409 && e.code === 'DRIVE_LEASE_BUSY');
+  // The driving lease covered only the fresh-tab creation window (tab + navigation); the idle
+  // Studio-owned tab holds none between connect and the first send.
+  acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release();
   await assert.rejects(f.submit(c), (e) => e.code === 'THREAD_IDENTITY_UNVERIFIED');
   await Promise.all([f.runtime.finish(c.id, { closeTab: true }), f.runtime.finish(c.id, { closeTab: true })]);
   assert.equal(f.calls.filter((v) => v === 'stop').length, 1); assert.equal(f.calls.filter((v) => v === 'close-tab').length, 1);
@@ -132,8 +136,9 @@ test('duration budget stops waiting, finalizes incomplete and releases lease', a
   assert.equal(done.capture.state, 'incomplete'); acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release();
 });
 
-test('failed capture stop preserves lease and prevents tab close', async (t) => {
+test('failed capture stop preserves an open writer lease and prevents tab close', async (t) => {
   const f = fixture(t), c = await f.connect();
+  f.setObserve(false); await f.submit(c); await f.settle(c.id); // Unknown delivery keeps the writer window open.
   f.adapters[0].stop = async () => { f.calls.push('stop'); throw new Error('failed'); };
   const done = await f.runtime.finish(c.id, { closeTab: true }); assert.equal(done.state, 'needs-reconciliation');
   assert.equal(f.calls.includes('close-tab'), false);
@@ -144,6 +149,61 @@ test('failed attach with no effects releases lease', async (t) => {
   const f = fixture(t, { createAdapter: () => ({ mayOwnResources: false, async connect() { throw new Error('no effect'); } }) });
   await assert.rejects(f.connect(), /ATTACHMENT_FAILED/);
   acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release();
+});
+
+test('an idle connected conversation holds no driving lease; the window opens for the effect and closes on observed delivery', async (t) => {
+  const f = fixture(t), c = await f.connect();
+  assert.equal((await f.runtime.get(c.id)).writer.active, false);
+  acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release(); // Free between turns.
+  const typing = deferred();
+  f.adapters[0].type = async () => { await typing.promise; };
+  const sent = f.submit(c);
+  for (let n = 0; n < 500 && !(await f.runtime.get(c.id)).writer.active; n++) await new Promise(setImmediate);
+  assert.equal((await f.runtime.get(c.id)).writer.active, true);
+  assert.throws(() => acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }), /lease is held/);
+  typing.resolve();
+  await sent;
+  for (let n = 0; n < 500 && (await f.runtime.get(c.id)).writer.active; n++) await new Promise(setImmediate);
+  assert.equal((await f.runtime.get(c.id)).writer.active, false); // Released once delivery is observed.
+  f.releaseReply.resolve(); const replied = await f.settle(c.id);
+  assert.equal(replied.turn.send.state, 'observed');
+  acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release();
+});
+
+test('unknown delivery keeps the writer window until reconciliation resolves it', async (t) => {
+  const f = fixture(t); f.setObserve(false);
+  const c = await f.connect(); await f.submit(c); const uncertain = await f.settle(c.id);
+  assert.equal(uncertain.turn.send.state, 'uncertain');
+  assert.throws(() => acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }), /lease is held/);
+  const disk = JSON.parse(fs.readFileSync(path.join(f.paths.root, 'conversations', `${c.id}.conversation.json`)));
+  const a = disk.attempts.at(-1);
+  f.adapters[0].reconcile = async () => ({ binding: uncertain.binding, evidence: { turnId: a.id, payloadDigest: a.payloadDigest,
+    sessionId: c.sessionId, sequence: 11, kind: 'new-user-turn', source: 'page', identity: `user-${a.id}` } });
+  const resolved = await f.runtime.reconcile(c.id, { expectedRevision: uncertain.revision });
+  assert.equal(resolved.turn.send.state, 'observed');
+  f.releaseReply.resolve();
+  assert.equal((await f.runtime.get(c.id)).writer.active, false);
+  acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release();
+});
+
+test('a second conversation attaches while the first is connected and collides only inside the effect window', async (t) => {
+  const f = fixture(t);
+  f.setTargets([
+    { id: 'selected', type: 'page', url: 'https://chatgpt.com/c/11111111-1111-4111-8111-111111111111' },
+    { id: 'other', type: 'page', url: 'https://chatgpt.com/c/22222222-2222-4222-8222-222222222222' }]);
+  const a = await f.connect(), b = await f.connect({ targetId: 'other' });
+  const typing = deferred();
+  f.adapters[0].type = async () => { await typing.promise; };
+  await f.submit(a);
+  for (let n = 0; n < 500 && !(await f.runtime.get(a.id)).writer.active; n++) await new Promise(setImmediate);
+  await assert.rejects(f.runtime.submit(b.id, { key: 'one', prompt: 'private prompt', confirm: true, expectedRevision: b.revision }),
+    (e) => e.status === 409 && e.code === 'DRIVE_LEASE_BUSY');
+  assert.equal((await f.runtime.get(b.id)).turns.length, 0); // Busy collision leaves no journal residue.
+  typing.resolve();
+  for (let n = 0; n < 500 && (await f.runtime.get(a.id)).writer.active; n++) await new Promise(setImmediate);
+  const second = await f.runtime.submit(b.id, { key: 'one', prompt: 'private prompt', confirm: true, expectedRevision: (await f.runtime.get(b.id)).revision });
+  assert.equal(second.turn.phase, 'preparing');
+  f.releaseReply.resolve(); await f.settle(a.id);
 });
 
 test('owner metadata recovers attach/save window without reattaching or dispatching', async (t) => {
