@@ -362,11 +362,14 @@ OpenAPI document; none was added (no OpenAPI overhaul).
   UTC; reported by the M0 investigation to resolve to the default Chrome profile, not verified by this
   lane). A normal Chrome without a DevTools port cannot be attached. Login state is classified read-only
   first; manual sign-in is needed only if that classification says so.
-- **Foreground writer lease and capture lifetime are separate.** Today one drive lease is acquired at
-  connect and held for the whole capture (`src/capture/conversation-runtime.mjs:249`, released on
-  finish at `:118` and in `abortFailedConnect` `:127-145`). The target model is a short exclusive writer
-  lease held only while typing or sending, or while an unresolved unknown delivery exists, with
-  capture (read) continuing for its own lifetime. Not implemented.
+- **Foreground writer lease and capture lifetime are separate.** Implemented 2026-10-23 (source + offline tests only; nothing here is a live claim): the drive lease is no longer held for the whole
+  connection/capture. A fresh Studio-owned tab holds it only for the connect window (tab creation +
+  navigation) and an existing-tab attach takes none; typing/dispatching hold it inside a per-turn
+  writer window (`writerWindow` in `src/capture/conversation-runtime.mjs`) that stays open while an
+  unresolved unknown delivery or partial draft exists and closes on observed delivery, proven
+  pre-effect, or reconcile/finish resolution. Passive capture, Read, chat-index and reconcile are
+  lease-free. `close()` finalizes every live entry even when no lease is held. See the checkpoint
+  below for the exact offline evidence and the unchanged live gates.
 - **Live scope.** The first live binding is the user's own existing `/c/<id>` thread, opened by the
   user. Titles are never used for identity or role matching. A role binding is optional and local; the
   harness serves any real conversation, with the AION team as the first workload.
@@ -398,6 +401,32 @@ quote either as an accepted total.
 - **Not proved live:** no server refresh and no live send in this checkpoint. Dedicated Studio Chrome PID 20048/CDP 9222 was launched at 18:22 and parent-verified connected at **18:24:48 UTC**, with LOGIN REQUIRED then. Current login, and whether that Chrome or server PID 7996 (started **17:25 UTC**, before this source) loaded the later source, is unverified. No authenticated exchange. Default Chrome on 8448 was untouched; the `chrome-cdp-profile` junction points to the default profile and is not a safe dedicated-profile substitute.
 - **Research not completed:** donor UI first-pass pattern notes remain useful. `vivim-final` is owner-owned and eligible for reuse. Deeper UI/sync/slave-profile lanes were cancelled for Claude credit before completion; that is neither a completed assessment nor a ban on reuse. Third-party dependencies remain unaudited. No config was changed by this docs pass.
 - **Next, still outside this docs pass:** refresh only an ownership-checked Studio server and verify the loaded routes/manifest; human login; real zero-send exact-thread Read; useful SITREP and follow-up; then the remaining full-surface/navigation work. Parent validates, commits and pushes. The original five owner files stay excluded.
+
+### Short writer lease checkpoint — 2026-10-23, Z.ai sandbox, offline only
+
+- **Baseline repair (commit `0dd12c2c`):** `main` `521b9822` failed `test/unit/loadlab.test.mjs`
+  ("repeat mode runs every mode N times...") on this machine: the queue-age probe only observes
+  `RawLog.flush()`, whose periodic timer (50 ms default) never fires inside the tiny run's ~37 ms
+  window, so repeats' `queueAgeP50Ms`/`queueAgeP99Ms` summarised `n:0`. The lab now takes one
+  explicit end-of-window flush while still armed (both scenarios); `close()`'s final drain stays
+  uncounted. After the repair the parent suite reports **1,195 tests, 1,194 pass, 0 fail, 1 existing
+  TODO**. This supersedes the older "1,187/0/1" receipts for this environment; the earlier counts
+  were recorded on other machines/times and are not re-verified here.
+- **Short writer lease (commit `0a34e6dc`):** the target model above, implemented in
+  `conversation-runtime.mjs` (writerWindow, scoped connect lease, close() fix, `writer.active` in
+  conversation views) and `conversation-service.mjs` (window entry before browser-facing turn work,
+  resolution-point releases, ownership-guarded release so a pre-effect failure never releases a
+  window an earlier unresolved turn owns, reconcile-resolution release). `DRIVE_LEASE_BUSY` from a
+  window collision now leaves no journal residue (the window opens before reserve). Evidence label:
+  **Locally demonstrated on synthetic data (injected fake adapters)** — 4 new tests (idle connect
+  lease-free; two conversations attach freely and collide only inside the effect window with no
+  journal residue; unknown delivery holds the window until reconcile resolves it; fresh-tab creation
+  window end-to-end) plus the two rewritten whole-lifetime-lease tests. Full suite after the change:
+  **1,199 tests, 1,198 pass, 0 fail, 1 existing TODO** (`bun run test`, node --test).
+- **Not proved live, unchanged:** no loaded server, no real Chrome, no authenticated ChatGPT turn,
+  no `capture_accepted`. M0-M2 live gates (LIVE-TEST.md RT-0..RT-9) still require the owner's
+  Windows runtime. The lease change is a precondition cleanup for M2/M5, not live acceptance of
+  either.
 
 ## 7. Roadmap (intelligence-first order)
 
