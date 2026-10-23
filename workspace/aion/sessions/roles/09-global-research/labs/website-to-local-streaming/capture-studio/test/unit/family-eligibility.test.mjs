@@ -12,6 +12,7 @@ import { ProfileStore } from '../../src/profiles/profiles.mjs';
 import { derive } from '../../src/replay/derive.mjs';
 import { evaluateAcceptance, writeAcceptance, readAcceptance } from '../../src/capture/acceptance.mjs';
 import { buildFamily, collectSessions, writeFamily } from '../../src/families/build.mjs';
+import { runCampaign, defaultPrompt } from '../../src/capture/campaign.mjs';
 
 const PROMPT = 'Say hello';
 const REPLY = 'Hello there';
@@ -192,4 +193,23 @@ test('offline derive defaults to incomplete, then explicit synthetic context can
   assert.ok(built.shapes.length > 0, 'real derived source-side shapes contribute');
   const written = writeFamily({ familiesDir: paths.families, built });
   assert.deepEqual(written.record.members, [s.id]);
+});
+
+
+test('Campaign leaves a wrongly calibrated synthetic reply derived but unpublished', async (t) => {
+  const { paths } = area(t);
+  const s = await fixture(paths);
+  const result = await runCampaign({
+    sites: ['chatgpt'], execute: true, dataDir: paths.root,
+    prompt: defaultPrompt, cooldownMs: 0, resume: false,
+    // Mocked drive result: absolutely no browser/CDP call or external send.
+    drive: async () => ({ ok: true, blocked: false, sessionId: s.id,
+      reply: 'This is not the expected calibration answer', done: true,
+      target: { url: SITE + '/conversation' }, errors: [] }),
+  });
+  assert.equal(result.sites[0].status, 'unverified');
+  assert.equal(result.sites[0].derived, true, 'raw can still be derived offline');
+  assert.equal(result.sites[0].family, null);
+  assert.notEqual(readAcceptance(Session.open(paths.sessions, s.id)).verdict, 'capture_accepted');
+  assert.equal(existsSync(path.join(paths.families, 'chat.example.test', 'CURRENT')), false);
 });
