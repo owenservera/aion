@@ -160,8 +160,11 @@ test('a missing origin or failed knowledge status cannot be promoted', async (t)
   const { paths } = area(t);
   const a = await fixture(paths, { url: 'about:blank' });
   await accepted(a);
-  const b = await fixture(paths, { knowledgeStatus: 'failed' });
+  const b = await fixture(paths);
   await accepted(b);
+  // Acceptance does not become a timeless authorization to publish. A later
+  // failed knowledge transaction must withhold the session even if raw is sound.
+  b.kv.set('KNOWLEDGE_STATUS', { status: 'failed', entityCount: 0 });
   const built = buildFamily({ sessionsDir: paths.sessions, site: 'example.test' });
   assert.equal(built.coverage.eligible, 0);
   assert.equal(built.family.members.length, 0);
