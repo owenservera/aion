@@ -1,5 +1,5 @@
 // Full offline derivation. Raw records are read-only; every stage is recomputable.
-import { derive } from './derive.mjs';
+import { derive, streamRolesCurrent } from './derive.mjs';
 import { CorpusSearchIndex, primeFuzzySearch, highlightSpans } from '../intel/search.mjs';
 import { rankGraphNodes } from '../intel/graph.mjs';
 import { OnlineSchemaProfiler, toJsonSchema } from '../shapes/profiler.mjs';
@@ -254,7 +254,11 @@ export async function deriveAll(session, { profile, incremental = true, stages, 
   const endedAt = meta.endedAt ?? meta.ended_at ?? meta.endT ?? meta.endedT ?? null;
   // A session that is still recording keeps growing: its record count is not a stable cursor.
   const stillRecording = !ENDED_STATUSES.has(String(meta.status ?? '')) || endedAt == null;
-  const fresh = !!incremental && prev?.version === 1 && prev.cursor === cursor && prev.ok !== false && !stillRecording;
+  // The base stage writes kv STREAM_ROLES. A manifest from before the role pass (or from an older
+  // classifier / schema, or after a failed role pass) has a matching cursor but a stale or missing
+  // role artifact; it must not be skipped. Only matters when the base stage is part of this run.
+  const rolesStale = selected.has('base') && !streamRolesCurrent(session);
+  const fresh = !!incremental && prev?.version === 1 && prev.cursor === cursor && prev.ok !== false && !stillRecording && !rolesStale;
   const plan = STAGES.filter((name) => selected.has(name) && !(fresh && done.has(name)));
   const stageResults = new Map((prev?.stages ?? []).filter((stage) => stage?.name).map((stage) => [stage.name, stage]));
 

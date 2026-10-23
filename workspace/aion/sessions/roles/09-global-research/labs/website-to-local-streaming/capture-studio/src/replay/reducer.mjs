@@ -3,6 +3,8 @@
 // a later reconstruction from disk cannot disagree.
 import { pickAutoDecoder, decodeWsPayload, classifyMime, WsFrameDecoder, sniffEnvelope, unwrapNestedJson, AutoDecoder } from '../decode/decoders.mjs';
 import { DeltaAssembler } from '../decode/delta.mjs';
+import { classifyStreamRole, STREAM_ROLES } from './stream-role.mjs';
+import { detectStreamMap, applyStreamMap } from '../profiles/stream-map.mjs';
 
 // Content-free diagnostics of the decoder a stream actually used: declared vs sniffed framing,
 // late re-sniff switches and the inner decoder's counters. Safe for receipts and timelines.
@@ -65,7 +67,9 @@ export class StreamReducer {
   // jsonMaxBytes (0 = unlimited, the default for every reader: derive, mirror, export, eval). Only a
   // live recorder sets it: a JSON value larger than the cap is emitted as an oversize marker with
   // no parsed json. Read when a stream's decoder is created, so set it before the first chunk.
-  constructor({ deltaDialect = 'auto', keepEvents = true, maxEventsPerStream = Infinity, stallMs = 5000, deltaOpsLog = 0, deltaSnapshotEvery = 0, jsonMaxBytes = 0 } = {}) {
+  // roleClassifier (injectable for tests): only ever called on explicit opt-in, see summary({ includeStreamRoles }).
+  constructor({ deltaDialect = 'auto', keepEvents = true, maxEventsPerStream = Infinity, stallMs = 5000, deltaOpsLog = 0, deltaSnapshotEvery = 0, jsonMaxBytes = 0, roleClassifier = classifyStreamRole } = {}) {
+    this.roleClassifier = roleClassifier;
     this.jsonMaxBytes = jsonMaxBytes;
     this.maxEventsPerStream = maxEventsPerStream; // live view is bounded; disk keeps everything
     this.streams = new Map();
@@ -98,17 +102,19 @@ export class StreamReducer {
       Object.defineProperty(s, '_delta', { value: new DeltaAssembler({ dialect: this.deltaDialect, opsLog: this.deltaOpsLog, snapshotEvery: this.deltaSnapshotEvery }), writable: true, enumerable: false });
       Object.defineProperty(s, '_events', { value: [], writable: true, enumerable: false });
       // Memoised per-stream summary body (see summary()); null = needs rebuilding.
-      Object.defineProperty(s, '_sum', { value: { base: null }, writable: true, enumerable: false });
+      // role = memoised opt-in role classification (null until summary({ includeStreamRoles }) / streamRole()).
+      Object.defineProperty(s, '_sum', { value: { base: null, role: null }, writable: true, enumerable: false });
       this.streams.set(sid, s);
     }
     // Every ingest path that mutates a stream goes through here (or marks it explicitly), so the
     // memoised summary is invalidated exactly when the stream can have changed.
     s._sum.base = null;
+    s._sum.role = null;
     return s;
   }
 
-  _touchAll() { for (const s of this.streams.values()) s._sum.base = null; }
-  _touch(sid) { const s = this.streams.get(sid); if (s) s._sum.base = null; return s; }
+  _touchAll() { for (const s of this.streams.values()) { s._sum.base = null; s._sum.role = null; } }
+  _touch(sid) { const s = this.streams.get(sid); if (s) { s._sum.base = null; s._sum.role = null; } return s; }
 
   _emitEvents(s, evs, rec, out) {
     for (let idx = 0; idx < evs.length; idx++) {
@@ -366,8 +372,41 @@ export class StreamReducer {
     return o;
   }
 
+  // Role classification of one stream (see replay/stream-role.mjs). Reads the in-memory event window,
+  // the assembled document and the built-in stream maps, so it is NOT free: it runs only on explicit
+  // request (summary({ includeStreamRoles: true }) / streamRole()) and is memoised per stream until the
+  // stream changes. A bounded event window (maxEventsPerStream) or keepEvents:false is reported to the
+  // classifier as events held only on disk, which it reports as incomplete_capture.
+  _roleFor(s, base) {
+    if (s._sum.role) return s._sum.role;
+    const events = this.keepEvents ? s._events : [];
+    const summaryRow = !this.keepEvents && base.events > 0 && !(base.eventsOnlyOnDisk > 0) ? { ...base, eventsOnlyOnDisk: base.events } : base;
+    let map = null;
+    if (s.kind !== 'ws' && events.length) {
+      try {
+        const det = detectStreamMap(events);
+        if (det.map) map = applyStreamMap(det.map, events);
+      } catch { map = null; }
+    }
+    const r = this.roleClassifier({ summary: summaryRow, events, assembled: s._delta.revisions > 0 ? this.assembled(s.sid) : null, map });
+    const role = { role: r.role, confidence: r.confidence, evidence: r.evidence };
+    s._sum.role = role;
+    return role;
+  }
+
+  // { role, confidence, evidence } for one stream, or null when the sid is unknown. Returns copies.
+  streamRole(sid) {
+    const s = this.streams.get(sid);
+    if (!s) return null;
+    if (!s._sum.base) s._sum.base = this._streamSummary(s);
+    const r = this._roleFor(s, s._sum.base);
+    return { role: r.role, confidence: r.confidence, evidence: r.evidence.map((e) => ({ ...e })) };
+  }
+
   // Summary for UI / receipts (no payload content).
-  summary({ now = Date.now() } = {}) {
+  // includeStreamRoles (default false: output and cost are unchanged) adds role / roleConfidence /
+  // roleEvidence to every stream row and roleCounts to the result.
+  summary({ now = Date.now(), includeStreamRoles = false } = {}) {
     // The 1 s status tick used to rebuild every stream's summary from scratch. The stream-local part
     // is now memoised per stream (invalidated whenever ingest touches it); only the clock-dependent
     // idleMs and the cross-stream reconnect annotations below are computed per call, on a fresh copy
@@ -383,6 +422,12 @@ export class StreamReducer {
       if (base.channels) o.channels = base.channels.slice();
       if (base.frameTypes) o.frameTypes = base.frameTypes.slice();
       if (s.status === 'open' && s.lastChunkT) o.idleMs = now - s.lastChunkT;
+      if (includeStreamRoles) {
+        const r = this._roleFor(s, base);
+        o.role = r.role;
+        o.roleConfidence = r.confidence;
+        o.roleEvidence = r.evidence.map((e) => ({ ...e }));
+      }
       streams.push(o);
     }
     // Reconnects: a stream to the same endpoint that starts soon after another one failed/closed.
@@ -413,8 +458,10 @@ export class StreamReducer {
       counts[s.transport] = (counts[s.transport] ?? 0) + 1;
       detailCounts[s.transportDetail] = (detailCounts[s.transportDetail] ?? 0) + 1;
     }
+    const roleCounts = includeStreamRoles ? Object.fromEntries(STREAM_ROLES.map((r) => [r, streams.filter((x) => x.role === r).length])) : undefined;
     return {
       streams, transportCounts: counts, transportDetailCounts: detailCounts,
+      ...(roleCounts ? { roleCounts } : {}),
       gaps: this.gaps.length, navs: this.nav.length, actions: this.actions.length,
       domBatches: this.dom.batches, domBlocks: this.dom.blocks.size,
       appProtocols: Object.fromEntries(this.protocols),

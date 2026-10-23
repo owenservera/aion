@@ -19,13 +19,15 @@ import { buildStreamMessages } from './stream-messages.mjs';
 import { applyStreamMap } from '../profiles/stream-map.mjs';
 import { buildStreamComponents, STREAM_COMPONENTS_SCHEMA } from './stream-components.mjs';
 import { evaluateAcceptance, writeAcceptance } from '../capture/acceptance.mjs';
+import { buildStreamRoles, describeStreamRoles, STREAM_ROLES_SCHEMA, STREAM_ROLE_CLASSIFIER_VERSION } from './stream-role.mjs';
 
 export const STREAM_DOM_JOIN_SCHEMA = 'capture-studio.stream-dom-join/1';
+export { STREAM_ROLES_SCHEMA, STREAM_ROLE_CLASSIFIER_VERSION };
 // Per-stream event window for the component pass: larger than the reducer's 400 so long answers
 // are not cut short; any eviction is still reported as eventsOmitted.
 const STREAM_COMPONENTS_EVENT_CAP = 20000;
 
-export async function derive(session, profile, { onProgress, families, learner, joinImpl = joinStreamToDom, componentsImpl = applyStreamMap, acceptanceImpl = evaluateAcceptance } = {}) {
+export async function derive(session, profile, { onProgress, families, learner, joinImpl = joinStreamToDom, componentsImpl = applyStreamMap, acceptanceImpl = evaluateAcceptance, rolesImpl = buildStreamRoles } = {}) {
   // Fail closed during rebuild: old MODEL/entities must not appear to be current.
   const knowledgeRun = { schema: 'capture-studio.knowledge-status/1',
     status: 'deriving', startedAt: new Date().toISOString(), dataset: 'entities' };
@@ -156,7 +158,12 @@ export async function derive(session, profile, { onProgress, families, learner, 
   receipt.stream_dom_join = streamDomJoin(session, reducer, domTurns, { firstSeqBySid, joinImpl });
   // ---- Stream-to-component map: which UI component parts each response stream built. ----
   // Isolated like the join step: a failure is recorded in STREAM_COMPONENTS and never fails derive.
-  receipt.stream_components = await streamComponents(session, profile, { componentsImpl });
+  // One wide replay (larger per-stream event window than the base pass) feeds both this pass and the
+  // role pass below; a replay failure is recorded by each consumer in its own artifact.
+  const wide = await replayWide(session, profile);
+  receipt.stream_components = await streamComponents(session, profile, { componentsImpl, wide });
+  // ---- Stream role per response stream (heuristic classification). Isolated like the passes above. ----
+  receipt.stream_roles = streamRoles(session, { rolesImpl, wide });
   // ---- Offline acceptance label (no conversation context). A label only: nothing reads it here. ----
   receipt.acceptance = await acceptanceLabel(session, { acceptanceImpl });
   receipt.knowledge = knowledge;
@@ -195,13 +202,52 @@ function streamDomJoin(session, reducer, domTurnsRaw, { firstSeqBySid, joinImpl 
 }
 
 // Re-reads the session's raw records through a dedicated reducer (same decoding as the reducer
-// pass, larger per-stream event window), runs the stream-map engine on each response stream and
-// writes kv STREAM_COMPONENTS. Returns the one-line receipt entry. Never throws.
-async function streamComponents(session, profile, { componentsImpl }) {
-  let value;
+// pass, larger per-stream event window). Never throws: a failure comes back as { error } and is
+// recorded by each consumer in its own artifact.
+async function replayWide(session, profile) {
   try {
     const reducer = new StreamReducer({ deltaDialect: profile?.decode?.delta ?? 'auto', keepEvents: true, maxEventsPerStream: STREAM_COMPONENTS_EVENT_CAP });
     for await (const rec of session.records()) reducer.ingest(rec);
+    return { reducer };
+  } catch (error) {
+    return { error };
+  }
+}
+
+// Writes kv STREAM_ROLES (schema, classifier version, ordinal-confidence label, per-sid role +
+// enum evidence) from the wide replay and returns the one-line receipt entry. Never throws.
+// Deterministic: no wall-clock fields, so re-deriving the same raw log writes identical content.
+function streamRoles(session, { rolesImpl, wide }) {
+  let value;
+  try {
+    if (wide.error) throw wide.error;
+    value = rolesImpl(wide.reducer.summary({ includeStreamRoles: true }).streams, { eventWindow: STREAM_COMPONENTS_EVENT_CAP });
+    session.kv.set('STREAM_ROLES', value);
+  } catch (e) {
+    value = { schema: STREAM_ROLES_SCHEMA, error: String(e?.message ?? e) };
+    try { session.kv.set('STREAM_ROLES', value); } catch { /* kv not writable: derive continues */ }
+  }
+  return describeStreamRoles(value);
+}
+
+// Incremental-derive guard. true only when the session holds a complete STREAM_ROLES artifact written
+// by the CURRENT schema and classifier version. An incremental derive (derive-all) that skips the base
+// stage must treat false as "stale: re-derive", otherwise a pre-role artifact would be reused silently.
+export function streamRolesCurrent(session) {
+  try {
+    const v = session.kv.get('STREAM_ROLES', null);
+    return !!v && v.schema === STREAM_ROLES_SCHEMA && !v.error
+      && (v.status === 'no_streams' || v.classifier?.version === STREAM_ROLE_CLASSIFIER_VERSION);
+  } catch { return false; }
+}
+
+// Runs the stream-map engine on each response stream and
+// writes kv STREAM_COMPONENTS. Returns the one-line receipt entry. Never throws.
+async function streamComponents(session, profile, { componentsImpl, wide }) {
+  let value;
+  try {
+    if (wide.error) throw wide.error;
+    const reducer = wide.reducer;
     const eventsBySid = new Map();
     for (const s of reducer.streams.values()) {
       if (s.kind === 'ws') continue;

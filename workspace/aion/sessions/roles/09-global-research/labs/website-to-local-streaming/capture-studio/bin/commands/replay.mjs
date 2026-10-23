@@ -2,7 +2,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { Session } from '../../src/store/session.mjs';
-import { stateAt, streamBytes } from '../../src/replay/derive.mjs';
+import { stateAt, streamBytes, streamRolesCurrent } from '../../src/replay/derive.mjs';
 import { DeltaAssembler } from '../../src/decode/delta.mjs';
 import { isStreaming } from '../../src/replay/reducer.mjs';
 import { define } from '../lib/registry.mjs';
@@ -12,15 +12,38 @@ import { capability, stageProgress } from '../lib/capabilities.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Batch selection for `derive --all|--missing`. Pure apart from `open`, which is injected.
+//   * Session metadata that says "recording" is skipped BEFORE the session is opened (opening creates
+//     kv/), whatever its age, unless --force. looksActive() stays as a second, age-based guard.
+//   * --missing keeps a session when it has no receipt, its knowledge is not complete, or (only when the
+//     base stage is part of this run) its STREAM_ROLES artifact is missing / stale / errored. A run that
+//     excludes the base stage never needs role work.
+//   * An explicitly named session (`derive <id>`) does not go through this at all and is not affected
+//     by --force.
+export function selectDeriveTargets(metas, { missing = false, force = false, stages = null, open, rolesCurrent = streamRolesCurrent }) {
+  const baseSelected = !Array.isArray(stages) || stages.includes('base');
+  const skipped = { recording: 0, unreadable: 0, active: 0, upToDate: 0 };
+  const targets = [];
+  for (const m of metas) {
+    if (m.status === 'unreadable_metadata') { skipped.unreadable++; continue; } // cannot be opened
+    if (!force && m.status === 'recording') { skipped.recording++; continue; }
+    const s = open(m.id);
+    if (!force && looksActive(s)) { skipped.active++; continue; }
+    if (missing && isDerived(s) && knowledgeState(s) === 'complete' && !(baseSelected && !rolesCurrent(s))) { skipped.upToDate++; continue; }
+    targets.push(s);
+  }
+  return { targets, skipped };
+}
+
 // ---------------------------------------------------------------------------------------------
 define({
   name: 'derive', section: 'Replay and derive', usage: '[id|latest] [--all|--missing]', summary: 'Rebuild datasets, shapes, knowledge and the receipt from raw',
-  description: 'Everything derived is recomputable from the raw log; raw is never modified. Use --profile to derive with a different profile (for example after accepting suggestions) and --all / --missing for batches.',
+  description: 'Everything derived is recomputable from the raw log; raw is never modified. Use --profile to derive with a different profile (for example after accepting suggestions) and --all / --missing for batches. Batches never touch a session whose metadata says it is still recording unless --force is given; naming a session explicitly always derives it.',
   flags: {
     profile: { type: 'string', alias: 'p', valueName: 'NAME', desc: 'Derive with this profile instead of the one recorded with the session' },
     all: { type: 'boolean', desc: 'Derive every saved session' },
-    missing: { type: 'boolean', desc: 'Derive only sessions with no receipt or incomplete knowledge' },
-    force: { type: 'boolean', desc: 'Also derive sessions that look like they are still recording' },
+    missing: { type: 'boolean', desc: 'Derive only sessions with no receipt, incomplete knowledge, or (when the base stage runs) a missing or stale stream-role artifact' },
+    force: { type: 'boolean', desc: 'In a batch, also derive sessions whose metadata says they are still recording' },
     full: { type: 'boolean', desc: 'Rebuild all requested stages instead of reusing incremental artifacts' },
     stages: { type: 'list', valueName: 'NAMES', desc: 'Run selected derivation stages (comma-separated)' },
   },
@@ -29,10 +52,14 @@ define({
     const f = ctx.flags;
     if (f.stages && !f.stages.length) throw usageError('--stages needs at least one stage name.');
     const { deriveAll } = await capability('../../src/replay/derive-all.mjs', ['deriveAll'], 'Full derivation');
-    const targets = f.all || f.missing
-      ? ctx.listSessions().map((m) => Session.open(ctx.paths.sessions, m.id))
-        .filter((s) => (f.force || !looksActive(s)) && (!f.missing || !isDerived(s) || !['complete'].includes(knowledgeState(s))))
-      : [ctx.session(ctx.args[0])];
+    let targets;
+    if (f.all || f.missing) {
+      const sel = selectDeriveTargets(ctx.listSessions(), { missing: !!f.missing, force: !!f.force, stages: f.stages, open: (id) => Session.open(ctx.paths.sessions, id) });
+      targets = sel.targets;
+      const held = sel.skipped.recording + sel.skipped.active;
+      if (held) ctx.out.info(`Skipped ${held} session(s) that are still recording (use --force to include them).`);
+      if (sel.skipped.unreadable) ctx.out.info(`Skipped ${sel.skipped.unreadable} session(s) with unreadable metadata.`);
+    } else targets = [ctx.session(ctx.args[0])];
     if (!targets.length) { ctx.out.emit({ derived: [] }, (o) => o.result('Nothing to derive.')); return; }
     const results = [];
     for (const s of targets) {
