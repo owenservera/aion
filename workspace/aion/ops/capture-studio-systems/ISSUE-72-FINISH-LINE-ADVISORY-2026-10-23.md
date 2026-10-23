@@ -60,3 +60,14 @@
 - **Delivered:** five concise source-specific bottlenecks, prioritized by real user job and independent proof value, with source anchors, counterevidence, exact negative tests and owner routing.
 - **Not done:** no source code changes, independent QA execution, fresh captures, tool installs, Windows runs, GitHub agent dispatch or permission changes.
 - **Program:** prior Systems Sprints 1–2 and observability handoff already delivered. Issue #72 advisory is a *separate narrow assignment*, not a declaration that Systems Sprint 3 began. Wait for first local/saved offline evidence before reprioritizing.
+
+## Post-publication reconciliation — 2026-10-23, Core and L4/L5 concurrent source changes
+
+**This section supersedes the *open producer-gap* characterization of S72-01 above, while preserving its immutable `3b2ea42` evidence baseline.**
+
+- Core [`0c24881a5b70`](https://github.com/owenservera/aion/commit/0c24881a5b700b7ee9f929f4425dd3f0e45b5792) now supplies calibrated conversation/completion context, calls `evaluateAcceptance`, writes and re-reads the raw-bound G1–G7 acceptance document **before campaign family publication**, and refuses to publish on any non-`capture_accepted` verdict. Current `families/build.mjs` also filters `eligible` sessions and exact origin for publication. Thus **the earlier “campaign family auto-publishes derived-only evidence” source finding is mitigated at the producer/publication seam**. Ordinary derive still computes reviewable raw/knowledge artifacts before its offline label—**by design**, not itself a promotion bug.
+- Knowledge & Learning [`8363ab5e6f75`](https://github.com/owenservera/aion/commit/8363ab5e6f7502e772e8c440a905addc86af0247) introduces a source-linked structural profile review and `profileAdmission`, requiring `validatedByCore`, matching acceptance schema, `capture_accepted`, all seven passed gates and a well-formed raw binding. Its [`7f8e7ed7ddbe`](https://github.com/owenservera/aion/commit/7f8e7ed7ddbe84b274b8fab0736fbcfe984be590) adds deterministic Node test cases, but the commit **does not on its own establish independently executed QA or Windows L1 completion**.
+- **Revised S72-01 status:** **source-mitigated; independent L1 acceptance/proof outstanding.** QA should test accepted and incomplete/rejected synthetics against the newly shipped campaign publication and L4/L5 profile projection without reopening the old fixed task. The source outputs being browseable even when not auto-promotable is correct for the one-owner local product.
+- Other S72-02 through S72-05 are unchanged by these specific concurrent commits, pending fresh verified source changes.
+
+No product implementation or tests were executed by Systems in this reconciliation. Live captures remain owner-deferred.
