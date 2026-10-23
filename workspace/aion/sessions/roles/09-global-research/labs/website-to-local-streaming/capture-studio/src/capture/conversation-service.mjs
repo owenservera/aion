@@ -25,16 +25,19 @@
 import * as fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { sameThread, validThread, validIdentity } from './conversation-thread.mjs';
+import { createThreadTurnJournal } from './thread-turn-journal.mjs';
 
 const now = () => new Date().toISOString();
 const error = (code) => Object.assign(new Error(code), { code });
-const exactBinding = (a, b) => a?.targetId === b?.targetId && a?.origin === b?.origin;
+// A bound thread is part of the binding: same target and origin on another thread is NOT the same binding.
+const exactBinding = (a, b) => a?.targetId === b?.targetId && a?.origin === b?.origin && sameThread(a?.thread, b?.thread);
 const phases = ['preparing', 'dispatching', 'observed', 'uncertain', 'needs-reconciliation', 'blocked'];
 
 function validSnapshot(s, id) {
   if (!s || s.version !== 1 || s.id !== id || !Number.isSafeInteger(s.revision) || s.revision < 0
     || !['disconnected', 'attaching', 'ready', 'busy', 'blocked', 'needs-reconciliation', 'finalizing', 'closed'].includes(s.state)
-    || !Array.isArray(s.attempts) || s.attempts.length > 50 || !Array.isArray(s.assertions)
+    || !Array.isArray(s.attempts) || s.attempts.length > 1000 || !Array.isArray(s.assertions)
     || !s.finish || typeof s.finish.requested !== 'boolean'
     || !['idle', 'stopping', 'stopped', 'closing', 'done', 'failed', 'interrupted'].includes(s.finish.phase)
     || s.finish.requested !== (s.finish.phase !== 'idle')
@@ -42,12 +45,15 @@ function validSnapshot(s, id) {
     || !(s.uncertainty === null || typeof s.uncertainty === 'string')
     || !Number.isFinite(Date.parse(s.createdAt)) || !Number.isFinite(Date.parse(s.updatedAt))) return false;
   if (s.binding && (typeof s.binding.targetId !== 'string' || !s.binding.targetId || typeof s.binding.origin !== 'string' || typeof s.binding.ownedByStudio !== 'boolean')) return false;
+  if (s.binding && !validThread(s.binding.thread)) return false;
+  // Absent identity is a legacy snapshot (handled on load); a present one must be consistent with the binding.
+  if (s.identity !== undefined && !validIdentity(s.identity, s.binding?.thread)) return false;
   if (s.binding) {
     try { const url = new URL(s.binding.origin); if (url.origin !== s.binding.origin || url.protocol !== 'https:') return false; } catch { return false; }
   }
   if (s.state !== 'disconnected' && !s.binding) return false;
   // Old saved snapshots may contain several attempts from earlier releases; never promote multiple observed sends.
-  if (s.attempts.filter((a) => a?.send?.state === 'observed').length > 1) return false;
+  if (s.attempts.filter((a) => a?.send?.state === 'observed').length > 1 && s.attempts.some((a) => a.journal?.id !== a.id)) return false;
   return s.attempts.every((a) => typeof a.key === 'string' && a.key.length > 0 && typeof a.id === 'string'
     && /^[a-f0-9]{64}$/.test(a.payloadDigest) && phases.includes(a.phase)
     && Number.isFinite(Date.parse(a.createdAt)) && Number.isFinite(Date.parse(a.updatedAt))
@@ -67,6 +73,8 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
   if (snapshot === null) throw error('CORRUPT_OR_UNREADABLE_SNAPSHOT');
   snapshot ??= { version: 1, id, revision: 0, state: 'disconnected', binding: null, sessionId: null,
     attempts: [], assertions: [], uncertainty: null, finish: { requested: false, phase: 'idle', error: null }, createdAt: now(), updatedAt: now() };
+  // A snapshot written before thread identity existed is never silently trusted for a send.
+  snapshot.identity ??= existed && snapshot.binding ? { state: 'unverified', reason: 'LEGACY_SNAPSHOT' } : { state: 'unbound', reason: 'NOT_CONNECTED' };
   snapshot.site ??= context.site ?? null;
   snapshot.owner ??= context.owner ?? null;
   snapshot.reply ??= { state: 'unknown', source: 'page', text: '', chars: 0, completion: 'unknown' };
@@ -75,7 +83,30 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
   snapshot.readiness ??= { ready: false, draft: { present: null, chars: null }, reason: 'NOT_CHECKED' };
   let poisoned = false, chain = Promise.resolve(), finishPromise = null;
   let submissionStopped = false;
-  const view = () => structuredClone(snapshot);
+  let journal;
+  const threadJournal = () => {
+    if (!snapshot.binding?.thread || snapshot.identity.state !== 'bound') throw error('THREAD_IDENTITY_UNVERIFIED');
+    return journal ??= createThreadTurnJournal({ dataDir: path.join(dataDir, 'thread-turns'), namespace: 'local-owner',
+      origin: snapshot.binding.origin, thread: snapshot.binding.thread, io });
+  };
+  function journalTurn(a) {
+    const turn = threadJournal().read().turns.find((t) => t.id === a.id);
+    if (!turn) throw error('THREAD_JOURNAL_MISSING');
+    return turn;
+  }
+  const view = () => {
+    const s = structuredClone(snapshot);
+    if (s.binding?.thread && s.identity.state === 'bound') {
+      const turns = threadJournal().read().turns;
+      for (const a of s.attempts) {
+        const turn = turns.find((t) => t.id === a.id);
+        if (a.journal && (!turn || turn.key !== a.key || turn.payloadDigest !== a.payloadDigest)) throw error('THREAD_JOURNAL_MISSING_OR_MISMATCHED');
+        if (turn) { a.journal = turn; a.readiness = turn.readiness; a.completion = turn.completion; }
+      }
+    }
+    s.reply = structuredClone(s.attempts.at(-1)?.reply ?? s.reply);
+    return s;
+  };
   const serial = (fn) => { const result = chain.then(() => { if (poisoned) throw error('PERSISTENCE_FAILED_REOPEN_REQUIRED'); return fn(); }); chain = result.catch(() => {}); return result; };
   // Flush the entire replacement before rename, then sync the named final file explicitly.
   // Directory fsync is not portable on Windows; cross-process/durable-host guarantees are not claimed.
@@ -109,12 +140,66 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
       || !(e.kind === 'outgoing-request' && e.source === 'network' || e.kind === 'new-user-turn' && e.source === 'page')) return false;
     // A preparing attempt never dispatched; unrelated records cannot turn it into a send.
     if (!['dispatching', 'uncertain', 'observed'].includes(a.phase)) return false;
+    try { a.journal = threadJournal().observeDelivery({ turnId: a.id, expectedRevision: journalTurn(a).revision, evidence: e }); }
+    catch { return false; }
     updateAttempt(a, 'observed', 'observed');
     a.send.observationSource = e.source;
-    a.send.evidence = { sessionId: e.sessionId, sequence: e.sequence, kind: e.kind };
+    a.send.evidence = { sessionId: e.sessionId, sequence: e.sequence, kind: e.kind, identity: e.identity };
     snapshot.uncertainty = null;
     if (!snapshot.finish.requested) snapshot.state = 'ready';
     return true;
+  }
+  function applyReply(reply) {
+    const a = snapshot.attempts.find((a) => a.id === reply.turnId);
+    if (!a) throw error('TURN_NOT_FOUND');
+    const e = reply.evidence, text = String(reply.text ?? '');
+    if (e) {
+      if (!exactBinding(snapshot.binding, reply.binding) || e.contentDigest !== createHash('sha256').update(text).digest('hex') || e.chars !== text.length) throw error('INVALID_REPLY_EVIDENCE');
+      a.journal = threadJournal().recordReply({ turnId: a.id, expectedRevision: journalTurn(a).revision, evidence: e });
+      if (reply.readiness) a.journal = threadJournal().recordReadiness({ turnId: a.id, expectedRevision: a.journal.revision, evidence: reply.readiness });
+      a.reply = { state: a.journal.readiness.state === 'ready' ? 'ready' : 'streaming', source: e.source, text, chars: text.length,
+        evidence: structuredClone(e), completion: a.journal.completion.state };
+    } else {
+      a.reply = { ...a.reply, state: ['waiting', 'interrupted', 'unknown'].includes(reply.state) ? reply.state : 'unknown',
+        text: a.reply.text ?? '', source: 'page', completion: 'unknown' };
+    }
+    if (snapshot.attempts.at(-1)?.id === a.id) snapshot.reply = structuredClone(a.reply);
+  }
+  function applyPriorReplies(updates = []) { for (const update of updates) applyReply(update); }
+  function blockPreEffect(a) {
+    a.journal = threadJournal().provePreEffect({ turnId: a.id, expectedRevision: journalTurn(a).revision,
+      evidence: { turnId: a.id, payloadDigest: a.payloadDigest, kind: 'pre-effect-blocked', source: 'actuator-audit',
+        reference: `service-preflight:${a.id}`, typing: 'not-executed', dispatch: 'not-executed' } });
+  }
+  function unknown(a, reason) {
+    a.journal = threadJournal().markUnknown({ turnId: a.id, expectedRevision: journalTurn(a).revision, reason });
+  }
+  function replayRequest(key, payloadDigest) {
+    const local = view().attempts.find((a) => a.key === key);
+    const prior = local ?? (snapshot.binding?.thread && snapshot.identity.state === 'bound'
+      ? threadJournal().read().turns.find((a) => a.key === key) : null);
+    if (!prior) return null;
+    if (prior.payloadDigest !== payloadDigest) throw error('IDEMPOTENCY_CONFLICT');
+    return local ?? { ...prior, journal: prior, phase: prior.phase === 'delivered' ? 'observed' : prior.phase,
+      send: { state: prior.delivery.state === 'observed' ? 'observed' : prior.phase === 'blocked' ? 'not-attempted' : 'uncertain', evidence: prior.delivery.evidence },
+      reply: { ...prior.reply, text: '', completion: prior.completion.state } };
+  }
+  function invalidatePrior(ids = []) {
+    for (const id of ids) {
+      const turn = threadJournal().read().turns.find((t) => t.id === id);
+      if (turn) threadJournal().invalidateReadiness({ turnId: id, expectedRevision: turn.revision });
+    }
+  }
+  function effectPermit(a, phase, page) {
+    const turns = threadJournal().read().turns;
+    if (page) for (const prior of turns) {
+      if (prior.id === a.id || prior.reply.state !== 'observed') continue;
+      const r = prior.reply.evidence, message = page.messages?.find((m) => m.id === r.identity && m.role === 'assistant');
+      if (!message || createHash('sha256').update(message.text).digest('hex') !== r.contentDigest || message.text.length !== r.chars) {
+        invalidatePrior([prior.id]); throw error('THREAD_FENCED');
+      }
+    }
+    return threadJournal().assertEffectAllowed({ turnId: a.id, expectedRevision: a.journal.revision, phase });
   }
   const interrupted = snapshot.attempts.at(-1);
   let recovered = false;
@@ -143,20 +228,27 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
 
   return {
     id, file,
+    threadKey: () => threadJournal().threadKey,
+    lookupRequest: ({ key, payloadDigest }) => replayRequest(key, payloadDigest),
     // Local snapshots only, with no browser/adapter calls. A clone prevents caller mutation.
     read: () => view(),
     stopSubmission() { submissionStopped = true; },
-    connect({ targetId, origin, ownedByStudio = false, expectedRevision } = {}) {
+    connect({ targetId, origin, ownedByStudio = false, thread = null, identity, expectedRevision } = {}) {
       return serial(async () => {
         writable(); revision(expectedRevision);
         if (snapshot.state !== 'disconnected') throw error('ALREADY_CONNECTED');
         let parsed; try { parsed = new URL(origin); } catch { throw error('INVALID_BINDING'); }
         if (typeof targetId !== 'string' || !targetId || parsed.origin !== origin || parsed.protocol !== 'https:' || typeof ownedByStudio !== 'boolean') throw error('INVALID_BINDING');
-        snapshot.binding = { targetId, origin, ownedByStudio }; snapshot.state = 'attaching'; save();
+        // The runtime decides identity from the live target URL; the service only stores and enforces it.
+        const resolved = identity ?? (thread ? { state: 'bound', reason: null } : { state: 'unbound', reason: 'NOT_PROVIDED' });
+        if (!validThread(thread) || !validIdentity(resolved, thread)) throw error('INVALID_BINDING');
+        snapshot.binding = { targetId, origin, ownedByStudio, ...(thread ? { thread } : {}) };
+        snapshot.identity = { state: resolved.state, reason: resolved.reason ?? null };
+        snapshot.state = 'attaching'; save();
         let attached;
         try { attached = await adapter.connect(structuredClone(snapshot.binding), {
           bind(binding) {
-            if (binding.origin !== origin || binding.ownedByStudio !== ownedByStudio || typeof binding.targetId !== 'string' || !binding.targetId) throw error('INVALID_ATTACHMENT');
+            if (binding.origin !== origin || binding.ownedByStudio !== ownedByStudio || typeof binding.targetId !== 'string' || !binding.targetId || !sameThread(binding.thread, thread)) throw error('INVALID_ATTACHMENT');
             snapshot.binding = structuredClone(binding); save();
           },
           ownSession(sessionId) {
@@ -174,6 +266,8 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         }
         snapshot.sessionId = attached.sessionId; snapshot.capture.state = 'recording';
         snapshot.readiness = attached.readiness ?? { ready: true, draft: { present: false, chars: 0 }, reason: null };
+        // An unverified thread is never ready for a send, whatever the page looks like.
+        if (snapshot.identity.state !== 'bound' && snapshot.readiness.ready) snapshot.readiness = { ...snapshot.readiness, ready: false, reason: 'THREAD_IDENTITY_UNVERIFIED' };
         snapshot.state = snapshot.readiness.ready ? 'ready' : 'blocked'; save(); return view();
       });
     },
@@ -183,68 +277,101 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         const payloadDigest = createHash('sha256').update(prompt, 'utf8').digest('hex');
         const original = snapshot.attempts.find((a) => a.key === key);
         // Same key replays the original turn read-only, even after finish/restart; only NEW sends need a writable conversation.
-        if (original) { if (original.payloadDigest !== payloadDigest) throw error('IDEMPOTENCY_CONFLICT'); registered?.(view()); return structuredClone(original); }
+        if (original) { if (original.payloadDigest !== payloadDigest) throw error('IDEMPOTENCY_CONFLICT'); const replay = view().attempts.find((a) => a.id === original.id); registered?.(view(), replay); return replay; }
+        if (snapshot.binding?.thread && snapshot.identity.state === 'bound') {
+          const prior = threadJournal().read().turns.find((a) => a.key === key);
+          if (prior) {
+            if (prior.payloadDigest !== payloadDigest) throw error('IDEMPOTENCY_CONFLICT');
+            const replay = { ...prior, journal: prior, phase: prior.phase === 'delivered' ? 'observed' : prior.phase,
+              send: { state: prior.delivery.state === 'observed' ? 'observed' : prior.phase === 'blocked' ? 'not-attempted' : 'uncertain', evidence: prior.delivery.evidence },
+              reply: { ...prior.reply, text: '', completion: prior.completion.state } };
+            registered?.(view(), replay); return structuredClone(replay);
+          }
+        }
         writable();
         revision(expectedRevision);
         if (confirm !== true) throw error('CONFIRM_REQUIRED');
+        // Fail closed before any browser action: an unverified thread (legacy snapshot or an existing tab whose
+        // path is not a supported thread) can browse and finish, never send.
+        if (snapshot.identity.state !== 'bound' || !snapshot.binding?.thread) throw error('THREAD_IDENTITY_UNVERIFIED');
         // A new idempotency key is NOT authorization to repeat a potentially
         // dispatched action. Unknown delivery and partial draft remain blocked
         // even if a later read-only reconciliation sees no matching page turn.
         // A proven pre-typing rejection ('blocked' without typing) remains
         // eligible for one fresh attempt after the user clears the draft.
-        const spent = snapshot.attempts.some((a) => a.phase !== 'blocked' || !!a.typingStartedAt);
-        if (spent || snapshot.attempts.length >= 50) throw error('ONE_TURN_LIMIT');
-        if (!['ready', 'blocked'].includes(snapshot.state)) throw error('NOT_READY');
-        const attempt = { id: randomUUID(), key, payloadDigest, phase: 'preparing', createdAt: now(), updatedAt: now(),
-          boundary: null, send: { state: 'not-attempted', observationSource: null }, reply: { state: 'unknown' }, evidence: { state: 'recording' } };
+        if (snapshot.attempts.some((a) => !a.journal)) throw error('LEGACY_ATTEMPT_REQUIRES_RECONCILIATION');
+        const reservation = threadJournal().reserve({ key, payloadDigest, conversationId: id });
+        if (!reservation.admitted) throw error('THREAD_FENCED');
+        const attempt = { id: reservation.turn.id, key, payloadDigest, phase: 'preparing', createdAt: now(), updatedAt: now(), journal: reservation.turn,
+          boundary: null, send: { state: 'not-attempted', observationSource: null }, reply: { state: 'unknown', source: 'page', text: '', completion: 'unknown' }, evidence: { state: 'recording' } };
         snapshot.attempts.push(attempt); snapshot.state = 'busy'; save();
-        registered?.(view());
+        registered?.(view(), attempt);
         const stopped = () => {
           if (!submissionStopped) return false;
+          const turn = journalTurn(attempt);
+          // This service is the admitting actuator owner. A preparing journal plus our own
+          // not-started typing/dispatch audit proves no browser effect was ever invoked. Never
+          // apply this proof after typing intent (including partial/ack-lost insertion) began.
+          const preEffect = turn.conversationId === id && turn.phase === 'preparing'
+            && !attempt.typingStartedAt && attempt.phase === 'preparing' && attempt.send.state === 'not-attempted';
+          if (preEffect) {
+            blockPreEffect(attempt); snapshot.state = 'blocked'; snapshot.uncertainty = null;
+            attempt.reason = 'SUBMISSION_STOPPED'; updateAttempt(attempt, 'blocked', 'not-attempted'); save(); return true;
+          }
           snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = attempt.typingStartedAt ? 'partial-draft-possible' : null;
           attempt.reason = 'SUBMISSION_STOPPED'; updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); return true;
         };
-        if (stopped()) return structuredClone(attempt);
+        if (stopped()) return view().attempts.find((a) => a.id === attempt.id);
         let preflight;
-        try { preflight = await adapter.preflight(structuredClone(snapshot.binding)); }
+        try { preflight = await adapter.preflight(structuredClone(snapshot.binding), { priorTurns: threadJournal().read().turns.filter((a) => a.id !== attempt.id) }); }
         catch (e) {
+          invalidatePrior(e.invalidatedTurnIds);
+          applyPriorReplies(e.priorReplies); blockPreEffect(attempt);
           attempt.reason = /^[A-Z][A-Z0-9_]{0,79}$/.test(e.code ?? '') ? e.code : 'PREFLIGHT_FAILED';
           snapshot.readiness = { ready: false, draft: { present: null, chars: null }, reason: attempt.reason };
           snapshot.state = 'blocked'; updateAttempt(attempt, 'blocked', 'not-attempted'); save(); throw error('PREFLIGHT_FAILED');
         }
+        applyPriorReplies(preflight?.priorReplies);
         snapshot.readiness = { ready: preflight?.draft?.present === false && preflight?.draft?.chars === 0,
           draft: { present: preflight?.draft?.present ?? null, chars: preflight?.draft?.chars ?? null }, reason: null };
-        if (!exactBinding(snapshot.binding, preflight?.binding) || preflight?.draft?.present !== false || preflight?.draft?.chars !== 0
+        if (preflight?.ready === false || !exactBinding(snapshot.binding, preflight?.binding) || preflight?.draft?.present !== false || preflight?.draft?.chars !== 0
           || !Number.isSafeInteger(preflight?.boundary?.sequence) || preflight.boundary.sequence < 0
           || !Number.isSafeInteger(preflight?.boundary?.transcriptCount) || preflight.boundary.transcriptCount < 0) {
           attempt.reason = exactBinding(snapshot.binding, preflight?.binding) && preflight?.draft?.present ? 'DRAFT_PRESENT' : 'DRAFT_OR_BINDING_NOT_READY';
-          snapshot.readiness.ready = false; snapshot.readiness.reason = attempt.reason;
+          snapshot.readiness.ready = false; snapshot.readiness.reason = attempt.reason; blockPreEffect(attempt);
           snapshot.state = 'blocked'; updateAttempt(attempt, 'blocked', 'not-attempted'); save(); throw error('DRAFT_OR_BINDING_NOT_READY');
         }
-        if (stopped()) return structuredClone(attempt);
+        if (stopped()) return view().attempts.find((a) => a.id === attempt.id);
         attempt.boundary = { sequence: preflight.boundary.sequence, transcriptCount: preflight.boundary.transcriptCount }; save();
+        attempt.journal = threadJournal().markTyping({ turnId: attempt.id, expectedRevision: journalTurn(attempt).revision,
+          boundary: { ...attempt.boundary, sessionId: snapshot.sessionId } });
         attempt.typingStartedAt = now(); save();
-        try { await adapter.type({ binding: structuredClone(snapshot.binding), turnId: attempt.id, prompt }); }
-        catch { snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'partial-draft-possible'; updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); throw error('TYPING_INTERRUPTED'); }
-        if (stopped()) return structuredClone(attempt);
+        try { await adapter.type({ binding: structuredClone(snapshot.binding), turnId: attempt.id, prompt,
+          beforeEffect: (page) => effectPermit(attempt, 'typing', page) }); }
+        catch (e) { applyPriorReplies(e.priorReplies); unknown(attempt, 'TYPING_INTERRUPTED'); snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'partial-draft-possible'; updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); throw error('TYPING_INTERRUPTED'); }
+        if (stopped()) return view().attempts.find((a) => a.id === attempt.id);
         updateAttempt(attempt, 'dispatching', 'submitting'); save();
+        attempt.journal = threadJournal().markDispatching({ turnId: attempt.id, expectedRevision: journalTurn(attempt).revision });
         let observation;
-        try { observation = await adapter.submit({ binding: structuredClone(snapshot.binding), turnId: attempt.id, payloadDigest }); }
+        try { observation = await adapter.submit({ binding: structuredClone(snapshot.binding), turnId: attempt.id, payloadDigest,
+          beforeEffect: (page) => effectPermit(attempt, 'dispatching', page) }); }
         catch (e) {
+          applyPriorReplies(e.priorReplies);
           if (e.notDispatched === true && /^[A-Z][A-Z0-9_]{0,79}$/.test(e.code ?? '')) {
             // Adapter proved nothing was dispatched (stop latch or sendMessage refusal): never 'uncertain'.
             snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'partial-draft-possible'; attempt.reason = e.code;
-            updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); return structuredClone(attempt);
+            unknown(attempt, 'DISPATCH_NOT_CONFIRMED'); updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); return view().attempts.find((a) => a.id === attempt.id);
           }
           /* Unknown effect: never retry, even if the transport claims the send failed. */
         }
         if (!observe(attempt, observation)) {
+          unknown(attempt, 'ACK_LOST');
           updateAttempt(attempt, 'uncertain', 'uncertain'); snapshot.uncertainty = 'send-acknowledgement-lost'; snapshot.state = 'needs-reconciliation';
         }
-        save(); return structuredClone(attempt);
+        save(); return view().attempts.find((a) => a.id === attempt.id);
       });
     },
-    reconcile({ expectedRevision, assertion } = {}) {
+    reconcile({ expectedRevision, assertion, turnId } = {}) {
       return serial(async () => {
         revision(expectedRevision);
         if (assertion !== undefined) {
@@ -252,7 +379,8 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
           snapshot.assertions.push({ provenance: 'user-asserted', sent: assertion, at: now() });
           snapshot.assertions = snapshot.assertions.slice(-20);
         }
-        const attempt = snapshot.attempts.at(-1);
+        const attempt = turnId ? snapshot.attempts.find((a) => a.id === turnId) : snapshot.attempts.at(-1);
+        if (turnId && !attempt) throw error('TURN_NOT_FOUND');
         if (!snapshot.sessionId) { save(); return view(); }
         // A pre-typing rejection is not a send attempt. "Check again" only refreshes current
         // readiness; the original blocked key remains blocked/idempotent, and a new key is needed.
@@ -270,9 +398,10 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
             && preflight.draft.chars >= 0 && preflight.draft.present === (preflight.draft.chars > 0);
           const validBoundary = Number.isSafeInteger(preflight?.boundary?.sequence) && preflight.boundary.sequence >= 0
             && Number.isSafeInteger(preflight?.boundary?.transcriptCount) && preflight.boundary.transcriptCount >= 0;
-          const ready = bound && validDraft && validBoundary && !preflight.draft.present;
+          const unverified = snapshot.identity.state === 'unverified';
+          const ready = bound && validDraft && validBoundary && !preflight.draft.present && !unverified;
           snapshot.readiness = { ready, draft: validDraft ? { present: preflight.draft.present, chars: preflight.draft.chars } : { present: null, chars: null },
-            reason: ready ? null : !bound ? 'BINDING_CHANGED' : !validDraft || !validBoundary ? 'DRAFT_OR_BINDING_NOT_READY' : 'DRAFT_PRESENT' };
+            reason: ready ? null : !bound ? 'BINDING_CHANGED' : !validDraft || !validBoundary ? 'DRAFT_OR_BINDING_NOT_READY' : unverified && !preflight.draft.present ? 'THREAD_IDENTITY_UNVERIFIED' : 'DRAFT_PRESENT' };
           snapshot.state = ready ? 'ready' : 'blocked'; save(); return view();
         }
         if (!attempt) { save(); return view(); }
@@ -286,7 +415,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
     },
     recordReply(reply) {
       return serial(() => {
-        snapshot.reply = { state: reply.state, source: 'page', text: String(reply.text ?? ''), chars: String(reply.text ?? '').length, completion: 'unknown' };
+        applyReply(reply);
         save(); return view();
       });
     },

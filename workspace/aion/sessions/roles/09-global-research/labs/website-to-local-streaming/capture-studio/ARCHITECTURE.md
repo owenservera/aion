@@ -2,7 +2,7 @@
 
 **Owner:** AION Global Research 09 · **Updated:** 2026-10-23 · **Product contract:** [UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md](../UNIVERSAL-CAPTURE-STUDIO-CAPABILITIES.md)
 
-This is the single architecture and roadmap document for the tool. It separates what is **verified**, what is **source only**, and what is **not built**. Nothing here has run on the owner's Windows PC or against chatgpt.com yet.
+This is the single architecture and roadmap document for the tool. It separates **source**, **offline Windows tests**, **live browser connectivity**, and **authenticated harness acceptance**. Windows synthetic capture and dedicated-browser connectivity have been demonstrated; no authenticated conversation-runtime exchange has been demonstrated. The current checkpoint below supersedes older snapshots, not their historical receipts.
 
 ## 1. Product in one line
 
@@ -191,7 +191,184 @@ No row is TESTED REAL WEBSITE or VERIFIED WINDOWS yet.
 - S1-F1 (family build does not require an acceptance verdict): OPEN.
 - Owner decision 2026-10-23: offline work only; fresh controlled captures deferred.
 
+### Agent harness over real AI webapp conversations: product frame and critical path M0-M5 (2026-10-23, revised)
+
+**Product frame (owner, 2026-10-23).** The product is an **agent harness** whose sessions are the user's
+real AI webapp conversations (ChatGPT first) instead of API sessions. The AION team is the **first
+workload**, not the product boundary; the earlier framing around one team workspace and a roster of 13
+agents is replaced by this frame (the 13 roles are the M4 workload). The target is the **full visible
+surface**: chat list, search, projects and workspaces; open, create, resume, switch, rename, archive,
+delete; model and mode; attachments, tools and artifacts; stop, edit, regenerate, branch; context and
+scheduling; recovery. This is a destination, not a claim: see the families table for what exists.
+
+**Historical pre-M2 checkpoint (2026-10-23; superseded by the consolidation below).** Architecture reviewed. M1 is implemented as source with synthetic tests
+(parent 201/201 on M1); there is still **no live exchange** and nothing is LIVE VERIFIED. M1 is
+not accepted until its live gates pass. The 1,126 pass / 0 fail / 1 todo figure (log `studio-parent-harness-unit.log`), the standalone journal (33) and pure chat-index (19/19) counts, and the Chat UI 107/107 then 57 copy-correction count are this earlier checkpoint only. They predate the Sol source handoff. Current source and the parent suite that covers it are in the consolidated checkpoint below. Nothing in that later suite is LIVE VERIFIED. Live facts
+are time-scoped: 17:44:39 UTC server health 200 with no browser on port 9222; 17:44:54 UTC
+`conversation-targets` HTTP 500; 18:22:34 UTC still nothing on 9222; **18:24:48 UTC the dedicated Studio
+Chrome (pid 20048) is running with CDP on 9222 connected (parent verified), and the DOM gate reports
+LOGIN REQUIRED**, which is a human step. The earlier no-browser facts describe those times only. Ordinary
+launch and owned server refresh need no extra approval; sign-in is the human's. Evidence, anchors and the
+gates RT-0..RT-9 are in [`docs/LIVE-TEST.md`](docs/LIVE-TEST.md) section 6; routes are reconciled in
+[`docs/DESIGN-live-drive-studio.md`](docs/DESIGN-live-drive-studio.md) section 17.
+
+**Receipts, stated at their true strength.** Every passing test (168 focused conversation tests at 17:45:55
+UTC, 33 new M1 tests, parent 201/201) uses injected fake adapters; they say nothing about ChatGPT or about
+the running server, which was started before the M1 edits. A 503 in source is not M0: it must be observed
+from a loaded runtime.
+
+**Harness identities (distinct, never conflated).** *harness run* (a local task/workflow with checkpoints,
+independent of a Studio process and potentially spanning threads; persistent run identity not implemented yet) · *account scope* (which signed-in account; not yet read) · *workspace* (personal vs team;
+not modelled) · *project* (project and custom-GPT URL forms are not observed, so they stay `unverified`) ·
+*thread* (`chatgpt-c:<uuid>` from the URL path; M1 source) · *message / branch / generation* (DOM `ord`
+and stream message ids exist; branch and generation are not modelled) · *browser attachment* (CDP target
+id, origin, owner) · *capture* (Studio session id) · *turn* (attempt id, key, payload digest; per
+conversation today) · *optional role binding* (agent to thread; local, private, optional because a
+harness conversation need not be a team role).
+
+**Surface rules.** The [Command Space](../../../../../../ops/command-space/README.md) supplies the
+vocabulary: the 105-row [capability universe](../../../../../../ops/chrome-relay/harvest/external/reference/capability-universe.csv)
+(29 core, 11 existing, 65 future, none verified) and the 40-command x 1,000-row matrix. **A catalog entry is
+not an implementation.** (1) *Open targets are not the account chat list:* `conversation-targets` lists
+live tabs only; the sidebar is a **partial rendered index** (virtualized, never complete) and a full scrape
+is not a prerequisite for the first useful exchange. (2) Observing a private backend endpoint is not
+permission to replay authenticated requests; the default route is the actual page UI through the existing
+adapter. (3) Evidence, current availability, effect class and coverage are separate columns and are never
+merged into one status.
+
+| Family | Command Space ids (catalog) | Effect class | Evidence | Studio availability today | Coverage |
+| --- | --- | --- | --- | --- | --- |
+| Discovery and navigation | `sessions.list`, `chat.search`, `discover`, `project.select`; workspace and account groups | read; `project.select` local or external mutation | source + offline tests for bounded rendered index | open tabs and explicit `POST /api/v1/chat-index` | partial candidates only; no complete account list, search, projects or workspaces |
+| Lifecycle | `chat.create`, `chat.open`, `session.bind`, `chat.rename`, `chat.archive`, `chat.delete`, `chat.share`, `chat.export` | external mutation; `chat.delete` destructive | catalog only | attach to an existing tab and a fresh new-chat tab: SOURCE + synthetic; rest MISSING | bind and new tab only |
+| Exchange | `send`, `observe`, `stream`, `reply.read`, `history.read`, `message.copy` | `send` external mutation; rest read | Studio source + offline tests | bounded visible Read; M2 journal/runtime turn ownership and guarded follow-up wired | rendered DOM; unloaded history unknown; authenticated exchange unproved |
+| Turn control | `generation.stop`, `steer`, `message.edit`, `response.regenerate`, `branch.create` | external mutation | catalog only (branch: partial donor reference) | MISSING (stopping a capture is not stopping generation) | none |
+| Model, mode, context | `model.list`, `model.select`, `mode.select`, `thinking.level.set`, `context.inject` | read; select and set are external mutation | catalog only | MISSING | none |
+| Attachments, tools, artifacts | `file.attach`, `tool.toggle`, `tool.call`, `result.export`; artifacts group | external mutation or read | catalog only | MISSING | none |
+| Scheduling, automation, recovery | `recover`, `cancel`, `health`, `receipt.read`, `agent.delegate`; scheduling and automation groups | read; others to be classified | catalog; Studio restart recovery synthetic | snapshot recovery and lease release SOURCE + synthetic; scheduling MISSING | recovery partial |
+
+**Page readiness is not network completion.** Network completion stays network-only evidence. Page
+readiness is a separate, attributed state that needs all of: the exact bound thread, the delivered user turn
+attributable to this attempt, the reply turn attributed after the pre-send boundary, and stable controls in
+the idle state (no stop control, composer and send idle) - then a fresh preflight before the next action.
+Quiet text or an observed reply alone is not readiness.
+
+**Ordered critical path.** Each milestone needs its own observed evidence; do not skip ahead.
+
+| # | Milestone | Done means | Today |
+| --- | --- | --- | --- |
+| M0 | Harness contract + launch/readiness | The contract above is the documented base. The Studio's dedicated-profile Chrome runs with CDP (the local executor may start it with `studio launch` / `studio start`, which reuses the dedicated profile and does not reset it); the account sign-in is the human's; `/api/status` reports a browser; `conversation-targets` returns 200; browser-unreachable is a coded 503, not 500, **observed from a loaded runtime**. | Live: Chrome pid 20048 with CDP 9222 connected at 18:24:48 UTC (parent verified); LOGIN REQUIRED (human). 503 in source (synthetic tests) but unobserved: the server was not restarted |
+| M1 | Exact existing-thread Read | The user's own already-open `/c/<id>` thread is selected by its URL path reference (never an inferred title); binding and the adapter check also compare that reference, so a thread switch gives `BINDING_CHANGED`; a bounded, source-labelled transcript Read that **preserves a draft already in the composer** (reports only presence and length) and does no focus, scroll, typing, clearing, navigation or send; list/get never write. It returns what the page currently renders, **including messages that predate the connection**; only history the page has not loaded is missing, and that is reported (`olderHistory` / `newerHistory`). **Sends are unchanged in M1.** | SOURCE + TESTED SYNTHETIC (parent 201/201); not live |
+| M2 | Integrated useful SITREP + follow-up through the actual bridge from this agent session | Durable turn-owned reply, thread-level unknown-delivery fence, verified fast input and attributed page readiness; real useful SITREP plus substantive follow-up through the same runtime, no duplicate on uncertainty. | SOURCE HANDOFF offline (Sol): journal, exact-thread read/connect, candidate index POST, pre-typing cancellation fix, nine Studio tools, same injected runtime, no retries. Parent suite 1,187/0/1 covers that handoff. No real exchange; loaded runtime unverified |
+| M3 | Discovery, search, navigation, create, rename, model and context | Partial rendered chat index, open targets versus account list, search, switching, create, rename, model/mode/context select. | bounded chat-index POST wired and offline tested; remaining navigation/full-surface work incomplete |
+| M4 | Rich surface + team workload | Attachments, tools, artifacts; stop, edit, regenerate, branch; archive, delete, share. The AION team as the first workload: the 13 roles reported verified / unbound / blocked from local private bindings. | MISSING |
+| M5 | Scheduling + recovery | Scheduling and automation; Studio restart recovers snapshots and the fence, replays no action, and releases leases. | restart/no-replay TESTED SYNTHETIC only; scheduling MISSING |
+**Chat-index integration contract (now wired in source; real-page semantics unverified).** One read
+operation through the same Studio runtime, API and tool manifest: `runtime.chatIndex({site, targetId, ...bounds})`
+exposed once as a hub route (so the OpenAPI document and the MCP-style tool manifest list it together) that
+delegates to the runtime. The target is **explicit** (`targetId` from `conversation-targets`; never a title)
+and may be the ChatGPT root or sidebar page; it does **not** require a `/c/<uuid>` tab or an existing
+conversation, and it creates **no** capture, recorder, session directory, raw-log record or lease. A small
+reader seam performs one page evaluation of `chatIndexExpression(options)` and passes the same `containers`
+array to `normalizeChatIndex(raw, options)`; before and after it checks that the target still exists and that
+the target URL, `location.origin` and path are unchanged (otherwise `BINDING_CHANGED`, result discarded). No
+scroll, click, search, focus, navigation, private-backend request or new driver. Container labels stay
+`unknown` until sidebar selectors are verified by a read-only probe on the real page. Errors reuse the
+existing codes (`BROWSER_UNAVAILABLE` 503, `TARGET_NOT_FOUND` 404, `TARGET_SITE_MISMATCH`, `BINDING_CHANGED`,
+400 for bad options). Output is the module's `complete:false` index plus `{targetId, origin, readAt}`; each
+ entry's `threadRef` is a candidate for `connect({expectedThread})`, not proof of a live binding. Tests first (fake CDP): root page lists without a
+Recorder or session directory, navigation pre/post, foreign origin, one explicit tab among several, no
+scroll/click/write calls, hostile links, bounds, coded 503, lease untouched.
+**M1 launch receipts (2026-10-23, synthetic fakes only; nothing here is live).** 33 new tests
+(`test/unit/conversation-thread.test.mjs` 29, `test/unit/conversation-read-api.test.mjs` 4) pass. The
+168 existing focused conversation tests pass again after four deliberate edits to
+`test/unit/conversation-runtime.test.mjs` (the existing-tab fixture now uses a `/c/<uuid>` URL, and three
+tests call the explicit `recover` instead of relying on `get` to recover). Full unit suite via
+`bun run test` (runs `node --test`): 1052 tests, 1051 pass, 0 fail, 1 pre-existing todo. The live facts
+above (health 200, no browser on 9222, targets 500) are time-scoped to 17:44-18:22 UTC (see Status for
+18:24:48 UTC); no live M1 check has run. The parent later reports 201/201 on its own M1 run. The 1,126 full-suite figure is historical; the suite that covers the Sol handoff is in the consolidated checkpoint.
+
+**Read coverage semantics (clarification, 2026-10-23).** `coverage.preAttachHistory = 'not-captured-by-this-read'` (`src/capture/conversation-thread.mjs:124`) means the *raw network capture* did not record traffic from before attach; it does not mean those messages are absent from the Read, because messages still rendered in the DOM can predate the connection and are returned. The field name invites misreading; a rename such as a network-capture-scoped name is an optional later source change and is not made here. Likewise "reading the attached page changes no file" refers to the Read operation itself: the background recorder on the attached page keeps writing its own raw log and periodic STATE/SHAPES autosnapshots.
+
+**M1 compatibility decisions (for parent confirmation).** (1) An existing ChatGPT tab whose path is not
+a supported `/c/<uuid>` (home, project or custom-GPT forms, none observed in saved sessions or source)
+connects as `unverified`: it can be browsed and finished but cannot send or Read (`THREAD_IDENTITY_UNVERIFIED`);
+this is a behavior change for such tabs, including `studio chat --target`. (2) A fresh Studio-owned tab
+is `unbound` (new chat) and sends exactly as before; locking the thread after the first send is M2.
+(3) Sites without a thread parser stay `unbound` and unchanged. (4) Snapshots written before this change
+read as `unverified / LEGACY_SNAPSHOT`: browseable, never silently verified for a send; replay of an
+original key stays read-only. (5) `get`/`list` are pure and report `recovery.pending`; `recover(id)` is the
+explicit runtime mutation, and reconcile/finish/submit keep their existing recovery. No HTTP recover route
+was added. (6) Read is `POST /api/v1/conversations/{id}/read` with optional `maxMessages` (1-200, default
+40) and `maxChars` (1-200000, default 60000), per-message cap 20000, live conversations only, no snapshot
+write. (7) Optional `expectedThread` on connect. (8) The conversation routes were never registered in the
+OpenAPI document; none was added (no OpenAPI overhaul).
+
+**Rules for the path (M1-era rationale; current implementation status below).**
+
+- **Never remove the single-turn guard alone.** M2 now wires its replacement: durable turn-owned replies and a thread-level fence with negative tests. This is source integration, not live follow-up acceptance.
+- **Role mapping and connection are separate.** A role registry says which thread reference belongs to
+  which agent (extend the existing `workspace/aion/ops/chrome-relay/role-launcher/ROLES.json`; it is
+  stale at 8 roles against 13 agents; no new roster file). A connection is a live attach to one exact
+  tab. Mapping never implies a connection, and a connection never rewrites the map.
+  - **Privacy boundary.** The tracked roster holds non-sensitive identities only. Real thread URLs or
+    references are never written to tracked files; a future registry may point at a **local private
+    binding** under the Studio data directory (outside Git). The null URLs in `ROLES.json` mean
+    "unverified in that registry", not proof that no real team threads exist.
+  - **Workstream identities.** Core, UI, QA, Systems and similar are established Studio workstream
+    identities, distinct from the 13 canonical roster agents. M4 (team workload) reports the 13 as
+    verified / unbound / blocked, but must not reject an owner-intended lane conversation merely because it is not a
+    canonical agent. `#AION` / `@name` are instruction conventions: no parser is installed
+    (`parserInstalled=false`) and ChatGPT has no native commands for them, so Studio does not parse them.
+  - M1 is identity and Read only; it does not touch the roster.
+- **Browser profile safety (M0).** Use the Studio launcher, which owns the dedicated profile
+  `<data-dir>/chrome-profile` (a real directory: `src/config.mjs:25`, `src/chrome/launch.mjs:45`). Do not
+  use `scripts/chrome-cdp.ps1` with its default profile: it points at `%LOCALAPPDATA%\chrome-cdp-profile`
+  (`scripts/chrome-cdp.ps1:22`), which on this machine is a junction (read-only check 2026-10-23 18:22
+  UTC; reported by the M0 investigation to resolve to the default Chrome profile, not verified by this
+  lane). A normal Chrome without a DevTools port cannot be attached. Login state is classified read-only
+  first; manual sign-in is needed only if that classification says so.
+- **Foreground writer lease and capture lifetime are separate.** Today one drive lease is acquired at
+  connect and held for the whole capture (`src/capture/conversation-runtime.mjs:249`, released on
+  finish at `:118` and in `abortFailedConnect` `:127-145`). The target model is a short exclusive writer
+  lease held only while typing or sending, or while an unresolved unknown delivery exists, with
+  capture (read) continuing for its own lifetime. Not implemented.
+- **Live scope.** The first live binding is the user's own existing `/c/<id>` thread, opened by the
+  user. Titles are never used for identity or role matching. A role binding is optional and local; the
+  harness serves any real conversation, with the AION team as the first workload.
+- **Implementation order.** M0/M1 real-runtime gates still precede M2 real use; M2 source integration and the bounded M3 index slice do not close either gate. Full-surface/navigation and M4/M5 remain incomplete.
+
+**Population denominators (not a single accepted total).** Two counts of ChatGPT sessions disagree and
+are both recorded; neither establishes an accepted capture. The count of `capture_accepted` is **0**
+under every denominator.
+
+| Denominator (2026-10-23, read-only) | Count | Acceptance reading |
+| --- | --- | --- |
+| API `/api/v1/sessions` with site label `chatgpt` or `chatgpt.com` | 27 (26 with a ChatGPT target host plus 1 blank-target session still `recording`) | the acceptance endpoint returned `unassessed` for 27 of 27 |
+| Oracle file inventory, ChatGPT origins | 26 | 15 without an acceptance sidecar, 11 `capture_rejected` |
+| My sidecar check of the 27 | 27 | 15 absent; 12 stored `capture_rejected` (the 11 above plus the blank-target session, by subtraction) |
+
+Why the API says `unassessed` for sidecars that say `capture_rejected`: `GET /api/sessions/{id}/acceptance`
+calls `readAcceptance`, which fails closed to `unassessed` when the stored document no longer binds to
+current evidence. All 12 stored sidecars lack a DOM_TURNS digest, which `readAcceptance` treats as
+"legacy acceptance has no DOM_TURNS binding; re-evaluate" (`src/capture/acceptance.mjs:351`). The two
+readings answer different questions (stored verdict versus currently re-verifiable verdict). Do not
+quote either as an accepted total.
+
+### Consolidated current checkpoint — 2026-10-23, Sol source handoff, parent suite before push
+
+- **Source handoff (Sol), in tree, not a live claim:** durable thread journal and M2 runtime integration; exact-thread read/connect; candidate chat-index `POST /api/v1/chat-index` (partial candidates, `complete:false`, never a verified thread binding); pre-typing cancellation fix. Nine executable Studio conversation tools — `conversation_targets`, `chat_index`, `list_conversations`, `get_conversation`, `connect_conversation`, `read_conversation`, `submit_conversation_turn`, `reconcile_conversation`, `finish_conversation` — are invoked as `bun run -- node bin/studio.mjs tools ...`. They delegate to the same injected conversation runtime and do not construct a second runtime. No automatic retries or replacement keys after unknown delivery. These are harness operations, not the ChatGPT attachment / tool / artifact surface; that family remains MISSING.
+- **Focused offline evidence:** cancellation **87/87** at **19:17:37–19:17:51Z**; tools **42/42** at **19:23:26–19:23:41Z**. Injected fakes. Not ChatGPT, and not proof a running server loaded this source.
+- **Parent full suite after those changes:** `bun run test` **1,187 passed, 0 failed, 1 existing TODO, 1,188 total**. Log `studio-parent-final-before-push.log`. This count covers the pre-typing cancellation fix and the nine-tool registration. It is not live ChatGPT acceptance and not loaded-server proof.
+- **Earlier offline receipts, superseded for this handoff:** M1 **201/201**; Chat UI **107/107**, copy-corrected focus **57 passing**; index-origin fix **29 passing**; guarded reader + index module **51 passing**; worker focus **221 passing**. Parent `bun run test` at 19:10+ UTC was **1,176 pass / 0 fail / 1 TODO / 1,177 total** (`studio-parent-m2-index-full.log`) and predates the final cancellation fix and nine-tool registration. The 1,126-pass log is older still. Scopes overlap; do not add their totals.
+- **Not proved live:** no server refresh and no live send in this checkpoint. Dedicated Studio Chrome PID 20048/CDP 9222 was launched at 18:22 and parent-verified connected at **18:24:48 UTC**, with LOGIN REQUIRED then. Current login, and whether that Chrome or server PID 7996 (started **17:25 UTC**, before this source) loaded the later source, is unverified. No authenticated exchange. Default Chrome on 8448 was untouched; the `chrome-cdp-profile` junction points to the default profile and is not a safe dedicated-profile substitute.
+- **Research not completed:** donor UI first-pass pattern notes remain useful. `vivim-final` is owner-owned and eligible for reuse. Deeper UI/sync/slave-profile lanes were cancelled for Claude credit before completion; that is neither a completed assessment nor a ban on reuse. Third-party dependencies remain unaudited. No config was changed by this docs pass.
+- **Next, still outside this docs pass:** refresh only an ownership-checked Studio server and verify the loaded routes/manifest; human login; real zero-send exact-thread Read; useful SITREP and follow-up; then the remaining full-surface/navigation work. Parent validates, commits and pushes. The original five owner files stay excluded.
+
 ## 7. Roadmap (intelligence-first order)
+
+> **Agent-harness path (2026-10-23):** the intelligence-first list below remains context. For the owner's
+> current goal (an agent harness over real AI webapp conversations, the AION team as first workload) the
+> controlling order is M0-M5 above. The Sol source handoff is offline-tested (see the consolidated checkpoint); nothing is live verified and no running server is proved to have loaded that source.
 
 > **Superseded in detail by [ASSESSMENT-AND-WORKLOG.md](ASSESSMENT-AND-WORKLOG.md)** (2026-10-21 step-back: measured baseline, review findings R1–R10, worklog W1–W18). The list below is kept for context.
 

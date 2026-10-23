@@ -129,9 +129,29 @@ ul.plain li { padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 1
 ul.plain li:last-child { border-bottom: 0; }
 ul.convs button { width: 100%; text-align: left; border: 0; border-radius: 0; background: none; display: flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
 ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 600; }
+
+/* chat thread identity and the page read */
+.thread { margin-top: 12px; padding: 8px 14px 10px; border-left: 4px solid var(--chip-info); }
+.thread.unbound, .thread.other { border-left-color: var(--chip-mute); }
+.thread.unverified { border-left-color: var(--act); background: color-mix(in srgb, var(--act) 7%, var(--panel)); }
+.thread-head { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
+.thread-head h3 { margin: 0; }
+.thread .ref, .ref { display: inline-block; margin-top: 6px; font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; user-select: all; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+.thread ul.plain { margin-top: 4px; }
+.thread ul.plain li { border-bottom: 0; padding: 2px 0; }
+.target .t-sub.t-warn { color: var(--chip-warn); }
+.readbox { margin-top: 14px; padding: 10px 14px 12px; }
+.reads { list-style: none; margin: 12px 0 0; padding: 0; }
+.rd { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.rd.user { background: color-mix(in srgb, var(--l1) 8%, var(--panel)); margin-left: min(12%, 80px); }
+.rd-head { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 4px; font-size: 12.5px; color: var(--muted); }
+.rd-head b { color: var(--ink); font-weight: 650; }
+.rd-n { font-family: var(--mono); }
+.cov { margin-top: 10px; }
+.cov > summary { min-height: 44px; }
 @media (max-width: 700px) {
-  .msg.you { margin-left: 0; }
-  .composer button, .finish button { width: 100%; }
+  .msg.you, .rd.user { margin-left: 0; }
+  .composer button, .finish button, .read-actions button { width: 100%; }
 }
 </style>
 </head>
@@ -164,10 +184,12 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
         </div>
         <div class="field" id="existingField" hidden>
           <div class="row" style="justify-content:space-between">
-            <span class="lab" id="tabsLabel" style="margin:0">Open tabs</span>
+            <span class="lab" id="tabsLabel" style="margin:0">Open browser tabs</span>
             <button type="button" id="btnTabs">Refresh tabs</button>
           </div>
-          <div class="targets" id="targetList" role="radiogroup" aria-labelledby="tabsLabel"></div>
+          <p class="note" id="tabsHelp" style="margin:4px 0 0">These are tabs open in the capture browser right now. It isn’t a list of the chats in your account.</p>
+          <div class="targets" id="targetList" role="radiogroup" aria-labelledby="tabsLabel" aria-describedby="tabsHelp targetNote"></div>
+          <div class="note" id="targetNote" role="status" style="margin-top:6px"></div>
         </div>
         <p class="note" id="connectHelp">Connect starts recording that tab. It doesn’t type, send, clear or reload anything. Traffic from before you connected isn’t captured.</p>
         <div class="row">
@@ -182,6 +204,15 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
       <h3 id="convHeading" class="sr">Conversation</h3>
       <p class="stage" id="stageLine"></p>
       <div class="chips" id="chips" style="margin-top:6px"></div>
+
+      <div class="panel thread" id="threadStrip" aria-labelledby="threadHeading" hidden>
+        <div class="thread-head">
+          <h3 id="threadHeading">Chat thread</h3>
+          <div class="chips" id="identityChips"></div>
+        </div>
+        <code class="ref" id="threadRef" hidden></code>
+        <ul class="plain" id="identityLines"></ul>
+      </div>
 
       <div class="banner" id="uncertain" tabindex="-1" aria-labelledby="uncertainHead" hidden>
         <p><b id="uncertainHead">We can’t confirm your message was sent. Studio will not send it again.</b></p>
@@ -226,6 +257,29 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
           <p id="replyPartial" hidden></p>
           <p class="note" id="replyTrunc"></p>
         </article>
+      </div>
+    </section>
+
+    <section class="panel readbox" id="readBox" aria-labelledby="readHeading" aria-busy="false" hidden>
+      <h3 id="readHeading" style="margin-top:0">Read the chat page</h3>
+      <p class="note" id="readHelp" style="margin:0 0 8px">Reads the messages the tab is showing right now. It never types, sends, clears, scrolls or reloads, and it leaves anything in the chat box as it is. Studio only reads when you press the button.</p>
+      <div class="row read-actions">
+        <button type="button" id="btnRead" aria-describedby="readHint readHelp" disabled>Read what’s on the page</button>
+        <button type="button" id="btnReadMore" hidden>Read more (up to 200 messages)</button>
+      </div>
+      <div class="note" id="readHint" role="status" style="margin-top:6px"></div>
+      <div class="err" id="readError" role="alert" style="margin-top:6px"></div>
+      <p class="empty" id="readEmpty">Nothing read yet.</p>
+      <div id="readResult" hidden>
+        <p class="stage" id="readHeadline" style="margin-top:12px"></p>
+        <div class="chips" id="readChips" style="margin-top:6px"></div>
+        <p class="note" id="readMeta"></p>
+        <p class="note" id="readDraft"></p>
+        <details class="blk cov" open>
+          <summary>What this read covers</summary>
+          <ul class="plain" id="readCoverage"></ul>
+        </details>
+        <ol class="reads" id="readMessages" aria-label="Messages read from the page, oldest first"></ol>
       </div>
     </section>
 

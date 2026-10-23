@@ -10,6 +10,22 @@ import { Recorder } from '../../src/capture/recorder.mjs';
 import { RawLog } from '../../src/store/raw-log.mjs';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
+import { canonicalThreadKey } from '../../src/capture/thread-turn-journal.mjs';
+
+function qualifiedReply(adapter, args, text, state = 'ready') {
+  const contentDigest = createHash('sha256').update(text).digest('hex'), previous = adapter.replyMetadata;
+  const revision = previous ? previous.revision + (previous.contentDigest !== contentDigest ? 1 : 0) : 1;
+  const sequence = (adapter.replySequence ?? 11) + 3; adapter.replySequence = sequence;
+  const metadata = { identity: `reply-${args.turnId}`, revision, contentDigest, chars: text.length };
+  adapter.replyMetadata = metadata;
+  const evidence = { turnId: args.turnId, payloadDigest: args.payloadDigest, sessionId: adapter.sessionId, sequence,
+    kind: 'assistant-reply', source: 'page', ...metadata };
+  return { turnId: args.turnId, binding: adapter.binding, state, text, evidence,
+    ...(state === 'ready' ? { readiness: { ...evidence, kind: 'interactive-ready', source: 'adapter', rule: 'chatgpt-controls-idle', ruleVersion: 1,
+      threadKey: canonicalThreadKey({ namespace: 'local-owner', origin: adapter.binding.origin, thread: adapter.binding.thread }), boundarySequence: 10,
+      samples: [{ sequence, ...metadata }, { sequence: sequence + 1, ...metadata }], sequence: sequence + 1,
+      controls: { observed: true, state: 'idle', idleControlPresent: true, stopPresent: false, composerEnabled: true } } } : {}) };
+}
 
 const deferred = () => { let resolve; const promise = new Promise((r) => { resolve = r; }); return { promise, resolve }; };
 function fixture(t, overrides = {}) {
@@ -20,7 +36,8 @@ function fixture(t, overrides = {}) {
   const dependencies = {
     leaseRoot: path.join(root, 'leases'), listSessions: () => [],
     getAdapter: async (value) => value === 'chatgpt' || String(value).startsWith('https://chatgpt.com') ? site : null,
-    listTargets: async () => [{ id: 'selected', type: 'page', url: site.url }],
+    // An existing ChatGPT tab must be a supported /c/<uuid> thread to be sendable (M1 thread identity).
+    listTargets: async () => [{ id: 'selected', type: 'page', url: 'https://chatgpt.com/c/11111111-1111-4111-8111-111111111111' }],
     createAdapter(options) {
       const adapter = {
         mayOwnResources: false, bytesWritten: 40, integrity: null,
@@ -30,9 +47,9 @@ function fixture(t, overrides = {}) {
           return { binding, sessionId: adapter.sessionId }; },
         async preflight(binding) { calls.push('preflight'); return { binding, draft: { present: false, chars: 0 }, boundary: { sequence: 10, transcriptCount: 1 } }; },
         async type() { calls.push('type'); },
-        async submit(args) { calls.push('submit'); return observe ? { binding: args.binding, evidence: { ...args, sessionId: adapter.sessionId, sequence: 11, kind: 'new-user-turn', source: 'page' } } : null; },
+        async submit(args) { calls.push('submit'); return observe ? { binding: args.binding, evidence: { ...args, sessionId: adapter.sessionId, sequence: 11, kind: 'new-user-turn', source: 'page', identity: `user-${args.turnId}` } } : null; },
         async reconcile() { calls.push('reconcile'); return null; },
-        async readReply() { calls.push('reply'); await releaseReply.promise; return { state: 'ready', text: 'private answer' }; },
+        async readReply(_, args) { calls.push('reply'); await releaseReply.promise; return qualifiedReply(adapter, args, 'private answer'); },
         stopWaiting() { calls.push('stop-wait'); releaseReply.resolve(); },
         async stop() { calls.push('stop'); adapter.mayOwnResources = false; adapter.integrity = { ok: true }; },
         async closeTab() { calls.push('close-tab'); },
@@ -73,18 +90,18 @@ test('concurrent duplicate keys register once; changed payload conflicts before 
   assert.equal(f.calls.filter((v) => v === 'submit').length, 1);
 });
 
-test('existing/fresh tab ownership, safe close and no lease bypass', async (t) => {
+test('fresh tab can capture/finish but cannot submit without a tested exact creation identity', async (t) => {
   const f = fixture(t), c = await f.connect({ freshTab: true, targetId: undefined });
   assert.equal(c.binding.ownedByStudio, true); assert.equal(c.binding.targetId, 'fresh');
   await assert.rejects(f.connect(), (e) => e.status === 409 && e.code === 'DRIVE_LEASE_BUSY');
-  await f.submit(c); f.releaseReply.resolve(); await f.settle(c.id);
+  await assert.rejects(f.submit(c), (e) => e.code === 'THREAD_IDENTITY_UNVERIFIED');
   await Promise.all([f.runtime.finish(c.id, { closeTab: true }), f.runtime.finish(c.id, { closeTab: true })]);
   assert.equal(f.calls.filter((v) => v === 'stop').length, 1); assert.equal(f.calls.filter((v) => v === 'close-tab').length, 1);
 });
 
 test('uncertain send does not retry/read reply/close own tab, persists through restart', async (t) => {
   const f = fixture(t); f.setObserve(false);
-  const c = await f.connect({ freshTab: true, targetId: undefined }); await f.submit(c); await f.settle(c.id);
+  const c = await f.connect(); await f.submit(c); await f.settle(c.id);
   await f.submit(c); const done = await f.runtime.finish(c.id, { closeTab: true });
   assert.equal(done.turn.send.state, 'uncertain'); assert.equal(f.calls.includes('close-tab'), false); assert.equal(f.calls.includes('reply'), false);
   assert.equal(f.calls.filter((v) => v === 'submit').length, 1);
@@ -116,7 +133,7 @@ test('duration budget stops waiting, finalizes incomplete and releases lease', a
 });
 
 test('failed capture stop preserves lease and prevents tab close', async (t) => {
-  const f = fixture(t), c = await f.connect({ freshTab: true, targetId: undefined });
+  const f = fixture(t), c = await f.connect();
   f.adapters[0].stop = async () => { f.calls.push('stop'); throw new Error('failed'); };
   const done = await f.runtime.finish(c.id, { closeTab: true }); assert.equal(done.state, 'needs-reconciliation');
   assert.equal(f.calls.includes('close-tab'), false);
@@ -137,7 +154,7 @@ test('owner metadata recovers attach/save window without reattaching or dispatch
   disk.sessionId = null; disk.state = 'attaching'; disk.finish = { requested: false, phase: 'idle', error: null };
   fs.writeFileSync(file, JSON.stringify(disk));
   const before = [...f.calls], restarted = createConversationRuntime({ paths: f.paths, dependencies: f.dependencies });
-  const recovered = await restarted.get(c.id);
+  const recovered = await restarted.recover(c.id); // get/list are pure reads now; recovery is the explicit mutation
   assert.equal(recovered.sessionId, 'recoverable-session'); assert.equal(recovered.state, 'needs-reconciliation'); assert.equal(recovered.capture.state, 'incomplete');
   assert.deepEqual(f.calls, before); await restarted.close();
 });
@@ -154,8 +171,10 @@ test('another runtime can read a live owner snapshot without rewriting it or fin
 });
 
 function browserFixture({ freshTab = false, readinessDependencies = {} } = {}) {
-  const calls = [], records = [], store = new Map(); let users = ['earlier prompt'], origin = 'https://chatgpt.com', draftChars = 0, rec;
-  const binding = { targetId: freshTab ? 'pending' : 'selected', origin, ownedByStudio: freshTab };
+  const calls = [], records = [], store = new Map(); let users = ['earlier prompt'], origin = 'https://chatgpt.com', draftChars = 0, draft = '', rec;
+  const id = '11111111-1111-4111-8111-111111111111';
+  const thread = freshTab ? null : { kind: 'chatgpt-c', id, ref: `chatgpt-c:${id}` };
+  const binding = { targetId: freshTab ? 'pending' : 'selected', origin, ownedByStudio: freshTab, ...(thread ? { thread } : {}) };
   class FakeRecorder {
     constructor(options) {
       calls.push(['recorder', options]); rec = this; this.state = 'idle';
@@ -173,12 +192,15 @@ function browserFixture({ freshTab = false, readinessDependencies = {} } = {}) {
   const adapter = createConversationBrowserAdapter({ paths: { sessions: 'unused' }, profileStore: { load: () => ({}) }, port: 19222,
     siteAdapter: { id: 'chatgpt', url: `${origin}/` }, targetId: 'selected', freshTab, conversationId: 'conversation', ownerToken: 'owner-token',
     dependencies: {
-      Recorder: FakeRecorder, listSessions: () => [], listTargets: async () => [{ id: freshTab ? 'created' : 'selected', url: `${origin}/` }],
+      Recorder: FakeRecorder, listSessions: () => [], listTargets: async () => [{ id: freshTab ? 'created' : 'selected', url: `${origin}${freshTab ? '/' : `/c/${id}`}` }],
       fetch: async (url, options) => { calls.push(['fetch', url, options]); return { ok: true, json: async () => ({ id: 'created' }) }; },
-      evaluate: async () => origin, findComposer: async () => ({ found: true }), focusComposer: async () => ({ ok: true }),
+      evaluate: async (_, expression) => expression === 'location.pathname' ? `/c/${id}` : origin, findComposer: async () => ({ found: true }), focusComposer: async () => ({ ok: true }),
+      readTurnPage: async () => ({ origin, pathname: `/c/${id}`, messages: users.flatMap((text, index) => [
+        { id: `fixture-user-${index}`, role: 'user', text }, { id: `fixture-reply-${index}`, role: 'assistant', text: index ? 'page answer' : 'old answer' }]),
+        draft: { text: draft, chars: draftChars }, controls: { observed: true, state: 'idle', idleControlPresent: true, stopPresent: false, composerEnabled: true } }),
       sendState: async () => ({ evalOk: true, draftChars }), readUserTurns: async () => [...users],
       readTranscript: async () => ({ last: 'old answer', count: 1 }),
-      typeText: async (page, prompt) => { calls.push(['type', prompt]); return { ok: true, typed: prompt }; },
+      typeText: async (page, prompt, options) => { await options.beforeInsert(); calls.push(['type', prompt]); draft = prompt; draftChars = prompt.length; return { ok: true, typed: prompt }; },
       sendMessage: async () => { calls.push(['send']); return { uncertain: true }; },
       waitForCompletion: async () => ({ done: true, text: 'page answer' }),
       detectAuthWall: async () => ({ blocked: false }), detectSiteFailure: async () => ({ failed: false }),
@@ -187,7 +209,7 @@ function browserFixture({ freshTab = false, readinessDependencies = {} } = {}) {
   const connect = () => adapter.connect(binding, { bind: (b) => calls.push(['bind', b]), ownSession: (id) => calls.push(['own-session', id]) });
   const args = { binding, turnId: 'turn', payloadDigest: createHash('sha256').update('new prompt').digest('hex') };
   return { adapter, connect, calls, records, args, get recorder() { return rec; },
-    setUsers: (v) => { users = v; }, setOrigin: (v) => { origin = v; }, setDraft: (v) => { draftChars = v; } };
+    setUsers: (v) => { users = v; }, setOrigin: (v) => { origin = v; }, setDraft: (v) => { draftChars = v; draft = 'x'.repeat(v); } };
 }
 
 test('browser seam existing target never navigates/clears, foregrounds exact recorder page before type', async () => {
@@ -223,7 +245,7 @@ test('browser seam only records exact newly added user prompt as page evidence, 
   assert.equal(observed.evidence.sessionId, 'raw-session'); assert.ok(observed.evidence.sequence > 10);
   assert.equal(f.records[0].text, 'new prompt'); assert.equal(f.records[0].baselineSequence, 10);
   assert.equal(f.calls.filter(([name]) => name === 'send').length, 1);
-  const reply = await f.adapter.readReply(); assert.equal(reply.text, 'page answer'); await f.adapter.stop();
+  const reply = await f.adapter.readReply(null, { ...f.args, threadKey: canonicalThreadKey({ namespace: 'local-owner', origin: f.args.binding.origin, thread: f.args.binding.thread }) }); assert.equal(reply.text, 'page answer'); await f.adapter.stop();
 });
 
 test('browser seam binding/draft change blocks typing; observation persistence failure cannot prove send', async () => {
@@ -277,7 +299,7 @@ test('real Recorder persists recoverable owner before failed journal callback an
 });
 
 test('Finish during deferred typing prevents submit and preserves partial draft uncertainty', async (t) => {
-  const f = fixture(t), c = await f.connect({ freshTab: true, targetId: undefined });
+  const f = fixture(t), c = await f.connect();
   const entered = deferred(), release = deferred();
   f.adapters[0].type = async () => { entered.resolve(); await release.promise; };
   await f.submit(c); await entered.promise;
@@ -288,7 +310,7 @@ test('Finish during deferred typing prevents submit and preserves partial draft 
 });
 
 test('Finish after dispatch boundary cannot claim no send', async (t) => {
-  const f = fixture(t), c = await f.connect({ freshTab: true, targetId: undefined });
+  const f = fixture(t), c = await f.connect();
   const entered = deferred(), release = deferred();
   f.adapters[0].submit = async () => { entered.resolve(); await release.promise; return null; };
   await f.submit(c); await entered.promise;
@@ -315,7 +337,7 @@ test('reconciliation starts one shared reply observer without a second send', as
   const disk = JSON.parse(fs.readFileSync(path.join(f.paths.root, 'conversations', `${c.id}.conversation.json`)));
   const a = disk.attempts.at(-1);
   f.adapters[0].reconcile = async () => ({ binding: uncertain.binding, evidence: { turnId: a.id, payloadDigest: a.payloadDigest,
-    sessionId: c.sessionId, sequence: 11, kind: 'new-user-turn', source: 'page' } });
+    sessionId: c.sessionId, sequence: 11, kind: 'new-user-turn', source: 'page', identity: `user-${a.id}` } });
   await f.runtime.reconcile(c.id, { expectedRevision: uncertain.revision });
   for (let n = 0; n < 50 && !f.calls.includes('reply'); n++) await new Promise(setImmediate);
   await f.runtime.reconcile(c.id, { expectedRevision: (await f.runtime.get(c.id)).revision });
@@ -334,7 +356,7 @@ test('optional close failure releases stopped capture lease without closure retr
 
 test('page reply updates are full replacements, visible while streaming, then ready', async (t) => {
   const f = fixture(t, { replyUpdateMs: 1 }), c = await f.connect(); const observed = deferred(), completion = deferred(); let publish;
-  f.adapters[0].readReply = async (onUpdate) => { publish = onUpdate; observed.resolve(); await completion.promise; return { state: 'ready', text: 'final replacement' }; };
+  f.adapters[0].readReply = async (onUpdate, args) => { publish = (update) => onUpdate(qualifiedReply(f.adapters[0], args, update.text, 'streaming')); observed.resolve(); await completion.promise; return qualifiedReply(f.adapters[0], args, 'final replacement'); };
   f.adapters[0].stopWaiting = () => completion.resolve();
   await f.submit(c); await observed.promise;
   publish({ text: 'partial first' }); await new Promise((r) => setTimeout(r, 20));
@@ -348,7 +370,7 @@ test('page reply updates are full replacements, visible while streaming, then re
 
 test('Finish freezes latest partial reply and ignores later completion/update', async (t) => {
   const f = fixture(t, { replyUpdateMs: 1 }), c = await f.connect(); const observed = deferred(), completion = deferred(); let publish;
-  f.adapters[0].readReply = async (onUpdate) => { publish = onUpdate; observed.resolve(); await completion.promise; return { state: 'ready', text: 'too late' }; };
+  f.adapters[0].readReply = async (onUpdate, args) => { publish = (update) => onUpdate(qualifiedReply(f.adapters[0], args, update.text, 'streaming')); observed.resolve(); await completion.promise; return qualifiedReply(f.adapters[0], args, 'too late'); };
   f.adapters[0].stopWaiting = () => completion.resolve();
   await f.submit(c); await observed.promise; publish({ text: 'preserved partial' });
   const done = await f.runtime.finish(c.id); assert.equal(done.reply.state, 'interrupted'); assert.equal(done.reply.text, 'preserved partial');
@@ -551,7 +573,7 @@ test('F6 restart-recovered conversation: same key replays original read-only, ne
   const f = fixture(t, { ownerIsAlive: () => false }), c = await f.connect(); const first = await f.submit(c); f.releaseReply.resolve(); await f.settle(c.id);
   const restarted = createConversationRuntime({ paths: f.paths, port: 19222, dependencies: f.dependencies });
   t.after(() => restarted.close());
-  const recovered = await restarted.get(c.id); assert.equal(recovered.state, 'needs-reconciliation');
+  const recovered = await restarted.recover(c.id); assert.equal(recovered.state, 'needs-reconciliation');
   const file = path.join(f.paths.root, 'conversations', `${c.id}.conversation.json`), before = sha(file), calls = [...f.calls];
   const replay = await restarted.submit(c.id, { key: 'one', prompt: 'private prompt', confirm: true, expectedRevision: recovered.revision });
   assert.equal(replay.turn.id, first.turn.id);
@@ -568,7 +590,8 @@ test('F7 isSessionActive is a pure read: file bytes unchanged even when load() w
   const before = sha(file), reader = fresh();
   assert.equal(reader.isSessionActive(c.sessionId), true); assert.equal(reader.isSessionActive('unrelated-session'), false);
   assert.equal(reader.isSessionActive(''), false); assert.equal(sha(file), before);
-  await fresh().get(c.id); assert.notEqual(sha(file), before); // control: the old load() path really did rewrite
+  assert.equal(sha(file), before); await fresh().get(c.id); assert.equal(sha(file), before); // get is pure now
+  await fresh().recover(c.id); assert.notEqual(sha(file), before); // control: the explicit recovery path really does rewrite
 });
 
 test('F7 corrupt or unreadable snapshot counts as active (never stolen), is not rewritten and does not throw', async (t) => {
@@ -582,4 +605,28 @@ test('F7 corrupt or unreadable snapshot counts as active (never stolen), is not 
   fs.rmSync(path.join(directory, 'broken.conversation.json'));
   const reader = createConversationRuntime({ paths: f.paths, port: 19222, dependencies: f.dependencies });
   assert.equal(reader.isSessionActive('any-session'), false);
+});
+
+test('runtime chatIndex uses accepted reader with its own exact read-only session, no recorder/drive lease/snapshot', async (t) => {
+  let opens = 0, closes = 0, evaluations = 0;
+  const identity = { origin: 'https://chatgpt.com', path: '/' };
+  const f = fixture(t, {
+    listTargets: async () => [{ id: 'index-tab', type: 'page', url: 'https://chatgpt.com/' }],
+    acquireLease() { throw new Error('Index must not acquire a driving lease'); },
+    createAdapter() { throw new Error('Index must not create a capture adapter'); },
+    openIndexSession: async (args) => { opens++; assert.deepEqual(args, { targetId: 'index-tab', port: 19222 }); return { session: {}, async close() { closes++; } }; },
+    evaluateIndex: async (_, expression) => {
+      evaluations++;
+      return expression.includes('const before = id()') ? { before: identity, after: identity,
+        result: { origin: identity.origin, renderedLinks: 0, links: [] } } : identity;
+    },
+  });
+  const before = fs.readdirSync(path.join(f.paths.root, 'conversations'));
+  const result = await f.runtime.chatIndex({ targetId: 'index-tab' });
+  assert.equal(result.index.candidatesOnly, true); assert.equal(result.index.complete, false);
+  assert.equal(opens, 1); assert.equal(closes, 1); assert.equal(evaluations, 3);
+  assert.deepEqual(fs.readdirSync(path.join(f.paths.root, 'conversations')), before);
+  assert.deepEqual(f.calls, []);
+  await f.runtime.close();
+  await assert.rejects(f.runtime.chatIndex({ targetId: 'index-tab' }), (e) => e.code === 'RUNTIME_CLOSED');
 });

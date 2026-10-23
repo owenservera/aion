@@ -14,10 +14,11 @@ function fake() {
   const calls = [];
   const snapshot = { id: 'conv-1', revision: 1, reply: { state: 'ready', source: 'page', text: 'fixture', completion: 'unknown' }, turn: { send: { state: 'observed' } } };
   const runtime = { calls, isSessionActive: () => false };
-  for (const name of ['targets', 'list', 'connect', 'get', 'submit', 'reconcile', 'finish', 'close']) runtime[name] = async (...args) => {
+  for (const name of ['targets', 'chatIndex', 'list', 'connect', 'get', 'submit', 'reconcile', 'finish', 'close']) runtime[name] = async (...args) => {
     calls.push([name, ...args]);
     if (name === 'targets') return { sites: [], targets: [] };
     if (name === 'list') return [snapshot];
+    if (name === 'chatIndex') return { targetId: args[0].targetId, origin: 'https://chatgpt.com', index: { candidatesOnly: true, complete: false, entries: [] } };
     return snapshot;
   };
   return runtime;
@@ -56,6 +57,32 @@ test('conversation routes preserve runtime resources and status codes', async (t
   assert.deepEqual(runtime.calls.find(([name]) => name === 'submit'), ['submit', 'conv-1', turn]);
   assert.equal((await request('/api/v1/conversations/conv-1/reconcile', 'POST', { expectedRevision: 1 })).status, 200);
   assert.equal((await request('/api/v1/conversations/conv-1/finish', 'POST', { closeTab: false })).status, 200);
+});
+
+test('explicit POST /chat-index delegates once through the existing runtime and preserves candidate-only semantics', async (t) => {
+  const { request, runtime } = await fixture(t);
+  const body = { targetId: 'selected', site: 'chatgpt', maxEntries: 10, maxTitleChars: 40, scanLimit: 100 };
+  const result = await request('/api/v1/chat-index', 'POST', body);
+  assert.equal(result.status, 200); assert.equal(result.body.targetId, 'selected');
+  assert.equal(result.body.index.candidatesOnly, true); assert.equal(result.body.index.complete, false);
+  assert.deepEqual(runtime.calls, [['chatIndex', body]]);
+  const method = await request('/api/v1/chat-index'); assert.equal(method.status, 405); assert.equal(method.headers.get('allow'), 'POST');
+  assert.equal((await request('/api/v1/chat-index', 'POST', body, { 'x-studio-token': '' })).status, 401);
+  assert.equal((await request('/api/v1/chat-index', 'POST', body, { origin: 'https://outside.example' })).status, 403);
+  assert.equal(runtime.calls.length, 1);
+});
+
+test('chat-index strict body/bounds reject before runtime; reader failures keep coded status', async (t) => {
+  const { request, runtime } = await fixture(t);
+  for (const body of [null, [], {}, { targetId: '' }, { targetId: 'x', site: 'other' }, { targetId: 'x', prompt: 'x' },
+    { targetId: 'x', port: 9222 }, { targetId: 'x', maxEntries: 0 }, { targetId: 'x', maxTitleChars: 301 },
+    { targetId: 'x', scanLimit: 2001 }, { targetId: 'x', containers: [{}] }]) {
+    assert.equal((await request('/api/v1/chat-index', 'POST', body)).status, 400);
+  }
+  assert.equal(runtime.calls.length, 0);
+  runtime.chatIndex = async () => { throw Object.assign(new Error('BINDING_CHANGED'), { status: 409, code: 'BINDING_CHANGED' }); };
+  const failure = await request('/api/v1/chat-index', 'POST', { targetId: 'selected' });
+  assert.equal(failure.status, 409); assert.equal(failure.body.code, 'BINDING_CHANGED');
 });
 
 test('auth, origin, host, methods, strict bodies and runtime conflicts', async (t) => {

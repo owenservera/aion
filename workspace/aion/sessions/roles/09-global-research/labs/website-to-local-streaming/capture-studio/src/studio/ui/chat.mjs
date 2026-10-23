@@ -47,6 +47,7 @@ const REASONS = {
   PREFLIGHT_FAILED: 'Studio couldn’t inspect the chat box.',
   NOT_CHECKED: 'Studio hasn’t checked the chat box yet.',
   SUBMISSION_STOPPED: 'Sending was stopped before it finished.',
+  THREAD_IDENTITY_UNVERIFIED: 'Studio can’t tell which chat this tab is showing, so it won’t send.',
 };
 const UNCERTAINTY = {
   'runtime-restarted': 'Studio restarted. It never replays an earlier action.',
@@ -83,6 +84,13 @@ const ERROR_TEXT = {
   INVALID_CONNECT: 'Studio didn’t accept that connection request.',
   INVALID_TARGET_SELECTION: 'Choose either a new tab or an existing tab, not both.',
   RUNTIME_CLOSED: 'Studio is shutting down.',
+  BINDING_CHANGED: 'This tab is no longer on the chat Studio expected (a different tab or chat). Studio used nothing from it.',
+  THREAD_IDENTITY_UNVERIFIED: 'Studio can’t tell which chat this tab is showing, so it won’t read or send. It did not pick another chat.',
+  READ_REQUIRES_LIVE_CONVERSATION: 'Studio can only read a conversation it is connected to right now. This one was recovered after a restart or belongs to another Studio process.',
+  READ_UNAVAILABLE: 'Reading the page isn’t available for this site yet.',
+  READ_FAILED: 'Studio couldn’t read the page.',
+  INVALID_READ: 'Studio didn’t accept that read request.',
+  BROWSER_UNAVAILABLE: 'Studio can’t reach the capture browser. Check that it is open.',
 };
 
 const word = (s) => String(s ?? '').replace(/[-_]+/g, ' ').trim();
@@ -204,6 +212,7 @@ export function readinessPanel(snap) {
   else if (!d.present) add(r.reason ? reasonText(r.reason) : 'Studio couldn’t confirm that the chat box is ready.');
   if (isBlockedTurn(snap)) add(reasonText(snap.turn.reason));
   add(uncertaintyText(snap.diagnostic?.uncertainty));
+  if (snap.identity?.state === 'unverified') add(identityReasonText(snap.identity));
   return { show: true, draft: d.present, chars: d.chars, heading: d.present ? 'Resolve draft in Chrome' : 'Studio can’t send yet', lines };
 }
 export function isActive(snap) {
@@ -224,6 +233,7 @@ export function canSend(snap, { prompt = '', busy = false } = {}) {
     return { ok: false, reason: isUncertain(snap) ? 'Sending is off until this conversation is checked.' : 'This release sends one message per conversation. Finish the capture, then start a new conversation.' };
   }
   if (isUncertain(snap)) return { ok: false, reason: 'Sending is off until this conversation is checked.' };
+  if (snap.identity?.state === 'unverified') return { ok: false, reason: 'Sending is off: Studio can’t tell which chat this tab is showing, and it won’t send into a chat it can’t identify.' };
   if (draftInfo(snap).present) return { ok: false, reason: 'There’s a draft in the chat box. Resolve it in Chrome, then press Check again (read-only).' };
   if (snap.state === 'attaching') return { ok: false, reason: 'Connecting…' };
   if (snap.state === 'busy') return { ok: false, reason: 'Studio is working. Wait a moment.' };
@@ -368,6 +378,151 @@ export function targetHint(t) {
   return t.ownedByStudio ? 'Opened by Studio' : '';
 }
 
+/* ---------------- chat thread identity and the zero-send page read (pure) ---------------- */
+// The service tells us which chat a tab is on from its address only (never from a title). The UI shows that
+// answer as given: identified, not identified for this site, or not verified. It never picks a chat for the user.
+const IDENTITY_CHIPS = {
+  bound: ['Thread identified', 't-info'], unbound: ['No thread identity', 't-mute'], unverified: ['Thread not verified', 't-warn'],
+};
+const IDENTITY_REASONS = {
+  UNSUPPORTED_PATH: 'This tab isn’t on a saved chat that Studio can identify, so it can’t tell which chat it is.',
+  LEGACY_SNAPSHOT: 'This conversation was saved before Studio checked chat identity, so it can’t tell which chat it was.',
+  SITE_UNSUPPORTED: 'Studio doesn’t identify individual chats on this site yet.',
+  NEW_CHAT: 'A new chat has no thread yet. Studio doesn’t tie it to an earlier chat.',
+  NOT_CONNECTED: 'Studio hasn’t recorded which chat this is.',
+  NOT_PROVIDED: 'Studio hasn’t recorded which chat this is.',
+};
+export const READ_MAX = Object.freeze({ maxMessages: 200, maxChars: 200000 });
+
+// Local thread reference such as "chatgpt-c:<uuid>". Accepts a binding or target (object form) or a transcript binding (string form).
+export function threadRef(x) {
+  const t = x?.thread;
+  if (typeof t === 'string') return t || null;
+  return typeof t?.ref === 'string' && t.ref ? t.ref : null;
+}
+export const identityState = (identity) => (identity && typeof identity === 'object' && typeof identity.state === 'string' ? identity.state : null);
+export const identityChip = (identity) => pair(IDENTITY_CHIPS, identityState(identity), 'Thread');
+export function identityReasonText(identity) {
+  const reason = identity?.reason;
+  if (!reason) return identityState(identity) === 'unverified' ? 'Studio couldn’t confirm which chat this is.' : '';
+  return IDENTITY_REASONS[reason] ?? (isCode(reason) ? 'Studio reported: ' + word(reason).toLowerCase() + '.' : String(reason));
+}
+// What the current identity means for this conversation, in words. Nothing here is a control.
+export function identityView(snap) {
+  const identity = snap?.identity, state = identityState(identity);
+  if (!snap || !state) return { show: false, state: null, chip: null, ref: null, lines: [] };
+  const ref = threadRef(snap.binding), lines = [identityReasonText(identity)];
+  if (state === 'bound') lines.push('Studio checks that the tab is still on this exact chat before each read and send.');
+  else if (state === 'unverified') lines.push('Reading and sending are off. Studio won’t switch to another chat for you. Finish this capture, open the chat you want in Chrome, then connect to it again.');
+  else lines.push('Reads and sends are not tied to one particular chat.');
+  return { show: true, state, chip: identityChip(identity), ref, lines: lines.filter(Boolean) };
+}
+export const isRecovered = (snap) => snap?.recovery?.pending === true || snap?.diagnostic?.uncertainty === 'runtime-restarted'
+  || (Array.isArray(snap?.limitations) && snap.limitations.some((l) => /^Recovered snapshot/.test(limitationText(l))));
+
+// Tab list row and the note under it. A tab that Studio can't identify is still listed, with the reason.
+export function targetThread(t) {
+  const ref = threadRef(t), state = identityState(t?.identity);
+  if (!state) return { state: null, ref, line: '', note: '' };
+  const line = state === 'bound' ? (ref ? 'Chat thread ' + ref : 'Chat thread identified')
+    : state === 'unverified' ? 'Chat thread not verified' : 'Chat thread not identified on this site';
+  const why = identityReasonText(t.identity);
+  const note = state === 'bound' ? 'Studio will connect only if this tab is still on this exact chat. If it has moved to another chat, nothing is connected.'
+    : state === 'unverified' ? why + ' Studio can connect and record this tab, but reading and sending stay off, and it won’t switch to a different chat for you.'
+      : why;
+  return { state, ref, line, note };
+}
+
+export function canRead(snap, { reading = false, submitting = false, working = false } = {}) {
+  if (!snap) return { ok: false, reason: 'Connect to a website first.' };
+  if (snap.state === 'closed') return { ok: false, reason: 'This conversation is finished, so Studio no longer has its tab to read.' };
+  if (snap.state === 'finalizing') return { ok: false, reason: 'Finishing the capture…' };
+  if (['attaching', 'disconnected'].includes(snap.state)) return { ok: false, reason: 'Studio isn’t connected to the tab right now.' };
+  if (isRecovered(snap)) return { ok: false, reason: 'This conversation was recovered after a restart, so there is no live page to read.' };
+  if (snap.identity?.state === 'unverified') return { ok: false, reason: 'Reading is off: Studio can’t tell which chat this tab is showing, and it won’t read a chat it can’t identify.' };
+  if (reading) return { ok: false, reason: 'Reading…' };
+  if (submitting || working) return { ok: false, reason: 'Studio is busy with another step. Wait a moment.' };
+  return { ok: true, reason: '' };
+}
+
+const count = (v) => (Number.isSafeInteger(v) && v >= 0 ? v : null);
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+export const roleLabel = (role) => (role === 'user' ? 'You' : role === 'assistant' ? 'Assistant' : word(role) || 'Unknown role');
+export function sourceText(source) {
+  return source === 'page-visible-dom' ? 'Source: text visible on the page right now (not the network recording)' : 'Source: ' + (source ? word(source) : 'unknown');
+}
+export function readAtText(iso, fmt = (d) => d.toISOString().slice(11, 19) + ' UTC') {
+  const d = new Date(typeof iso === 'string' ? iso : NaN);
+  return Number.isNaN(d.getTime()) ? 'Read time not reported' : 'Read at ' + fmt(d);
+}
+export function draftReadText(draft) {
+  if (draft?.present === true) return 'The chat box has text' + (count(draft.chars) != null ? ' (' + draft.chars + ' characters)' : '') + '. Studio left it untouched and doesn’t show it here.';
+  if (draft?.present === false) return 'The chat box looked empty. Studio left it untouched.';
+  return 'Studio couldn’t tell whether the chat box has text. It left the box untouched.';
+}
+export function limitsText(l) {
+  const m = count(l?.maxMessages), c = count(l?.maxChars);
+  return m != null && c != null ? 'Limits used: up to ' + m + ' messages and ' + c + ' characters in total.' : '';
+}
+// Plain sentences about what a read did and did not cover. A read is never described as the whole chat.
+export function coverageLines(cov) {
+  if (!cov || typeof cov !== 'object') return ['Studio didn’t report how much of the chat this covers. Treat it as partial.'];
+  const lines = [];
+  if (cov.complete === true) lines.push('Studio reports this read as complete.'); else lines.push('This is not a complete copy of the chat.');
+  const rendered = count(cov.renderedMessages), returned = count(cov.returnedMessages), omitted = count(cov.omittedMessages), omittedChars = count(cov.omittedChars);
+  if (rendered != null && returned != null) lines.push('Showing ' + returned + ' of ' + plural(rendered, 'message', 'messages') + ' the page is displaying now.');
+  if (omitted) lines.push(plural(omitted, 'message was', 'messages were') + ' left out (size limits or items Studio couldn’t read)' + (omittedChars ? ', about ' + omittedChars + ' characters' : '') + '.');
+  const cut = count(cov.truncatedMessages);
+  if (cut) lines.push(plural(cut, 'message was', 'messages were') + ' cut short. The end of their text is missing.');
+  const skipped = [['hiddenSkipped', 'hidden'], ['nestedDropped', 'nested duplicate'], ['ambiguousSkipped', 'of unclear author'], ['invalidMessages', 'unreadable']]
+    .map(([k, label]) => [count(cov[k]), label]).filter(([n]) => n).map(([n, label]) => n + ' ' + label);
+  if (skipped.length) lines.push('Skipped on the page: ' + skipped.join(', ') + '.');
+  const older = cov.olderHistory, newer = cov.newerHistory;
+  lines.push(older === 'older-unrendered-likely' ? 'Older messages are probably above what the page has loaded. They aren’t included.'
+    : older === 'top-reached' ? 'The page is at the top of the messages it has loaded. Older history may still not be loaded.'
+      : older === 'unknown' || older == null ? 'Studio can’t tell whether older messages exist above what the page has loaded.' : 'Older history: ' + word(older) + '.');
+  lines.push(newer === 'newer-unrendered-likely' ? 'Newer messages may be below what the page has loaded. They aren’t included.'
+    : newer === 'bottom-reached' ? 'The page is at the bottom of the messages it has loaded.'
+      : newer === 'unknown' || newer == null ? 'Studio can’t tell whether newer messages exist below what the page has loaded.' : 'Newer history: ' + word(newer) + '.');
+  if (cov.preAttachHistory === 'not-captured-by-this-read') lines.push('Messages still rendered on the page can predate this connection. Earlier network traffic was not captured, and history the page hasn’t loaded is not included.');
+  return lines;
+}
+// Turns the service's transcript into plain, ordered rows. Returns { ok: false, text } when it can't be trusted for this conversation.
+export function readView(t, snap = null) {
+  if (!t || typeof t !== 'object' || !Array.isArray(t.messages)) return { ok: false, text: 'The Studio sent a page read we couldn’t understand. Nothing was shown.' };
+  if (snap && t.conversationId !== snap.id) return { ok: false, text: 'The page read belongs to a different conversation, so Studio did not show it.' };
+  if (snap && (threadRef(t.binding) ?? null) !== (threadRef(snap.binding) ?? null)) return { ok: false, text: 'The page read came from a different chat than the one you connected, so Studio did not show it.' };
+  let unreadable = 0;
+  const rows = [];
+  t.messages.forEach((m, i) => {
+    if (!m || typeof m.text !== 'string' || typeof m.role !== 'string') { unreadable++; return; }
+    const n = count(m.index);
+    rows.push({ key: 'm' + (n ?? 'x' + i) + '-' + i, order: n ?? i, n: n == null ? null : n + 1, role: m.role, label: roleLabel(m.role), text: m.text,
+      chars: count(m.chars), cut: m.truncated === true || (count(m.chars) != null && m.chars > m.text.length) });
+  });
+  const messages = rows.sort((a, b) => a.order - b.order);
+  const cov = t.coverage, rendered = count(cov?.renderedMessages);
+  const headline = !messages.length ? 'Studio found no messages on the page.'
+    : 'Read ' + plural(messages.length, 'message', 'messages') + (rendered != null && rendered >= messages.length ? ' of ' + rendered + ' the page is showing now' : '') + ', oldest first.';
+  const lim = t.limits && typeof t.limits === 'object' ? t.limits : null;
+  const more = (count(cov?.omittedMessages) ?? 0) > 0 && !!lim && (lim.maxMessages < READ_MAX.maxMessages || lim.maxChars < READ_MAX.maxChars);
+  const lines = coverageLines(cov);
+  if (unreadable) lines.push(plural(unreadable, 'item', 'items') + ' in the reply couldn’t be read and were not shown.');
+  const lim2 = limitsText(lim); if (lim2) lines.push(lim2);
+  return {
+    ok: true, messages, headline, lines, more, empty: !messages.length, revision: count(t.revision), readAt: t.readAt ?? null,
+    chips: [[sourceText(t.source), 't-mute'], ...(cov?.complete === true ? [] : [['Not a complete copy', 't-warn']])],
+    draft: draftReadText(t.draft),
+    announce: messages.length ? 'Read ' + plural(messages.length, 'message', 'messages') + ' from the page. This is not a complete copy of the chat.' : 'Read finished. No messages found on the page.',
+  };
+}
+// A failed read. Reading never types, sends, clears or navigates, and the text says so.
+export function readFailure(err) {
+  const code = err?.data?.code ?? (isCode(err?.message) ? err.message : null);
+  const text = 'Couldn’t read the page: ' + explainError({ status: err?.status, code, message: err?.message }) + ' Nothing was sent, typed or changed.';
+  return { text, code, link: errorLink(code) };
+}
+
 /* ---------------- browser app ---------------- */
 function boot() {
   // `$` is for required controls: a missing one throws here, and the unit test fails first (every id looked up with `$` must exist in chat.html).
@@ -420,6 +575,10 @@ function boot() {
     pending: null, timer: null, failures: 0, announced: '', bannerFocus: '',
     focusMessage: false, openBlocks: {}, sentPrompt: '', authExpired: false,
     unknownDetail: '', checkedNote: '', copyState: '', replyTrack: null, finishFocus: false,
+    // Exact thread reference seen when the tab was chosen; sent as expectedThread so a moved tab is refused, not followed.
+    pickRef: null, pickNote: '',
+    // Page read: kept in memory only (never stored in the browser), always tied to the conversation it came from.
+    reading: false, readSeq: 0, transcript: null,
   };
 
   /* ---- api ---- */
@@ -460,6 +619,7 @@ function boot() {
       if (!S.snap || S.snap.id !== picked.id) {
         S.bannerFocus = ''; S.openBlocks = {}; textBlocks.clear(); S.replyTrack = null;
         S.unknownDetail = ''; S.checkedNote = ''; S.copyState = ''; S.finishFocus = false;
+        S.transcript = null; S.reading = false; ++S.readSeq; setError('#readError', '');
         S.sentPrompt = store.get('sessionStorage', 'chat.sent.' + picked.id) ?? ''; loadPending(picked.id);
         // The user's own unsent text is kept; only a different conversation gets its own saved draft.
         const saved = store.get('sessionStorage', 'chat.draft.' + picked.id) ?? '';
@@ -525,7 +685,12 @@ function boot() {
       S.targets = { sites: Array.isArray(data.sites) ? data.sites : [], targets: Array.isArray(data.targets) ? data.targets : [] };
       S.targetsState = 'ok';
       if (!S.targets.sites.some((s) => s.id === S.site)) S.site = S.targets.sites[0]?.id ?? '';
-      if (!S.targets.targets.some((t) => t.id === S.targetId)) S.targetId = '';
+      // A refreshed list never moves a choice to another chat: if the tab is gone or now shows a different thread, the choice is cleared.
+      if (S.targetId) {
+        const t = selectedTarget();
+        if (!t) { S.pickNote = 'The tab you chose is no longer open. Choose a tab again.'; S.targetId = ''; S.pickRef = null; }
+        else if ((threadRef(t) ?? null) !== S.pickRef) { S.pickNote = 'The tab you chose is now on a different chat. Nothing is selected; choose a tab again.'; S.targetId = ''; S.pickRef = null; }
+      }
     } catch (e) { S.targetsState = 'error'; S.targetsError = describe(e); }
     renderConnect(); renderChrome();
   }
@@ -574,7 +739,9 @@ function boot() {
   }
   async function connect() {
     const ready = connectReady(); if (!ready.ok) { renderConnect(); return; }
-    const body = S.mode === 'new' ? { site: S.site, freshTab: true } : { site: selectedTarget().site, targetId: S.targetId };
+    // For an existing tab the thread reference seen at selection goes along as expectedThread (when the tab had one).
+    const body = S.mode === 'new' ? { site: S.site, freshTab: true }
+      : { site: selectedTarget().site, targetId: S.targetId, ...(S.pickRef ? { expectedThread: S.pickRef } : {}) };
     const known = new Set(S.list.map((c) => c.id));
     S.connecting = true; $('#connectError').textContent = ''; renderConnect();
     try {
@@ -584,6 +751,13 @@ function boot() {
       applySnapshot(c); loadList();
     } catch (e) {
       let msg = (isAmbiguous(e) ? 'We couldn’t confirm the connection: ' : 'Couldn’t connect: ') + describe(e) + ' Studio does not retry by itself.';
+      // The service refused the exact chat that was chosen. Nothing is connected and nothing else is picked for the user:
+      // the choice is cleared and the tab list is reloaded so the next choice is deliberate.
+      const code = e.data?.code ?? (isCode(e.message) ? e.message : null);
+      if (S.mode === 'existing' && ['BINDING_CHANGED', 'THREAD_IDENTITY_UNVERIFIED', 'TARGET_NOT_FOUND', 'TARGET_SITE_MISMATCH'].includes(code)) {
+        S.targetId = ''; S.pickRef = null; S.pickNote = 'Nothing was connected, and no other tab was chosen for you. Choose a tab again.';
+        await loadTargets();
+      }
       // A failed attach can still leave a conversation that owns the browser. Surface it so it can be finished.
       await loadList();
       const created = S.list.filter((c) => !known.has(c.id) && c.state !== 'closed');
@@ -690,6 +864,7 @@ function boot() {
   }
   function newConversation() {
     ++S.openSeq;
+    S.transcript = null; S.reading = false; ++S.readSeq; setError('#readError', '');
     stopPolling(); S.snap = null; S.pending = null; S.sentPrompt = ''; S.failures = 0;
     S.unknownDetail = ''; S.checkedNote = ''; S.copyState = ''; S.replyTrack = null; S.finishFocus = false; textBlocks.clear();
     store.del('localStorage', SELECTED_KEY); $('#prompt').value = ''; $('#prompt').readOnly = false;
@@ -713,13 +888,19 @@ function boot() {
       ]));
       else list.replaceChildren(...S.targets.targets.map((t, i) => {
         const usable = targetUsable(t), id = 'tg-' + i, hint = targetHint(t);
-        const input = el('input', { type: 'radio', name: 'target', id, value: t.id, checked: t.id === S.targetId, disabled: !usable, onchange: () => { S.targetId = t.id; renderConnect(); } });
+        const input = el('input', { type: 'radio', name: 'target', id, value: t.id, checked: t.id === S.targetId, disabled: !usable, onchange: () => { S.targetId = t.id; S.pickRef = threadRef(t); S.pickNote = ''; renderConnect(); } });
+        const th = targetThread(t);
         return el('label', { class: 'pick target' + (usable ? '' : ' off'), for: id }, [input, el('span', {}, [
           el('span', { class: 't-title', text: t.title || '(untitled)' }), el('br'),
           el('span', { class: 't-sub', text: [t.site, shortUrl(t.url)].filter(Boolean).join(' · ') + (hint ? ' — ' + hint : '') }),
+          th.line ? el('br') : null,
+          th.line ? el('span', { class: 't-sub ' + (th.state === 'unverified' ? 't-warn' : ''), text: th.line }) : null,
         ])]);
       }));
     }
+    // Why the chosen tab can or can't be read and sent, or why the last choice was cleared. Never picks for the user.
+    const chosen = S.mode === 'existing' ? selectedTarget() : null;
+    optText('#targetNote', S.mode === 'existing' ? (S.pickNote || (chosen ? targetThread(chosen).note : '')) : '');
     const ready = connectReady();
     $('#btnConnect').disabled = !ready.ok;
     $('#btnConnect').textContent = S.connecting ? 'Connecting…' : 'Connect and start recording';
@@ -911,6 +1092,8 @@ function boot() {
         ['Step', snap.turn?.phase ? word(snap.turn.phase) : '—'],
         ['Integrity check', integrityText(snap.capture)],
       ];
+      const idv = identityView(snap);
+      if (idv.show) rows.splice(4, 0, ['Chat thread', idv.ref ?? 'Not tied to a thread'], ['Thread check', idv.chip[0]]);
       if (snap.turn?.reason) rows.push(['Turn note', reasonText(snap.turn.reason)]);
       if (snap.diagnostic?.uncertainty) rows.push(['Needs checking', uncertaintyText(snap.diagnostic.uncertainty)]);
       if (snap.diagnostic?.finishPhase && snap.diagnostic.finishPhase !== 'idle') rows.push(['Finish step', word(snap.diagnostic.finishPhase)]);
@@ -964,9 +1147,64 @@ function boot() {
     else if (snap.capture) parts.push(captureChip(snap.capture.state)[0]);
     $('#announce').textContent = parts.join('. ') + '.';
   }
+  /* ---- chat thread and page read ---- */
+  function renderThread(snap) {
+    const v = identityView(snap), strip = $('#threadStrip');
+    strip.hidden = !v.show;
+    if (!v.show) return;
+    strip.className = 'panel thread ' + (['bound', 'unbound', 'unverified'].includes(v.state) ? v.state : 'other');
+    syncChips($('#identityChips'), [v.chip]);
+    $('#threadRef').hidden = !v.ref; setText($('#threadRef'), v.ref ?? '');
+    syncList($('#identityLines'), v.lines);
+  }
+  // Rows are rebuilt only when a new read arrives (not on every poll), so selecting text in a read survives.
+  function renderRead() {
+    const snap = S.snap, box = $('#readBox');
+    box.hidden = !snap;
+    if (!snap) return;
+    const chk = canRead(snap, { reading: S.reading, submitting: S.submitting, working: S.working });
+    $('#btnRead').disabled = !chk.ok; setText($('#btnRead'), S.reading ? 'Reading…' : 'Read what’s on the page');
+    setText($('#readHint'), chk.ok ? '' : chk.reason);
+    box.setAttribute('aria-busy', S.reading ? 'true' : 'false');
+    const t = S.transcript && S.transcript.convId === snap.id ? S.transcript : null, v = t?.view ?? null;
+    $('#readEmpty').hidden = !!v; $('#readResult').hidden = !v;
+    $('#btnReadMore').hidden = !(v?.more); $('#btnReadMore').disabled = !chk.ok;
+    if (!v || $('#readResult').dataset.shown === String(t.seq)) return;
+    $('#readResult').dataset.shown = String(t.seq);
+    setText($('#readHeadline'), v.headline);
+    syncChips($('#readChips'), v.chips);
+    setText($('#readMeta'), [readAtText(v.readAt, (d) => d.toLocaleTimeString()), v.revision != null ? 'conversation revision ' + v.revision : '', 'This is what the page showed at that moment. It doesn’t update by itself.'].filter(Boolean).join(' · '));
+    setText($('#readDraft'), v.draft);
+    $('#readMessages').replaceChildren(...v.messages.map((m) => el('li', { class: 'rd ' + (m.role === 'user' ? 'user' : m.role === 'assistant' ? 'assistant' : 'other') }, [
+      el('div', { class: 'rd-head' }, [el('b', { text: m.label }), m.n != null ? el('span', { class: 'rd-n', text: 'message ' + m.n }) : null,
+        m.cut ? el('span', { class: 'pill t-warn', text: 'Cut short' + (m.chars != null ? ': showing ' + m.text.length + ' of ' + m.chars + ' characters' : '') }) : null]),
+      el('p', { class: 'body', text: m.text === '' ? '(no text)' : m.text }),
+    ])));
+    syncList($('#readCoverage'), v.lines);
+  }
+  // Zero-send. This posts only to the read route and never touches the composer, the draft, the snapshot or any send state.
+  async function readPage(limits = null) {
+    const snap = S.snap; if (!snap) return;
+    const chk = canRead(snap, { reading: S.reading, submitting: S.submitting, working: S.working });
+    if (!chk.ok) { renderRead(); return; }
+    const id = snap.id, seq = ++S.readSeq;
+    S.reading = true; setError('#readError', ''); renderRead();
+    try {
+      const data = await api('/conversations/' + encodeURIComponent(id) + '/read', { method: 'POST', body: limits ?? {} });
+      if (!stillOn(id) || seq !== S.readSeq) return;
+      const view = readView(data?.transcript, S.snap);
+      if (!view.ok) { setError('#readError', view.text); return; }
+      S.transcript = { convId: id, seq, view };
+      $('#announce').textContent = view.announce;
+    } catch (e) {
+      if (!stillOn(id) || seq !== S.readSeq) return;
+      const r = readFailure(e); setError('#readError', r.text, r.link);
+      if (e.status === 409) refresh(id);
+    } finally { if (seq === S.readSeq) S.reading = false; renderRead(); }
+  }
   function render() {
     const snap = S.snap;
-    renderChrome(); renderStage(snap); renderChips(snap); renderBanners(snap); renderTranscript(snap); renderComposer(); renderFinish(snap);
+    renderChrome(); renderStage(snap); renderChips(snap); renderThread(snap); renderBanners(snap); renderTranscript(snap); renderRead(); renderComposer(); renderFinish(snap);
     renderDetails(snap); renderList(); renderConnect(); announce(snap);
     if (S.focusMessage && snap?.state === 'ready' && !$('#prompt').disabled) { S.focusMessage = false; $('#prompt').focus(); }
   }
@@ -980,6 +1218,9 @@ function boot() {
   $('#btnSend').addEventListener('click', sendMessage);
   $('#btnSendAgain').addEventListener('click', sendAgain);
   $('#btnCopy').addEventListener('click', copyMine);
+  // Read is its own explicit button. Choosing or opening a conversation never reads, and Read never sends.
+  $('#btnRead').addEventListener('click', () => readPage());
+  $('#btnReadMore').addEventListener('click', () => readPage({ maxMessages: READ_MAX.maxMessages, maxChars: READ_MAX.maxChars }));
   $('#composer').addEventListener('submit', (e) => e.preventDefault());
   $('#prompt').addEventListener('input', () => {
     if (S.snap && !S.pending) store.set('sessionStorage', 'chat.draft.' + S.snap.id, $('#prompt').value);

@@ -8,6 +8,8 @@ import { listSessions } from '../store/session.mjs';
 import { createConversationService } from './conversation-service.mjs';
 import { createConversationBrowserAdapter } from './conversation-browser-adapter.mjs';
 import { acquireDriveLease } from './drive-lease.mjs';
+import { parseThread, threadSupported, TRANSCRIPT_LIMITS } from './conversation-thread.mjs';
+import { readChatIndex } from './chatgpt-chat-index-reader.mjs';
 
 const fail = (status, code) => Object.assign(new Error(code), { status, code });
 function outward(e) {
@@ -17,12 +19,15 @@ function outward(e) {
 
 export function createConversationRuntime({ paths, profileStore, familyStore, port = 9222, dependencies = {} } = {}) {
   const d = { listTargets, getAdapter, createAdapter: createConversationBrowserAdapter, acquireLease: acquireDriveLease,
-    listSessions, ownerIsAlive: (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code !== 'ESRCH'; } },
+    listSessions, readChatIndex, ownerIsAlive: (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code !== 'ESRCH'; } },
     maxDurationMs: 15 * 60 * 1000, maxBytes: 256 * 1024 * 1024, ...dependencies };
   const directory = path.join(paths.root, 'conversations');
   mkdirSync(directory, { recursive: true });
   const entries = new Map(); let closed = false;
   const active = () => { if (closed) throw fail(503, 'RUNTIME_CLOSED'); };
+  // An unreachable DevTools endpoint is an environment condition, not an internal error.
+  const tabs = async () => { try { return await d.listTargets({ port }); } catch { throw fail(503, 'BROWSER_UNAVAILABLE'); } };
+  const validId = (id) => /^[a-z0-9][a-z0-9_-]{0,127}$/i.test(id ?? '');
   const ids = () => readdirSync(directory).filter((n) => n.endsWith('.conversation.json')).map((n) => n.slice(0, -'.conversation.json'.length));
   function load(id) {
     if (!/^[a-z0-9][a-z0-9_-]{0,127}$/i.test(id ?? '')) throw fail(400, 'INVALID_CONVERSATION_ID');
@@ -40,44 +45,64 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     const entry = { service, adapter, recovered: true, readOnly, registration: Promise.resolve(), work: Promise.resolve(), lease: null };
     entries.set(id, entry); return entry;
   }
+  // Pure snapshot read: never recovers, saves, attaches or touches the browser. Recovery is the
+  // separate explicit mutation (`recover`, or any mutating call such as reconcile/finish/submit).
+  function peek(id) {
+    if (!validId(id)) throw fail(400, 'INVALID_CONVERSATION_ID');
+    if (entries.has(id)) return entries.get(id);
+    if (!ids().includes(id)) throw fail(404, 'CONVERSATION_NOT_FOUND');
+    let header; try { header = JSON.parse(readFileSync(path.join(directory, `${id}.conversation.json`), 'utf8')); }
+    catch { throw fail(409, 'CORRUPT_OR_UNREADABLE_SNAPSHOT'); }
+    let service; try { service = createConversationService({ dataDir: directory, id, adapter: {}, recover: false }); }
+    catch (e) { throw fail(409, e.code ?? 'CORRUPT_OR_UNREADABLE_SNAPSHOT'); }
+    const pid = header?.owner?.pid;
+    return { service, adapter: {}, recovered: false, readOnly: true, pure: true, ownerAlive: Number.isInteger(pid) && pid > 0 && d.ownerIsAlive(pid) };
+  }
   function view(entry, summary = false, selectedTurn) {
     const s = entry.service.read(), a = selectedTurn ?? s.attempts.at(-1);
-    const reply = { ...s.reply }; if (summary) delete reply.text;
-    const capture = { ...s.capture, bytesWritten: entry.recovered ? s.capture.bytesWritten ?? 0 : entry.adapter.bytesWritten ?? 0 };
+    const pending = !!entry.pure && !s.finish.requested && s.state !== 'disconnected' && !entry.ownerAlive;
+    const reply = { ...(a?.reply ?? s.reply) }; if (summary) delete reply.text;
+    const turnView = (turn) => {
+      const r = { ...turn.reply }; if (summary) delete r.text;
+      return { id: turn.id, key: turn.key, conversationId: turn.journal?.conversationId ?? s.id, payloadDigest: turn.payloadDigest,
+        phase: turn.phase, reason: turn.reason ?? null, boundary: turn.boundary, send: structuredClone(turn.send), reply: r,
+        readiness: turn.journal?.readiness ?? turn.readiness ?? { state: 'unknown', evidence: null },
+        completion: turn.journal?.completion ?? turn.completion ?? { state: 'unknown', evidence: null } };
+    };
+    const capture = { ...s.capture, bytesWritten: entry.recovered || entry.pure ? s.capture.bytesWritten ?? 0 : entry.adapter.bytesWritten ?? 0 };
     capture.limitReason = entry.adapter.limitReason ?? capture.limitReason;
     if (!entry.recovered && entry.adapter.active === false && capture.state === 'recording') capture.state = 'incomplete';
     if (entry.recovered && !entry.readOnly && capture.state === 'recording') capture.state = 'incomplete';
     return { id: s.id, revision: s.revision, state: s.state, site: s.site, binding: s.binding, sessionId: s.sessionId,
-      turn: a ? { id: a.id, phase: a.phase, reason: a.reason ?? null, send: structuredClone(a.send) } : null,
+      turn: a ? turnView(a) : null, turns: s.attempts.map(turnView),
+      identity: s.identity, recovery: { pending },
       readiness: s.readiness, diagnostic: { finishPhase: s.finish.phase, finishError: s.finish.error ?? null, uncertainty: s.uncertainty },
-      reply, capture, limitations: [...s.limitations, ...(entry.recovered ? ['Recovered snapshot only; interrupted capture ownership requires reconciliation, never automatic replay'] : [])] };
+      reply, capture, limitations: [...s.limitations, ...(entry.recovered ? ['Recovered snapshot only; interrupted capture ownership requires reconciliation, never automatic replay'] : []),
+        ...(pending ? ['Stored snapshot read without recovery; the owning process is gone, so its state is stale until an explicit reconcile, finish or recover'] : [])] };
   }
-  function observeReply(entry) {
-    if (entry.replyWork || entry.finishing || entry.recovered) return entry.replyWork;
-    let latest = { state: 'waiting', text: entry.service.read().reply.text }, timer, ended = false, writes = Promise.resolve();
-    const flush = () => {
-      clearTimeout(timer); timer = null;
-      const value = { ...latest };
-      writes = writes.then(() => entry.service.recordReply(value));
-      writes.catch(() => {});
-    };
-    entry.replyWork = (async () => {
-      await entry.service.recordReply(latest);
+  function observeReply(entry, attempt = entry.service.read().attempts.at(-1)) {
+    if (!attempt || entry.finishing || entry.recovered) return;
+    entry.replyWorks ??= new Map();
+    if (entry.replyWorks.has(attempt.id)) return entry.replyWorks.get(attempt.id);
+    const work = (async () => {
+      await entry.service.recordReply({ turnId: attempt.id, state: 'waiting' });
+      let writes = Promise.resolve(), ended = false;
+      const publish = (update) => {
+        if (ended || entry.finishing || update.turnId !== attempt.id) return Promise.resolve();
+        writes = writes.then(() => entry.service.recordReply(update)); return writes;
+      };
       try {
-        const reply = await entry.adapter.readReply((update) => {
-          if (ended || entry.finishing) return;
-          latest = { state: 'streaming', text: String(update.text ?? '') };
-          if (!timer) { timer = setTimeout(flush, d.replyUpdateMs ?? 100); timer.unref?.(); }
-        });
-        ended = true; clearTimeout(timer); await writes;
-        await entry.service.recordReply(entry.finishing ? { state: 'interrupted', text: latest.text } : reply);
+        const result = await entry.adapter.readReply(publish, { turnId: attempt.id, payloadDigest: attempt.payloadDigest,
+          boundary: attempt.boundary, threadKey: attempt.journal?.threadKey ?? entry.service.threadKey() });
+        await writes; ended = true;
+        await entry.service.recordReply(entry.finishing ? { turnId: attempt.id, state: 'interrupted' } : { ...result, turnId: attempt.id });
       } catch {
-        ended = true; clearTimeout(timer); await writes.catch(() => {});
-        await entry.service.recordReply({ state: entry.finishing ? 'interrupted' : 'unknown', text: latest.text });
+        ended = true; await writes.catch(() => {});
+        await entry.service.recordReply({ turnId: attempt.id, state: entry.finishing ? 'interrupted' : 'unknown' });
       }
     })();
-    entry.replyWork.catch(() => {});
-    return entry.replyWork;
+    entry.replyWorks.set(attempt.id, work); work.finally(() => { work.settled = true; }).catch(() => {});
+    return work;
   }
   async function finishEntry(entry, body = {}) {
     if (entry.readOnly) {
@@ -90,7 +115,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     entry.finishing = (async () => {
       clearTimeout(entry.timer); entry.adapter.stopWaiting?.();
       await entry.work.catch(() => {});
-      await entry.replyWork?.catch(() => {});
+      await Promise.all([...(entry.replyWorks?.values() ?? [])].map((work) => work.catch(() => {})));
       await entry.service.finish(body);
       await entry.service.recordCapture({ state: 'incomplete', integrity: entry.adapter.integrity ?? null,
         bytesWritten: entry.adapter.bytesWritten ?? 0, limitReason: entry.adapter.limitReason ?? entry.service.read().capture.limitReason });
@@ -124,24 +149,63 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     }
   }
   return {
+    async chatIndex(body) {
+      active();
+      // Explicit observation only: the reader owns/detaches its own CDP session. No conversation,
+      // recorder, drive lease, journal or target binding is created by this operation.
+      return d.readChatIndex(body, { port, listTargets: d.listTargets,
+        ...(d.openIndexSession ? { openSession: d.openIndexSession } : {}),
+        ...(d.evaluateIndex ? { evaluate: d.evaluateIndex } : {}) });
+    },
     async targets() {
       active();
       const sites = (await Promise.all(ADAPTER_IDS.map(async (id) => { const a = await d.getAdapter(id); return a ? { id, adapter: a.id, url: a.url } : null; }))).filter(Boolean);
       const targets = [];
       const recordings = d.listSessions(paths.sessions).filter((s) => ['recording', 'stopping'].includes(s.status));
-      for (const t of await d.listTargets({ port })) {
+      for (const t of await tabs()) {
         if (t.type && t.type !== 'page') continue;
         let url; try { url = new URL(t.url); } catch { continue; }
         if (url.protocol !== 'https:') continue;
         const a = await d.getAdapter(url.href); if (!a || !ADAPTER_IDS.includes(a.id)) continue;
         const recording = recordings.find((s) => s.target?.id === t.id);
-        targets.push({ id: t.id, targetId: t.id, site: a.id, url: url.origin, title: a.id,
+        // Identity comes from the URL path only. The tab title is deliberately neither read nor returned.
+        const thread = parseThread(a.id, t.url);
+        const identity = threadSupported(a.id) ? (thread ? { state: 'bound', reason: null } : { state: 'unverified', reason: 'UNSUPPORTED_PATH' }) : { state: 'unbound', reason: 'SITE_UNSUPPORTED' };
+        targets.push({ id: t.id, targetId: t.id, site: a.id, url: url.origin, title: a.id, thread, identity,
           ownedByStudio: false, recorderOwner: recording ? { sessionId: recording.id, kind: recording.conversationOwner ? 'conversation' : 'unknown' } : null, visibility: 'unknown' });
       }
       return { sites, targets };
     },
-    async list() { return [...new Set([...ids(), ...entries.keys()])].map((id) => view(load(id), true)).sort((a, b) => b.id.localeCompare(a.id)); },
-    async get(id) { return view(load(id)); },
+    async list() { return [...new Set([...ids(), ...entries.keys()])].map((id) => view(peek(id), true)).sort((a, b) => b.id.localeCompare(a.id)); },
+    async get(id) { return view(peek(id)); },
+    // The explicit recovery mutation (what list/get no longer do). Same seam reconcile/finish/submit already use.
+    async recover(id) { active(); return view(load(id)); },
+    // Zero-send Read of the live conversation's current visible transcript. Never writes the snapshot,
+    // never loads/recovers, never types or sends. Recovered or foreign-owned snapshots have no live page.
+    async read(id, body = {}) {
+      active();
+      if (!validId(id)) throw fail(400, 'INVALID_CONVERSATION_ID');
+      const unknown = Object.keys(body ?? {}).filter((k) => !['maxMessages', 'maxChars'].includes(k));
+      const L = TRANSCRIPT_LIMITS, count = (v, spec) => v === undefined ? spec.default : v;
+      const maxMessages = count(body.maxMessages, L.maxMessages), maxChars = count(body.maxChars, L.maxChars);
+      if (unknown.length || !Number.isSafeInteger(maxMessages) || maxMessages < L.maxMessages.min || maxMessages > L.maxMessages.max
+        || !Number.isSafeInteger(maxChars) || maxChars < L.maxChars.min || maxChars > L.maxChars.max) throw fail(400, 'INVALID_READ');
+      const entry = entries.get(id);
+      if (!entry) { if (!ids().includes(id)) throw fail(404, 'CONVERSATION_NOT_FOUND'); throw fail(409, 'READ_REQUIRES_LIVE_CONVERSATION'); }
+      if (entry.recovered || entry.readOnly) throw fail(409, 'READ_REQUIRES_LIVE_CONVERSATION');
+      const s = entry.service.read();
+      if (s.finish.requested || entry.finishing) throw fail(409, 'CONVERSATION_FINISHED');
+      if (s.identity?.state === 'unverified') throw fail(409, 'THREAD_IDENTITY_UNVERIFIED');
+      if (typeof entry.adapter.readTranscript !== 'function') throw fail(501, 'READ_UNAVAILABLE');
+      let out;
+      try { out = await entry.adapter.readTranscript({ maxMessages, maxChars, perMessageCap: Math.min(L.perMessageCap, maxChars) }); }
+      catch (e) { throw e?.status ? e : fail(409, /^[A-Z][A-Z0-9_]{0,79}$/.test(e?.code ?? '') ? e.code : 'READ_FAILED'); }
+      const now = entry.service.read();
+      if (!out?.transcript || out.binding?.targetId !== now.binding?.targetId || out.binding?.origin !== now.binding?.origin
+        || (out.binding?.thread?.ref ?? null) !== (now.binding?.thread?.ref ?? null)) throw fail(409, 'BINDING_CHANGED');
+      return { conversationId: id, revision: now.revision, readAt: new Date().toISOString(),
+        binding: { targetId: now.binding.targetId, origin: now.binding.origin, thread: now.binding.thread?.ref ?? null }, identity: now.identity, ...out.transcript };
+    },
     // Pure read: never loads/recovers an entry, never writes a snapshot, never throws. Anything that
     // cannot be proven finished (corrupt/unreadable snapshot or directory) counts as active so no
     // caller can steal or replay a session that may still be owned.
@@ -169,18 +233,39 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     async connect(body = {}) {
       active();
       if (!ADAPTER_IDS.includes(body.site) || body.freshTab !== undefined && typeof body.freshTab !== 'boolean'
-        || body.targetId !== undefined && (typeof body.targetId !== 'string' || !body.targetId)) throw fail(400, 'INVALID_CONNECT');
+        || body.targetId !== undefined && (typeof body.targetId !== 'string' || !body.targetId)
+        || body.expectedThread !== undefined && (typeof body.expectedThread !== 'string' || !body.expectedThread || body.expectedThread.length > 200)) throw fail(400, 'INVALID_CONNECT');
       const freshTab = body.freshTab ?? !body.targetId;
       if (freshTab && body.targetId || !freshTab && !body.targetId) throw fail(400, 'INVALID_TARGET_SELECTION');
+      if (freshTab && body.expectedThread !== undefined) throw fail(400, 'INVALID_CONNECT');
       const siteAdapter = await d.getAdapter(body.site);
       if (!siteAdapter?.url) throw fail(400, 'SITE_ADAPTER_UNAVAILABLE');
       let origin = new URL(siteAdapter.url).origin;
+      // Fresh Studio-owned tab = unverified identity, never a send/fence escape. Existing ChatGPT tab = the
+      // thread must be a supported /c/<uuid> path or the conversation can be browsed but never send.
+      let thread = null, identity = { state: 'unverified', reason: freshTab ? 'UNSUPPORTED_PATH' : 'SITE_UNSUPPORTED' };
       if (!freshTab) {
-        const target = (await d.listTargets({ port })).find((t) => t.id === body.targetId);
+        const target = (await tabs()).find((t) => t.id === body.targetId);
         if (!target) throw fail(404, 'TARGET_NOT_FOUND');
         const matched = await d.getAdapter(target.url);
         if (matched?.id !== body.site || new URL(target.url).protocol !== 'https:') throw fail(409, 'TARGET_SITE_MISMATCH');
         origin = new URL(target.url).origin;
+        if (threadSupported(body.site)) {
+          thread = parseThread(body.site, target.url);
+          identity = thread ? { state: 'bound', reason: null } : { state: 'unverified', reason: 'UNSUPPORTED_PATH' };
+        }
+        if (body.expectedThread !== undefined) {
+          if (!thread) throw fail(409, 'THREAD_IDENTITY_UNVERIFIED');
+          if (thread.ref !== body.expectedThread) throw fail(409, 'BINDING_CHANGED');
+        }
+      }
+      // Historic one-turn snapshots without durable thread admission cannot be bypassed by a new record.
+      if (thread) for (const priorId of ids()) {
+        let prior; try { prior = JSON.parse(readFileSync(path.join(directory, `${priorId}.conversation.json`), 'utf8')); }
+        catch { throw fail(409, 'CORRUPT_OR_UNREADABLE_SNAPSHOT'); }
+        if (prior.binding?.origin === origin && (!prior.binding.thread || prior.binding.thread.ref === thread.ref)
+          && prior.attempts?.some((a) => !a.journal && (a.phase !== 'blocked' || a.typingStartedAt))) throw fail(409, 'LEGACY_ATTEMPT_REQUIRES_RECONCILIATION');
+        if (prior.binding?.origin === origin && prior.binding.thread?.ref === thread.ref && prior.attempts?.some((a) => a.journal)) peek(priorId).service.read();
       }
       const id = randomUUID(), lease = d.acquireLease({ port, root: d.leaseRoot, holder: { kind: 'conversation', id } });
       let entry;
@@ -191,7 +276,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
           context: { site: body.site, owner: { pid: process.pid, token: lease.token, port }, capture: { endsAt: new Date(Date.now() + d.maxDurationMs).toISOString(), maxBytes: d.maxBytes, bytesWritten: 0, limitReason: null } } });
         entry = { service, adapter, lease, registration: Promise.resolve(), work: Promise.resolve(), recovered: false };
         entries.set(id, entry);
-        await service.connect({ targetId: body.targetId ?? `pending-${id}`, origin, ownedByStudio: freshTab, expectedRevision: service.read().revision });
+        await service.connect({ targetId: body.targetId ?? `pending-${id}`, origin, ownedByStudio: freshTab, thread, identity, expectedRevision: service.read().revision });
         entry.timer = setTimeout(() => {
           entry.service.recordCapture({ limitReason: 'duration-budget' }).then(() => finishEntry(entry)).catch(() => {});
         }, Math.max(1, Date.parse(service.read().capture.endsAt) - Date.now())); entry.timer.unref?.();
@@ -202,7 +287,15 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       }
     },
     async submit(id, body = {}) {
-      active(); const entry = load(id);
+      active();
+      if (typeof body.key !== 'string' || !body.key || body.key.length > 200 || typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 250000) throw fail(400, 'INVALID_SUBMISSION');
+      // Inspect before load/recovery: an idempotent POST on a restarted runtime is a pure read too.
+      const stored = peek(id);
+      try {
+        const replay = stored.service.lookupRequest({ key: body.key, payloadDigest: createHash('sha256').update(body.prompt, 'utf8').digest('hex') });
+        if (replay) return view(stored, false, replay);
+      } catch (e) { throw outward(e); }
+      const entry = load(id);
       const registered = entry.registration.then(async () => {
         if (typeof body.key !== 'string' || !body.key || body.key.length > 200 || typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 250000) throw fail(400, 'INVALID_SUBMISSION');
         const s = entry.service.read(), original = s.attempts.find((a) => a.key === body.key);
@@ -216,14 +309,12 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
         if (entry.recovered) throw fail(409, 'CONVERSATION_NOT_WRITABLE');
         let resolve, reject;
         const ack = new Promise((yes, no) => { resolve = yes; reject = no; });
-        const execution = entry.service.submit(body, { registered: () => resolve(view(entry)) });
+        const execution = entry.service.submit(body, { registered: (_, attempt) => resolve(view(entry, false, attempt)) });
         entry.work = execution.then(async (attempt) => {
-          if (attempt.send.state === 'observed' && !entry.finishing) await observeReply(entry);
+          // A cross-conversation replay is inspection only, never a new observer or browser action.
+          if (attempt.send.state === 'observed' && !entry.finishing && entry.service.read().attempts.some((a) => a.id === attempt.id)) await observeReply(entry, attempt);
         }).catch(async (e) => {
           reject(outward(e));
-          if (entry.service.read().attempts.at(-1)?.phase !== 'blocked' && entry.service.read().attempts.length && !entry.replyWork) {
-            try { await entry.service.recordReply({ state: 'unknown', text: '' }); } catch {}
-          }
         });
         execution.catch((e) => reject(outward(e)));
         return ack;
@@ -237,7 +328,12 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       if (entry.finishing) await entry.finishing;
       try {
         await entry.service.reconcile(body);
-        if (entry.service.read().attempts.at(-1)?.send.state === 'observed') observeReply(entry);
+        const attempt = body.turnId ? entry.service.read().attempts.find((a) => a.id === body.turnId) : entry.service.read().attempts.at(-1);
+        if (attempt?.send.state === 'observed') {
+          // Explicit reconciliation may restart a completed read-only observer for this exact turn.
+          if (entry.replyWorks?.get(attempt.id)?.settled) entry.replyWorks.delete(attempt.id);
+          observeReply(entry, attempt);
+        }
         return view(entry);
       } catch (e) { throw outward(e); }
     },

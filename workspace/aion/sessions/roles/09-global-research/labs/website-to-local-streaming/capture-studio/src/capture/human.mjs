@@ -181,7 +181,7 @@ async function dispatchBackspace(page) {
 // ---------------------------------------------------------------------------------------------
 // Typing
 // ---------------------------------------------------------------------------------------------
-export async function humanType(page, text, { pace = DEFAULT_PACE, human = false } = {}) {
+export async function humanType(page, text, { pace = DEFAULT_PACE, human = false, beforeInsert } = {}) {
   const startedAt = Date.now();
   const p = paceOf(pace);
   const s = String(text == null ? '' : text);
@@ -203,6 +203,7 @@ export async function humanType(page, text, { pace = DEFAULT_PACE, human = false
   // If insertion status is uncertain, do NOT inject again: a second write could
   // double the draft. The caller receives an explicit failure instead.
   if (!human) {
+    if (beforeInsert) await beforeInsert();
     try {
       await page.send('Input.insertText', { text: s });
       stats.methodCounts.insertText++;

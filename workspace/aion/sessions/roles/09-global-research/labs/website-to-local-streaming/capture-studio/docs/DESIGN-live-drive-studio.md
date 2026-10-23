@@ -608,3 +608,123 @@ unverified donor runtime. Phase D: bounded owner-directed live proof, then expan
 
 Each change has one writer and one validation owner. No code lane starts against an unresolved shared
 interface, and no live success is inferred from a queued agent message or a source-only finding.
+
+## 17. Reconciliation: agent harness over real AI webapp conversations - 2026-10-23 (revised)
+
+**Status (2026-10-23, revised): Sol source handoff is offline-tested; M1 201/201 remains an earlier synthetic receipt; M2 live follow-up is not accepted; only the candidate chat-index slice of M3 is wired; M4-M5 are not launched; no live exchange and no loaded-server proof.** Parent `bun run test` after that handoff: **1,187 passed, 0 failed, 1 existing TODO, 1,188 total** (`studio-parent-final-before-push.log`). That count covers the pre-typing cancellation fix and nine-tool registration. It is not live ChatGPT acceptance. This section reconciles
+sections 12.6, 12.7, 15 and 16 with the 2026-10-23 capability assessment. It adds no new design document
+or roster. Controlling order and denominators: `../ARCHITECTURE.md` (milestones M0-M5). Evidence and
+gates: `LIVE-TEST.md` section 6. M1 exists as source plus synthetic tests only (see 17.3); it is not
+parent-accepted and nothing here is LIVE VERIFIED.
+
+### 17.1 Proposed routes versus source (paths under the capture-studio root)
+
+| Route (section 12.6 name) | In source today | Milestone |
+| --- | --- | --- |
+| `GET /api/v1/conversation-targets` | yes, `src/capture/conversation-runtime.mjs:147-162`; origin and site only; CDP-down gives 500 | M0 (coded 503), M1 (thread reference) |
+| `GET/POST /api/v1/conversations`, `GET /{id}` | yes, `src/studio/conversation-api.mjs:38-66`; **list/get may write** through `load()` recovery (`conversation-runtime.mjs:31-46`) | M1 (pure GET) |
+| `POST /{id}/turns` | yes; one turn only (`src/capture/conversation-service.mjs:213`) | M2 |
+| `POST /{id}/reconcile`, `POST /{id}/finish` | yes | unchanged |
+| bounded transcript Read (new, narrower than 12.6 `turns/{turn}`) | **M1 source (2026-10-23):** `POST /api/v1/conversations/{id}/read` -> `{transcript}`; `runtime.read`; adapter `readTranscript`; helper `src/capture/conversation-thread.mjs`. A POST because it drives a browser observation, keeping GET snapshots purely local | M1 |
+| `POST /api/v1/chat-index` | yes, candidate rendered index (`complete:false`); explicit target; not a verified thread binding | bounded M3 slice only |
+| `GET /{id}/turns/{turn}`, `GET /{id}/events`, `POST /{id}/cancel` | **no**; the route regex allows only `turns|reconcile|finish` (`conversation-api.mjs:51`) | M2 (turn read, events) and M4 (stop/cancel), only if needed |
+
+M1 deliberately adds one bounded Read instead of the whole 12.6 read surface. Section 16 item 2
+("Read is a first-class task, not a failed Send") is the authority for it: observe an exact existing
+thread without typing, clearing, navigating or restarting; snapshot text is not proof that virtualized
+older messages were loaded, so omission markers are part of the result.
+
+### 17.2 Decisions this assessment recommends (for the parent to confirm)
+
+1. **Thread identity** is the URL path reference of the user's own `/c/<id>` thread, carried in the
+   target row, in the stored binding and in the adapter's `check()` (today origin only:
+   `src/capture/conversation-browser-adapter.mjs:87-97`, `conversation-service.mjs:33`). Titles are never
+   an identity or mapping input.
+2. **Do not treat removal of the old one-turn constant as live multi-turn.** The Sol handoff puts the persisted turn-owned reply and a thread-level unknown-delivery fence in source, with no automatic retries. The earlier `ONE_TURN_LIMIT` / per-conversation-fence wording, including `conversation-service.mjs:305-310`, predates that handoff. Live follow-up is not accepted.
+3. **Verified fast input** replaces human pacing for conversation sends: the existing bulk insertion
+   branch (`src/capture/human.mjs:205`) with composer read-back, never a second insertion. Today
+   `typeText` defaults to human pacing (`src/capture/actions.mjs:185`; adapter `:195`) and the
+   estimated cost (from `DEFAULT_PACE`, not measured) is about 4 minutes per 2,000 characters against a
+   15-minute capture budget (`conversation-runtime.mjs:22`).
+4. **Two separate concerns, not one lease:** a role registry (agent -> thread reference, by extending
+   `workspace/aion/ops/chrome-relay/role-launcher/ROLES.json`) is not a connection; a **foreground writer
+   lease** held only around typing/sending or an unresolved unknown delivery is not the **capture
+   lifetime** (today the drive lease spans the whole capture, `conversation-runtime.mjs:249` to `:118`).
+5. **Acceptance** is real use, not a ping: a meaningful SITREP request, a fresh reply correlated to that
+   turn, a substantive follow-up, and no duplicate on uncertainty (gates RT-4..RT-8). No sandbox ping is
+   required first; preflight, the draft check and the single dispatch are the safeguards.
+
+### 17.3 M1 launch status and corrections (2026-10-23)
+
+Source and synthetic tests exist for exact `/c/<uuid>` thread identity (carried target row -> stored
+binding -> adapter checks, `BINDING_CHANGED` on same target+origin but another thread, never a title),
+the bounded Read, pure `get`/`list` with explicit `recover`, and a coded 503 `BROWSER_UNAVAILABLE`.
+Sends, human pacing, `ONE_TURN_LIMIT` and idempotency are unchanged; multi-turn is not enabled. The
+compatibility decisions and receipts are listed in `../ARCHITECTURE.md` (M1 launch receipts and
+compatibility decisions) and are awaiting parent confirmation.
+
+Two earlier assumptions in this assessment were too restrictive and are corrected:
+
+- **Read does not require an empty composer.** Read preserves a draft that is already present; it
+  reports only presence and length, never the text, and does no focus, scroll, typing, clearing,
+  navigation or send. (Send still requires an empty composer.)
+- **The owner need not launch the browser.** The sign-in to the team workspace is the user's, but the
+  local executor may start the dedicated-profile Chrome with the existing Studio launcher
+  (`studio launch` / `studio start`), which reuses that profile and must not delete or reset it.
+
+Role registry boundary: the tracked `ROLES.json` keeps non-sensitive identities only; real thread
+references live in a local private binding outside Git. Its null URLs mean "unverified in that
+registry", not "no team threads exist". Studio workstream identities (Core, UI, QA, Systems) are valid
+lane conversations even though they are not among the 13 canonical agents.
+
+### 17.4 Evidence boundaries
+
+- The 168 conversation tests used injected fake adapters; they say nothing about ChatGPT or about the
+  running server. The 17:44 UTC live observations (server health 200, no browser on port 9222,
+  `conversation-targets` returning 500) are that time only. Later Chrome/login facts are in 17.5.
+  The parent 1,187-pass suite does not prove a loaded server.
+- The unfinished local conversation snapshot (0 attempts, capture `recording`) matches the earlier
+  blocked-readiness attempt described in section 16 (inferred from the state and date, not re-read).
+  It is not evidence that a send works.
+- ChatGPT session population counts disagree by denominator (27 by site label, 26 by target host,
+  15 sidecars absent, 12 stored `capture_rejected`, 0 accepted); see `../ARCHITECTURE.md`. Do not report
+  a single accepted total.
+
+### 17.5 Architecture correction: product frame and revised milestones (2026-10-23)
+
+The product is an **agent harness whose sessions are real AI webapp conversations** (ChatGPT first), not
+API sessions; the AION team is the first workload, not the boundary. The full visible surface (chat list,
+search, projects, workspaces; open, create, resume, switch, rename, archive, delete; model and mode;
+attachments, tools, artifacts; stop, edit, regenerate, branch; context, scheduling; recovery) is the
+destination. The compact families table, the harness identities and the surface rules live once in
+`../ARCHITECTURE.md` and are not repeated here. Command Space ids are catalog vocabulary
+([README](../../../../../../../ops/command-space/README.md),
+[capability universe](../../../../../../../ops/chrome-relay/harvest/external/reference/capability-universe.csv)):
+**a catalog entry is not an implementation**, and evidence, availability, effect class and coverage stay
+separate.
+
+Revised milestone labels (replacing the earlier M0-M5 wording in 17.1-17.4 where they differ): **M0**
+harness contract + launch/readiness; **M1** exact existing-thread Read; **M2** integrated useful SITREP +
+follow-up through the actual bridge from this agent session (durable turn-owned reply, thread-level
+unknown fence, verified fast input); **M3** discovery, search, navigation, create, rename, model and
+context; **M4** rich surface + team workload (the 13 roles, local private bindings); **M5** scheduling +
+recovery. The earlier "M3 SITREP", "M4 13 roles" and "M5 restart" correspond to the new M2, M4 and M5.
+
+Rules this correction adds:
+
+- **Open targets are not the account chat list.** `conversation-targets` lists live tabs; the sidebar is a
+  partial rendered index (virtualized), and a full scrape is not a prerequisite for the first useful
+  exchange.
+- **Default route is the actual UI** through the existing adapter. Observing a private backend endpoint is
+  not permission to replay authenticated requests.
+- **Read semantics.** A Read returns the messages currently rendered, including ones that predate the connection; earlier *network traffic* was not captured, which is a different fact (`coverage.preAttachHistory` is about network capture, not DOM omission), and unloaded history is reported by `olderHistory` / `newerHistory`. "Read changes no file" means the Read itself; the attached recorder writes its own raw log and autosnapshots independently.
+- **Network completion is network-only.** Page readiness is a separate attributed state: exact thread,
+  delivered user turn, reply turn after the pre-send boundary, stable idle controls, then a fresh preflight
+  before the next action. Quiet text or an observed reply is not readiness.
+- **Live facts are time-scoped.** 18:24:48 UTC: the dedicated Studio Chrome (pid 20048) runs with CDP on
+  9222 connected (parent verified); the DOM gate says LOGIN REQUIRED (human). The 17:44 and 18:22 UTC
+  no-browser facts described those times only. A 503 in source is not M0 until observed from a loaded
+  runtime. Ordinary launch and owned server refresh need no extra approval.
+- **Identity.** Thread, project, workspace, account scope, role binding and browser attachment are
+  distinct; private role-thread URLs stay local and untracked (never in `ROLES.json`).
+- **Sol source handoff (offline):** durable thread journal/M2 integration, exact-thread read/connect, candidate chat-index POST, pre-typing cancellation fix, and nine Studio conversation tools via `bun run -- node bin/studio.mjs tools ...` on the same injected runtime, with no automatic retries. Focused evidence: cancellation 87/87 at 19:17:37–19:17:51Z; tools 42/42 at 19:23:26–19:23:41Z. Parent full suite after those changes: **1,187 pass / 0 fail / 1 existing TODO / 1,188 total** (`studio-parent-final-before-push.log`). That run covers the cancellation fix and nine-tool registration. The 1,126-pass and 1,176-pass logs, and the Chat UI 107/107 then 57 counts, predate this handoff. No server refresh or live send. Dedicated Studio Chrome and LOGIN REQUIRED were observed at 18:24:48 UTC; current login and whether the running runtime loaded this source are unverified. Nothing here is LIVE VERIFIED or a live multi-turn acceptance. The original five owner files stay excluded. `vivim-final` is owner-owned and eligible for reuse; deeper UI/sync/slave-profile lanes were cancelled for Claude credit before completion, which is not a completed assessment and not a reuse ban.

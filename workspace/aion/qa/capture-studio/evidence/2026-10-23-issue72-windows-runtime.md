@@ -8,6 +8,10 @@
 - `LOCAL-INTEGRATION` is treated as the owner's scoped execution assignment; no canonical role alias was established. Bootstrap context was reviewed without inventing a duplicate role, changing another role's tracker, or modifying global memory.
 - Publishing includes only the eight explicitly changed application/test files and this sanitized receipt. The five pre-existing owner files are excluded; private session content and raw logs remain local.
 
+## Later offline checkpoint — not this runtime receipt
+
+A later 2026-10-23 source handoff (durable thread journal/M2, exact-thread read/connect, candidate chat-index POST, pre-typing cancellation fix, nine Studio tools via `bun run -- node bin/studio.mjs tools ...`, same injected runtime, no retries) is outside the L0/L1 evidence above. Parent `bun run test` after that handoff: **1,187 passed, 0 failed, 1 existing TODO, 1,188 total** (log `studio-parent-final-before-push.log`). That count covers the cancellation fix and nine-tool registration. Focused offline evidence: cancellation 87/87 at 19:17:37–19:17:51Z; tools 42/42 at 19:23:26–19:23:41Z. This does not refresh PID 7996 or any server in this receipt, does not prove a running runtime loaded that later source, and is not live ChatGPT acceptance. No server refresh or live send was part of that checkpoint. Current login is unverified. The original five owner files remain excluded. `vivim-final` is owner-owned and eligible for reuse; deeper UI/sync/slave-profile lanes were cancelled for Claude credit before completion.
+
 **Executor receipt, not independent QA acceptance.** Source HEAD `4fb16b2a9de062e4accdb8ac457665fe0607be52`, plus the documented uncommitted source/test changes below and five pre-existing owner files. Windows; native Node `v24.22.1`; Bun `1.4.2`; disposable Chrome `155.0.8059.85`. No Playwright/Puppeteer, logged-in site sends, commits, pushes or issue publication.
 
 ## Follow-up — synthetic browser fallback/privacy tests

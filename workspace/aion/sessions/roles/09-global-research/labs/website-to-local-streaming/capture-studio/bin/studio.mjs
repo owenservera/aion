@@ -29,6 +29,7 @@ import './commands/drive.mjs';
 import './commands/chat.mjs';
 import './commands/library.mjs';
 import './commands/campaign.mjs';
+import './commands/tools.mjs';
 
 // A closed pipe (studio … | head) is a normal way to finish, not an error.
 process.stdout.on('error', (e) => { if (e.code === 'EPIPE') process.exit(0); });

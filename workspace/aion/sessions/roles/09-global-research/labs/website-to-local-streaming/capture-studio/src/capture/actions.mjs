@@ -182,7 +182,7 @@ export async function clearComposer(page) {
 // used instead of setting value/textContent, because rich composers (ProseMirror, Lexical, Slate)
 // keep their own editor state: a DOM write shows text the app does not believe exists, so Enter
 // silently does nothing. The pacing itself lives in src/capture/human.mjs.
-export async function typeText(page, text, { human = true, pace = DEFAULT_PACE } = {}) {
+export async function typeText(page, text, { human = true, pace = DEFAULT_PACE, beforeInsert } = {}) {
   const s = String(text ?? '');
   if (!s) return { ok: false, typed: '', method: 'none' };
 
@@ -200,7 +200,7 @@ export async function typeText(page, text, { human = true, pace = DEFAULT_PACE }
   if (!focus.ok || !focus.value?.ok) return { ok: false, typed: '', method: 'none', reason: focus.ok ? 'no composer focused or remembered' : focus.error };
 
   const before = await composerText(page);
-  const res = await humanType(page, s, { pace, human });
+  const res = await humanType(page, s, { pace, human, beforeInsert });
   const after = res.typed ?? await composerText(page);
   return {
     ok: !!res.ok,
@@ -319,6 +319,7 @@ export async function sendMessage(page, adapter = null, deps = {}) {
 
   let dispatchError = null;
   // Final synchronous latch; button dispatch also rechecks after its asynchronous box lookup.
+  if (d.beforeDispatch) await d.beforeDispatch();
   if (d.canDispatch && !d.canDispatch()) return notAttempted(method, 'SUBMISSION_STOPPED');
   try {
     if (method === 'enter') {

@@ -12,6 +12,7 @@ import { EventFeed, EVENT_TYPES } from './event-feed.mjs';
 import { Webhooks } from './webhooks.mjs';
 import { registerCapabilities, LIVE_EVENTS } from './capabilities.mjs';
 import { problem, json, integer, text, object, storageName, timestamp, page, datasetPage } from './http.mjs';
+import { registerConversationTools } from './conversation-tools.mjs';
 
 const str = { type: 'string' };
 const pagination = { offset: { type: 'integer', minimum: 0, maximum: 1000000 }, limit: { type: 'integer', minimum: 1, maximum: 1000 } };
@@ -75,9 +76,10 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
     && (!q.q || [s.id, s.site, s.target?.title, s.target?.url].some((v) => String(v ?? '').toLowerCase().includes(String(q.q).toLowerCase()))));
   const profileFor = (s) => s.kv.get('PROFILE_SNAPSHOT') ?? profileStore.load(s.meta.profile?.name ?? 'generic');
 
-  function add(method, routePath, summary, handler, { query = {}, body, tool, contentType = 'application/json' } = {}) {
-    routes.push({ method, path: '/api/v1' + routePath, parts: ('/api/v1' + routePath).split('/'), summary, handler, query, body, tool, contentType });
+  function add(method, routePath, summary, handler, { query = {}, body, tool, contentType = 'application/json', annotations, inputSchema, pathParameters = {}, successStatus = 200 } = {}) {
+    routes.push({ method, path: '/api/v1' + routePath, parts: ('/api/v1' + routePath).split('/'), summary, handler, query, body, tool, contentType, annotations, inputSchema, pathParameters, successStatus });
   }
+  registerConversationTools({ add, conversationRuntime });
 
   add('GET', '/health', 'Studio process health without probing Chrome', () => ({ version: VERSION, apiVersion: 1, time: new Date().toISOString(), recorder: recorder.status(), events: feed.info() }), { tool: 'studio_health' });
   add('GET', '/sessions', 'List and filter saved recordings', ({ q }) => page(selectedSessions(q), q), { query: sessionQuery, tool: 'list_sessions' });
@@ -290,8 +292,8 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
   function toolsManifest() {
     return { schema: 'capture-studio.tools/1', protocol: 'MCP-style, not full MCP', tools: routes.filter((r) => r.tool).map((r) => ({
       name: r.tool, description: r.summary,
-      inputSchema: objectSchema({ ...Object.fromEntries(r.parts.filter((s) => s.startsWith('{')).map((s) => [s.slice(1, -1), str])), ...querySchema(r), ...(r.body?.properties ?? {}) }, [...r.parts.filter((s) => s.startsWith('{')).map((s) => s.slice(1, -1)), ...(r.body?.required ?? []), ...(r.query?.required ?? [])]),
-      annotations: { readOnlyHint: r.method === 'GET', destructiveHint: r.method === 'DELETE', idempotentHint: r.method === 'GET', openWorldHint: false },
+      inputSchema: r.inputSchema ?? objectSchema({ ...Object.fromEntries(r.parts.filter((s) => s.startsWith('{')).map((s) => [s.slice(1, -1), str])), ...querySchema(r), ...(r.body?.properties ?? {}) }, [...r.parts.filter((s) => s.startsWith('{')).map((s) => s.slice(1, -1)), ...(r.body?.required ?? []), ...(r.query?.required ?? [])]),
+      annotations: { readOnlyHint: r.method === 'GET', destructiveHint: r.method === 'DELETE', idempotentHint: r.method === 'GET', openWorldHint: false, ...r.annotations },
       http: { method: r.method, path: r.path, contentType: r.contentType },
     })) };
   }
@@ -315,11 +317,11 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       servers: [{ url: `http://127.0.0.1:${getPort()}` }], security: getAccessMode() === 'local' ? [] : [{ StudioToken: [] }, { StudioCookie: [] }],
       components: { securitySchemes: { StudioToken: { type: 'apiKey', in: 'header', name: 'x-studio-token' }, StudioCookie: { type: 'apiKey', in: 'cookie', name: 'studio_token' } } }, paths: {} };
     for (const r of routes) {
-      const parameters = [...r.parts.filter((s) => s.startsWith('{')).map((s) => ({ name: s.slice(1, -1), in: 'path', required: true, schema: str })), ...Object.entries(querySchema(r)).map(([name, schema]) => ({ name, in: 'query', required: (r.query?.required ?? []).includes(name), schema }))];
+      const parameters = [...r.parts.filter((s) => s.startsWith('{')).map((s) => ({ name: s.slice(1, -1), in: 'path', required: true, schema: r.pathParameters[s.slice(1, -1)] ?? str })), ...Object.entries(querySchema(r)).map(([name, schema]) => ({ name, in: 'query', required: (r.query?.required ?? []).includes(name), schema }))];
       if (r.contentType === 'text/event-stream' && r.method === 'GET') parameters.push({ name: 'Last-Event-ID', in: 'header', schema: str });
       (spec.paths[r.path] ??= {})[r.method.toLowerCase()] = { summary: r.summary, operationId: r.tool ?? `${r.method.toLowerCase()}_${r.path.replace(/[^a-z0-9]+/gi, '_')}`, parameters,
         ...(r.body ? { requestBody: { required: true, content: { 'application/json': { schema: r.body } } } } : {}),
-        responses: { 200: { description: r.contentType === 'text/event-stream' ? 'SSE stream; failures after headers are error events. Derive progress ends with complete or error.' : 'Success', content: { [r.contentType]: { schema: {} } } }, 400: { description: 'Invalid request' }, 401: { description: 'Studio authentication required' }, 404: { description: 'Resource unavailable' }, 409: { description: 'State/revision conflict or derived knowledge unavailable' }, 428: { description: 'Learner expectedRevision required' }, 429: { description: 'Integration capacity exceeded' }, 501: { description: 'Optional capability module or export is not available yet' }, 503: { description: 'Studio is closing' } } };
+        responses: { [r.successStatus]: { description: r.contentType === 'text/event-stream' ? 'SSE stream; failures after headers are error events. Derive progress ends with complete or error.' : 'Success', content: { [r.contentType]: { schema: {} } } }, 400: { description: 'Invalid request' }, 401: { description: 'Studio authentication required' }, 404: { description: 'Resource unavailable' }, 409: { description: 'State/revision conflict or derived knowledge unavailable' }, 428: { description: 'Learner expectedRevision required' }, 429: { description: 'Integration capacity exceeded' }, 501: { description: 'Optional capability module or export is not available yet' }, 503: { description: 'Studio is closing' } } };
     }
     spec.paths['/live/view'] = { $ref: '#/paths/~1api~1v1~1live~1view' };
     return spec;
@@ -341,7 +343,7 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       const p = Object.fromEntries(route.parts.flatMap((v, i) => v.startsWith('{') ? [[v.slice(1, -1), parts[i]]] : []));
       const q = Object.fromEntries(url.searchParams);
       const data = await route.handler({ req, res, p, q, body: object(body) });
-      if (!res.headersSent) json(res, 200, data);
+      if (!res.headersSent) json(res, route.successStatus, data);
     } catch (e) {
       if (res.headersSent) res.destroy();
       else json(res, e.status ?? 500, { error: e.message, code: e.code ?? 'INTERNAL_ERROR' });

@@ -5,14 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { createConversationService } from '../../src/capture/conversation-service.mjs';
 
-const binding = { targetId: 'exact-target', origin: 'https://example.test', ownedByStudio: true };
+const thread = { kind: 'chatgpt-c', id: '11111111-1111-4111-8111-111111111111', ref: 'chatgpt-c:11111111-1111-4111-8111-111111111111' };
+const binding = { targetId: 'exact-target', origin: 'https://example.test', ownedByStudio: true, thread };
 function fixture(t, overrides = {}, io = fs) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'conversation-offline-'));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const calls = [];
   let sendArgs;
   const observation = (args = sendArgs) => ({ binding: { ...binding }, evidence: {
-    turnId: args.turnId, payloadDigest: args.payloadDigest, sessionId: 'session-1', sequence: 11, kind: 'outgoing-request', source: 'network',
+    turnId: args.turnId, payloadDigest: args.payloadDigest, sessionId: 'session-1', sequence: 11, kind: 'outgoing-request', source: 'network', identity: 'request-1',
   } });
   const adapter = {
     async connect(b) { calls.push('connect'); return { binding: { ...b }, sessionId: 'session-1' }; },
@@ -109,11 +110,11 @@ test('stale revision and missing confirmation perform no actions', async (t) => 
   assert.deepEqual(f.calls, ['connect']); assert.equal(f.service.read().attempts.length, 0);
 });
 
-test('different keys cannot bypass one turn cap under concurrency', async (t) => {
+test('different keys cannot bypass unresolved thread admission under concurrency', async (t) => {
   const f = fixture(t); await f.connect();
   const results = await Promise.allSettled([f.submit(), f.submit({ key: 'key-2' })]);
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
-  await rejects(f.submit({ key: 'key-3' }), 'ONE_TURN_LIMIT');
+  await rejects(f.submit({ key: 'key-3' }), 'THREAD_FENCED');
   assert.equal(f.calls.filter((v) => v === 'type').length, 1);
 });
 
@@ -139,7 +140,7 @@ test('persistence failure preparing prevents every submission adapter action', a
   let fail = false;
   const f = fixture(t, {}, { ...fs, renameSync(...args) { if (fail) throw new Error('disk'); fs.renameSync(...args); } });
   await f.connect(); fail = true;
-  await rejects(f.submit(), 'PERSISTENCE_FAILED_REOPEN_REQUIRED');
+  await rejects(f.submit(), 'JOURNAL_PERSISTENCE_FAILED_REOPEN_REQUIRED');
   assert.deepEqual(f.calls, ['connect']);
 });
 
@@ -191,7 +192,7 @@ for (const phase of ['preparing', 'dispatching']) {
     assert.equal(state.state, 'needs-reconciliation');
     assert.equal(state.attempts[0].phase, phase === 'preparing' ? 'needs-reconciliation' : 'uncertain');
     assert.deepEqual(f.calls, []);
-    await rejects(recovered.submit({ key: 'different', prompt: 'x', confirm: true, expectedRevision: state.revision }), 'ONE_TURN_LIMIT');
+    await rejects(recovered.submit({ key: 'different', prompt: 'x', confirm: true, expectedRevision: state.revision }), 'THREAD_FENCED');
     assert.deepEqual(f.calls, []);
   });
 }
@@ -227,10 +228,10 @@ test('uncertain send blocks fresh keys even after a read-only check finds no con
   await f.connect();
   const uncertain = await f.submit();
   assert.equal(uncertain.send.state, 'uncertain');
-  await rejects(f.submit({ key: 'deliberate-new-key' }), 'ONE_TURN_LIMIT');
+  await rejects(f.submit({ key: 'deliberate-new-key' }), 'THREAD_FENCED');
   const observed = await f.service.reconcile({ expectedRevision: f.service.read().revision });
   assert.equal(observed.attempts[0].send.state, 'uncertain');
-  await rejects(f.submit({ key: 'another-key' }), 'ONE_TURN_LIMIT');
+  await rejects(f.submit({ key: 'another-key' }), 'THREAD_FENCED');
   assert.equal(sends, 1, 'no second external dispatch');
 });
 
@@ -334,4 +335,44 @@ test('F1 service: coded notDispatched error records not-attempted, never uncerta
     assert.equal(f.calls.filter((c) => c === 'submit').length, 1);
     if (send === 'not-attempted') assert.equal(f.service.read().attempts[0].reason, 'SEND_NOT_DISPATCHED');
   }
+});
+
+for (const stopAt of ['registered', 'awaiting-preflight']) test(`stop at ${stopAt} positively proves no effects and permits a new conversation/key after finish`, async (t) => {
+  let entered, release;
+  const entering = new Promise((resolve) => { entered = resolve; });
+  const waiting = new Promise((resolve) => { release = resolve; });
+  const f = fixture(t, stopAt === 'awaiting-preflight' ? { async preflight(b) {
+    f.calls.push('preflight'); entered(); await waiting;
+    return { binding: b, draft: { present: false, chars: 0 }, boundary: { sequence: 10, transcriptCount: 3 } };
+  } } : {});
+  await f.connect();
+  const pending = f.service.submit({ key: 'stopped-key', prompt: 'synthetic stopped', confirm: true, expectedRevision: f.service.read().revision },
+    { registered: () => { if (stopAt === 'registered') f.service.stopSubmission(); } });
+  if (stopAt === 'awaiting-preflight') { await entering; f.service.stopSubmission(); release(); }
+  const stopped = await pending;
+  assert.equal(stopped.journal.phase, 'blocked');
+  assert.equal(stopped.journal.preEffect.typing, 'not-executed');
+  assert.equal(stopped.journal.preEffect.dispatch, 'not-executed');
+  assert.equal(stopped.send.state, 'not-attempted'); assert.equal(stopped.typingStartedAt, undefined);
+  assert.equal(f.calls.includes('type'), false); assert.equal(f.calls.includes('submit'), false);
+  await f.service.finish();
+  const next = createConversationService({ ...f.options, id: `after-${stopAt}` });
+  await next.connect({ ...binding, expectedRevision: 0 });
+  const sent = await next.submit({ key: 'genuinely-new-key', prompt: 'synthetic follow-up', confirm: true, expectedRevision: next.read().revision });
+  assert.equal(sent.send.state, 'observed');
+  assert.equal(f.calls.filter((c) => c === 'type').length, 1); assert.equal(f.calls.filter((c) => c === 'submit').length, 1);
+});
+
+test('stop after typing intent/effect never receives pre-effect proof and remains fenced after finish/new record', async (t) => {
+  const f = fixture(t, { async type() { f.calls.push('type'); f.service.stopSubmission(); } });
+  await f.connect(); const stopped = await f.submit();
+  assert.equal(stopped.phase, 'needs-reconciliation'); assert.ok(stopped.typingStartedAt);
+  assert.equal(stopped.journal.preEffect, null); assert.notEqual(stopped.journal.phase, 'blocked');
+  assert.equal(f.service.read().uncertainty, 'partial-draft-possible');
+  assert.equal(f.calls.includes('submit'), false);
+  await f.service.finish();
+  const next = createConversationService({ ...f.options, id: 'after-posttyping-stop' });
+  await next.connect({ ...binding, expectedRevision: 0 });
+  await rejects(next.submit({ key: 'new-key', prompt: 'synthetic follow-up', confirm: true, expectedRevision: next.read().revision }), 'THREAD_FENCED');
+  assert.equal(f.calls.filter((c) => c === 'type').length, 1); assert.equal(f.calls.includes('submit'), false);
 });

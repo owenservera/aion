@@ -5,9 +5,12 @@ import { listSessions } from '../store/session.mjs';
 import { Recorder } from './recorder.mjs';
 import { evaluate, findComposer, focusComposer, typeText, sendMessage, sendState, readTranscript, waitForCompletion, detectAuthWall, detectSiteFailure } from './actions.mjs';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { parseThread, sameThread, transcriptExpression, turnObservationExpression, boundTranscript, TRANSCRIPT_LIMITS } from './conversation-thread.mjs';
 
 const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const problem = (code) => Object.assign(new Error(code), { code, status: 409 });
+const digest = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
+export const readTurnPage = (page, adapter) => evaluate(page, turnObservationExpression(adapter));
 
 // Specific user-authored nodes, not generic markdown/sidebar text. Keep duplicate text: two
 // identical prompts are two turns. Require the entire old prefix unchanged before attributing one.
@@ -26,8 +29,10 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
   freshTab, conversationId, ownerToken, maxBytes = 0, dependencies = {} } = {}) {
   const d = { listTargets, listSessions, Recorder, fetch: globalThis.fetch, evaluate, findComposer, focusComposer,
     typeText, sendMessage, sendState, readTranscript, waitForCompletion, readUserTurns, detectAuthWall, detectSiteFailure,
-    sleep, readinessTimeoutMs: 20000, readinessPollMs: 200, fetchTimeoutMs: 10000, connectGraceMs: 2000, ...dependencies };
-  let recorder, binding, attempt, baselineReply, stopResult, tap;
+    readTurnPage, sleep, replyPollMs: 250, replyTimeoutMs: 120000,
+    readinessTimeoutMs: 20000, readinessPollMs: 200, fetchTimeoutMs: 10000, connectGraceMs: 2000, ...dependencies };
+  let recorder, binding, pending, stopResult, tap;
+  const attempts = new Map();
   let mayOwnResources = false;
   let submissionStopped = false, connectAborted = false, finalized = false, createdTargetId = null, tabRequested = false;
   const waiting = new AbortController();
@@ -43,6 +48,12 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
     const response = await httpFetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(targetId)}`);
     if (!response.ok) throw problem('TAB_CLOSE_UNCONFIRMED');
   }
+  // A bound thread must match from both sources: the DevTools target URL and the page's own location.
+  const threadMatches = (url) => !binding.thread || sameThread(parseThread(siteAdapter.id, url), binding.thread);
+  async function pageThreadMatches() {
+    if (!binding.thread) return true;
+    return threadMatches(`${binding.origin}${await d.evaluate(recorder.page, 'location.pathname')}`);
+  }
   async function readiness(end) {
     const blocked = (reason, draft = { present: null, chars: null }) => ({ ready: false, reason, draft });
     do {
@@ -55,6 +66,8 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
         const pageOrigin = await d.evaluate(recorder.page, 'location.origin');
         if (pageOrigin !== binding.origin) {
           if (!(freshTab && pageOrigin === 'null')) return blocked('BINDING_CHANGED');
+        } else if (!threadMatches(target.url) || !(await pageThreadMatches())) {
+          return blocked('BINDING_CHANGED');
         } else {
           const composer = await d.findComposer(recorder.page, siteAdapter);
           const auth = await d.detectAuthWall(recorder.page, siteAdapter);
@@ -79,23 +92,71 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
     if (!recorder?.page || recorder.state !== 'recording') throw problem('CAPTURE_NOT_ACTIVE');
     const targets = await d.listTargets({ port });
     const target = targets.find((t) => t.id === binding.targetId);
-    if (!target || new URL(target.url).origin !== binding.origin) throw problem('BINDING_CHANGED');
+    if (!target || new URL(target.url).origin !== binding.origin || !threadMatches(target.url)) throw problem('BINDING_CHANGED');
     if (await d.evaluate(recorder.page, 'location.origin') !== binding.origin) throw problem('BINDING_CHANGED');
+    if (!(await pageThreadMatches())) throw problem('BINDING_CHANGED');
     return { ...binding };
   }
-  async function observation(args) {
+  async function pageState() {
     await check();
-    const saved = attempt ?? recorder.session.kv.get('CONVERSATION_ATTEMPT');
-    if (!saved || saved.turnId !== args.turnId || saved.payloadDigest !== args.payloadDigest) return null;
-    const users = await d.readUserTurns(recorder.page);
-    if (!Array.isArray(users) || users.length <= saved.users.length
-      || !saved.users.every((text, i) => users[i] === text)
-      || users.length !== saved.users.length + 1 || users.at(-1) !== saved.prompt.replace(/\r\n/g, '\n')) return null;
-    const sequence = recorder.recordConversationObservation({ source: 'page', kind: 'new-user-turn', binding,
-      turnId: args.turnId, payloadDigest: args.payloadDigest, userIndex: users.length - 1,
-      text: users.at(-1), baselineSequence: saved.boundary.sequence });
-    return { binding: { ...binding }, evidence: { turnId: args.turnId, payloadDigest: args.payloadDigest,
-      sessionId: recorder.session.id, sequence, kind: 'new-user-turn', source: 'page' } };
+    const page = await d.readTurnPage(recorder.page, siteAdapter);
+    await check();
+    if (!page || page.origin !== binding.origin || !threadMatches(`${page.origin}${page.pathname}`) || !Array.isArray(page.messages)) throw problem('BINDING_CHANGED');
+    if (page.messages.some((m) => !m || !['user', 'assistant'].includes(m.role) || typeof m.text !== 'string'
+      || typeof m.id !== 'string' || !m.id || m.id.length > 200) || new Set(page.messages.map((m) => m.id)).size !== page.messages.length) throw problem('MESSAGE_IDENTITY_UNAVAILABLE');
+    return page;
+  }
+  const idleControls = (c) => c?.observed === true && ['idle', 'terminal'].includes(c.state)
+    && c.idleControlPresent === true && c.stopPresent === false && c.composerEnabled === true;
+  const samePrefix = (page, saved) => saved.baseline.every((m, i) => page.messages[i]?.id === m.id
+    && page.messages[i]?.role === m.role && page.messages[i]?.text === m.text);
+  const persist = (record) => recorder.recordConversationObservation({ ...record, binding: structuredClone(binding) });
+  async function observation(args) {
+    const page = await pageState(), saved = attempts.get(args.turnId);
+    if (!saved || saved.payloadDigest !== args.payloadDigest || !samePrefix(page, saved)) return null;
+    const user = page.messages[saved.baseline.length];
+    if (!user || user.role !== 'user' || saved.baseline.some((m) => m.id === user.id) || user.text !== saved.prompt.replace(/\r\n/g, '\n')
+      || page.messages.slice(saved.baseline.length + 1).some((m) => m.role === 'user')) return null;
+    if (saved.outgoing) return { binding: structuredClone(binding), evidence: saved.outgoing };
+    const sequence = persist({ source: 'page', kind: 'new-user-turn', identity: user.id, turnId: saved.turnId,
+      payloadDigest: saved.payloadDigest, text: user.text, baselineSequence: saved.boundary.sequence });
+    saved.outgoing = { turnId: saved.turnId, payloadDigest: saved.payloadDigest, sessionId: recorder.session.id,
+      sequence, kind: 'new-user-turn', source: 'page', identity: user.id };
+    return { binding: structuredClone(binding), evidence: saved.outgoing };
+  }
+  function sampleReply(saved, message, controls) {
+    const contentDigest = digest(message.text), prior = saved.reply;
+    if (prior && prior.identity !== message.id) throw problem('REPLY_IDENTITY_CHANGED');
+    const revision = prior ? prior.revision + (prior.contentDigest !== contentDigest ? 1 : 0) : 1;
+    const metadata = { identity: message.id, revision, contentDigest, chars: message.text.length };
+    const sequence = persist({ source: 'page', kind: 'reply-sample', turnId: saved.turnId, payloadDigest: saved.payloadDigest,
+      ...metadata, text: message.text, controls });
+    const evidence = { turnId: saved.turnId, payloadDigest: saved.payloadDigest, sessionId: recorder.session.id,
+      sequence, kind: 'assistant-reply', source: 'page', ...metadata };
+    if (!prior || prior.contentDigest !== contentDigest) saved.samples = [];
+    saved.reply = { ...evidence, text: message.text };
+    saved.samples.push({ sequence, ...metadata }); saved.samples = saved.samples.slice(-2);
+    return { turnId: saved.turnId, binding: structuredClone(binding), state: 'streaming', text: message.text, evidence };
+  }
+  function auditReplies(page) {
+    const updates = [];
+    for (const saved of attempts.values()) {
+      if (!saved.reply) continue;
+      const message = page.messages.find((m) => m.id === saved.reply.identity && m.role === 'assistant');
+      if (!message) throw problem('PRIOR_REPLY_UNAVAILABLE');
+      if (digest(message.text) !== saved.reply.contentDigest) updates.push(sampleReply(saved, message, page.controls));
+    }
+    return updates;
+  }
+  async function effectPreflight(saved, beforeEffect, empty) {
+    if (!binding.thread) throw problem('THREAD_IDENTITY_UNVERIFIED');
+    const page = await pageState(), priorReplies = auditReplies(page);
+    if (priorReplies.length) throw Object.assign(problem('PRIOR_REPLY_CHANGED'), { priorReplies });
+    if (!idleControls(page.controls)) throw problem('GENERATION_CONTROLS_UNAVAILABLE_OR_BUSY');
+    if (typeof page.draft?.text !== 'string' || page.draft.text !== (empty ? '' : saved.prompt.replace(/\r\n/g, '\n'))) throw problem('COMPOSER_READBACK_MISMATCH');
+    if (!empty && !samePrefix(page, saved)) throw problem('TURN_BOUNDARY_CHANGED');
+    if (submissionStopped) throw problem('SUBMISSION_STOPPED');
+    beforeEffect?.(page); // Fresh persisted thread+reply fence check is LAST, after asynchronous page inspection.
   }
   async function connectSteps(initial, hooks, startedAt) {
     const aborted = () => { if (connectAborted) throw problem('CONNECT_ABORTED'); };
@@ -112,7 +173,7 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
     } else {
       const target = (await d.listTargets({ port })).find((t) => t.id === targetId);
       aborted();
-      if (!target || new URL(target.url).origin !== binding.origin) throw problem('BINDING_CHANGED');
+      if (!target || new URL(target.url).origin !== binding.origin || !threadMatches(target.url)) throw problem('BINDING_CHANGED');
       // Never replace/stop an unknown recorder, including an interrupted recorder with no proof
       // of finalization. Only the selected exact target is guarded; unrelated captures continue.
       if (d.listSessions(paths.sessions).some((s) => s.target?.id === targetId && ['recording', 'stopping'].includes(s.status))) throw problem('TARGET_RECORDER_BUSY');
@@ -169,36 +230,54 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
       const timeout = new Promise((_, reject) => { timer = setTimeout(() => { connectAborted = true; reject(problem('CONNECT_TIMEOUT')); }, d.readinessTimeoutMs + d.connectGraceMs); });
       run.catch(() => {});
       try { return await Promise.race([run, timeout]); } finally { clearTimeout(timer); }
-    },    async preflight() {
+    },    async preflight(_, { priorTurns = [] } = {}) {
       await check();
+      if (!binding.thread) throw problem('THREAD_IDENTITY_UNVERIFIED');
       const composer = await d.findComposer(recorder.page, siteAdapter);
       if ((await d.detectAuthWall(recorder.page, siteAdapter)).blocked) throw problem('AUTH_WALL');
       if ((await d.detectSiteFailure(recorder.page, siteAdapter)).failed) throw problem('SITE_GATE');
       if (!composer.found) throw problem('COMPOSER_UNAVAILABLE');
       const state = await d.sendState(recorder.page, siteAdapter);
       if (!state.evalOk) throw problem('COMPOSER_UNREADABLE');
-      const users = await d.readUserTurns(recorder.page);
-      if (!Array.isArray(users)) throw problem('USER_TURNS_UNREADABLE');
-      baselineReply = await d.readTranscript(recorder.page, siteAdapter);
-      attempt = { users, boundary: { sequence: recorder.session.raw.seq, transcriptCount: users.length } };
-      return { binding: { ...binding }, draft: { present: state.draftChars > 0, chars: state.draftChars }, boundary: attempt.boundary };
+      const page = await pageState(), priorReplies = auditReplies(page);
+      const invalidatedTurnIds = priorTurns.filter((t) => t.reply.state === 'observed' && !attempts.has(t.id)).filter((t) => {
+        const r = t.reply.evidence, message = page.messages.find((m) => m.id === r.identity && m.role === 'assistant');
+        return !message || digest(message.text) !== r.contentDigest || message.text.length !== r.chars;
+      }).map((t) => t.id);
+      if (invalidatedTurnIds.length) {
+        persist({ source: 'page', kind: 'prior-reply-invalidated', turnIds: invalidatedTurnIds });
+        throw Object.assign(problem('PRIOR_REPLY_CHANGED'), { invalidatedTurnIds });
+      }
+      const boundary = { sessionId: recorder.session.id, sequence: recorder.session.raw.seq, transcriptCount: page.messages.length };
+      pending = { baseline: structuredClone(page.messages), boundary };
+      return { binding: { ...binding }, draft: { present: page.draft?.chars > 0, chars: page.draft?.chars }, boundary,
+        controls: page.controls, priorReplies, ready: idleControls(page.controls) && !priorReplies.length };
     },
-    async type({ prompt, turnId }) {
+    async type({ prompt, turnId, beforeEffect }) {
       await check();
+      if (!binding.thread || !pending) throw problem('THREAD_IDENTITY_UNVERIFIED');
       await recorder.page.send('Page.bringToFront', {}); // Exact bound target only.
       const focus = await d.focusComposer(recorder.page, siteAdapter);
       if (!focus.ok) throw problem('COMPOSER_NOT_FOCUSED');
       const state = await d.sendState(recorder.page, siteAdapter);
       if (!state.evalOk || state.draftChars !== 0) throw problem('DRAFT_PRESENT');
-      attempt = { ...attempt, turnId, prompt, payloadDigest: createHash('sha256').update(prompt).digest('hex') };
-      recorder.session.kv.set('CONVERSATION_ATTEMPT', attempt); // Protected local capture storage only.
-      const typed = await d.typeText(recorder.page, prompt);
-      if (!typed.ok || norm(typed.typed) !== norm(prompt)) throw problem('TYPING_UNCONFIRMED');
+      const saved = { ...pending, turnId, prompt, payloadDigest: digest(prompt), samples: [] };
+      attempts.set(turnId, saved);
+      recorder.session.kv.set(`CONVERSATION_ATTEMPT:${turnId}`, saved); // Protected local capture storage only.
+      const typed = await d.typeText(recorder.page, prompt, { human: false,
+        beforeInsert: () => effectPreflight(saved, beforeEffect, true) });
+      await check();
+      const after = await pageState();
+      if (!typed.ok || typed.typed?.replace(/\r\n/g, '\n') !== prompt.replace(/\r\n/g, '\n')
+        || after.draft?.text !== prompt.replace(/\r\n/g, '\n')) throw problem('TYPING_UNCONFIRMED');
     },
     async submit(args) {
       await check();
+      const saved = attempts.get(args.turnId);
+      if (!saved || saved.payloadDigest !== args.payloadDigest) throw problem('TURN_NOT_FOUND');
       if (submissionStopped) throw Object.assign(problem('SUBMISSION_STOPPED'), { notDispatched: true });
-      const result = await d.sendMessage(recorder.page, siteAdapter, { canDispatch: () => !submissionStopped });
+      const result = await d.sendMessage(recorder.page, siteAdapter, { canDispatch: () => !submissionStopped,
+        beforeDispatch: () => effectPreflight(saved, args.beforeEffect, false) });
       if (result?.dispatched === false) {
         if (submissionStopped) throw Object.assign(problem('SUBMISSION_STOPPED'), { notDispatched: true });
         // Proven not dispatched = sendMessage's own preflight/button/latch refusal. Anything else
@@ -208,12 +287,38 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
       return observation(args);
     },
     reconcile: observation,
-    async readReply(onUpdate) {
-      if (waiting.signal.aborted) return { state: 'interrupted', text: '' };
+    async readReply(onUpdate, args = {}) {
+      const saved = attempts.get(args.turnId);
+      if (!saved?.outgoing || saved.payloadDigest !== args.payloadDigest) throw problem('ATTRIBUTABLE_DELIVERY_REQUIRED');
+      const end = Date.now() + d.replyTimeoutMs;
+      while (!waiting.signal.aborted && Date.now() < end) {
+        const page = await pageState(), index = page.messages.findIndex((m) => m.id === saved.outgoing.identity && m.role === 'user');
+        const candidate = index < 0 ? null : page.messages[index + 1];
+        if (candidate?.role === 'assistant' && !saved.baseline.some((m) => m.id === candidate.id)) {
+          const update = sampleReply(saved, candidate, page.controls);
+          if (saved.samples.length === 2 && idleControls(page.controls) && candidate.text.length > 0) {
+            update.state = 'ready';
+            update.readiness = { ...update.evidence, kind: 'interactive-ready', source: 'adapter', rule: 'chatgpt-controls-idle', ruleVersion: 1,
+              threadKey: args.threadKey, boundarySequence: saved.boundary.sequence, samples: structuredClone(saved.samples), controls: page.controls };
+          }
+          await onUpdate?.(update);
+          if (update.state === 'ready') return update;
+        }
+        await d.sleep(d.replyPollMs);
+      }
+      return { turnId: saved.turnId, state: waiting.signal.aborted ? 'interrupted' : 'unknown', text: saved.reply?.text ?? '' };
+    },
+    // Zero-send Read of the currently rendered transcript. Observation only: no focus, scroll, typing,
+    // draft change, navigation, send or raw-log write. The binding is verified before and after, and the
+    // page's own location is part of the evaluated result, so a thread switch mid-read discards it.
+    async readTranscript({ maxMessages = TRANSCRIPT_LIMITS.maxMessages.default, maxChars = TRANSCRIPT_LIMITS.maxChars.default, perMessageCap = TRANSCRIPT_LIMITS.perMessageCap } = {}) {
       await check();
-      const result = await d.waitForCompletion(recorder.page, siteAdapter, { baseline: baselineReply?.last ?? '',
-        baseCount: baselineReply?.count ?? 0, exclude: [attempt?.prompt ?? ''], signal: waiting.signal, onUpdate });
-      return { state: result.interrupted ? 'interrupted' : result.done && !result.failed ? 'ready' : 'unknown', text: result.text ?? '' };
+      const result = await d.evaluate(recorder.page, transcriptExpression({ composerSelectors: siteAdapter.composer?.selectors ?? [], perMessageCap: Math.min(perMessageCap, maxChars) }));
+      const after = await check();
+      if (!result || typeof result !== 'object' || !Array.isArray(result.messages)) throw problem('READ_FAILED');
+      if (binding.thread && !threadMatches(`${binding.origin}${String(result?.pathname ?? '')}`)) throw problem('BINDING_CHANGED');
+      if (result?.origin !== undefined && result.origin !== binding.origin) throw problem('BINDING_CHANGED');
+      return { binding: after, transcript: boundTranscript(result, { maxMessages, maxChars, perMessageCap: Math.min(perMessageCap, maxChars) }) };
     },
     stopWaiting() { submissionStopped = true; waiting.abort(); },
     async stop() { await stopCapture(); },
