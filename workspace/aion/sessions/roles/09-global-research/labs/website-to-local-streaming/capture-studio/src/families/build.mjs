@@ -101,7 +101,12 @@ export function collectSessions({ sessionsDir, host, site } = {}) {
         ? { evaluatorVersion: acceptance.evaluator?.version ?? null,
             rawDigest: acceptance.binding?.rawDigest ?? null,
             seqRange: acceptance.binding?.seqRange ?? null,
-            recipe: acceptance.binding?.recipe ?? null }
+            recipe: acceptance.binding?.recipe ?? null,
+            // A consumer can verify which exact derived shape projection was
+            // published without copying raw content into the family record.
+            shapesDigest: shapes ? createHash('sha256')
+              .update(JSON.stringify({ endpoints: shapes.endpoints ?? [], groups: shapes.groups ?? [] }))
+              .digest('hex') : null }
         : null,
       eligible,
       ineligibleReason: !shapes ? 'no-derived-shapes' : !origin ? 'no-exact-page-origin'
