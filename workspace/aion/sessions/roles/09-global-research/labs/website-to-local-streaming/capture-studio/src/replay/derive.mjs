@@ -18,7 +18,7 @@ import { joinStreamToDom } from '../intel/join.mjs';
 import { buildStreamMessages } from './stream-messages.mjs';
 import { applyStreamMap } from '../profiles/stream-map.mjs';
 import { buildStreamComponents, STREAM_COMPONENTS_SCHEMA } from './stream-components.mjs';
-import { evaluateAcceptance, writeAcceptance } from '../capture/acceptance.mjs';
+import { evaluateAcceptance, writeAcceptance, readAcceptance, reuseAcceptedContext } from '../capture/acceptance.mjs';
 import { buildStreamRoles, describeStreamRoles, STREAM_ROLES_SCHEMA, STREAM_ROLE_CLASSIFIER_VERSION } from './stream-role.mjs';
 
 export const STREAM_DOM_JOIN_SCHEMA = 'capture-studio.stream-dom-join/1';
@@ -292,7 +292,12 @@ function withStreamText(links, messages) {
 // is recorded in the receipt line and derive continues.
 async function acceptanceLabel(session, { acceptanceImpl }) {
   try {
-    const doc = await acceptanceImpl({ session, conversation: null });
+    // Valid context-specific gates are not derivable from raw alone. Preserve
+    // them only when readAcceptance proves raw AND DOM bindings still match;
+    // the current offline evaluator refreshes G4–G7 every time.
+    const previous = readAcceptance(session);
+    const evaluated = await acceptanceImpl({ session, conversation: null });
+    const doc = reuseAcceptedContext(previous, evaluated);
     writeAcceptance(session, doc);
     if (doc.verdict === 'unassessed') return `verdict unassessed: ${doc.reasons.join('; ')}`;
     // Consecutive gates with the same value collapse to a range, in gate order: "G4-G6 passed".

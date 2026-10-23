@@ -14,6 +14,8 @@
 // file (name, bytes, sha256), using the same sha256Hex/canonicalJson primitives as store/integrity.mjs
 // and the same per-segment sha256 that raw/manifest.json records. Derived index files are excluded
 // because they are rebuildable. Any byte change to raw evidence changes the digest.
+// DOM_TURNS is also bound by canonical SHA-256, because G1/G2/G7 inspect rendered
+// evidence and rawDigest alone does not detect an edited KV DOM projection.
 //
 // Only writeAcceptance writes, and only <session>/acceptance.json (temp file + fsync + rename).
 // Raw logs and session.json are read, never modified.
@@ -42,6 +44,10 @@ const isKnownRecipe = (recipe) => !!recipe && recipe.id === DEFAULT_RECIPE.id &&
 // ---- binding -------------------------------------------------------------------------------------
 
 // Throws if the raw directory is missing or unreadable. Reads only.
+export function domDigest(session) {
+  return sha256Hex(canonicalJson(session.kv.get('DOM_TURNS', null)));
+}
+
 export function rawDigest(session) {
   const rawDir = session.rawDir;
   if (!existsSync(rawDir)) throw new Error('raw directory missing');
@@ -244,8 +250,8 @@ export async function evaluateAcceptance({ session, conversation = null, recipe 
     return unassessedDoc({ evaluatedAt, binding: emptyBinding, reasons: [`recipe ${recipeBinding.id}@${recipeBinding.version} is not a known recipe`] });
   }
 
-  let before;
-  try { before = rawDigest(session); } catch (e) {
+  let before, domBefore;
+  try { before = rawDigest(session); domBefore = domDigest(session); } catch (e) {
     return unassessedDoc({ evaluatedAt, binding: emptyBinding, reasons: [`raw evidence unreadable: ${e.message}`] });
   }
   let scan, verify, reply;
@@ -256,12 +262,13 @@ export async function evaluateAcceptance({ session, conversation = null, recipe 
   } catch (e) {
     return unassessedDoc({ evaluatedAt, binding: { ...emptyBinding, rawDigest: before.digest }, reasons: [`raw evidence unreadable during evaluation: ${e.message}`] });
   }
-  let after;
-  try { after = rawDigest(session); } catch (e) {
+  let after, domAfter;
+  try { after = rawDigest(session); domAfter = domDigest(session); } catch (e) {
     return unassessedDoc({ evaluatedAt, binding: { ...emptyBinding, rawDigest: before.digest }, reasons: [`raw evidence unreadable after evaluation: ${e.message}`] });
   }
-  if (after.digest !== before.digest) {
-    return unassessedDoc({ evaluatedAt, binding: { ...emptyBinding, rawDigest: before.digest }, reasons: ['raw changed during evaluation; binding mismatch'] });
+  if (after.digest !== before.digest || domAfter !== domBefore) {
+    return unassessedDoc({ evaluatedAt, binding: { ...emptyBinding, rawDigest: before.digest },
+      reasons: ['raw or DOM_TURNS changed during evaluation; binding mismatch'] });
   }
 
   const dom = session.kv.get('DOM_TURNS', null);
@@ -278,7 +285,8 @@ export async function evaluateAcceptance({ session, conversation = null, recipe 
   const reasons = GATE_IDS.filter((id) => gates[id].value !== 'passed').map((id) => `${id} ${gates[id].value}: ${gates[id].reason}`);
   return {
     schema: ACCEPTANCE_SCHEMA, evaluator: { version: EVALUATOR_VERSION }, evaluatedAt,
-    binding: { rawDigest: before.digest, seqRange: [scan.firstSeq, scan.lastSeq], recipe: recipeBinding },
+    binding: { rawDigest: before.digest, domDigest: domBefore,
+      seqRange: [scan.firstSeq, scan.lastSeq], recipe: recipeBinding },
     gates, verdict, reasons,
   };
 }
@@ -340,5 +348,35 @@ export function readAcceptance(session, { recipe = DEFAULT_RECIPE } = {}) {
   let current;
   try { current = rawDigest(session); } catch (e) { return unassessed(`raw evidence unreadable: ${e.message}`); }
   if (current.digest !== sb.rawDigest) return unassessed('raw digest changed since evaluation; re-evaluate');
+  if (typeof sb.domDigest !== 'string') return unassessed('legacy acceptance has no DOM_TURNS binding; re-evaluate');
+  let domNow;
+  try { domNow = domDigest(session); }
+  catch (e) { return unassessed(`DOM_TURNS unreadable: ${e.message}`); }
+  if (domNow !== sb.domDigest) return unassessed('DOM_TURNS changed since evaluation; re-evaluate');
   return stored;
+}
+
+// Re-derivation cannot recover the original drive-time completion attestation
+// from raw alone. Reuse G1–G3 only from a previously accepted and revalidated
+// document with the SAME raw + rendered evidence and recipe. Re-evaluate G4–G7
+// from current derive output; this never upgrades an unassessed source.
+export function reuseAcceptedContext(previous, current) {
+  if (previous?.verdict !== 'capture_accepted' || current?.verdict === 'unassessed'
+    || previous.schema !== ACCEPTANCE_SCHEMA || current.schema !== ACCEPTANCE_SCHEMA
+    || previous.binding?.rawDigest !== current.binding?.rawDigest
+    || previous.binding?.domDigest !== current.binding?.domDigest
+    || previous.binding?.recipe?.id !== current.binding?.recipe?.id
+    || previous.binding?.recipe?.version !== current.binding?.recipe?.version
+    || previous.evaluator?.version !== current.evaluator?.version
+    || !['G1', 'G2', 'G3'].every((id) => previous.gates?.[id]?.value === 'passed')) {
+    return current;
+  }
+  const gates = { ...current.gates, G1: previous.gates.G1,
+    G2: previous.gates.G2, G3: previous.gates.G3 };
+  const verdict = deriveVerdict(gates);
+  const reasons = GATE_IDS.filter((id) => gates[id].value !== 'passed')
+    .map((id) => `${id} ${gates[id].value}: ${gates[id].reason}`);
+  return { ...current, gates, verdict, reasons,
+    contextualEvidence: { kind: 'revalidated-prior-acceptance',
+      previousEvaluatedAt: previous.evaluatedAt ?? null } };
 }
