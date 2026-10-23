@@ -9,6 +9,7 @@ export const CHROME = process.env.CHROME_PATH;
 export const hasChrome = !!CHROME && existsSync(CHROME);
 
 export async function launchHeadless(url, port) {
+  if (await isReachable({ port })) throw new Error(`Refusing an already occupied DevTools port ${port}`);
   const prof = mkdtempSync(path.join(os.tmpdir(), 'cs-chrome-'));
   const child = spawn(CHROME, ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1', `--user-data-dir=${prof}`, '--no-first-run', url], { stdio: 'ignore' });
   let exited = null;
@@ -21,7 +22,15 @@ export async function launchHeadless(url, port) {
   // kill() also removes the throwaway user-data-dir once the browser has actually exited.
   const rmProf = () => { try { rmSync(prof, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); } catch { /* best effort */ } };
   child.once('exit', rmProf);
-  return { child, kill: () => { try { child.kill('SIGKILL'); } catch { /* */ } if (exited !== null) rmProf(); } };
+  return { child, kill: () => {
+    // Kill only this still-owned child handle, never a port-discovered PID or a process-name match.
+    if (exited === null && child.exitCode === null && !child.killed) {
+      if (child.spawnfile !== CHROME || !child.spawnargs.includes(`--user-data-dir=${prof}`)
+        || !child.spawnargs.includes(`--remote-debugging-port=${port}`)) throw new Error('Disposable Chrome ownership mismatch');
+      child.kill('SIGKILL');
+    }
+    if (exited !== null) rmProf();
+  } };
 }
 
 // A separate DevTools client that plays the role of the human using the page.

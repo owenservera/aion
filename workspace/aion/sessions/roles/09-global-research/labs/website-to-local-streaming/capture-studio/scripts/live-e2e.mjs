@@ -34,13 +34,15 @@
 // A summary table is printed and the machine-readable result is written to
 // <data-dir>/live-e2e-result.json. Exit code 0 only when no step failed.
 
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startFixture, CHAT_WORDS, CHAT_WORD_TYPO, ITEMS, CSV_TEXT } from './fixture-site.mjs';
+import { Session } from '../src/store/session.mjs';
+import { readAcceptance, rawDigest } from '../src/capture/acceptance.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -94,6 +96,7 @@ async function main() {
   const spawned = [];
   let fixture = null;
   let chromePid = null;
+  let chromeProfile = null;
   let fatal = false;
 
   const record = (name, status, ms, detail) => {
@@ -157,6 +160,8 @@ async function main() {
 
   let sessionId = null;
   let sessionDir = null;
+  let packetResult = null;
+  let acceptance = null;
   let browserSkipReason = NO_BROWSER ? 'browser steps disabled (--no-browser)' : null;
 
   try {
@@ -164,7 +169,12 @@ async function main() {
     // 1 — fixture site
     // ------------------------------------------------------------------------------------------
     await step('1 fixture site', async () => {
-      fixture = await startFixture({ port: 0 });
+      fixture = await startFixture({ port: 0, outcomeText: [
+        'Summary: Synthetic capture preserved a source-linked local answer.',
+        'Decision: Keep this demonstration on localhost only.',
+        'Action: Review the saved evidence before any real provider test.',
+        'Unknown: Real provider behavior was not tested.',
+      ].join('\n') });
       return { detail: `${fixture.url} (12 SSE words, 8 items, ndjson, csv)` };
     }, { prereq: true });
 
@@ -199,6 +209,10 @@ async function main() {
         const json = safeJson(r.stdout);
         if (!json || json.alreadyRunning === undefined) throw new Error(`launch produced no result (exit ${r.code}): ${oneLine(r.stderr).slice(0, 200)}`);
         chromePid = json.pid ?? null;
+        chromeProfile = json.profileDir ?? null;
+        if (json.alreadyRunning || !chromePid || path.resolve(chromeProfile || '.') !== path.join(dataDir, 'chrome-profile')) {
+          throw new Error('Disposable Chrome ownership was not established; refusing capture');
+        }
         return { detail: `${json.browser ?? 'chrome'} pid ${chromePid ?? 'n/a'} on 127.0.0.1:${cdpPort}` };
       }, { prereq: true });
     }
@@ -268,6 +282,26 @@ async function main() {
       const hits = Array.isArray(sj?.rows) ? sj.rows.length : Number(sj?.count ?? 0);
       if (!hits) throw new Error(`kb search "${CHAT_WORD_TYPO}" returned no hit (exit ${s.code}): ${oneLine(s.stderr).slice(0, 200)}`);
       return { detail: `${hits} hit(s) for the typo "${CHAT_WORD_TYPO}"` };
+    });
+
+    await step('8b bound acceptance and real Core Outcome Packet', async () => {
+      if (!sessionId) return { status: 'SKIP', detail: 'no captured session' };
+      const session = Session.open(path.join(dataDir, 'sessions'), sessionId);
+      acceptance = readAcceptance(session);
+      if (acceptance.verdict !== 'capture_incomplete' || ['G1', 'G2', 'G3'].some((id) => acceptance.gates?.[id]?.value !== 'not-checked')) {
+        throw new Error('capture without drive context must honestly abstain: ' + JSON.stringify(acceptance));
+      }
+      if (['G4', 'G5', 'G6', 'G7'].some((id) => acceptance.gates?.[id]?.value !== 'passed')) throw new Error('offline capture gates did not pass');
+      const before = rawDigest(session).digest;
+      const moduleUrl = pathToFileURL(path.resolve(ROOT, '../../../../../../ops/capture-studio-value-oracle/prototypes/saved-session-outcome.mjs'));
+      const { packetFromSavedSession } = await import(moduleUrl.href);
+      packetResult = await packetFromSavedSession({ sessionId, home: dataDir, outDir: path.join(dataDir, 'outcome-packet') });
+      const p = packetResult.packet;
+      if (!p.answer || p.decisions.length !== 1 || p.actions.length !== 1 || p.evidence.length < 4) throw new Error('labelled synthetic answer missing from real Core packet');
+      if (p.evidence.some((e) => !e.canonical?.verified || !fs.existsSync(e.canonical.local_file))) throw new Error('canonical original DOM source locator not verified');
+      if (p.acceptance.verdict !== acceptance.verdict || !p.unknowns.includes('capture-acceptance-capture_incomplete')) throw new Error('packet lost honest acceptance abstention');
+      if (rawDigest(session).digest !== before) throw new Error('packet generation changed captured raw bytes');
+      return { detail: `Core readAcceptance=${acceptance.verdict}; G4-G7 passed; ${p.evidence.length} original DOM refs verified; ${packetResult.outDir}; raw digest unchanged` };
     });
 
     // ------------------------------------------------------------------------------------------
@@ -369,6 +403,29 @@ async function main() {
       if (platformRes.status !== 200) throw new Error(`/platform returned HTTP ${platformRes.status}`);
       const platformText = await platformRes.text();
       if (!/<html/i.test(platformText)) throw new Error('/platform did not return an HTML page');
+      if (sessionId) {
+        const get = async (suffix) => {
+          const response = await fetch(`${origin}/api/sessions/${encodeURIComponent(sessionId)}${suffix}`, { headers, signal: AbortSignal.timeout(30000) });
+          if (response.status !== 200) throw new Error(`saved-session API ${suffix}: HTTP ${response.status}`);
+          return response.json();
+        };
+        const saved = await get('');
+        if (saved.meta?.id !== sessionId) throw new Error('saved-session API resolved wrong identity');
+        const label = await get('/acceptance');
+        if (label.verdict !== acceptance?.verdict) throw new Error('API acceptance differs from canonical reader');
+        if ((await get('/knowledge-status'))?.status !== 'complete') throw new Error('API knowledge not complete');
+        const turns = await get('/turns');
+        for (const e of packetResult?.packet.evidence ?? []) {
+          const index = Number(e.canonical.json_pointer.split('/')[1]);
+          if (turns[index]?.text.split(/\r?\n/)[e.line - 1] !== e.quote) throw new Error('API source line differs from Outcome Packet');
+          const linked = await fetch(new URL(e.canonical.ui_href, origin), { headers });
+          if (linked.status !== 200) throw new Error('saved-session UI entry link unavailable');
+          await linked.arrayBuffer();
+        }
+        fs.writeFileSync(path.join(dataDir, 'saved-links.json'), JSON.stringify({ sessionId,
+          ui: `${origin}/#session=${encodeURIComponent(sessionId)}`, api: `${origin}/api/sessions/${encodeURIComponent(sessionId)}`,
+          proof: 'HTTP and exact API source-line checks only; not visual UI proof' }, null, 2));
+      }
       return { detail: `studio on port ${info.port}: /api/x/stats ${statsRes.status}, /platform ${platformRes.status}` };
     });
   } finally {
@@ -378,9 +435,24 @@ async function main() {
     for (const child of spawned) { try { child.kill(); } catch { /* already gone */ } }
     if (chromePid) {
       try {
-        if (process.platform === 'win32') spawn('taskkill', ['/PID', String(chromePid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+        if (process.platform === 'win32') {
+          const info = safeJson(execFileSync('powershell.exe', ['-NoProfile', '-Command',
+            `Get-CimInstance Win32_Process -Filter "ProcessId = ${Number(chromePid)}" | Select-Object ProcessId,Name,CommandLine | ConvertTo-Json -Compress`], { encoding: 'utf8', windowsHide: true }));
+          if (!info || !/^(chrome|msedge)\.exe$/i.test(info.Name) || !chromeProfile || !info.CommandLine?.includes(chromeProfile)
+            || !info.CommandLine.includes(`--remote-debugging-port=${cdpPort}`)) {
+            record('cleanup owned Chrome', 'FAIL', 0, 'PID/profile/port ownership not confirmed; process left untouched');
+          } else {
+            let killError = null;
+            try { execFileSync('taskkill', ['/PID', String(chromePid), '/T', '/F'], { windowsHide: true }); }
+            catch (e) { killError = e.message; }
+            const remaining = execFileSync('powershell.exe', ['-NoProfile', '-Command',
+              `Get-CimInstance Win32_Process -Filter "ProcessId = ${Number(chromePid)}" | Select-Object ProcessId | ConvertTo-Json -Compress`], { encoding: 'utf8', windowsHide: true }).trim();
+            record('cleanup owned Chrome', remaining ? 'FAIL' : 'PASS', 0,
+              remaining ? `owned Chrome still running: ${killError ?? remaining}` : 'verified PID/profile/port before termination; confirmed PID absent afterwards');
+          }
+        }
         else process.kill(-chromePid, 'SIGKILL');
-      } catch { /* chrome already gone */ }
+      } catch (e) { record('cleanup owned Chrome', 'FAIL', 0, `cleanup could not be verified: ${e.message}`); }
     }
     if (fixture) { try { await fixture.close(); } catch { /* closed */ } }
     if (!KEEP) { try { fs.rmSync(path.join(dataDir, 'chrome-profile'), { recursive: true, force: true }); } catch { /* nothing to remove */ } }
@@ -394,7 +466,8 @@ async function main() {
   const passed = steps.filter((s) => s.status === 'PASS');
   const finishedAt = new Date().toISOString();
   const result = {
-    startedAt, finishedAt, dataDir, cdpPort, keep: KEEP, noBrowser: NO_BROWSER,
+    startedAt, finishedAt, dataDir, cdpPort, sessionId, sessionDir, keep: KEEP, noBrowser: NO_BROWSER,
+    acceptanceVerdict: acceptance?.verdict ?? null, packetDir: packetResult?.outDir ?? null,
     ok: failures.length === 0,
     counts: { pass: passed.length, fail: failures.length, skip: skipped.length, total: steps.length },
     steps,

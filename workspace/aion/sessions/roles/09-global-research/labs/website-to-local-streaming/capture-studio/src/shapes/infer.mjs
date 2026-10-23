@@ -257,6 +257,12 @@ export class ShapeInferencer {
     mark('assembledObserve');
     const groups = [...this.groups.values(), ...this.assembled.values()].map((g) => ({
       key: g.key, endpoint: g.endpoint, discriminator: g.discriminator, discriminatorPath: g.discriminatorPath, source: g.source, count: g.count, streams: g.streams.size,
+      // Labels template away the scheme; preserve every observed origin separately.
+      // A mixed-origin group must not be attributed to just the page's origin.
+      origins: [...new Set([...g.streams].map((sid) => {
+        try { const u = new URL(reducer.streams.get(sid)?.url); return ['http:', 'https:'].includes(u.protocol) ? u.origin : null; }
+        catch { return null; }
+      }))].sort(),
       fields: Object.fromEntries([...g.fields].slice(0, 200).map(([p, f]) => [p, f.toJSON()])),
       collections: [...g.arrays].map(([p, a]) => ({ path: p, avgItems: +(a.items / a.observations).toFixed(1), sampledItems: a.sampledItems, keys: [...a.keyCounts].sort((x, y) => y[1] - x[1]).slice(0, 20).map(([k, n]) => ({ key: k, presence: +(n / Math.max(1, a.sampledItems)).toFixed(2) })) })),
     }));

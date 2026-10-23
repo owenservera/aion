@@ -27,6 +27,8 @@ before(async () => {
   profiles = new ProfileStore(path.join(dataDir, 'profiles'));
   families = new FamilyStore(path.join(dataDir, 'families'));
   for (const n of ['fixture-chat-a', 'fixture-chat-b', 'fixture-dash', 'fixture-feed', 'fixture-form', 'fixture-article']) profiles.save(n, { ...profiles.load('generic'), name: n, match: { hosts: [] } }, 'test profile');
+  const form = profiles.load('fixture-form');
+  profiles.save('fixture-form', { ...form, capture: { ...form.capture, privacyMode: 'filtered' } }, 'form privacy assertions require filtered capture');
   user = await userDriver(PORT, '127.0.0.1');
 });
 after(() => {

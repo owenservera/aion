@@ -13,13 +13,23 @@ import { derive, streamBytes } from '../../src/replay/derive.mjs';
 
 const PORT = 9400 + Math.floor(Math.random() * 400);
 let site, chrome, dataDir, profiles;
+const fixtureSockets = new Set();
 
 before(async () => {
   if (!hasChrome) return;
   site = await startSite();
+  site.server.on('upgrade', (_req, socket) => {
+    fixtureSockets.add(socket);
+    socket.once('close', () => fixtureSockets.delete(socket));
+  });
   chrome = await launchHeadless(site.url, PORT);
   dataDir = mkdtempSync(path.join(os.tmpdir(), 'cs-e2e-'));
   profiles = new ProfileStore(path.join(dataDir, 'profiles'));
+  for (const mode of ['filtered', 'local-raw']) {
+    const generic = profiles.load('generic');
+    profiles.save('fixture-' + mode, { ...generic, name: 'fixture-' + mode,
+      capture: { ...generic.capture, privacyMode: mode } }, 'explicit synthetic test capture policy');
+  }
 });
 after(() => { chrome?.kill(); site?.server.close(); });
 
@@ -29,7 +39,7 @@ test('records L1 raw stream, L2 events, L3 DOM and actions from a live tab', { s
   const user = await userDriver(PORT, '127.0.0.1');
   await waitFor(async () => (await user.eval('document.readyState')) === 'complete');
   const rec = new Recorder({ sessionsDir: path.join(dataDir, 'sessions'), profileStore: profiles, port: PORT });
-  const session = await rec.start({ target: user.targetId });
+  const session = await rec.start({ target: user.targetId, profile: 'fixture-filtered' });
   // The person reloads the page and asks a question.
   await user.reload();
   await waitFor(async () => (await user.eval('!!document.getElementById("ask") && !!window.ws && window.ws.readyState === 1')));
@@ -37,6 +47,11 @@ test('records L1 raw stream, L2 events, L3 DOM and actions from a live tab', { s
   await user.eval('document.getElementById("ask").click()');
   await waitFor(async () => (await user.eval('document.querySelector("#thread p")?.textContent || ""')).includes('correlate'));
   await sleep(600);
+  // Filtered frame guards release their final tail only after confirmed socket closure.
+  await user.eval('window.ws.close()');
+  // This fixture does not implement the WebSocket close handshake; end only its owned sockets.
+  for (const socket of fixtureSockets) socket.end();
+  await sleep(100);
   const snap = await rec.snapshotDom();
   assert.ok(snap.bytes > 500);
   const shapesLive = await rec.inspectDom();
@@ -51,13 +66,18 @@ test('records L1 raw stream, L2 events, L3 DOM and actions from a live tab', { s
   const conv = streams.find((x) => x.url?.includes('/api/conversation'));
   assert.ok(conv, 'conversation stream captured');
   assert.equal(conv.transport, 'HTTP_SSE');
-  assert.equal(conv.armed, 'stream', 'streamResourceContent armed');
-  assert.ok(conv.chunks > 3, `incremental chunks (${conv.chunks})`);
+  if (conv.armed === 'stream') assert.ok(conv.chunks > 0, 'armed capture contains bytes');
+  else {
+    assert.ok(conv.armError, 'unarmed capture reports its arming error');
+    assert.equal(conv.retrospective, true, 'short completed response recovered by explicit body fallback');
+  }
   assert.ok(conv.deltaRevisions >= 6, 'delta assembled');
   const assembled = s.kv.get('ASSEMBLED')[conv.sid];
   assert.equal(assembled.doc.message.content.parts[0], 'Hello from the fixture stream. This sentence is long enough to correlate with the DOM.');
   assert.equal(assembled.doc.message.status, 'finished_successfully');
   const raw = await streamBytes(s, conv.sid);
+  const expected = Buffer.from(await (await fetch(site.url + 'api/conversation', { method: 'POST' })).arrayBuffer());
+  assert.deepEqual(raw.bytes, expected, 'entire deterministic fixture response preserved, including SSE framing');
   assert.ok(raw.bytes.toString().includes('data: [DONE]'), 'raw SSE framing preserved byte-for-byte');
   assert.ok(raw.bytes.toString().includes(': keep-alive comment'), 'comments kept');
 
@@ -77,8 +97,40 @@ test('records L1 raw stream, L2 events, L3 DOM and actions from a live tab', { s
 
   const kinds = new Set(d.report.suggestions.map((x) => x.kind));
   for (const k of ['stream_endpoint', 'delta_stream', 'collection', 'beacon_exclusion', 'correlation', 'action_effect', 'timestamp_field', 'identity_field']) assert.ok(kinds.has(k), `suggestion ${k}: got ${[...kinds]}`);
-  assert.equal(d.receipt.verdict, 'A1_RAW_CAPTURE_VIABLE');
-  assert.equal(d.receipt.cdp_stream_resource_content, 'SUPPORTED_AND_DATA');
+  const armedWithData = streams.some((stream) => stream.armed === 'stream' && stream.bytes > 0);
+  assert.equal(d.receipt.verdict, armedWithData ? 'A1_RAW_CAPTURE_VIABLE' : 'A1_UNAVAILABLE');
+  if (armedWithData) assert.equal(d.receipt.cdp_stream_resource_content, 'SUPPORTED_AND_DATA');
+  else assert.notEqual(d.receipt.cdp_stream_resource_content, 'SUPPORTED_AND_DATA', 'fallback is not incremental CDP proof');
+});
+
+test('forced short-stream arm refusal recovers exact browser-received body in local-raw mode', { skip: !hasChrome && 'set CHROME_PATH' }, async (t) => {
+  const user = await userDriver(PORT, '127.0.0.1');
+  t.after(() => user.close());
+  const rec = new Recorder({ sessionsDir: path.join(dataDir, 'sessions'), profileStore: profiles, port: PORT });
+  const session = await rec.start({ target: user.targetId, profile: 'fixture-local-raw', label: 'forced-fallback' });
+  t.after(async () => { if (rec.state === 'recording') await rec.stop(); });
+  // Only refuse arming; the request, completed body read and persisted bytes use real Chrome/CDP.
+  rec.net._armStream = async () => { throw new Error('synthetic forced short-stream arm refusal'); };
+  const browserText = await user.eval(`fetch('/api/conversation', { method: 'POST', body: 'local-raw-fallback-payload' }).then(r => r.text())`);
+  await sleep(300);
+  const result = await rec.stop();
+  assert.equal(result.verify.ok, true);
+  const s = Session.open(path.join(dataDir, 'sessions'), session.id);
+  const d = await derive(s, profiles.load('fixture-local-raw'));
+  const conv = d.summary.streams.find((stream) => stream.url?.endsWith('/api/conversation'));
+  assert.ok(conv);
+  assert.match(conv.armError, /synthetic forced/);
+  assert.equal(conv.armed, undefined);
+  assert.equal(conv.retrospective, true);
+  assert.equal(conv.status, 'complete');
+  assert.deepEqual((await streamBytes(s, conv.sid)).bytes, Buffer.from(browserText));
+  const records = [];
+  for await (const record of s.records()) if (record.sid === conv.sid) records.push(record);
+  assert.equal(records.filter((record) => record.k === 'body').length, 1, 'one fallback body, not duplicate recovery');
+  assert.equal(records.find((record) => record.k === 'body').captureMode, 'local-raw');
+  assert.equal(records.find((record) => record.k === 'req').postData, 'local-raw-fallback-payload');
+  assert.equal(records.some((record) => ['body.unavailable', 'body.truncated', 'body.excluded'].includes(record.k)), false);
+  assert.equal(s.kv.get('ASSEMBLED')[conv.sid].doc.message.content.parts[0], 'Hello from the fixture stream. This sentence is long enough to correlate with the DOM.');
 });
 
 test('long response fully retained on a normal disk', { skip: !hasChrome && 'set CHROME_PATH' }, async () => {
@@ -87,7 +139,9 @@ test('long response fully retained on a normal disk', { skip: !hasChrome && 'set
   const session = await rec.start({ target: user.targetId, label: 'long' });
   await user.eval('document.getElementById("ask-long").click()');
   await waitFor(async () => (await user.eval('[...document.querySelectorAll("#thread p")].pop()?.textContent || ""')).includes('word399'), 15000);
-  await sleep(300);
+  // Browser rendering and this separate CDP client can get ahead of Recorder's event backlog.
+  assert.ok(await waitFor(() => rec.reducer.summary().streams.some((stream) => stream.url?.includes('long=1') && stream.status === 'complete'), 15000),
+    'recorder observed the long response terminal event before the complete-response assertion');
   const result = await rec.stop();
   user.close();
   assert.equal(result.verify.ok, true);

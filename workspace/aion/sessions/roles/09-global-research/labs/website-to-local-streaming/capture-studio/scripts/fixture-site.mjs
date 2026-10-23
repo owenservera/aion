@@ -65,7 +65,8 @@ const PAGE = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Capture Studio Fixture</title></head>
 <body><main>
 <h1>Capture Studio fixture page</h1>
-<div id="stream" data-role="assistant"></div>
+<div data-role="user">hello fixture</div>
+<pre id="stream" data-role="assistant"></pre>
 <ul id="items"></ul>
 </main>
 <script>
@@ -113,7 +114,7 @@ const PAGE = `<!doctype html>
  * @param {{port?: number, host?: string}} [options]
  * @returns {Promise<{url: string, port: number, close: () => Promise<void>}>}
  */
-export async function startFixture({ port = 0, host = '127.0.0.1' } = {}) {
+export async function startFixture({ port = 0, host = '127.0.0.1', outcomeText = '' } = {}) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${host}`);
     const p = url.pathname;
@@ -130,6 +131,7 @@ export async function startFixture({ port = 0, host = '127.0.0.1' } = {}) {
           await sleep(80);
           res.write(`data: ${JSON.stringify({ delta: `${w} ` })}\n\n`);
         }
+        if (outcomeText) res.write(`data: ${JSON.stringify({ delta: '\n' + outcomeText })}\n\n`);
         res.write('data: [DONE]\n\n');
         res.end();
         return;

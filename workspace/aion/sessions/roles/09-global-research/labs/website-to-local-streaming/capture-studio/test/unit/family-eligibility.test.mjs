@@ -42,7 +42,7 @@ async function fixture(paths, {
   url = SITE + '/conversation', api = SITE + '/api/chat',
   rawGap = false, status = 'complete', withShapes = true,
   thirdParty = 'https://telemetry.other.test/batch',
-  knowledgeStatus = 'complete',
+  knowledgeStatus = 'complete', withDerivation = true,
 } = {}) {
   const s = Session.create(paths.sessions, { site: 'example.test',
     meta: { target: { url } } });
@@ -56,7 +56,9 @@ async function fixture(paths, {
   s.meta.status = status; s.saveMeta();
   s.kv.set('DOM_TURNS', [{ id: 'u', role: 'user', text: PROMPT },
     { id: 'a', role: 'assistant', text: REPLY }]);
-  s.kv.set('KNOWLEDGE_STATUS', { status: knowledgeStatus, entityCount: 0, entitiesDatasetPresent: false });
+  // Acceptance reads the actual derived stream text; SHAPES alone is not reply evidence.
+  if (withDerivation) await derive(s, new ProfileStore(paths.profiles).load('generic'));
+  s.kv.set('KNOWLEDGE_STATUS', { ...s.kv.get('KNOWLEDGE_STATUS'), status: knowledgeStatus });
   if (withShapes) s.kv.set('SHAPES', {
     endpoints: [
       { endpoint: 'POST ' + api, transports: { HTTP_SSE: 1 }, resourceTypes: ['Fetch'] },
@@ -75,6 +77,35 @@ async function accepted(s) {
   writeAcceptance(s, doc);
   assert.equal(readAcceptance(s).verdict, 'capture_accepted');
 }
+
+test('missing assembled evidence remains incomplete even with matching saved DOM', async (t) => {
+  const { paths } = area(t);
+  const s = await fixture(paths);
+  s.kv.set('ASSEMBLED', {});
+  const doc = await evaluateAcceptance({ session: s, conversation: CONVERSATION });
+  assert.equal(doc.verdict, 'capture_incomplete');
+  assert.equal(doc.gates.G3.value, 'unknown');
+  assert.equal(doc.gates.G7.value, 'unknown');
+});
+
+test('scheme-less shapes need one observed exact origin, never a guessed page scheme', async (t) => {
+  const { paths } = area(t);
+  const s = await fixture(paths);
+  await accepted(s);
+  const endpoint = 'POST chat.example.test/api/chat';
+  const shapes = { endpoints: [{ endpoint, transports: { HTTP_SSE: 1 } }], groups: [
+    { endpoint, origins: [SITE], count: 1, fields: { '$.allowed': { count: 1 } } },
+    { endpoint, count: 1, fields: { '$.unknown': { count: 1 } } },
+    { endpoint, origins: [SITE, 'http://chat.example.test'], count: 1, fields: { '$.mixed': { count: 1 } } },
+    { endpoint, origins: ['http://chat.example.test'], count: 1, fields: { '$.wrongScheme': { count: 1 } } },
+    { endpoint, origins: ['https://other.example.test'], count: 1, fields: { '$.wrongHost': { count: 1 } } },
+  ] };
+  s.kv.set('SHAPES', shapes);
+  const built = buildFamily({ sessionsDir: paths.sessions, host: 'chat.example.test' });
+  assert.equal(built.shapes.length, 1);
+  assert.deepEqual(built.shapes[0].fields.map((f) => f.path), ['$.allowed']);
+  assert.equal(built.coverage.outOfOriginGroups, 4);
+});
 
 test('real offline G1–G7 evaluation makes one synthetic session eligible for a versioned family', async (t) => {
   const { paths } = area(t);
@@ -105,7 +136,7 @@ test('real offline G1–G7 evaluation makes one synthetic session eligible for a
 
 test('SHAPES-only and unassessed sessions stay visible, but cannot be published', async (t) => {
   const { paths } = area(t);
-  const s = await fixture(paths);
+  const s = await fixture(paths, { withDerivation: false });
   const listed = collectSessions({ sessionsDir: paths.sessions, host: 'chat.example.test' });
   assert.equal(listed[0].hasDerived, true);
   assert.equal(listed[0].acceptance, 'unassessed');

@@ -67,6 +67,18 @@ function endpointOrigin(endpoint) {
   } catch { return null; }
 }
 
+function groupOrigin(group) {
+  const direct = endpointOrigin(group.endpoint);
+  if (!Array.isArray(group.origins)) return direct; // Legacy absolute labels only.
+  if (group.origins.length !== 1) return null;
+  const observed = endpointOrigin(group.origins[0]);
+  if (!observed || observed !== group.origins[0]) return null;
+  if (direct) return direct === observed ? direct : null;
+  const label = String(group.endpoint ?? '').replace(/^\S+\s+/, '');
+  // Provenance supplies the scheme, not the page or an invented URL default.
+  return label.split('/')[0] === new URL(observed).host ? observed : null;
+}
+
 // Sessions of one site (host or site slug), newest first, with the derived artifacts already
 // written by derive: SHAPES (endpoints + groups), ASSEMBLED dialects, knowledge status.
 export function collectSessions({ sessionsDir, host, site } = {}) {
@@ -142,7 +154,7 @@ function normaliseShapes(sessions) {
       // SHAPES contains observations from all captured transports. Even a
       // passing session cannot lend an analytics/CDN/unknown stream to the
       // page's family. Retain the source SHAPES unchanged for investigation.
-      if (endpointOrigin(g.endpoint) !== s.origin) { outOfOriginGroups++; continue; }
+      if (groupOrigin(g) !== s.origin) { outOfOriginGroups++; continue; }
       const ep = epIndex.get(g.endpoint) ?? null;
       const transport = dominantTransport(ep);
       const endpoint = pathPattern(g.endpoint ?? ep?.endpoint ?? '');
