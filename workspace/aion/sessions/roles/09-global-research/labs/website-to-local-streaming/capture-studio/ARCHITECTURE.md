@@ -68,7 +68,7 @@ One pipeline, used by `campaign --execute` and reproducible by hand:
    `record` command uses, so it lands as an ordinary session.
 2. **Derive.** `src/replay/derive.mjs` produces datasets, `SHAPES` and `ASSEMBLED` (dialects) from
    that session, exactly as for a captured one.
-3. **Consolidate.** `src/families/build.mjs` `buildFamily()` collects every derived session of the
+3. **Consolidate.** `src/families/build.mjs` `buildFamily()` inspects all saved sessions but publishes only G1–G7 `capture_accepted` same-origin, fully derived sessions (unassessed/failed evidence remains accessible). It previously collected every derived session of the
    host, groups streams by transport and endpoint path (ids normalised to `{id}`), unions the field
    paths with occurrence counts, sorts everything and hashes the normalised shape set into a
    deterministic signature. `writeFamily()` persists it through `FamilyStore`, so each build is a
