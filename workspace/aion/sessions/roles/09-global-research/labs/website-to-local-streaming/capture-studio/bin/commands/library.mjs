@@ -1,4 +1,4 @@
-// library build|show|list: consolidate every derived session of one site into a single family
+// library build|show|list: publish only accepted, same-origin derived sessions as a family
 // shape set, persist it through the existing FamilyStore, and inspect what was consolidated.
 import path from 'node:path';
 import { EXIT } from '../../src/config.mjs';
@@ -11,7 +11,11 @@ const fieldPathCount = (shapes) => new Set((shapes ?? []).flatMap((s) => (s.fiel
 
 function coveragePairs(built) {
   return [
-    ['members', built.family.members.join(', ') || '(none)'],
+    ['members (accepted)', built.family.members.join(', ') || '(none)'],
+    ['inspected', String(built.coverage.sessions)],
+    ['eligible', String(built.coverage.eligible ?? 0)],
+    ['withheld', String(built.coverage.withheld ?? 0)],
+    ['exact origin', built.family.origin ?? '(none)'],
     ['hosts', built.family.hosts.join(', ') || '(none)'],
     ['transports', built.coverage.transports.join(', ') || '(none)'],
     ['streams', String(built.coverage.streams)],
@@ -22,14 +26,14 @@ function coveragePairs(built) {
 
 defineGroup('library', {
   section: 'Knowledge', default: 'build',
-  summary: 'Consolidate derived sessions into site families',
-  description: 'Merges every derived session of one host/site into ONE normalised family shape set (streams grouped by transport and endpoint path, field paths unioned with occurrence counts), then persists it through the versioned family store.',
+  summary: 'Publish accepted same-origin evidence into site families',
+  description: 'Inspects all saved sessions but only publishes verified G1–G7 capture_accepted, complete-knowledge, exact-origin shapes. Unassessed and unverified evidence stays in its original session.',
 });
 
 define({
   name: 'library build', section: 'Knowledge', usage: '<host|site> [--min N]',
   summary: 'Build (and save) the family shape set for a site',
-  description: 'Exits 0 on success, 3 when the site has no sessions, 4 when sessions exist but none are derived.',
+  description: 'Exits 0 when an eligible family is published, 3 if no sessions, 4 if none are accepted and eligible for publication.',
   flags: { min: { type: 'number', alias: 'n', valueName: 'N', default: 1, desc: 'Warn unless at least N sessions exist' } },
   examples: ['studio library build chatgpt.com', 'studio library build openai --min 3 --json'],
   async run(ctx) {
@@ -52,9 +56,18 @@ define({
       return;
     }
 
+    if (!(built.coverage.eligible > 0) || !built.shapes.length) {
+      ctx.out.emit({ ref, ...built, written: null }, (o) => {
+        o.result(`Family publication withheld for ${ref}: ${built.coverage.sessions} session(s) inspected, ${built.coverage.eligible ?? 0} eligible.`);
+        for (const w of built.warnings) o.line(`  ${w}`);
+        o.line('  Only an independently traceable capture_accepted G1–G7 verdict permits shape publication.');
+      });
+      process.exitCode = EXIT.INTEGRITY;
+      return;
+    }
     const written = writeFamily({ familiesDir: ctx.paths.families, built });
     ctx.out.emit({ ...built, fieldPaths: fieldPathCount(built.shapes), written }, (o) => {
-      o.result(`Family ${built.family.id}: ${built.coverage.sessions} session(s), ${built.coverage.withDerived} derived.`);
+      o.result(`Family ${built.family.id}: ${built.coverage.eligible} accepted contributor(s) of ${built.coverage.sessions} inspected.`);
       o.line('');
       o.kv(coveragePairs(built));
       o.line('');
