@@ -389,7 +389,8 @@ export class StreamReducer {
       } catch { map = null; }
     }
     const r = this.roleClassifier({ summary: summaryRow, events, assembled: s._delta.revisions > 0 ? this.assembled(s.sid) : null, map });
-    const role = { role: r.role, confidence: r.confidence, evidence: r.evidence };
+    // coverage (additive): what the verdict actually examined. A custom roleClassifier may omit it.
+    const role = { role: r.role, confidence: r.confidence, evidence: r.evidence, coverage: r.coverage ?? null };
     s._sum.role = role;
     return role;
   }
@@ -400,12 +401,12 @@ export class StreamReducer {
     if (!s) return null;
     if (!s._sum.base) s._sum.base = this._streamSummary(s);
     const r = this._roleFor(s, s._sum.base);
-    return { role: r.role, confidence: r.confidence, evidence: r.evidence.map((e) => ({ ...e })) };
+    return { role: r.role, confidence: r.confidence, evidence: r.evidence.map((e) => ({ ...e })), coverage: r.coverage ? structuredClone(r.coverage) : null };
   }
 
   // Summary for UI / receipts (no payload content).
   // includeStreamRoles (default false: output and cost are unchanged) adds role / roleConfidence /
-  // roleEvidence to every stream row and roleCounts to the result.
+  // roleEvidence / roleCoverage to every stream row and roleCounts to the result.
   summary({ now = Date.now(), includeStreamRoles = false } = {}) {
     // The 1 s status tick used to rebuild every stream's summary from scratch. The stream-local part
     // is now memoised per stream (invalidated whenever ingest touches it); only the clock-dependent
@@ -427,6 +428,7 @@ export class StreamReducer {
         o.role = r.role;
         o.roleConfidence = r.confidence;
         o.roleEvidence = r.evidence.map((e) => ({ ...e }));
+        if (r.coverage) o.roleCoverage = structuredClone(r.coverage);
       }
       streams.push(o);
     }

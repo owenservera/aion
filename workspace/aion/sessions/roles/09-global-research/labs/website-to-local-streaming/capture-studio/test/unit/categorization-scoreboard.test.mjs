@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import {
-  runScoreboard, renderSummary, aggregate, roleOfStream, roleDisposition, roleStability, dialectStateOf, registrableHost,
+  runScoreboard, renderSummary, aggregate, roleOfStream, roleDisposition, roleStability, originContextOf, endpointCoverage, ORIGIN_CLASSES, dialectStateOf, registrableHost,
   endpointHash, compareReports, readLearnerState, familyBucket, SKIP_STATUSES, sessionRef,
   framingLabel, roleLabel, statusLabel, familyLabel, mapLabel, STREAM_ROLES, SESSION_STATUSES,
 } from '../../scripts/categorization-scoreboard.mjs';
@@ -50,7 +50,9 @@ function toSse(payloads) {
   }).join('');
 }
 
-function writeSession(sessionsDir, id, { payloads = null, status = 'complete', family = null, raw = true, body = null, mime = 'text/event-stream', chunks = null } = {}) {
+// streamUrl: the URL the single synthetic stream requested; targetUrl: the session's first-tab target
+// (null = a session with no usable target). Both default to the sentinel URL (same host).
+function writeSession(sessionsDir, id, { payloads = null, status = 'complete', family = null, raw = true, body = null, mime = 'text/event-stream', chunks = null, streamUrl = URL_WITH_SENTINELS, targetUrl = URL_WITH_SENTINELS } = {}) {
   const dir = path.join(sessionsDir, id);
   mkdirSync(path.join(dir, 'raw'), { recursive: true });
   mkdirSync(path.join(dir, 'kv'), { recursive: true });
@@ -59,7 +61,7 @@ function writeSession(sessionsDir, id, { payloads = null, status = 'complete', f
     site: 'synthetic',
     createdAt: '2026-01-01T00:00:00.000Z',
     status,
-    target: { id: 't-1', url: URL_WITH_SENTINELS, title: TITLE_SENTINEL },
+    ...(targetUrl === null ? {} : { target: { id: 't-1', url: targetUrl, title: TITLE_SENTINEL } }),
   }, null, 2));
   // The scoreboard never reads DOM turns; the sentinel is planted to prove that.
   writeFileSync(path.join(dir, 'kv', 'DOM_TURNS.json'), JSON.stringify([
@@ -75,7 +77,7 @@ function writeSession(sessionsDir, id, { payloads = null, status = 'complete', f
   const sid = 's-1';
   const parts = chunks ?? [body ?? toSse(payloads)];
   const recs = [
-    { seq: 1, t: 1000, k: 'req', sid, url: URL_WITH_SENTINELS, method: body === null && chunks === null ? 'POST' : 'GET', type: 'Fetch' },
+    { seq: 1, t: 1000, k: 'req', sid, url: streamUrl, method: body === null && chunks === null ? 'POST' : 'GET', type: 'Fetch' },
     { seq: 2, t: 1010, k: 'res', sid, status: 200, mime },
     ...parts.map((p, i) => ({ seq: 3 + i, t: 1020 + i, k: 'chunk', sid, b64: Buffer.from(p, 'utf8').toString('base64') })),
     { seq: 3 + parts.length, t: 1030 + parts.length, k: 'done', sid, encodedDataLength: 1 },
@@ -227,12 +229,15 @@ test('default (replay) mode requests includeStreamRoles: role fields exist and k
   // aggregate: 5 measured sessions x 1 stream; the config stream is specific, the generic one is unknown
   assert.equal(m.role.streams, 5);
   assert.ok(m.role.streamsLabeled >= 1);
-  assert.equal(m.role.streamsLabeled + m.role.streamsUnknown + m.role.streamsTruncated + m.role.streamsAbsent, m.role.streams, 'dispositions reconcile');
+  assert.equal(m.role.streamsLabeled + m.role.streamsUnknown + m.role.streamsTruncated + m.role.streamsAbsent + m.role.streamsWithheld, m.role.streams, 'dispositions reconcile');
+  assert.equal(m.role.streamsFullyInspectedSpecific, m.role.streamsLabeled, 'every emitted specific role was fully inspected');
+  assert.equal(m.role.streamsRawSpecific, m.role.streamsLabeled + m.role.streamsWithheld);
+  assert.equal(m.role.streamsCoverageUnavailable, 0);
   assert.equal(m.role.streamsUnknown >= 1, true);
   assert.equal(m.role.streamsWithoutRole, m.role.streams - m.role.streamsLabeled);
   assert.equal(m.role.distribution.unknown, m.role.streamsUnknown, 'unknown is reported but is not in the coverage share');
   assert.equal(m.role.labeledStreamShare, Math.round((m.role.streamsLabeled / m.role.streams) * 1000) / 1000);
-  assert.equal(m.role.labeledBytes + m.role.unknownBytes + m.role.truncatedBytes + m.role.absentBytes, m.role.bytes);
+  assert.equal(m.role.labeledBytes + m.role.unknownBytes + m.role.truncatedBytes + m.role.absentBytes + m.role.withheldBytes, m.role.bytes);
   for (const lvl of Object.keys(m.role.confidence)) assert.ok(['low', 'medium', 'high'].includes(lvl), 'specific roles carry an ordinal level, never "none"');
   assert.equal(Object.values(m.role.confidence).reduce((a, b) => a + b, 0), m.role.streamsLabeled);
   for (const label of Object.keys(m.role.distribution)) assert.ok(STREAM_ROLES.includes(label), label);
@@ -317,11 +322,24 @@ test('role aggregation and stability are measured when the fields exist', () => 
 });
 
 test('roleOfStream reads role, evidence, specificity, truncation and ordinal confidence defensively', () => {
-  const none = { fieldPresent: false, role: null, hasRole: false, hasEvidence: false, specific: false, truncated: false, omittedEvents: 0, confidence: 'none' };
+  const none = {
+    fieldPresent: false, role: null, hasRole: false, hasEvidence: false, specific: false, truncated: false, omittedEvents: 0, confidence: 'none',
+    hasCoverage: false, fullyInspected: null, inspectionCut: null, withheldRole: null, rawSpecific: false, classifierTruncatedEvidence: false,
+  };
   assert.deepEqual(roleOfStream({}), none);
   assert.deepEqual(roleOfStream({ role: '  ' }), { ...none, fieldPresent: true });
   assert.deepEqual(roleOfStream({ role: 'chat-reply', roleConfidence: 'high', roleEvidence: [{ feature: 'json_events', count: 1 }] }),
-    { fieldPresent: true, role: 'chat-reply', hasRole: true, hasEvidence: true, specific: true, truncated: false, omittedEvents: 0, confidence: 'high' });
+    { ...none, fieldPresent: true, role: 'chat-reply', hasRole: true, hasEvidence: true, specific: true, confidence: 'high', rawSpecific: true });
+  // coverage: absent -> null (never assumed complete); present -> exactly what the classifier said
+  const withCov = roleOfStream({ role: 'chat-reply', roleConfidence: 'medium', roleCoverage: { fullyInspected: true, inspectionCut: false, withheldRole: null } });
+  assert.deepEqual([withCov.hasCoverage, withCov.fullyInspected, withCov.inspectionCut], [true, true, false]);
+  const held = roleOfStream({ role: 'unknown', roleConfidence: 'none', roleCoverage: { fullyInspected: false, inspectionCut: true, withheldRole: 'history-load' }, roleEvidence: [{ feature: 'inspection_truncated', count: 2 }] });
+  assert.equal(held.specific, false, 'a withheld candidate is not a specific role');
+  assert.equal(held.rawSpecific, true, 'but it is a raw specific candidate');
+  assert.equal(held.withheldRole, 'history-load');
+  assert.equal(held.classifierTruncatedEvidence, true);
+  assert.equal(roleDisposition(held), 'withheld');
+  assert.equal(roleOfStream({ role: 'unknown', roleCoverage: { withheldRole: 'secret-role' } }).withheldRole, null, 'only vocabulary roles pass');
   assert.equal(roleOfStream({ role: 'config', roleEvidence: [] }).hasEvidence, false);
   assert.equal(roleOfStream({ role: 'unknown', roleConfidence: 'none' }).specific, false, 'unknown is not a specific role');
   assert.equal(roleOfStream({ role: 'unknown' }).hasRole, true, 'but it is a present, explicit answer');
@@ -549,6 +567,119 @@ test('summary labels role stability counts as counts and the share as a ratio', 
   const line = renderSummary(report).split('\n').find((l) => l.startsWith('role stability:'));
   assert.equal(line, 'role stability: 18/18 comparable multi-session endpoints stable (ratio 1; 405 seen in 2+ sessions)');
   assert.equal(/\b1 of 18\b/.test(line), false, 'a ratio is never printed as a count');
+});
+
+// ---- coverage honesty ----------------------------------------------------------------------------
+const nestW = (o, n) => { let x = o; for (let i = 0; i < n; i++) x = { w: x }; return x; };
+const CUT_PAYLOADS = [
+  { messages: [{ role: 'user', content: 'a question' }, { role: 'assistant', content: 'an answer' }] },
+  { type: 'message_start', message: { id: 'm-cut', role: 'assistant', content: [] } },
+  ...Array.from({ length: 6 }, (_, i) => nestW({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: `piece-${i} ` } }, 6)),
+];
+
+test('replay coverage: a stream whose inspection was cut is withheld; raw and fully inspected specific coverage are reported apart', async (t) => {
+  const { dataDir, sessionsDir } = makeEnv(t);
+  writeSession(sessionsDir, 'syn-qa-cut', { payloads: CUT_PAYLOADS });
+  const { report } = await runScoreboard({ dataDir, sessions: ['syn-qa-cut', 'syn-qa-claude'] });
+  const cut = at(report, 'syn-qa-cut').role;
+  assert.deepEqual(cut.dispositions, { withheld: 1 });
+  assert.equal(cut.labeled, 0, 'a withheld candidate is not a label');
+  assert.equal(cut.rawSpecific, 1);
+  assert.equal(cut.fullyInspectedSpecific, 0);
+  assert.equal(cut.inspectionCutUnknown, 1);
+  assert.deepEqual(cut.distribution, {}, 'no role label is reported for it');
+  const ok = at(report, 'syn-qa-claude').role;
+  assert.equal(ok.fullyInspectedSpecific, 1);
+  assert.equal(ok.rawSpecific, 1);
+  const m = report.aggregate.measures.role;
+  assert.equal(m.streams, 2);
+  assert.equal(m.streamsRawSpecific, 2);
+  assert.equal(m.streamsFullyInspectedSpecific, 1);
+  assert.equal(m.streamsWithheld, 1);
+  assert.equal(m.streamsInspectionCutUnknown, 1);
+  assert.equal(m.streamsRawSpecific - m.streamsFullyInspectedSpecific, m.streamsWithheld, 'the gap is exactly what incomplete inspection cost');
+  assert.equal(m.rawSpecificByteShare > m.fullyInspectedSpecificByteShare, true);
+  assert.equal(m.withheldBytes > 0 && m.inspectionCutUnknownBytes === m.withheldBytes, true);
+  // both sessions fetch the same endpoint: one fully inspected specific observation out of two -> "some"
+  assert.equal(m.endpointCoverage.distinctEndpoints, 1);
+  assert.equal(m.endpointCoverage.endpointsSomeFullyInspectedSpecific, 1);
+  assert.equal(m.endpointCoverage.endpointsAllFullyInspectedSpecific, 0);
+  const text = renderSummary(report);
+  assert.match(text, /role coverage honesty: raw specific candidates 2\/2/);
+  assert.match(text, /fully inspected specific 1 /);
+  assert.match(text, /withheld for incomplete inspection 1 streams/);
+  for (const phrase of FORBIDDEN) assert.equal(JSON.stringify(report).includes(phrase), false, phrase);
+});
+
+test('origin context is computed per stream against its own session target, never inherited from another session', async (t) => {
+  const { dataDir, sessionsDir } = makeEnv(t);
+  const SHARED = 'https://stream-only-host.test/api-sentinel-path?q=secret';
+  writeSession(sessionsDir, 'syn-qa-oa', { payloads: claudePayloads, streamUrl: SHARED, targetUrl: 'https://stream-only-host.test/app' });
+  writeSession(sessionsDir, 'syn-qa-ob', { payloads: claudePayloads, streamUrl: SHARED, targetUrl: 'https://first-tab.qa-fixture.test/x' });
+  writeSession(sessionsDir, 'syn-qa-oc', { payloads: claudePayloads, streamUrl: 'https://cdn.first-tab.qa-fixture.test/y', targetUrl: 'https://first-tab.qa-fixture.test/x' });
+  writeSession(sessionsDir, 'syn-qa-od', { payloads: claudePayloads, streamUrl: SHARED, targetUrl: null });
+  const { report } = await runScoreboard({ dataDir, sessions: ['syn-qa-oa', 'syn-qa-ob', 'syn-qa-oc', 'syn-qa-od'] });
+  const cls = (id) => Object.keys(at(report, id).role.byOriginClass);
+  assert.deepEqual(cls('syn-qa-oa'), ['same-host']);
+  assert.deepEqual(cls('syn-qa-ob'), ['different-registrable'], 'the very same stream host is a different class in another session');
+  assert.deepEqual(cls('syn-qa-oc'), ['same-registrable']);
+  assert.deepEqual(cls('syn-qa-od'), ['no-target-context']);
+  const agg = report.aggregate.measures.role.byOriginClass;
+  assert.deepEqual(Object.keys(agg).sort(), ['different-registrable', 'no-target-context', 'same-host', 'same-registrable']);
+  for (const tab of Object.values(agg)) { assert.equal(tab.streams, 1); assert.equal(tab.fullyInspectedSpecific, 1); }
+  const text = JSON.stringify(report);
+  for (const leak of ['api-sentinel-path', 'secret', 'cdn.first-tab', 'first-tab.qa-fixture.test/x']) assert.equal(text.includes(leak), false, leak);
+  for (const k of Object.keys(agg)) assert.ok(ORIGIN_CLASSES.includes(k));
+});
+
+test('binary streams are tallied by structural kind and never get a role from it', async (t) => {
+  const { dataDir, sessionsDir } = makeEnv(t);
+  // undecoded octet-stream bytes (control characters): opaque, JSON-free
+  writeSession(sessionsDir, 'syn-qa-bin', { chunks: ['\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007'.repeat(8)], mime: 'application/octet-stream' });
+  const { report } = await runScoreboard({ dataDir, sessions: ['syn-qa-bin'] });
+  const bin = at(report, 'syn-qa-bin').role;
+  assert.equal(bin.rawSpecific, 0);
+  assert.equal(bin.labeled, 0);
+  assert.deepEqual(Object.keys(bin.binaryKinds), ['opaque']);
+  assert.equal(report.aggregate.measures.role.binaryKinds.opaque, 1);
+  assert.equal(report.aggregate.measures.role.binaryKindBytes.opaque > 0, true);
+  // aggregate-level: a structural count merges, and is not a role
+  const entry = { ...at(report, 'syn-qa-bin'), role: { ...bin, binaryKinds: { structural: 2, opaque: 1 }, binaryKindBytes: { structural: 50, opaque: 10 } } };
+  const m = aggregate([entry], roleStability([]), { store: { stateFilePresent: false } }, { roleFieldPresent: true }).measures.role;
+  assert.deepEqual(m.binaryKinds, { structural: 2, opaque: 1 });
+  assert.equal(m.streamsRawSpecific, 0);
+});
+
+test('originContextOf: exact host, registrable host, different, and the two missing-context classes', () => {
+  assert.equal(originContextOf('https://a.example.test/p', 'https://a.example.test/q'), 'same-host');
+  assert.equal(originContextOf('https://cdn.example.test/p', 'https://a.example.test/q'), 'same-registrable');
+  assert.equal(originContextOf('https://other.test/p', 'https://a.example.test/q'), 'different-registrable');
+  assert.equal(originContextOf('https://a.example.test/p', undefined), 'no-target-context');
+  assert.equal(originContextOf('https://a.example.test/p', 'not a url'), 'no-target-context');
+  assert.equal(originContextOf(undefined, 'https://a.example.test/q'), 'no-stream-url');
+  assert.equal(originContextOf('', ''), 'no-stream-url');
+});
+
+test('endpoint-deduplicated coverage: repeated huge fetches of one endpoint do not dominate', () => {
+  const big = (session) => ({ session, endpoints: [{ endpoint: 'big', bytes: 5_000_000, fullySpecific: true, rawSpecific: true }] });
+  const small = { session: 's0', endpoints: [
+    { endpoint: 'e1', bytes: 100, fullySpecific: false, rawSpecific: false },
+    { endpoint: 'e2', bytes: 100, fullySpecific: false, rawSpecific: true },
+    { endpoint: 'e3', bytes: 100, fullySpecific: true, rawSpecific: true },
+    { endpoint: 'e3', bytes: 100, fullySpecific: false, rawSpecific: false },
+  ] };
+  const cov = endpointCoverage([...Array.from({ length: 10 }, (_, i) => big(`b${i}`)), small]);
+  assert.equal(cov.distinctEndpoints, 4);
+  assert.equal(cov.endpointsAllFullyInspectedSpecific, 1);
+  assert.equal(cov.endpointsSomeFullyInspectedSpecific, 1);
+  assert.equal(cov.endpointsNoFullyInspectedSpecific, 2);
+  assert.equal(cov.endpointsWithRawSpecificCandidate, 3);
+  assert.equal(cov.shareAnyFullyInspectedSpecific, 0.5, 'by endpoint, half; by bytes it would be ~99.9%');
+  assert.equal(cov.topEndpointByteShare > 0.99, true, 'the concentration is reported so the gap is explainable');
+  assert.equal(cov.sessionEndpointUnits, 10 + 3);
+  assert.equal(cov.sessionEndpointUnitsWithFullyInspectedSpecific, 11);
+  assert.deepEqual(endpointCoverage([]).distinctEndpoints, 0);
+  assert.equal(endpointCoverage([]).shareAnyFullyInspectedSpecific, null);
 });
 
 test('host and endpoint identity helpers never return content', () => {

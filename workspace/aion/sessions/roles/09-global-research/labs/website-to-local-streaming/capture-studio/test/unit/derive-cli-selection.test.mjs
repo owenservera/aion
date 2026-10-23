@@ -21,6 +21,7 @@ const ROLES = {
   missing: () => null,
   'older classifier': () => { const d = currentRoles(); return { ...d, classifier: { ...d.classifier, version: STREAM_ROLE_CLASSIFIER_VERSION - 1 } }; },
   'older schema': () => ({ ...currentRoles(), schema: 'capture-studio.stream-roles/0' }),
+  'previous generation': () => ({ ...currentRoles(), schema: 'capture-studio.stream-roles/1', classifier: { id: 'stream-role', version: 1 } }),
   errored: () => ({ schema: STREAM_ROLES_SCHEMA, error: 'boom' }),
 };
 
@@ -75,7 +76,7 @@ test('--missing: a complete receipt + knowledge but missing / stale / errored ro
   for (const [name, make] of Object.entries(ROLES)) makeSession(sessionsDir, `done-${name.replace(/\W+/g, '-')}`, { roles: make() });
   const { ids } = select(sessionsDir, { missing: true });
   assert.deepEqual(ids, [
-    'done-errored', 'done-missing', 'done-older-classifier', 'done-older-schema',
+    'done-errored', 'done-missing', 'done-older-classifier', 'done-older-schema', 'done-previous-generation',
   ]);
   assert.ok(!ids.includes('done-current'));
 });

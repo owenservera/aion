@@ -16,7 +16,7 @@ import { derive, streamRolesCurrent, STREAM_ROLES_SCHEMA, STREAM_ROLE_CLASSIFIER
 import { deriveAll } from '../../src/replay/derive-all.mjs';
 import { detectStreamMap, applyStreamMap } from '../../src/profiles/stream-map.mjs';
 import {
-  classifyStreamRole, buildStreamRoles, describeStreamRoles, STREAM_ROLES, CONFIDENCE_LEVELS, EVIDENCE_FEATURES,
+  classifyStreamRole, buildStreamRoles, describeStreamRoles, cleanCoverage, STREAM_ROLES, CONFIDENCE_LEVELS, EVIDENCE_FEATURES,
 } from '../../src/replay/stream-role.mjs';
 
 const SENTINEL = 'ZQSENTINEL';
@@ -112,7 +112,7 @@ test('summary() default carries no role fields, never calls the classifier, and 
   assert.equal(calls, 0, 'default summary does not classify');
   assert.deepEqual(a, b);
   assert.equal(JSON.stringify(a), JSON.stringify(b), 'identical key order');
-  for (const s of a.streams) assert.ok(!('role' in s) && !('roleConfidence' in s) && !('roleEvidence' in s));
+  for (const s of a.streams) assert.ok(!('role' in s) && !('roleConfidence' in s) && !('roleEvidence' in s) && !('roleCoverage' in s));
   assert.ok(!('roleCounts' in a));
   assert.equal(counting.streamRole('nope'), null);
   assert.equal(calls, 0);
@@ -124,7 +124,8 @@ test('summary({ includeStreamRoles: true }) adds role fields and keeps every oth
   const base = r.summary({ now: 5000 });
   const withRoles = r.summary({ now: 5000, includeStreamRoles: true });
   assert.deepEqual(withRoles.roleCounts, { 'chat-reply': 1, 'history-load': 1, config: 1, telemetry: 0, 'push-presence': 0, asset: 0, auth: 0, unknown: 1 });
-  const stripped = withRoles.streams.map(({ role, roleConfidence, roleEvidence, ...rest }) => rest);
+  const stripped = withRoles.streams.map(({ role, roleConfidence, roleEvidence, roleCoverage, ...rest }) => rest);
+  assert.ok(withRoles.streams.every((s) => s.roleCoverage && s.roleCoverage.version === 1 && s.roleCoverage.fullyInspected === true), 'fixtures are small: nothing was cut');
   assert.deepEqual(stripped, base.streams);
   for (const s of withRoles.streams) {
     assert.equal(s.role, EXPECTED[s.sid]);
@@ -167,6 +168,9 @@ test('emitted role evidence is a copy: mutating it never alters the cache or lat
   const chat = first.streams.find((s) => s.sid === 's-chat');
   chat.roleEvidence.push({ feature: 'x', count: 1 });
   chat.roleEvidence[0].count = 999;
+  chat.roleCoverage.binary.versions.push(99);
+  chat.roleCoverage.fullyInspected = false;
+  r.streamRole('s-chat').coverage.growthDocsCut = 77;
   chat.role = 'asset';
   first.roleCounts.asset = 9;
   const direct = r.streamRole('s-chat');
@@ -182,13 +186,49 @@ test('a bounded event window or keepEvents:false is marked as omitted events, ne
   assert.ok(row.eventsOnlyOnDisk > 0);
   assert.ok(row.roleEvidence.some((e) => e.feature === 'incomplete_capture'));
 
+  // the bounded window is a reducer omission, reported as such (and not as a classifier cap)
+  assert.ok(row.roleCoverage.eventsReducerOmitted > 0);
+  assert.equal(row.roleCoverage.eventsClassifierSkipped, 0);
+  assert.equal(row.roleCoverage.inspectionCut, true);
+  assert.equal(row.roleCoverage.fullyInspected, false);
+  assert.notEqual(row.role, 'chat-reply', 'a partial window never produces a label');
+
   const none = new StreamReducer({ keepEvents: false });
   none.ingestAll(rawRecords([FIXTURE[0]]));
   const r2 = none.summary({ includeStreamRoles: true }).streams[0];
+  assert.equal(r2.roleCoverage.source, 'assembled-only');
+  assert.equal(r2.roleCoverage.eventsRetained, 0);
+  assert.equal(r2.role, 'unknown', 'assembler-only evidence is withheld, not labelled');
   assert.ok(r2.roleEvidence.some((e) => e.feature === 'incomplete_capture'));
   // the assembler's document may still support a verdict, but never a clean-capture confidence
   assert.ok(r2.roleConfidence !== 'high', 'events held only on disk cap the confidence');
   assert.ok(r2.roleEvidence.some((e) => e.feature === 'incomplete_capture'));
+});
+
+// A stream whose reply deltas sit deeper than the growth walker goes, next to a message container. Before
+// the coverage fix the reply was invisible, the conflict vanished and this was a confident history-load.
+const nestW = (o, n) => { let x = o; for (let i = 0; i < n; i++) x = { w: x }; return x; };
+const CUT_BODY = sse([
+  { messages: [{ role: 'user', content: 'a question' }, { role: 'assistant', content: 'an answer' }] },
+  { type: 'message_start', message: { id: 'm-cut', role: 'assistant', content: [] } },
+  ...Array.from({ length: 6 }, (_, i) => nestW({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: `piece-${i} ` } }, 6)),
+]);
+const CUT_STREAM = { sid: 's-cut', mime: 'text/event-stream', method: 'POST', chunks: [CUT_BODY] };
+
+test('reducer: an inspection cap that could hide a conflict withholds the role and records why', () => {
+  const r = new StreamReducer();
+  r.ingestAll(rawRecords([CUT_STREAM]));
+  const row = r.summary({ includeStreamRoles: true }).streams[0];
+  assert.equal(row.role, 'unknown');
+  assert.equal(row.roleConfidence, 'none');
+  assert.equal(row.roleCoverage.withheldRole, 'history-load');
+  assert.equal(row.roleCoverage.growthDocsCut, 6);
+  assert.equal(row.roleCoverage.fullyInspected, false);
+  assert.equal(row.roleCoverage.eventsReducerOmitted, 0, 'no event was omitted: the cut is a classifier cap');
+  assert.ok(row.roleEvidence.some((e) => e.feature === 'withheld_for_incomplete_inspection'));
+  const direct = r.streamRole('s-cut');
+  assert.deepEqual(direct.coverage, row.roleCoverage);
+  assert.equal(r.summary({ includeStreamRoles: true }).roleCounts.unknown, 1);
 });
 
 test('summary of an open stream is classified from what exists and is not a different answer after it ends', () => {
@@ -208,9 +248,11 @@ test('derive persists STREAM_ROLES matching direct classification, with schema, 
   const result = await derive(s, e.profile, { learner: e.learner });
   const doc = s.kv.get('STREAM_ROLES');
   assert.equal(doc.schema, STREAM_ROLES_SCHEMA);
-  assert.equal(doc.schema, 'capture-studio.stream-roles/1');
+  assert.equal(doc.schema, 'capture-studio.stream-roles/3');
   assert.equal(doc.classifier.id, 'stream-role');
   assert.equal(doc.classifier.version, STREAM_ROLE_CLASSIFIER_VERSION);
+  assert.equal(doc.classifier.version, 3);
+  assert.equal(doc.classifier.coverageVersion, 1);
   assert.match(doc.confidenceScale, /heuristic-ordinal/);
   assert.match(doc.confidenceScale, /uncalibrated/);
   assert.deepEqual(doc.streams.map((x) => x.sid), ['s-chat', 's-config', 's-history', 's-unknown']);
@@ -221,12 +263,14 @@ test('derive persists STREAM_ROLES matching direct classification, with schema, 
     assert.equal(row.role, expected[row.sid].role);
     assert.equal(row.roleConfidence, expected[row.sid].confidence);
     assert.deepEqual(row.roleEvidence, expected[row.sid].evidence);
-    assert.deepEqual(Object.keys(row).sort(), ['eventsOmitted', 'roleConfidence', 'roleEvidence', 'role', 'sid'].sort());
+    assert.deepEqual(Object.keys(row).sort(), ['eventsOmitted', 'roleConfidence', 'roleCoverage', 'roleEvidence', 'role', 'sid'].sort());
+    assert.deepEqual(row.roleCoverage, cleanCoverage(expected[row.sid].coverage), 'persisted coverage equals the direct classification');
+    assert.equal(row.roleCoverage.fullyInspected, true);
   }
   const unknown = doc.streams.find((x) => x.sid === 's-unknown');
   assert.equal(unknown.roleConfidence, 'none', 'unknown is explicit and carries no confidence');
   assert.ok(unknown.roleEvidence.some((x) => x.feature === 'no_structural_evidence'));
-  assert.deepEqual(doc.totals, { streams: 4, byRole: { 'chat-reply': 1, 'history-load': 1, config: 1, telemetry: 0, 'push-presence': 0, asset: 0, auth: 0, unknown: 1 }, unknown: 1 });
+  assert.deepEqual(doc.totals, { streams: 4, byRole: { 'chat-reply': 1, 'history-load': 1, config: 1, telemetry: 0, 'push-presence': 0, asset: 0, auth: 0, unknown: 1 }, unknown: 1, withheld: 0, inspectionCut: 0 });
   assert.equal(doc.inputs.eventWindow, 20000);
   assert.match(doc.inputs.identity, /sid only/);
 
@@ -243,6 +287,30 @@ test('derive persists STREAM_ROLES matching direct classification, with schema, 
   assert.equal(s.kv.get('RECEIPT').stream_roles, result.receipt.stream_roles);
   assert.ok(STREAM_ROLES.includes(doc.streams[0].role));
   assert.equal(streamRolesCurrent(s), true);
+});
+
+test('derive: a withheld stream is persisted as unknown with its candidate and coverage; normal streams are unaffected', async (t) => {
+  const e = env(t);
+  const streams = [...FIXTURE, CUT_STREAM];
+  const s = await seed(e.paths, streams);
+  const result = await derive(s, e.profile, { learner: e.learner });
+  const doc = s.kv.get('STREAM_ROLES');
+  const cut = doc.streams.find((x) => x.sid === 's-cut');
+  assert.equal(cut.role, 'unknown');
+  assert.equal(cut.roleCoverage.withheldRole, 'history-load');
+  assert.equal(cut.roleCoverage.fullyInspected, false);
+  assert.deepEqual(cut.roleCoverage, cleanCoverage(directClassification(rawRecords(streams))['s-cut'].coverage));
+  for (const sid of Object.keys(EXPECTED)) assert.equal(doc.streams.find((x) => x.sid === sid).role, EXPECTED[sid], sid);
+  assert.equal(doc.totals.withheld, 1);
+  assert.equal(doc.totals.inspectionCut, 1);
+  assert.equal(doc.totals.byRole.unknown, 2);
+  assert.equal(result.receipt.stream_roles, '5 streams: 1 chat-reply, 1 history-load, 1 config, 2 unknown (1 specific role withheld: incomplete inspection)');
+  // enums / counts only
+  const flat = JSON.stringify(doc);
+  assert.ok(!flat.includes(SENTINEL) && !flat.includes('private-host') && !flat.includes('m-cut') && !flat.includes('piece-'));
+  // deterministic
+  await derive(s, e.profile, { learner: e.learner });
+  assert.equal(JSON.stringify(s.kv.get('STREAM_ROLES')), flat);
 });
 
 test('re-deriving the same raw log writes byte-identical STREAM_ROLES', async (t) => {
@@ -337,6 +405,7 @@ test('derive-all: same cursor + fresh manifest but missing / older / errored rol
     'missing (derived before roles existed)': null,
     'older classifier version': { ...good, classifier: { ...good.classifier, version: STREAM_ROLE_CLASSIFIER_VERSION - 1 } },
     'older schema': { ...good, schema: 'capture-studio.stream-roles/0' },
+    'previous generation (schema /1, classifier v1, no coverage)': { ...good, schema: 'capture-studio.stream-roles/1', classifier: { id: 'stream-role', version: 1 } },
     'errored role pass': { schema: STREAM_ROLES_SCHEMA, error: 'boom' },
   };
   for (const [name, artifact] of Object.entries(stale)) {
@@ -367,7 +436,7 @@ test('buildStreamRoles / describeStreamRoles are pure and tolerate odd rows', ()
   const rows = [{ sid: 'a', role: 'made-up', roleConfidence: 'certain', roleEvidence: [{ feature: 'json_events', count: 2, extra: 'x' }], eventsOnlyOnDisk: 4 }, { nosid: true }];
   const doc = buildStreamRoles(rows, { eventWindow: 10 });
   assert.equal(doc.streams.length, 1);
-  assert.deepEqual(doc.streams[0], { sid: 'a', role: 'unknown', roleConfidence: 'none', roleEvidence: [{ feature: 'json_events', count: 2 }], eventsOmitted: 4 });
+  assert.deepEqual(doc.streams[0], { sid: 'a', role: 'unknown', roleConfidence: 'none', roleEvidence: [{ feature: 'json_events', count: 2 }], roleCoverage: null, eventsOmitted: 4 });
   assert.equal(describeStreamRoles(doc), '1 streams: 1 unknown');
   assert.equal(describeStreamRoles({ status: 'no_streams' }), 'no_streams');
   assert.equal(describeStreamRoles({ error: 'x' }), 'error');

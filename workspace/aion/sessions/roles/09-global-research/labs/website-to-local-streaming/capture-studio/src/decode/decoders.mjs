@@ -18,6 +18,7 @@
 
 import { CsvDecoder, sniffDelimiter } from './csv.mjs';
 import { decodeProtobuf, protoStrings } from './protobuf.mjs';
+import { createProtoFeatureExtractor } from './proto-features.mjs';
 import { gunzipSync, inflateSync, inflateRawSync } from 'node:zlib';
 
 export const NL = 0x0a, CR = 0x0d, RS = 0x1e, TAB = 0x09, SP = 0x20;
@@ -489,6 +490,22 @@ export class GrpcFrameDecoder {
     this.mime = mime;
     this.jsonMaxBytes = jsonMaxBytes;
     this.stats = { frames: 0, trailers: 0, compressed: 0, bytes: 0 };
+    // ONE bounded structural-feature extractor per decoder (so per stream), created lazily on the first
+    // protobuf-path frame: a JSON-only gRPC / Connect stream never pays for it. Decoders do not share it.
+    this._pf = null;
+  }
+
+  // Attach the COMPACT feature snapshot (constant size, counts only: see proto-features.mjs snapshot()) to a
+  // protobuf-path event. The frame is handed over already inflated; nothing is inflated or framed twice.
+  // A frame that could not be analyzed (undecodable compression, live-cap oversize) is recorded as an
+  // incomplete record, never as a protobuf frame that was inspected. Never throws, never alters ev.proto.
+  _feature(ev, body) {
+    try {
+      this._pf ??= createProtoFeatureExtractor();
+      if (body === null || ev.proto?.reason === 'oversize') this._pf.add({ complete: false });
+      else this._pf.add({ payload: body });
+      ev.protoFeatures = this._pf.snapshot();
+    } catch { /* feature extraction is observational: the decoded event stays exactly as before */ }
   }
 
   // Adds compression / proto to a data frame. rawJson: JSON parse of the raw payload (or undefined).
@@ -502,10 +519,12 @@ export class GrpcFrameDecoder {
     if (body !== null) {
       const bodyIsJson = ev.compressed ? parseJsonSafe(body.toString('utf8')) !== undefined : rawJson !== undefined;
       const protoMime = /proto/i.test(String(this.mime ?? ''));
-      if (!protoMime && bodyIsJson) return;   // JSON Connect payload: current handling only
+      if (!protoMime && bodyIsJson) { this._pf?.gap(); return; }   // JSON Connect payload: current handling only
       ev.proto = protoView(body, this.jsonMaxBytes);
+      this._feature(ev, body);
     } else {
       ev.proto = { ok: false, reason: 'undecodable' };
+      this._feature(ev, null);
     }
   }
   push(chunk) {
@@ -542,6 +561,9 @@ export class GrpcFrameDecoder {
   end() {
     if (!this.buf.length) return [];
     const ev = { type: 'grpc.partial', size: this.buf.length, span: [this.base, this.base + this.buf.length], index: this.count++, incomplete: true };
+    // A trailing partial frame in a stream that carried protobuf frames: the feature coverage must say that
+    // something was NOT analyzed (incomplete), so a clean-looking cumulative snapshot never hides it.
+    if (this._pf) this._feature(ev, null);
     this.buf = Buffer.alloc(0);
     return [ev];
   }

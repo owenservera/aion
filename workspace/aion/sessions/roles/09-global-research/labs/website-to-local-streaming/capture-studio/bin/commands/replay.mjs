@@ -42,7 +42,7 @@ define({
   flags: {
     profile: { type: 'string', alias: 'p', valueName: 'NAME', desc: 'Derive with this profile instead of the one recorded with the session' },
     all: { type: 'boolean', desc: 'Derive every saved session' },
-    missing: { type: 'boolean', desc: 'Derive only sessions with no receipt, incomplete knowledge, or (when the base stage runs) a missing or stale stream-role artifact' },
+    missing: { type: 'boolean', desc: 'Derive only sessions with no receipt, incomplete knowledge, or (when the base stage runs) a missing, errored or stale stream-role artifact (written by an older classifier version or schema, i.e. before role coverage)' },
     force: { type: 'boolean', desc: 'In a batch, also derive sessions whose metadata says they are still recording' },
     full: { type: 'boolean', desc: 'Rebuild all requested stages instead of reusing incremental artifacts' },
     stages: { type: 'list', valueName: 'NAMES', desc: 'Run selected derivation stages (comma-separated)' },

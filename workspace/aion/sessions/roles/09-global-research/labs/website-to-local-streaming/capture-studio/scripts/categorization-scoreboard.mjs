@@ -211,25 +211,57 @@ export function roleOfStream(st) {
   const raw = st?.role;
   const role = typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : null;
   const conf = String(st?.roleConfidence ?? '');
+  // roleCoverage comes from the classifier (additive, absent on older rows): what the verdict examined.
+  const cov = st?.roleCoverage !== null && typeof st?.roleCoverage === 'object' ? st.roleCoverage : null;
+  const withheldRole = cov && SPECIFIC_ROLES.includes(cov.withheldRole) ? cov.withheldRole : null;
+  const lower = role === null ? null : role.toLowerCase();
   return {
     fieldPresent, role, hasRole: role !== null, hasEvidence: hasEvidenceValue(st?.roleEvidence),
-    specific: role !== null && SPECIFIC_ROLES.includes(role.toLowerCase()),
+    specific: lower !== null && SPECIFIC_ROLES.includes(lower),
     truncated: Number(st?.eventsOnlyOnDisk) > 0,
     omittedEvents: Number(st?.eventsOnlyOnDisk) > 0 ? Math.floor(Number(st.eventsOnlyOnDisk)) : 0,
     confidence: CONFIDENCE_LEVELS.includes(conf) ? conf : 'none',
+    hasCoverage: cov !== null,
+    // true / false when the classifier said so, null when the row has no coverage (never assumed)
+    fullyInspected: cov ? cov.fullyInspected === true : null,
+    inspectionCut: cov ? cov.inspectionCut === true : null,
+    withheldRole,
+    // a candidate specific role exists: either emitted, or withheld for incomplete inspection
+    rawSpecific: lower !== null && (SPECIFIC_ROLES.includes(lower) || (lower === 'unknown' && withheldRole !== null)),
+    classifierTruncatedEvidence: Array.isArray(st?.roleEvidence) && st.roleEvidence.some((e) => e && e.feature === 'inspection_truncated'),
   };
 }
 
 // Disposition of one stream for role coverage: exactly one of these.
-//   specific   a specific role on a complete event window  (counts as coverage)
+//   specific   a specific role the classifier emitted. It emits one only when the part of the stream
+//              that could contradict it was examined (coverage.fullyInspected), so this is the
+//              "fully inspected specific" count         (counts as coverage)
+//   withheld   the classifier had a specific candidate but withheld it because an inspection cap hid
+//              content that could contradict it           (NOT coverage; the candidate is reported
+//              separately as raw specific)
 //   unknown    the classifier answered unknown / a non-vocabulary value (NOT coverage)
-//   truncated  bounded events; any verdict is partial       (NOT coverage)
+//   truncated  the reducer holds only part of the stream's events (NOT coverage)
 //   absent     no role field (role pass off, or an old summary)
-export const ROLE_DISPOSITIONS = Object.freeze(['specific', 'unknown', 'truncated', 'absent']);
+export const ROLE_DISPOSITIONS = Object.freeze(['specific', 'withheld', 'unknown', 'truncated', 'absent']);
 export function roleDisposition(r) {
   if (!r.hasRole) return 'absent';
   if (r.truncated) return 'truncated';
+  if (r.role.toLowerCase() === 'unknown' && r.withheldRole !== null) return 'withheld';
   return r.specific ? 'specific' : 'unknown';
+}
+
+// Origin context of ONE stream, computed from that stream's own URL host against ITS OWN session's target
+// host. It is never an attribute of an origin: the same registrable host is "same-host" in one session
+// and "different-registrable" in another. Hostnames are compared, never reported.
+export const ORIGIN_CLASSES = Object.freeze(['same-host', 'same-registrable', 'different-registrable', 'no-target-context', 'no-stream-url']);
+export function originContextOf(streamUrl, targetUrl) {
+  let sh = null; let th = null;
+  try { sh = new URL(streamUrl).hostname.toLowerCase() || null; } catch { sh = null; }
+  try { th = new URL(targetUrl).hostname.toLowerCase() || null; } catch { th = null; }
+  if (!sh) return 'no-stream-url';
+  if (!th) return 'no-target-context';
+  if (sh === th) return 'same-host';
+  return registrableHost(sh) === registrableHost(th) ? 'same-registrable' : 'different-registrable';
 }
 
 // Dialect state: prefer the summary field when a later lane provides it, else derive from the
@@ -372,8 +404,26 @@ function emptyRoleBucket() {
     fieldPresent: false, labeled: 0, labeledWithEvidence: 0, unlabeled: 0,
     labeledBytes: 0, bytesWithEvidence: 0, distribution: {}, distributionBytes: {},
     dispositions: {}, dispositionBytes: {}, confidence: {}, eventsOmitted: 0,
+    // Coverage honesty (all counts / bytes):
+    //   rawSpecific*            a specific candidate existed (emitted OR withheld for incomplete inspection)
+    //   fullyInspectedSpecific* a specific role emitted with coverage.fullyInspected === true
+    //   inspectionCutUnknown*   unknown, and the classifier says an inspection cap / omission was involved
+    //   specificWithIrrelevantCap emitted specific whose evidence still reports a cap that cannot touch it
+    //   coverageUnavailable     rows with a role but no coverage object (never counted as fully inspected)
+    rawSpecific: 0, rawSpecificBytes: 0, fullyInspectedSpecific: 0, fullyInspectedSpecificBytes: 0,
+    inspectionCutUnknown: 0, inspectionCutUnknownBytes: 0, specificWithIrrelevantCap: 0, specificWithIrrelevantCapBytes: 0,
+    coverageUnavailable: 0, byOriginClass: {},
+    // binary streams by what could be said about their structure: 'structural-complete' / 'structural-incomplete'
+    // (decoder feature snapshots; incomplete = a frame was corrupt, partial, oversize or over a budget) or
+    // 'opaque' (binary / undecoded / unsupported contract, no JSON). None of these is a role; all stay unknown.
+    binaryKinds: {}, binaryKindBytes: {},
   };
 }
+
+const emptyClassTab = () => ({
+  streams: 0, bytes: 0, fullyInspectedSpecific: 0, fullyInspectedSpecificBytes: 0, rawSpecific: 0, rawSpecificBytes: 0,
+  unknown: 0, unknownBytes: 0, inspectionCut: 0, inspectionCutBytes: 0,
+});
 
 // roles: 'replay' (default) asks the reducer for includeStreamRoles on the in-memory replay;
 // 'off' is the deliberate pre-role baseline (no role fields, role_field_present=false). Persisted
@@ -440,18 +490,40 @@ export async function measureSession(dir, id, { eventCap = EVENT_CAP, roles = 'r
       bump(entry.role.distribution, label, 1);
       bump(entry.role.distributionBytes, label, bytes);
     }
+    const fullySpecific = disposition === 'specific' && r.fullyInspected === true;
     if (disposition === 'specific') {
       entry.role.labeled++;
       entry.role.labeledBytes += bytes;
       bump(entry.role.confidence, r.confidence);
       if (r.hasEvidence) { entry.role.labeledWithEvidence++; entry.role.bytesWithEvidence += bytes; }
+      if (fullySpecific) { entry.role.fullyInspectedSpecific++; entry.role.fullyInspectedSpecificBytes += bytes; }
+      if (r.classifierTruncatedEvidence) { entry.role.specificWithIrrelevantCap++; entry.role.specificWithIrrelevantCapBytes += bytes; }
     } else {
       entry.role.unlabeled++;
     }
+    if (r.hasRole && !r.hasCoverage) entry.role.coverageUnavailable++;
+    // binary structure coverage (never a role): structural-complete / structural-incomplete / opaque
+    const bcov = st.roleCoverage?.binary;
+    const binaryKey = bcov?.kind === 'structural' ? (bcov.complete === true ? 'structural-complete' : 'structural-incomplete') : bcov?.kind === 'opaque' ? 'opaque' : null;
+    if (binaryKey) { bump(entry.role.binaryKinds, binaryKey, 1); bump(entry.role.binaryKindBytes, binaryKey, bytes); }
+    if (r.rawSpecific) { entry.role.rawSpecific++; entry.role.rawSpecificBytes += bytes; }
+    const cut = r.hasRole && r.role.toLowerCase() === 'unknown' && r.inspectionCut === true;
+    if (cut) { entry.role.inspectionCutUnknown++; entry.role.inspectionCutUnknownBytes += bytes; }
+    // origin context: this stream's own host against THIS session's target (never an inherited label)
+    const originClass = originContextOf(st.url, meta?.target?.url);
+    const ot = (entry.role.byOriginClass[originClass] ??= emptyClassTab());
+    ot.streams++; ot.bytes += bytes;
+    if (fullySpecific) { ot.fullyInspectedSpecific++; ot.fullyInspectedSpecificBytes += bytes; }
+    if (r.rawSpecific) { ot.rawSpecific++; ot.rawSpecificBytes += bytes; }
+    if (disposition === 'unknown' && !cut) { ot.unknown++; ot.unknownBytes += bytes; }
+    if (cut || disposition === 'truncated') { ot.inspectionCut++; ot.inspectionCutBytes += bytes; }
     if (typeof st.url === 'string' && st.url !== '') {
-      // Only a specific role on a complete window is a label for stability; unknown / truncated /
-      // absent are excluded as "missing role", never compared as if they were a role.
-      endpointRoles.push({ endpoint: endpointHash(st.method, st.url), role: disposition === 'specific' ? roleLabel(r.role) : null });
+      // Only a specific role on a complete window is a label for stability; unknown / withheld /
+      // truncated / absent are excluded as "missing role", never compared as if they were a role.
+      endpointRoles.push({
+        endpoint: endpointHash(st.method, st.url), role: disposition === 'specific' ? roleLabel(r.role) : null,
+        bytes, fullySpecific, rawSpecific: r.rawSpecific,
+      });
     }
 
     const ds = dialectStateOf(st, events);
@@ -520,9 +592,58 @@ export function roleStability(perSessionEndpoints) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Endpoint-deduplicated role coverage. A handful of endpoints fetched over and over can carry most of
+// the bytes (one endpoint held 78% of the unknown bytes in a real survey), so byte or stream shares alone
+// say little about how many DISTINCT endpoints are understood. Units here are endpoints (method + url
+// template hash), not streams:
+//   all     every observation of the endpoint was a fully inspected specific role
+//   some    at least one, but not every, observation was
+//   none    no observation was
+// perSessionEndpoints: [{ session, endpoints: [{ endpoint, bytes, fullySpecific, rawSpecific }] }]
+// ---------------------------------------------------------------------------------------------
+export function endpointCoverage(perSessionEndpoints) {
+  const byEndpoint = new Map();
+  let units = 0; let unitsWithSpecific = 0; let totalBytes = 0;
+  for (const { endpoints } of perSessionEndpoints) {
+    const perSession = new Map();
+    for (const e of endpoints) {
+      const t = byEndpoint.get(e.endpoint) ?? { obs: 0, full: 0, raw: 0, bytes: 0 };
+      t.obs++; t.bytes += e.bytes ?? 0; totalBytes += e.bytes ?? 0;
+      if (e.fullySpecific) t.full++;
+      if (e.rawSpecific) t.raw++;
+      byEndpoint.set(e.endpoint, t);
+      const u = perSession.get(e.endpoint) ?? { full: false };
+      if (e.fullySpecific) u.full = true;
+      perSession.set(e.endpoint, u);
+    }
+    for (const u of perSession.values()) { units++; if (u.full) unitsWithSpecific++; }
+  }
+  let all = 0; let some = 0; let none = 0; let rawAny = 0; let topBytes = 0; let topObs = 0;
+  for (const t of byEndpoint.values()) {
+    if (t.full === t.obs) all++; else if (t.full > 0) some++; else none++;
+    if (t.raw > 0) rawAny++;
+    topBytes = Math.max(topBytes, t.bytes); topObs = Math.max(topObs, t.obs);
+  }
+  const totalObs = [...byEndpoint.values()].reduce((a, t) => a + t.obs, 0);
+  return {
+    distinctEndpoints: byEndpoint.size,
+    endpointsAllFullyInspectedSpecific: all, endpointsSomeFullyInspectedSpecific: some, endpointsNoFullyInspectedSpecific: none,
+    endpointsWithRawSpecificCandidate: rawAny,
+    shareAllFullyInspectedSpecific: ratio(all, byEndpoint.size),
+    shareAnyFullyInspectedSpecific: ratio(all + some, byEndpoint.size),
+    sessionEndpointUnits: units, sessionEndpointUnitsWithFullyInspectedSpecific: unitsWithSpecific,
+    shareUnitsWithFullyInspectedSpecific: ratio(unitsWithSpecific, units),
+    // how concentrated the observations are in one endpoint (bytes and streams), so a reader sees why the
+    // byte share and the endpoint share differ
+    topEndpointByteShare: ratio(topBytes, totalBytes),
+    topEndpointStreamShare: ratio(topObs, totalObs),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
 // Aggregation
 // ---------------------------------------------------------------------------------------------
-export function aggregate(entries, stability, learner, { roleFieldPresent, roleMode = 'replay' }) {
+export function aggregate(entries, stability, learner, { roleFieldPresent, roleMode = 'replay', endpointCoverage: epCov = null }) {
   const ok = entries.filter((e) => e.status === 'ok');
   const byStatus = {};
   for (const e of entries) bump(byStatus, e.sessionStatus ?? e.status);
@@ -536,6 +657,12 @@ export function aggregate(entries, stability, learner, { roleFieldPresent, roleM
     streamsUnknown: 0, streamsTruncated: 0, streamsAbsent: 0,
     bytes: 0, labeledBytes: 0, bytesWithRoleEvidence: 0, unknownBytes: 0, truncatedBytes: 0, absentBytes: 0,
     eventsOmitted: 0,
+    // raw specific = a specific candidate existed (emitted or withheld); fullyInspected = emitted with the
+    // contradicting part examined. Their gap is what incomplete inspection costs. unknown is never coverage.
+    streamsRawSpecific: 0, rawSpecificBytes: 0, streamsFullyInspectedSpecific: 0, fullyInspectedSpecificBytes: 0,
+    streamsWithheld: 0, withheldBytes: 0, streamsInspectionCutUnknown: 0, inspectionCutUnknownBytes: 0,
+    streamsSpecificWithIrrelevantCap: 0, specificWithIrrelevantCapBytes: 0, streamsCoverageUnavailable: 0,
+    byOriginClass: {}, binaryKinds: {}, binaryKindBytes: {},
     distribution: {}, distributionBytes: {}, confidence: {},
   };
   const dialect = { sourceFieldSessions: 0, sourceFallbackSessions: 0, counts: {}, bytes: {} };
@@ -560,6 +687,17 @@ export function aggregate(entries, stability, learner, { roleFieldPresent, roleM
     const d = e.role.dispositions ?? {}; const db = e.role.dispositionBytes ?? {};
     role.streamsUnknown += d.unknown ?? 0; role.streamsTruncated += d.truncated ?? 0; role.streamsAbsent += d.absent ?? 0;
     role.unknownBytes += db.unknown ?? 0; role.truncatedBytes += db.truncated ?? 0; role.absentBytes += db.absent ?? 0;
+    role.streamsWithheld += d.withheld ?? 0; role.withheldBytes += db.withheld ?? 0;
+    role.streamsRawSpecific += e.role.rawSpecific ?? 0; role.rawSpecificBytes += e.role.rawSpecificBytes ?? 0;
+    role.streamsFullyInspectedSpecific += e.role.fullyInspectedSpecific ?? 0; role.fullyInspectedSpecificBytes += e.role.fullyInspectedSpecificBytes ?? 0;
+    role.streamsInspectionCutUnknown += e.role.inspectionCutUnknown ?? 0; role.inspectionCutUnknownBytes += e.role.inspectionCutUnknownBytes ?? 0;
+    role.streamsSpecificWithIrrelevantCap += e.role.specificWithIrrelevantCap ?? 0; role.specificWithIrrelevantCapBytes += e.role.specificWithIrrelevantCapBytes ?? 0;
+    role.streamsCoverageUnavailable += e.role.coverageUnavailable ?? 0;
+    addInto(role.binaryKinds, e.role.binaryKinds); addInto(role.binaryKindBytes, e.role.binaryKindBytes);
+    for (const [cls, tab] of Object.entries(e.role.byOriginClass ?? {})) {
+      const into = (role.byOriginClass[ORIGIN_CLASSES.includes(cls) ? cls : 'other'] ??= emptyClassTab());
+      for (const [k, v] of Object.entries(tab)) into[k] = (into[k] ?? 0) + (Number.isFinite(v) ? v : 0);
+    }
     if (e.dialectState.field > 0) dialect.sourceFieldSessions++;
     else dialect.sourceFallbackSessions++;
     addInto(dialect.counts, e.dialectState.counts);
@@ -595,6 +733,12 @@ export function aggregate(entries, stability, learner, { roleFieldPresent, roleM
         labeledByteShare: ratio(role.labeledBytes, role.bytes),
         unknownStreamShare: ratio(role.streamsUnknown, role.streams),
         truncatedStreamShare: ratio(role.streamsTruncated, role.streams),
+        rawSpecificStreamShare: ratio(role.streamsRawSpecific, role.streams),
+        rawSpecificByteShare: ratio(role.rawSpecificBytes, role.bytes),
+        fullyInspectedSpecificStreamShare: ratio(role.streamsFullyInspectedSpecific, role.streams),
+        fullyInspectedSpecificByteShare: ratio(role.fullyInspectedSpecificBytes, role.bytes),
+        withheldStreamShare: ratio(role.streamsWithheld, role.streams),
+        endpointCoverage: epCov,
       },
       roleStability: stability,
       dialectState: dialect,
@@ -680,7 +824,7 @@ export async function runScoreboard({
       externalChanges: changes.length,
       note: 'stat only: unchanged metadata is not a content hash; no session id, folder or file name is reported',
     },
-    aggregate: aggregate(entries, stability, learner, { roleFieldPresent, roleMode: roles }),
+    aggregate: aggregate(entries, stability, learner, { roleFieldPresent, roleMode: roles, endpointCoverage: endpointCoverage(perSessionEndpoints) }),
     sessions: entries,
   };
   return { report, changes };
@@ -736,6 +880,9 @@ export function renderSummary(report) {
     `framing (streams): ${kv(m.framing.streams.transportDetail)}`,
     `framing (bytes): ${kv(m.framing.bytes.transportDetail)}`,
     `role: mode=${m.role.mode}; field_present=${m.role.field_present}; SPECIFIC role ${m.role.streamsLabeled}/${m.role.streams} streams (${m.role.labeledStreamShare}), with evidence ${m.role.streamsWithRoleEvidence} (${m.role.streamShare}); bytes ${m.role.labeledBytes}/${m.role.bytes} (${m.role.labeledByteShare}); unknown (not coverage) ${m.role.streamsUnknown} streams/${m.role.unknownBytes} bytes; truncated (not coverage) ${m.role.streamsTruncated} streams/${m.role.truncatedBytes} bytes, ${m.role.eventsOmitted} events omitted; absent ${m.role.streamsAbsent}; distribution ${kv(m.role.distribution)}; confidence (${m.role.confidenceScale}) ${kv(m.role.confidence)}`,
+    `role coverage honesty: raw specific candidates ${m.role.streamsRawSpecific}/${m.role.streams} streams (${m.role.rawSpecificStreamShare}), ${m.role.rawSpecificBytes} bytes; fully inspected specific ${m.role.streamsFullyInspectedSpecific} (${m.role.fullyInspectedSpecificStreamShare}), ${m.role.fullyInspectedSpecificBytes} bytes; withheld for incomplete inspection ${m.role.streamsWithheld} streams/${m.role.withheldBytes} bytes; unknown with an inspection cut ${m.role.streamsInspectionCutUnknown} streams/${m.role.inspectionCutUnknownBytes} bytes; specific with an irrelevant cap ${m.role.streamsSpecificWithIrrelevantCap}; coverage unavailable ${m.role.streamsCoverageUnavailable}`,
+    ...(m.role.endpointCoverage ? [`role by endpoint (deduplicated): ${m.role.endpointCoverage.endpointsAllFullyInspectedSpecific} all + ${m.role.endpointCoverage.endpointsSomeFullyInspectedSpecific} some of ${m.role.endpointCoverage.distinctEndpoints} distinct endpoints have a fully inspected specific role (any ${m.role.endpointCoverage.shareAnyFullyInspectedSpecific}); session-endpoint units ${m.role.endpointCoverage.sessionEndpointUnitsWithFullyInspectedSpecific}/${m.role.endpointCoverage.sessionEndpointUnits}; top endpoint holds ${m.role.endpointCoverage.topEndpointByteShare} of bytes, ${m.role.endpointCoverage.topEndpointStreamShare} of streams`] : []),
+    `origin context per stream (own host vs own session target): ${Object.entries(m.role.byOriginClass ?? {}).map(([k, t]) => `${k}=${t.streams} streams/${t.bytes} bytes (fully inspected specific ${t.fullyInspectedSpecific}, unknown ${t.unknown}, cut ${t.inspectionCut})`).join('; ') || '-'}`,
     `role stability: ${m.roleStability.endpointsStable}/${m.roleStability.endpointsComparable} comparable multi-session endpoints stable (ratio ${m.roleStability.stabilityShare}; ${m.roleStability.endpointsMultiSession} seen in 2+ sessions)`,
     `dialect state: ${kv(m.dialectState.counts)}; sessions using summary field ${m.dialectState.sourceFieldSessions}, fallback ${m.dialectState.sourceFallbackSessions}`,
     `stream maps: ${m.streamMap.sessionsWithMap} sessions matched (${kv(m.streamMap.byMapId)}); unmapped events ${m.streamMap.unmappedEvents}; error signals ${m.streamMap.errorSignals}`,

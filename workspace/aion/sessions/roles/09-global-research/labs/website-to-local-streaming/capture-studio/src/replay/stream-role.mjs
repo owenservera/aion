@@ -36,20 +36,29 @@
 //   * A specific role needs score >= 2 (see each detector). Score-1 hints are reported as
 //     weak_evidence_only and the role stays unknown. Two different roles at score >= 2 conflict:
 //     unknown.
-//   * Inspection is bounded (opts). If a bound prevented a complete look, inspection_truncated is
-//     reported and confidence steps down one level.
+//   * Inspection is bounded (opts, and the reducer's event window). inspection_truncated is reported
+//     whenever any cap was hit. A specific role whose verdict could be contradicted by the unexamined part
+//     (omitted / skipped events, growth or structure scan cuts; the 500-record pool only for non-content
+//     roles) is WITHHELD: role unknown, evidence withheld_for_incomplete_inspection, the candidate kept in
+//     result.coverage.withheldRole. result.coverage separates the causes (see baseCoverage below).
 
 // Bump when classification behaviour changes: persisted STREAM_ROLES artifacts carry it, and a consumer
 // that finds an older (or missing) version must re-derive instead of reusing the artifact.
-export const STREAM_ROLE_CLASSIFIER_VERSION = 1;
-export const STREAM_ROLES_SCHEMA = 'capture-studio.stream-roles/1';
+import { PROTO_FEATURES_SCHEMA, PROTO_FEATURES_VERSION } from '../decode/proto-features.mjs';
+
+// v2: a specific role is WITHHELD (role unknown, coverage.withheldRole set) when an inspection cap or
+//     omitted events could have hidden contradictory content; results carry a `coverage` object.
+// v3: coverage.binary consumes the decoder's compact ev.protoFeatures snapshots (contract constants shared
+//     with src/decode/proto-features.mjs): structural / opaque, complete or not. Never a role.
+export const STREAM_ROLE_CLASSIFIER_VERSION = 3;
+export const STREAM_ROLES_SCHEMA = 'capture-studio.stream-roles/3';
 export const STREAM_ROLES_CONFIDENCE_SCALE = 'heuristic-ordinal (none|low|medium|high); uncalibrated, not a probability; signals derive from the same events and are not independent';
 
 export const STREAM_ROLES = Object.freeze(['chat-reply', 'history-load', 'config', 'telemetry', 'push-presence', 'asset', 'auth', 'unknown']);
 export const CONFIDENCE_LEVELS = Object.freeze(['none', 'low', 'medium', 'high']);
 export const EVIDENCE_FEATURES = Object.freeze([
   // verdict / coverage markers
-  'empty_stream', 'no_structural_evidence', 'weak_evidence_only', 'conflicting_role_evidence', 'incomplete_capture', 'inspection_truncated',
+  'empty_stream', 'no_structural_evidence', 'weak_evidence_only', 'conflicting_role_evidence', 'incomplete_capture', 'inspection_truncated', 'withheld_for_incomplete_inspection',
   // shared context
   'json_events', 'heartbeat_events',
   // reply: text growth, then chat-specific structure
@@ -67,6 +76,8 @@ export const EVIDENCE_FEATURES = Object.freeze([
   'token_exchange_structure', 'token_exchange_request', 'credential_shaped_values', 'masked_credential_values', 'masked_credential_spans',
   // asset
   'asset_media_type', 'asset_resource_type', 'non_json_body',
+  // binary structure (decoder feature snapshots): context only, never a role
+  'binary_structural_frames', 'binary_incomplete_frames',
 ]);
 
 // ---- options: validated and clamped --------------------------------------------------------------
@@ -180,24 +191,43 @@ function expandPatch(json) {
 }
 
 // String leaves under a `delta` key (typed events, chat-completions choices[].delta, ...).
+// CAP CHECKS ARE THEMSELVES BOUNDED. A cap is a statement "there is an unseen tail"; deciding that never
+// reads the tail. A non-empty unseen tail is conservatively a cut: false uncertainty beats an unbounded scan
+// (the tail could hold a delta, a string snapshot or a container, and looking would defeat maxNodes).
+// Scalars hold nothing, so a scalar leaf below a depth cap is not a cut (no scan is needed to know that).
+const holdsContainer = (v) => v !== null && typeof v === 'object';
+
+// At most `limit` own entries are materialised, in insertion order; `more` says an unseen entry exists
+// (one extra key is looked at, never the rest). No Object.entries()/keys()/values() over the whole object.
+function boundedEntries(obj, limit) {
+  const entries = [];
+  let more = false;
+  for (const k in obj) {
+    if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+    if (entries.length >= limit) { more = true; break; }
+    entries.push([k, obj[k]]);
+  }
+  return { entries, more };
+}
+
 function walkDelta(node, path, depth, idx, g, b) {
   if (!spend(b)) return;
+  if (!holdsContainer(node)) return;
   if (depth > 5) { b.hit = true; return; }
   if (Array.isArray(node)) {
     if (node.length > 32) b.hit = true;
     node.slice(0, 32).forEach((x, i) => walkDelta(x, `${path}[${i}]`, depth + 1, idx, g, b));
     return;
   }
-  if (!isObj(node)) return;
-  const entries = Object.entries(node);
-  if (entries.length > 40) b.hit = true;
-  for (const [k, v] of entries.slice(0, 40)) {
+  const { entries, more } = boundedEntries(node, 40);
+  if (more) b.hit = true;
+  for (const [k, v] of entries) {
     if (k === 'delta') {
       if (typeof v === 'string') g.step(`${idx}|${path}.delta`, v);
       else if (isObj(v)) {
-        const de = Object.entries(v);
-        if (de.length > 20) b.hit = true;
-        for (const [dk, dv] of de.slice(0, 20)) if (dk !== 'type' && typeof dv === 'string') g.step(`${idx}|${path}.delta.${dk}`, dv);
+        const de = boundedEntries(v, 20);
+        if (de.more) b.hit = true;
+        for (const [dk, dv] of de.entries) if (dk !== 'type' && typeof dv === 'string') g.step(`${idx}|${path}.delta.${dk}`, dv);
       }
     } else if (v && typeof v === 'object') walkDelta(v, `${path}.${k}`, depth + 1, idx, g, b);
   }
@@ -206,6 +236,7 @@ function walkDelta(node, path, depth, idx, g, b) {
 // Leaves of a plain document, for cumulative-snapshot detection.
 function snapshotLeaves(node, path, depth, g, b) {
   if (!spend(b)) return;
+  if (typeof node !== 'string' && !holdsContainer(node)) return; // numbers / booleans / null never grow
   if (depth > 6) { b.hit = true; return; }
   if (typeof node === 'string') { g.cumulative(`leaf|${path}`, node); return; }
   if (Array.isArray(node)) {
@@ -214,9 +245,9 @@ function snapshotLeaves(node, path, depth, g, b) {
     return;
   }
   if (isObj(node)) {
-    const entries = Object.entries(node);
-    if (entries.length > 40) b.hit = true;
-    for (const [k, v] of entries.slice(0, 40)) snapshotLeaves(v, `${path}.${k}`, depth + 1, g, b);
+    const { entries, more } = boundedEntries(node, 40);
+    if (more) b.hit = true;
+    for (const [k, v] of entries) snapshotLeaves(v, `${path}.${k}`, depth + 1, g, b);
   }
 }
 
@@ -314,7 +345,11 @@ function isAssistantFrame(node) {
 
 const scalarKind = (v) => (typeof v === 'string' ? 's' : typeof v === 'number' ? 'n' : typeof v === 'boolean' ? 'b' : v === null ? 'z' : 'o');
 const isScalar = (v) => v === null || ['string', 'number', 'boolean'].includes(typeof v);
-const signature = (rec) => Object.keys(rec).sort().map((k) => `${k}:${scalarKind(rec[k])}`).join(',');
+// Record shape signature over at most 60 keys (a wider record just gets a '+' marker): bounded per record.
+const signature = (rec) => {
+  const { entries, more } = boundedEntries(rec, 60);
+  return entries.map(([k, v]) => `${k}:${scalarKind(v)}`).sort().join(',') + (more ? '|+' : '');
+};
 
 function createStats() {
   return {
@@ -348,7 +383,8 @@ function descriptorArray(items) {
   const sigs = new Map();
   for (const it of items) sigs.set(signature(it), (sigs.get(signature(it)) ?? 0) + 1);
   if (Math.max(...sigs.values()) / items.length < 0.8) return false;
-  return items.every((it) => Object.values(it).filter(isScalar).length >= 2) && items.some((it) => Object.values(it).some((v) => typeof v === 'string'));
+  const vals = (it) => boundedEntries(it, 60).entries.map((e) => e[1]);
+  return items.every((it) => vals(it).filter(isScalar).length >= 2) && items.some((it) => vals(it).some((v) => typeof v === 'string'));
 }
 
 function scan(node, depth, st, b) {
@@ -362,9 +398,9 @@ function scan(node, depth, st, b) {
     for (const x of members) scan(x, depth + 1, st, b);
   } else if (isObj(node)) {
     if (isAssistantFrame(node)) st.assistantFrames++;
-    const all = Object.values(node);
-    if (all.length > 200) b.hit = true;
-    const vals = all.slice(0, 200);
+    const { entries, more } = boundedEntries(node, 200);
+    if (more) b.hit = true;
+    const vals = entries.map((e) => e[1]);
     if (vals.length >= 2) noteContainer(st, vals);
     for (const x of vals) scan(x, depth + 1, st, b);
   } else scalarStats(st, node);
@@ -375,7 +411,7 @@ function scan(node, depth, st, b) {
 function tokenExchangeIn(obj) {
   if (!isObj(obj)) return false;
   let token = false; let expiry = false;
-  for (const [k, v] of Object.entries(obj).slice(0, 40)) {
+  for (const [k, v] of boundedEntries(obj, 40).entries) {
     const key = slotKey(k);
     if (TOKEN_SLOT_KEYS.has(key) && typeof v === 'string' && (JWT_SHAPED.test(v) || isMasked(v) || TOKEN_VALUE.test(v))) token = true;
     if (EXPIRY_SLOT_KEYS.has(key) && isExpiryNumber(v)) expiry = true;
@@ -385,14 +421,21 @@ function tokenExchangeIn(obj) {
 const tokenExchange = (doc) => tokenExchangeIn(doc) || (isObj(doc) && tokenExchangeIn(doc.data));
 
 // Records for telemetry: the largest array of >=3 objects (depth <= 2) or the document itself.
+// Bounded: only the first 200 members decide whether an array holds records, at most 501 are returned (one
+// more than the pool holds, so an overflow is still visible as recordPoolCapped), and objects are read through
+// boundedEntries. Nothing here walks an unbounded tail.
 function recordsOf(doc) {
-  const pick = (arr) => (arr.length >= 3 && arr.every(isObj) ? arr : null);
+  const pick = (arr) => {
+    if (arr.length < 3 || !arr.slice(0, 200).every(isObj)) return null;
+    return arr.slice(0, 501);
+  };
+  const better = (p, best) => p && (!best || p.length > best.length);
   if (Array.isArray(doc)) return pick(doc) ?? [];
   if (!isObj(doc)) return [];
   let best = null;
-  for (const v of Object.values(doc)) {
-    if (Array.isArray(v)) { const p = pick(v); if (p && (!best || p.length > best.length)) best = p; }
-    else if (isObj(v)) for (const w of Object.values(v)) if (Array.isArray(w)) { const p = pick(w); if (p && (!best || p.length > best.length)) best = p; }
+  for (const [, v] of boundedEntries(doc, 200).entries) {
+    if (Array.isArray(v)) { const p = pick(v); if (better(p, best)) best = p; }
+    else if (isObj(v)) for (const [, w] of boundedEntries(v, 200).entries) if (Array.isArray(w)) { const p = pick(w); if (better(p, best)) best = p; }
   }
   return best ?? [doc];
 }
@@ -400,14 +443,15 @@ function recordsOf(doc) {
 function analyze(docs, assembledDoc, o) {
   const st = createStats();
   const records = [];
-  let truncatedDocs = 0;
+  let truncatedDocs = 0;          // documents whose structure scan was cut (nodes / depth / array / key caps)
+  let recordPoolCapped = false;   // more than 500 telemetry/config records: only record-based detectors care
   let exchanges = 0;
   for (const d of docs) {
     const b = mkBudget(o.maxNodes);
     scan(d, 0, st, b);
     if (b.hit) truncatedDocs++;
     if (tokenExchange(d)) exchanges++;
-    for (const r of recordsOf(d)) { if (records.length < 500) records.push(r); else truncatedDocs = Math.max(truncatedDocs, 1); }
+    for (const r of recordsOf(d)) { if (records.length < 500) records.push(r); else recordPoolCapped = true; }
   }
   // The assembled document is derived from the same events; scanning both would double-count.
   if (!docs.length && assembledDoc && typeof assembledDoc === 'object') {
@@ -427,14 +471,15 @@ function analyze(docs, assembledDoc, o) {
     sigs.set(s, (sigs.get(s) ?? 0) + 1);
   }
   const dominant = sigs.size ? Math.max(...sigs.values()) : 0;
-  return { st, records: records.length, rs, dominant, exchanges, truncatedDocs };
+  return { st, records: records.length, rs, dominant, exchanges, truncatedDocs, structureDocsCut: truncatedDocs, recordPoolCapped };
 }
 
 // ---- small flat state frames (push-presence) -----------------------------------------------------
 function isSmallFlat(doc) {
   if (!isObj(doc)) return false;
-  const vals = Object.values(doc);
-  if (vals.length === 0 || vals.length > 6) return false;
+  const { entries, more } = boundedEntries(doc, 7);
+  const vals = entries.map((e) => e[1]);
+  if (more || vals.length === 0 || vals.length > 6) return false;
   return vals.every((v) => v === null || typeof v === 'boolean' || (typeof v === 'number' && !isTimestampNumber(v)) || (typeof v === 'string' && v.length <= 48 && !ISO_TIME.test(v)));
 }
 
@@ -459,7 +504,7 @@ export function streamingEvidence(stream, opts = {}) {
     incrementalText: f.incremental, chatCorroborated: mappedMessage > 0 || frames > 0,
     kinds: [f.incremental, mappedMessage > 0, frames > 0].filter(Boolean).length,
     strong: f.incremental && (mappedMessage > 0 || frames > 0),
-    truncated: events.length > o.maxEvents || f.truncatedDocs > 0 || a.truncatedDocs > 0,
+    truncated: events.length > o.maxEvents || f.truncatedDocs > 0 || a.truncatedDocs > 0 || a.recordPoolCapped,
   };
 }
 
@@ -583,33 +628,156 @@ export function buildStreamRoles(rows, { eventWindow = null } = {}) {
   const list = Array.isArray(rows) ? rows.filter((r) => isObj(r) && r.sid !== undefined) : [];
   if (!list.length) return { schema: STREAM_ROLES_SCHEMA, status: 'no_streams' };
   const byRole = Object.fromEntries(STREAM_ROLES.map((r) => [r, 0]));
+  let withheld = 0; let inspectionCut = 0;
   const streams = list.map((r) => {
     const role = STREAM_ROLES.includes(r.role) ? r.role : 'unknown';
     byRole[role]++;
+    const roleCoverage = cleanCoverage(r.roleCoverage);
+    if (roleCoverage?.withheldRole) withheld++;
+    if (roleCoverage?.inspectionCut) inspectionCut++;
     return {
       sid: r.sid,
       role,
       roleConfidence: CONFIDENCE_LEVELS.includes(r.roleConfidence) ? r.roleConfidence : 'none',
       roleEvidence: Array.isArray(r.roleEvidence) ? r.roleEvidence.map((e) => ({ feature: e.feature, count: e.count })) : [],
+      roleCoverage,
       eventsOmitted: Number(r.eventsOnlyOnDisk) > 0 ? Number(r.eventsOnlyOnDisk) : 0,
     };
   });
   return {
     schema: STREAM_ROLES_SCHEMA,
-    classifier: { id: 'stream-role', version: STREAM_ROLE_CLASSIFIER_VERSION, options: { ...resolveClassifierOptions() } },
+    classifier: { id: 'stream-role', version: STREAM_ROLE_CLASSIFIER_VERSION, coverageVersion: COVERAGE_VERSION, options: { ...resolveClassifierOptions() } },
     confidenceScale: STREAM_ROLES_CONFIDENCE_SCALE,
     inputs: { eventWindow, source: 'reducer events + assembled + built-in stream maps', identity: 'sid only; no join ids inferred' },
     streams,
-    totals: { streams: streams.length, byRole, unknown: byRole.unknown },
+    totals: { streams: streams.length, byRole, unknown: byRole.unknown, withheld, inspectionCut },
   };
 }
 
-// One-line receipt entry for a STREAM_ROLES document.
+// One-line receipt entry for a STREAM_ROLES document. "withheld" streams are listed under unknown; the
+// suffix says how many of those had a specific role withheld for incomplete inspection.
 export function describeStreamRoles(doc) {
   if (!doc || !doc.totals) return doc?.status ?? 'error';
   const parts = STREAM_ROLES.filter((r) => doc.totals.byRole[r] > 0).map((r) => `${doc.totals.byRole[r]} ${r}`);
-  return `${doc.totals.streams} streams: ${parts.join(', ')}`;
+  const w = Number(doc.totals.withheld) > 0 ? ` (${doc.totals.withheld} specific role withheld: incomplete inspection)` : '';
+  return `${doc.totals.streams} streams: ${parts.join(', ')}${w}`;
 }
+
+// ---- coverage: what the verdict actually looked at -------------------------------------------------------
+// Additive result field. Counts, booleans and enums only. It separates five different things that the
+// single `inspection_truncated` evidence count lumps together:
+//   eventsReducerOmitted    events the reducer no longer holds (bounded window / keepEvents:false)
+//   eventsClassifierSkipped events beyond opts.maxEvents
+//   growthDocsCut           documents where a text-growth walker hit a node / depth / array / key cap
+//   structureDocsCut        documents where the structure scan (frames, containers, records) hit a cap
+//   recordPoolCapped        more than 500 records pooled (only record-based, non-content roles care)
+// plus where the evidence came from (source), the stream-map window and assembler use, and an opaque
+// binary-structure tally (no decoding here: the protobuf feature contract belongs to the decoder lane).
+export const COVERAGE_VERSION = 1;
+const COVERAGE_SOURCES = ['events', 'assembled-only', 'summary-only'];
+const OPAQUE_DECODERS = new Set(['binary', 'raw', 'protobuf', 'grpc', 'length-prefixed']);
+const CONTENT_ROLES = new Set(['chat-reply', 'history-load']);
+const nn = (v) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
+
+const BINARY_FRAME_KEYS = ['analyzed', 'corrupt', 'budget', 'incomplete', 'invalid', 'oversize', 'beyondCap'];
+
+// Binary structure coverage from the decoder's compact snapshots (ev.protoFeatures). A snapshot is SUPPORTED
+// only when BOTH its schema string and its integer version equal the shared contract constants; anything else
+// (an older/newer version, a schema/version that disagree, a malformed object) is UNSUPPORTED and is never
+// interpreted: it can only make the stream "opaque". Snapshots are cumulative, so the last supported one
+// describes the stream. None of this is a role: it only says how much binary structure was actually analyzed.
+//   kind      'structural' = at least one frame was analyzed; 'opaque' = binary but nothing analyzable
+//             (undecodable, corrupt, incomplete, unsupported contract, or a binary decoder with no features)
+//   complete  true only when every record was analyzed, no budget/size/frame cap was hit and nothing was
+//             unsupported; null when there is no binary evidence at all. completeProof is never claimed.
+function binaryCoverage(events, docs, summary) {
+  let supported = 0; let unsupported = 0; let last = null;
+  const versions = new Set();
+  for (const e of events) {
+    const pf = isObj(e) ? e.protoFeatures : null;
+    if (!isObj(pf)) continue;
+    if (Number.isInteger(pf.version) && pf.version >= 0 && versions.size < 4) versions.add(pf.version);
+    if (pf.schema === PROTO_FEATURES_SCHEMA && pf.version === PROTO_FEATURES_VERSION && isObj(pf.cumulative) && isObj(pf.integrity)) { supported++; last = pf; }
+    else unsupported++;
+  }
+  const frames = Object.fromEntries(BINARY_FRAME_KEYS.map((k) => [k, nn(last?.cumulative?.[k])]));
+  const decoderOpaque = !docs.length && OPAQUE_DECODERS.has(summary.decoder);
+  let kind = null;
+  if (supported > 0) kind = frames.analyzed > 0 ? 'structural' : 'opaque';
+  else if (unsupported > 0 || decoderOpaque) kind = 'opaque';
+  const notAnalyzed = BINARY_FRAME_KEYS.filter((k) => k !== 'analyzed').reduce((n, k) => n + frames[k], 0);
+  const inspectionTruncated = last?.integrity?.inspectionTruncated === true;
+  const complete = kind === null ? null : (supported > 0 && unsupported === 0 && notAnalyzed === 0 && !inspectionTruncated && last.integrity.incomplete !== true);
+  return { featureEvents: supported, unsupportedEvents: unsupported, versions: [...versions].sort((x, y) => x - y), kind, complete, frames, inspectionTruncated };
+}
+
+function baseCoverage({ summary, events, docs, assembled, map, skippedEvents, growthDocsCut, structureDocsCut, recordPoolCapped, incomplete }) {
+  const total = Number(summary.events);
+  const assembledUsed = !!(assembled && assembled.revisions > 0);
+  return {
+    version: COVERAGE_VERSION,
+    source: events.length > 0 ? 'events' : assembledUsed ? 'assembled-only' : 'summary-only',
+    eventsTotal: Number.isFinite(total) && total >= 0 ? Math.floor(total) : null,
+    eventsRetained: events.length,
+    eventsReducerOmitted: nn(Number(summary.eventsOnlyOnDisk)),
+    eventsClassifierSkipped: nn(skippedEvents),
+    growthDocsCut: nn(growthDocsCut),
+    structureDocsCut: nn(structureDocsCut),
+    recordPoolCapped: recordPoolCapped === true,
+    mapUsed: !!map,
+    mapWindowEvents: map && isObj(map.stats) && Number.isFinite(map.stats.events) ? nn(map.stats.events) : null,
+    assembledUsed,
+    captureIncomplete: incomplete === true,
+    binary: binaryCoverage(events, docs, summary),
+    inspectionCut: false,
+    fullyInspected: true,
+    withheldRole: null,
+  };
+}
+
+// Any cut that could hide content the verdict depends on. A cap is "relevant" unless the detector that
+// would care cannot compete with the winner: the 500-record pool only feeds record-based (non-content)
+// detectors, so it does not undermine a chat-reply / history-load verdict. Growth and structure caps are
+// treated conservatively as relevant to every role (a skipped region could hold a reply, a message
+// container or an assistant frame).
+function anyContentCut(c) {
+  return c.eventsReducerOmitted > 0 || c.eventsClassifierSkipped > 0 || c.growthDocsCut > 0 || c.structureDocsCut > 0;
+}
+const relevantCut = (c, role) => anyContentCut(c) || (c.recordPoolCapped && !CONTENT_ROLES.has(role));
+
+// Whitelisting copy used by persisted artifacts and the scoreboard: unknown fields never pass through.
+export function cleanCoverage(c) {
+  if (!isObj(c)) return null;
+  const b = isObj(c.binary) ? c.binary : {};
+  return {
+    version: Number.isInteger(c.version) ? c.version : COVERAGE_VERSION,
+    source: COVERAGE_SOURCES.includes(c.source) ? c.source : 'summary-only',
+    eventsTotal: Number.isFinite(c.eventsTotal) ? nn(c.eventsTotal) : null,
+    eventsRetained: nn(c.eventsRetained),
+    eventsReducerOmitted: nn(c.eventsReducerOmitted),
+    eventsClassifierSkipped: nn(c.eventsClassifierSkipped),
+    growthDocsCut: nn(c.growthDocsCut),
+    structureDocsCut: nn(c.structureDocsCut),
+    recordPoolCapped: c.recordPoolCapped === true,
+    mapUsed: c.mapUsed === true,
+    mapWindowEvents: Number.isFinite(c.mapWindowEvents) ? nn(c.mapWindowEvents) : null,
+    assembledUsed: c.assembledUsed === true,
+    captureIncomplete: c.captureIncomplete === true,
+    binary: {
+      featureEvents: nn(b.featureEvents),
+      unsupportedEvents: nn(b.unsupportedEvents),
+      versions: Array.isArray(b.versions) ? b.versions.filter((v) => Number.isInteger(v) && v >= 0).slice(0, 4) : [],
+      kind: b.kind === 'structural' || b.kind === 'opaque' ? b.kind : null,
+      complete: b.complete === true ? true : b.complete === false ? false : null,
+      frames: Object.fromEntries(BINARY_FRAME_KEYS.map((k) => [k, nn(isObj(b.frames) ? b.frames[k] : 0)])),
+      inspectionTruncated: b.inspectionTruncated === true,
+    },
+    inspectionCut: c.inspectionCut === true,
+    fullyInspected: c.fullyInspected === true,
+    withheldRole: SPECIFIC_ROLE_SET.has(c.withheldRole) ? c.withheldRole : null,
+  };
+}
+const SPECIFIC_ROLE_SET = new Set(STREAM_ROLES.filter((r) => r !== 'unknown'));
 
 export function classifyStreamRole(stream, opts = {}) {
   const o = resolveClassifierOptions(opts);
@@ -627,7 +795,8 @@ export function classifyStreamRole(stream, opts = {}) {
   const counts = ['bytes', 'chunks', 'frames', 'events', 'esMessages'].reduce((n, k) => n + (Number(summary[k]) > 0 ? Number(summary[k]) : 0), 0);
   const hasContentSignal = events.length > 0 || (assembled?.revisions > 0) || mappedTextComponents(map) > 0;
   if (counts === 0 && !hasContentSignal) {
-    return { role: 'unknown', confidence: 'none', evidence: finish([feat('empty_stream', 1), ...(incomplete ? [feat('incomplete_capture', 1)] : [])]) };
+    const coverage = baseCoverage({ summary, events, docs, assembled, map, skippedEvents, growthDocsCut: 0, structureDocsCut: 0, recordPoolCapped: false, incomplete });
+    return { role: 'unknown', confidence: 'none', evidence: finish([feat('empty_stream', 1), ...(incomplete ? [feat('incomplete_capture', 1)] : [])]), coverage };
   }
 
   const growth = growthFacts(docs, assembled, map, o);
@@ -649,23 +818,46 @@ export function classifyStreamRole(stream, opts = {}) {
   // content role is established, the incidental detectors never compete with it.
   const content = candidates.filter((c) => (c.role === 'chat-reply' || c.role === 'history-load') && c.score >= 2);
   const qualified = (content.length ? content : candidates.filter((c) => c.score >= 2)).sort((x, y) => y.score - x.score);
-  const truncated = skippedEvents > 0 || growth.truncatedDocs > 0 || a.truncatedDocs > 0;
+  const coverage = baseCoverage({
+    summary, events, docs, assembled, map, skippedEvents,
+    growthDocsCut: growth.truncatedDocs, structureDocsCut: a.structureDocsCut, recordPoolCapped: a.recordPoolCapped, incomplete,
+  });
+  // `inspection_truncated` = a CLASSIFIER cap was hit somewhere (not role-specific). Events the reducer no
+  // longer holds are a separate cause: incomplete_capture + coverage.eventsReducerOmitted.
+  const classifierCut = skippedEvents > 0 || growth.truncatedDocs > 0 || a.structureDocsCut > 0 || a.recordPoolCapped;
+  const truncated = anyContentCut(coverage) || coverage.recordPoolCapped; // any cut at all, for the unknown cases
   const flags = [
     ...(incomplete ? [feat('incomplete_capture', 1)] : []),
-    ...(truncated ? [feat('inspection_truncated', skippedEvents + Math.max(growth.truncatedDocs, a.truncatedDocs) || 1)] : []),
+    ...(classifierCut ? [feat('inspection_truncated', skippedEvents + Math.max(growth.truncatedDocs, a.structureDocsCut, a.recordPoolCapped ? 1 : 0) || 1)] : []),
   ];
-  const base = ctx.jsonEvents > 0 ? [feat('json_events', ctx.jsonEvents)] : [];
+  // Binary structure is CONTEXT, never a role: counts of analyzed vs not-analyzed protobuf frames. An opaque or
+  // incompletely analyzed binary stream stays unknown and is reported as an inspection cut.
+  const bin = coverage.binary;
+  const binaryNotAnalyzed = BINARY_FRAME_KEYS.filter((k) => k !== 'analyzed').reduce((n, k) => n + bin.frames[k], 0) + bin.unsupportedEvents;
+  const binaryFeats = bin.kind === null ? [] : [feat('binary_structural_frames', bin.frames.analyzed), feat('binary_incomplete_frames', binaryNotAnalyzed)];
+  const binaryCut = bin.kind !== null && bin.complete === false;
+  const base = [...(ctx.jsonEvents > 0 ? [feat('json_events', ctx.jsonEvents)] : []), ...binaryFeats];
 
   if (qualified.length === 0) {
     const weak = candidates.filter((c) => c.score >= 1);
-    return { role: 'unknown', confidence: 'none', evidence: finish([...base, ...flags, feat(weak.length ? 'weak_evidence_only' : 'no_structural_evidence', 1), ...weak.flatMap((c) => c.features)]) };
+    coverage.inspectionCut = truncated || binaryCut; coverage.fullyInspected = !(truncated || binaryCut);
+    return { role: 'unknown', confidence: 'none', evidence: finish([...base, ...flags, feat(weak.length ? 'weak_evidence_only' : 'no_structural_evidence', 1), ...weak.flatMap((c) => c.features)]), coverage };
   }
   if (qualified.length > 1) {
-    return { role: 'unknown', confidence: 'none', evidence: finish([...base, ...flags, feat('conflicting_role_evidence', qualified.length), ...qualified.flatMap((c) => c.features)]) };
+    coverage.inspectionCut = truncated || binaryCut; coverage.fullyInspected = !(truncated || binaryCut);
+    return { role: 'unknown', confidence: 'none', evidence: finish([...base, ...flags, feat('conflicting_role_evidence', qualified.length), ...qualified.flatMap((c) => c.features)]), coverage };
   }
   const top = qualified[0];
+  // One role qualified, but part of the stream was not examined: unexamined content could contradict it
+  // (a reply next to a message container, an assistant frame hidden by a depth cap, ...). Withhold the
+  // specific role instead of labelling it; the candidate stays visible as coverage.withheldRole.
+  if (relevantCut(coverage, top.role)) {
+    coverage.inspectionCut = true; coverage.fullyInspected = false; coverage.withheldRole = top.role;
+    return { role: 'unknown', confidence: 'none', evidence: finish([...base, ...flags, feat('withheld_for_incomplete_inspection', 1), ...top.features]), coverage };
+  }
   let confidence = LEVEL_BY_SCORE[top.score];
   if (incomplete) confidence = stepDown(confidence);
-  if (truncated) confidence = stepDown(confidence);
-  return { role: top.role, confidence, evidence: finish([...base, ...flags, ...top.features]) };
+  // Cuts that survive to here (the record pool under a content role) do not touch this verdict's inputs.
+  coverage.inspectionCut = false; coverage.fullyInspected = true;
+  return { role: top.role, confidence, evidence: finish([...base, ...flags, ...top.features]), coverage };
 }

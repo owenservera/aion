@@ -6,8 +6,10 @@ import assert from 'node:assert/strict';
 import { StreamReducer } from '../../src/replay/reducer.mjs';
 import { detectStreamMap, applyStreamMap } from '../../src/profiles/stream-map.mjs';
 import {
-  classifyStreamRole, streamingEvidence, resolveClassifierOptions, STREAM_ROLES, CONFIDENCE_LEVELS, EVIDENCE_FEATURES,
+  classifyStreamRole, streamingEvidence, resolveClassifierOptions, cleanCoverage, buildStreamRoles, describeStreamRoles,
+  STREAM_ROLES, CONFIDENCE_LEVELS, EVIDENCE_FEATURES,
 } from '../../src/replay/stream-role.mjs';
+import { createProtoFeatureExtractor, PROTO_FEATURES_VERSION } from '../../src/decode/proto-features.mjs';
 
 const SENTINEL = 'ZQSENTINEL';
 const HOST = 'https://private-host.example.test';
@@ -481,14 +483,293 @@ test('inspection caps are reported and lower confidence instead of silently retu
   assert.equal(streamingEvidence({ events: [{ json: wide }] }, { maxNodes: 60 }).truncated, true);
   assert.equal(streamingEvidence({ events: [{ json: wide }] }).truncated, false);
 
-  // a verdict reached under a cap is one level lower than the same verdict without it
+  // a verdict that depends on events the cap hid is WITHHELD (8 unexamined events could hold a history
+  // container or contradict the reply), not labelled at a lower confidence
   const tail = Array.from({ length: 8 }, () => ({ json: { ok: true } }));
   const uncapped = classify({ events: [...events, ...tail] });
   const capped2 = classify({ events: [...events, ...tail] }, { maxEvents: events.length });
   assert.equal(uncapped.role, 'chat-reply');
-  assert.equal(capped2.role, 'chat-reply');
+  assert.equal(capped2.role, 'unknown');
+  assert.equal(capped2.confidence, 'none');
   assert.ok(featureNames(capped2).includes('inspection_truncated'));
-  assert.ok(CONFIDENCE_LEVELS.indexOf(capped2.confidence) < CONFIDENCE_LEVELS.indexOf(uncapped.confidence));
+  assert.ok(featureNames(capped2).includes('withheld_for_incomplete_inspection'));
+  assert.equal(capped2.coverage.withheldRole, 'chat-reply');
+  assert.equal(capped2.coverage.eventsClassifierSkipped, 8);
+
+  // the node-capped config is withheld too
+  assert.equal(cut.role, 'unknown');
+  assert.equal(cut.coverage.withheldRole, 'config');
+});
+
+// ---- coverage object and conservative withholding -------------------------------------------------
+const FRAME = { type: 'message_start', message: { id: 'm1', role: 'assistant', content: [] } };
+const delta = (i) => ({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: `piece-${i} ` } });
+const ev = (json) => ({ json });
+const deltas = (n, wrap = (x) => x) => Array.from({ length: n }, (_, i) => ev(wrap(delta(i))));
+const fillers = (n) => Array.from({ length: n }, (_, i) => ({ k: i }));
+const nest = (o, n) => { let x = o; for (let i = 0; i < n; i++) x = { w: x }; return x; };
+const HIST = { messages: [{ role: 'user', content: 'a question' }, { role: 'assistant', content: 'an answer' }] };
+
+test('coverage: a fully inspected stream reports zero cuts, its source and the stream-map window', () => {
+  const p = product(http('cv1', { method: 'POST', mime: 'text/event-stream', chunks: [claudeReply()] }), 'cv1');
+  const r = classify({ ...p, summary: p.summary });
+  assert.equal(r.role, 'chat-reply');
+  const c = r.coverage;
+  assert.equal(c.version, 1);
+  assert.equal(c.source, 'events');
+  assert.equal(c.eventsRetained, p.events.length);
+  assert.equal(c.eventsTotal, p.summary.events);
+  assert.deepEqual([c.eventsReducerOmitted, c.eventsClassifierSkipped, c.growthDocsCut, c.structureDocsCut], [0, 0, 0, 0]);
+  assert.equal(c.recordPoolCapped, false);
+  assert.equal(c.mapUsed, true);
+  assert.equal(c.mapWindowEvents, p.map.stats.events);
+  assert.equal(c.assembledUsed, true);
+  assert.equal(c.inspectionCut, false);
+  assert.equal(c.fullyInspected, true);
+  assert.equal(c.withheldRole, null);
+  assert.deepEqual(Object.keys(c).sort(), ['assembledUsed', 'binary', 'captureIncomplete', 'eventsClassifierSkipped', 'eventsReducerOmitted', 'eventsRetained', 'eventsTotal', 'fullyInspected', 'growthDocsCut', 'inspectionCut', 'mapUsed', 'mapWindowEvents', 'recordPoolCapped', 'source', 'structureDocsCut', 'version', 'withheldRole']);
+  // source of evidence: no events but an assembler document is "assembled-only"
+  const asm = classify({ summary: { events: 9, bytes: 10, eventsOnlyOnDisk: 9 }, events: [], assembled: { revisions: 5, blocks: [{ text: 'abc' }], doc: { message: { role: 'assistant', content: '' } } } });
+  assert.equal(asm.coverage.source, 'assembled-only');
+  assert.equal(asm.coverage.eventsReducerOmitted, 9);
+  assert.equal(classify({ summary: { mime: 'image/png', bytes: 5, chunks: 1 } }).coverage.source, 'summary-only');
+});
+
+test('conflict hidden by a growth cap: reply deltas out of the growth walker leave only the history, which is NOT labelled', () => {
+  // visible: reply and history both qualify -> an explicit conflict
+  const visible = classify({ events: [ev(HIST), ev(FRAME), ...deltas(6)] });
+  assert.equal(visible.role, 'unknown');
+  assert.ok(featureNames(visible).includes('conflicting_role_evidence'));
+  assert.equal(visible.coverage.fullyInspected, true);
+  // same stream, but the deltas sit deeper than the growth walker goes: before the coverage fix this was a
+  // confident history-load (the reply was invisible, so the conflict disappeared)
+  const hidden = classify({ events: [ev(HIST), ev(FRAME), ...deltas(6, (d) => nest(d, 6))] });
+  assert.equal(hidden.role, 'unknown');
+  assert.equal(hidden.confidence, 'none');
+  assert.equal(hidden.coverage.withheldRole, 'history-load');
+  assert.equal(hidden.coverage.growthDocsCut, 6);
+  assert.equal(hidden.coverage.inspectionCut, true);
+  assert.equal(hidden.coverage.fullyInspected, false);
+  assert.ok(featureNames(hidden).includes('withheld_for_incomplete_inspection'));
+  assert.ok(featureNames(hidden).includes('inspection_truncated'));
+});
+
+test('conflict hidden by a structure cap: a message container behind a 500-item cap does not make the reply look clean', () => {
+  const buried = ev({ items: [...fillers(600), { role: 'user', content: 'a question' }, { role: 'assistant', content: 'an answer' }] });
+  const r = classify({ events: [ev(FRAME), ...deltas(6), buried] });
+  assert.equal(r.role, 'unknown');
+  assert.equal(r.coverage.withheldRole, 'chat-reply');
+  assert.ok(r.coverage.structureDocsCut >= 1);
+  // visible container in the same place -> an honest conflict, not a withheld verdict
+  const near = ev({ items: [...fillers(10), { role: 'user', content: 'a question' }, { role: 'assistant', content: 'an answer' }] });
+  const visible = classify({ events: [ev(FRAME), ...deltas(6), near] });
+  assert.ok(featureNames(visible).includes('conflicting_role_evidence'));
+  assert.equal(visible.coverage.structureDocsCut, 0);
+});
+
+test('an assistant frame behind a depth cap leaves growth without chat structure: unknown, with the cut recorded', () => {
+  const r = classify({ events: [ev(nest({ role: 'assistant', content: [] }, 9)), ...deltas(6)] });
+  assert.equal(r.role, 'unknown');
+  assert.ok(r.coverage.structureDocsCut >= 1);
+  assert.equal(r.coverage.inspectionCut, true);
+  const ok = classify({ events: [ev(nest({ role: 'assistant', content: [] }, 3)), ...deltas(6)] });
+  assert.equal(ok.role, 'chat-reply');
+  assert.equal(ok.coverage.fullyInspected, true);
+});
+
+test('growth-walker caps: a scalar leaf below the depth cap is not a cut; any non-empty unseen tail is (never scanned)', () => {
+  const frame = ev(FRAME);
+  // a long array of numbers: the tail is NOT inspected to find out it holds nothing, so it is a conservative cut
+  const numbers = classify({ events: [frame, ...deltas(6, (d) => ({ ...d, series: Array.from({ length: 100 }, (_, i) => i) }))] });
+  assert.equal(numbers.role, 'unknown');
+  assert.equal(numbers.coverage.withheldRole, 'chat-reply');
+  assert.equal(numbers.coverage.growthDocsCut, 6);
+  // an array of exactly 32 (nothing unseen) is not a cut
+  const exact = classify({ events: [frame, ...deltas(6, (d) => ({ ...d, series: Array.from({ length: 32 }, (_, i) => i) }))] });
+  assert.equal(exact.role, 'chat-reply');
+  assert.equal(exact.coverage.growthDocsCut, 0);
+  const deepScalar = classify({ events: [frame, ...deltas(6, (d) => ({ ...d, a: { b: { c: { d: { e: { f: 1 } } } } } }))] });
+  assert.equal(deepScalar.role, 'chat-reply');
+  assert.equal(deepScalar.coverage.growthDocsCut, 0);
+  // 40 objects before the delta-bearing one, and a 46-key object whose LAST key is `delta`: real cuts
+  const arr = classify({ events: [frame, ...deltas(6, (d) => ({ batch: [...fillers(40), d] }))] });
+  assert.equal(arr.role, 'unknown');
+  assert.equal(arr.coverage.growthDocsCut, 6);
+  const wide = classify({ events: [frame, ...deltas(6, (d) => { const o = {}; for (let i = 0; i < 45; i++) o[`k${i}`] = i; o.delta = d.delta; return o; })] });
+  assert.equal(wide.role, 'unknown');
+  assert.equal(wide.coverage.growthDocsCut, 6);
+  // 100 string-valued keys after the 40th are not delta-bearing either unless one of them is `delta` or a container
+  const strings = classify({ events: [frame, ...deltas(6, (d) => { const o = { ...d }; for (let i = 0; i < 60; i++) o[`k${i}`] = 'x'; return o; })] });
+  assert.equal(strings.coverage.growthDocsCut, 6, 'strings in the skipped key tail may be cumulative snapshots: conservative');
+});
+
+// Reads are counted through Proxy get traps. The tail of a huge array / object must never be read to decide
+// whether a cap was hit: the number of value reads stays bounded by the caps, not by the size of the input.
+// (Counts only; no timing is asserted.)
+test('cap checks are bounded: a huge unseen tail is flagged without being read', () => {
+  const countingArray = (n) => { const stats = { reads: 0 }; const arr = new Array(n).fill(1); const proxy = new Proxy(arr, { get(t, k, r) { if (typeof k === 'string' && /^\d+$/.test(k)) stats.reads++; return Reflect.get(t, k, r); } }); return { proxy, stats }; };
+  const countingObject = (n) => { const stats = { reads: 0 }; const o = {}; for (let i = 0; i < n; i++) o[`k${i}`] = 'v'; const proxy = new Proxy(o, { get(t, k, r) { if (typeof k === 'string' && /^k\d+$/.test(k)) stats.reads++; return Reflect.get(t, k, r); } }); return { proxy, stats }; };
+  for (const n of [1_000, 50_000, 500_000]) {
+    const a = countingArray(n);
+    const ra = classify({ events: [ev(FRAME), ...deltas(6, (d) => ({ ...d, series: a.proxy }))] });
+    assert.equal(ra.role, 'unknown');
+    assert.equal(ra.coverage.growthDocsCut, 6);
+    assert.equal(ra.coverage.structureDocsCut, 6);
+    // 6 documents x (growth walkers 2 x 32 + structure scan <= 500 + record pick <= 200 + 501) is the ceiling
+    assert.ok(a.stats.reads < 6 * 1400, `array of ${n}: ${a.stats.reads} reads`);
+  }
+  // Objects: JS-visible value reads are bounded by the caps. (The engine still enumerates a Proxy's key list
+  // natively, which is linear in key count and not avoidable in JS; sizes here stay modest for that reason.)
+  for (const n of [1_000, 5_000]) {
+    const o = countingObject(n);
+    const ro = classify({ events: [ev(FRAME), ...deltas(6, (d) => ({ ...d, wide: o.proxy }))] });
+    assert.equal(ro.coverage.growthDocsCut, 6);
+    assert.ok(o.stats.reads < 6 * 700, `object of ${n} keys: ${o.stats.reads} value reads`);
+  }
+  // the read count does not grow with the input
+  const small = countingArray(1_000); const big = countingArray(500_000);
+  classify({ events: [ev({ x: small.proxy })] }); classify({ events: [ev({ x: big.proxy })] });
+  assert.equal(big.stats.reads, small.stats.reads);
+});
+
+test('the 500-record pool only withholds non-content roles; a chat reply keeps its label and the cap stays visible', () => {
+  const flat = Array.from({ length: 600 }, (_, i) => ev({ ok: i % 2 === 0, n: i }));
+  const reply = classify({ events: [ev(FRAME), ...deltas(6), ...flat] });
+  assert.equal(reply.role, 'chat-reply');
+  assert.equal(reply.confidence, 'medium', 'no step-down for a cap that cannot affect the verdict');
+  assert.equal(reply.coverage.recordPoolCapped, true);
+  assert.equal(reply.coverage.inspectionCut, false);
+  assert.equal(reply.coverage.fullyInspected, true);
+  assert.ok(featureNames(reply).includes('inspection_truncated'), 'but the cap is still reported');
+  // a config whose record array overflows the pool is withheld
+  const cfg = classify({ events: [ev({ models: Array.from({ length: 600 }, (_, i) => ({ id: `m${i}`, name: `M${i}`, on: i % 2 === 0 })), flags: { a: true, b: false, c: true } })] });
+  assert.equal(cfg.role, 'unknown');
+  assert.equal(cfg.coverage.withheldRole, 'config');
+});
+
+test('events the reducer no longer holds are a cut: the surviving window is not enough to label', () => {
+  const window = [ev(FRAME), ...deltas(6)];
+  const whole = classify({ summary: { events: 7, bytes: 100 }, events: window });
+  assert.equal(whole.role, 'chat-reply');
+  const partial = classify({ summary: { events: 40, bytes: 900, eventsOnlyOnDisk: 33 }, events: window });
+  assert.equal(partial.role, 'unknown');
+  assert.equal(partial.coverage.withheldRole, 'chat-reply');
+  assert.equal(partial.coverage.eventsReducerOmitted, 33);
+  assert.equal(partial.coverage.eventsTotal, 40);
+  assert.equal(partial.coverage.eventsRetained, 7);
+  // inspection_truncated is a classifier fact; reducer omission is reported separately
+  assert.ok(!featureNames(partial).includes('inspection_truncated'));
+  assert.ok(featureNames(partial).includes('incomplete_capture'));
+});
+
+// Snapshots as the decoder attaches them (real extractor, synthetic payloads): the SAME constants the
+// producer exports are the only contract the consumer accepts.
+const pbVar = (n) => { const out = []; let x = BigInt(n); do { let b = Number(x & 0x7fn); x >>= 7n; if (x) b |= 0x80; out.push(b); } while (x); return Buffer.from(out); };
+const pbStr = (no, s) => Buffer.concat([pbVar((BigInt(no) << 3n) | 2n), pbVar(Buffer.byteLength(s)), Buffer.from(s)]);
+function snapshots(payloads) {
+  const x = createProtoFeatureExtractor();
+  return payloads.map((p) => { x.add(p); return { protoFeatures: x.snapshot() }; });
+}
+
+test('binary structure is coverage, never a role: supported snapshots make a stream structural, still unknown', () => {
+  const evs = snapshots([pbStr(1, 'lalpha'), pbStr(1, 'lalpha beta'), pbStr(1, 'lalpha beta gamma')]);
+  const r = classify({ summary: { decoder: 'grpc', events: 3, bytes: 90 }, events: evs });
+  assert.equal(r.role, 'unknown', 'a growing string in a protobuf field is observation, not a reply');
+  const b = r.coverage.binary;
+  assert.equal(b.kind, 'structural');
+  assert.equal(b.featureEvents, 3);
+  assert.equal(b.unsupportedEvents, 0);
+  assert.deepEqual(b.versions, [PROTO_FEATURES_VERSION]);
+  assert.equal(b.frames.analyzed, 3);
+  assert.equal(b.complete, true);
+  assert.equal(r.coverage.inspectionCut, false);
+  assert.equal(countOf(r, 'binary_structural_frames'), 3);
+  assert.equal(featureNames(r).includes('binary_incomplete_frames'), false, 'zero counts are not emitted');
+  assert.ok(!featureNames(r).includes('delta_growth_steps'), 'prefix growth in binary fields never feeds the reply detector');
+});
+
+test('binary coverage is conservative: corrupt, partial and budget-limited frames are incomplete, not complete protobuf', () => {
+  const cut = classify({ summary: { decoder: 'grpc', events: 3, bytes: 60 }, events: snapshots([pbStr(1, 'lalpha'), Buffer.from([0x0a, 0xff]), { complete: false }]) });
+  assert.equal(cut.coverage.binary.kind, 'structural');
+  assert.equal(cut.coverage.binary.complete, false);
+  assert.equal(cut.coverage.binary.frames.corrupt, 1);
+  assert.equal(cut.coverage.binary.frames.incomplete, 1);
+  assert.equal(cut.role, 'unknown');
+  assert.equal(cut.coverage.inspectionCut, true, 'an incompletely analyzed binary stream is an inspection cut');
+  assert.equal(countOf(cut, 'binary_incomplete_frames'), 2);
+  // nothing analyzable at all -> opaque, not structural
+  const none = classify({ summary: { decoder: 'grpc', events: 2, bytes: 20 }, events: snapshots([{ complete: false }, Buffer.from([0x0a, 0xff])]) });
+  assert.equal(none.coverage.binary.kind, 'opaque');
+  assert.equal(none.coverage.binary.complete, false);
+  // a budget cap on the producer side is surfaced as inspectionTruncated, never read as corruption
+  const x = createProtoFeatureExtractor({ maxFrames: 1 });
+  const e1 = (x.add(pbStr(1, 'la')), { protoFeatures: x.snapshot() });
+  const e2 = (x.add(pbStr(1, 'lab')), { protoFeatures: x.snapshot() });
+  const capped = classify({ summary: { decoder: 'grpc', events: 2, bytes: 20 }, events: [e1, e2] });
+  assert.equal(capped.coverage.binary.inspectionTruncated, true);
+  assert.equal(capped.coverage.binary.frames.beyondCap, 1);
+  assert.equal(capped.coverage.binary.complete, false);
+});
+
+test('binary contract disagreement or an unsupported version is opaque and never interpreted', () => {
+  const good = snapshots([pbStr(1, 'lalpha')])[0].protoFeatures;
+  const variants = {
+    'newer version': { ...good, version: PROTO_FEATURES_VERSION + 1, schema: `proto-features/${PROTO_FEATURES_VERSION + 1}` },
+    'schema and version disagree (version)': { ...good, version: PROTO_FEATURES_VERSION + 1 },
+    'schema and version disagree (schema)': { ...good, schema: `proto-features/${PROTO_FEATURES_VERSION + 1}` },
+    'string version': { ...good, version: String(PROTO_FEATURES_VERSION) },
+    'missing version': { ...good, version: undefined },
+    'missing cumulative': { schema: good.schema, version: good.version, integrity: good.integrity },
+  };
+  for (const [name, pf] of Object.entries(variants)) {
+    const r = classify({ summary: { decoder: 'grpc', events: 1, bytes: 10 }, events: [{ protoFeatures: pf }] });
+    assert.equal(r.coverage.binary.kind, 'opaque', name);
+    assert.equal(r.coverage.binary.featureEvents, 0, name);
+    assert.equal(r.coverage.binary.unsupportedEvents, 1, name);
+    assert.equal(r.coverage.binary.complete, false, name);
+    assert.equal(r.role, 'unknown', name);
+  }
+  // one supported and one unsupported snapshot: the supported one informs, but the stream is not "complete"
+  const mixed = classify({ summary: { decoder: 'grpc', events: 2, bytes: 20 }, events: [{ protoFeatures: variants['newer version'] }, ...snapshots([pbStr(1, 'lalpha')])] });
+  assert.equal(mixed.coverage.binary.kind, 'structural');
+  assert.equal(mixed.coverage.binary.complete, false);
+  // malformed version numbers are dropped, never echoed
+  const odd = classify({ events: [{ protoFeatures: { version: 'x'.repeat(50), schema: 'y'.repeat(50) } }] });
+  assert.deepEqual(odd.coverage.binary.versions, []);
+  // a binary decoder without any features is opaque
+  const opaque = classify({ summary: { decoder: 'binary', events: 1, bytes: 60, chunks: 1 }, events: [{ size: 60 }] });
+  assert.equal(opaque.coverage.binary.kind, 'opaque');
+  assert.equal(opaque.role, 'unknown');
+  assert.equal(classify({ events: [ev({ a: 1 })] }).coverage.binary.kind, null);
+});
+
+test('cleanCoverage keeps only whitelisted counts / enums', () => {
+  const dirty = { ...classify({ events: [ev(FRAME), ...deltas(6)] }).coverage, extra: 'SENTINEL', source: 'made-up', withheldRole: 'secret', binary: { featureEvents: 2, versions: [1, 'x', 2], kind: 'weird', complete: 'yes', frames: { analyzed: 3, corrupt: -4, bogus: 9 }, blob: 'x' } };
+  const c = cleanCoverage(dirty);
+  assert.equal(JSON.stringify(c).includes('SENTINEL'), false);
+  assert.equal(c.source, 'summary-only');
+  assert.equal(c.withheldRole, null);
+  assert.deepEqual(c.binary, {
+    featureEvents: 2, unsupportedEvents: 0, versions: [1, 2], kind: null, complete: null,
+    frames: { analyzed: 3, corrupt: 0, budget: 0, incomplete: 0, invalid: 0, oversize: 0, beyondCap: 0 }, inspectionTruncated: false,
+  });
+  assert.equal(cleanCoverage(null), null);
+  assert.equal(cleanCoverage('x'), null);
+});
+
+test('buildStreamRoles carries coverage and counts withheld streams; the receipt line says so', () => {
+  const withheld = classify({ events: [ev(HIST), ev(FRAME), ...deltas(6, (d) => nest(d, 6))] });
+  const clean = classify({ events: [ev(FRAME), ...deltas(6)] });
+  const doc = buildStreamRoles([
+    { sid: 'a', role: withheld.role, roleConfidence: withheld.confidence, roleEvidence: withheld.evidence, roleCoverage: withheld.coverage },
+    { sid: 'b', role: clean.role, roleConfidence: clean.confidence, roleEvidence: clean.evidence, roleCoverage: clean.coverage },
+  ]);
+  assert.equal(doc.totals.withheld, 1);
+  assert.equal(doc.totals.inspectionCut, 1);
+  assert.equal(doc.streams[0].roleCoverage.withheldRole, 'history-load');
+  assert.equal(doc.classifier.coverageVersion, 1);
+  assert.match(describeStreamRoles(doc), /1 specific role withheld: incomplete inspection/);
+  assert.equal(describeStreamRoles(buildStreamRoles([{ sid: 'b', role: clean.role, roleConfidence: clean.confidence, roleEvidence: clean.evidence }])), '1 streams: 1 chat-reply');
 });
 
 // ---- contract --------------------------------------------------------------------------------
