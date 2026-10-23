@@ -3,8 +3,8 @@
   "agent_id": "capture-studio-value-oracle",
   "role_command": "#AION @VALUE-ORACLE",
   "created_date": "2026-10-22",
-  "status": "V1_SOURCE_DELIVERED_NODE22_TESTED_WINDOWS_UNVERIFIED",
-  "source_baseline_main": "06e9810948c23dad3a6599b62b591b7d3a470ee7",
+  "status": "V1_SAVED_SESSION_ADAPTER_SOURCE_TESTED_WINDOWS_UNVERIFIED",
+  "source_baseline_main": "3b2ea42f8da3c34f845569dc5a5b96402d8d7dea",
   "scope": "AION Capture Studio user jobs, outcome artifacts, useful automation and friction; self-owned prototypes only",
   "mission": "Turn user-authorized captured intelligence into source-grounded completed useful outcomes while eliminating manual user transitions",
   "workspace": "workspace/aion/ops/capture-studio-value-oracle/",
@@ -55,7 +55,7 @@
     {
       "key": "V1",
       "name": "Source-linked Outcome Packet",
-      "state": "EXECUTED_TESTED_OFFLINE_WINDOWS_PENDING",
+      "state": "SAVED_SESSION_ADAPTER_SOURCE_TESTED_WINDOWS_PENDING",
       "user_value": "turn saved AI response into reusable answer/decision/proposed action artifact",
       "requires_live_website": false
     },
@@ -100,7 +100,7 @@
     "private_transcript_uploads": 0,
     "other_team_source_edits": 0
   },
-  "next": "V1 code + Node22 synthetic QA receipt delivered; await actual local Windows V1 fixture verification and usefulness trial; no V2-V5.",
+  "next": "Issue #71: Windows local saved-session ID -> Outcome Packet; validate Core acceptance and exact pointers; UI one-action hook after QA evidence. V2/V3 not built.",
   "notes": [
     "SCAFFOLDED_NOT_LAUNCHED is deliberate: GitHub folders do not start conversations/agents.",
     "GitHub issue proposals are not acknowledged work until a real receiving agent confirms.",
@@ -217,5 +217,44 @@
     "private_capture_uploads": 0,
     "other_lane_source_edits": 0,
     "next": "Local Windows team executes demo, checks six refs, returns L4 evidence receipt. Do not begin V2-V5."
+  },
+  "issue_71_2026_10_23": {
+    "issue": "https://github.com/owenservera/aion/issues/71",
+    "baseline_main": "3b2ea42f8da3c34f845569dc5a5b96402d8d7dea",
+    "status": "SOURCE_DELIVERED_OFFLINE_NODE_TESTED_WINDOWS_PENDING",
+    "delivered_paths": [
+      "prototypes/saved-session-outcome.mjs",
+      "prototypes/saved-session-outcome.test.mjs",
+      "prototypes/ISSUE-71-HANDOFF.md"
+    ],
+    "commits": [
+      "5af407d11bd8a67681cda47a77628cce89091c02",
+      "d8219f315ebab37f9f3aab8316e1872143c8751e",
+      "38a82260fa4627697eca8ecfc46024d053dcda2b"
+    ],
+    "verified_blobs": {
+      "saved-session-outcome.mjs": "d2326b11216509f64f83ffadc9941dd285065f10",
+      "saved-session-outcome.test.mjs": "7edb3b24e6764a63b09ac9fb87b959c15e28e3a0"
+    },
+    "tests": {
+      "environment": "isolated Linux Node v22.16.0",
+      "passed": 20,
+      "failed": 0,
+      "adapter_tests_with_injected_core_readers": 7,
+      "original_v1_tests": 13
+    },
+    "proven": "existing V1 packet generation from a synthetic canonical saved-session reader contract; exact DOM JSON pointers where verified; no invented stream seq; conservative acceptance/derivation warnings",
+    "not_proven": [
+      "Windows source checkout execution",
+      "real canonical Core imports with actual saved data",
+      "independent QA L4 acceptance",
+      "real user workflow steps/time saved",
+      "user used output"
+    ],
+    "external_actions": 0,
+    "private_capture_uploads": 0,
+    "other_lane_source_edits": 0,
+    "post_to_github_private_capture": false,
+    "v2_v3": "not started"
   }
 }
