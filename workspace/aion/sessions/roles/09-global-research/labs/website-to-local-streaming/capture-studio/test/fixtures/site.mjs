@@ -134,6 +134,16 @@ const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUl
 
 async function extraRoutes(url, req, res) {
   const p = url.pathname;
+  if (p === '/follow-worker.js') {
+    res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
+    res.end(`fetch('/api/worker-follow').then(r => r.json()).then(value => postMessage(value)).catch(() => postMessage({error:'worker-fetch-failed'}));`);
+    return true;
+  }
+  if (p === '/api/worker-follow') {
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify({ ok: true, source: 'dedicated-worker-first-fetch' }));
+    return true;
+  }
   if (p === '/claude') { res.writeHead(200, { 'content-type': 'text/html' }); res.end(CLAUDE_PAGE); return true; }
   if (p === '/dashboard') { res.writeHead(200, { 'content-type': 'text/html' }); res.end(DASHBOARD_PAGE); return true; }
   if (p === '/feed') { res.writeHead(200, { 'content-type': 'text/html' }); res.end(FEED_PAGE); return true; }
