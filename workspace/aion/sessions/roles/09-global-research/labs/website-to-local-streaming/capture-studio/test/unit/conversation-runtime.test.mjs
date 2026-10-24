@@ -364,6 +364,51 @@ test('partial typing keeps the window held, is never promoted by page observatio
   f.releaseReply.resolve();
 });
 
+test('two authorized turns in one thread: separate correlation, per-turn attributed replies, window per turn, no blind resend', async (t) => {
+  const f = fixture(t), c = await f.connect();
+  const first = await f.submit(c, { key: 'one', prompt: 'first private prompt' });
+  assert.equal(first.turn.phase, 'preparing');
+  f.releaseReply.resolve();
+  const one = await f.settle(c.id);
+  assert.equal(one.turn.send.state, 'observed');
+  assert.equal(one.reply.state, 'ready');
+  assert.equal(one.writer.active, false); // idle between turns: the window closed with turn one
+  acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release(); // host free between turns
+  // Turn two: its own window opens for the effect and closes on its own observed delivery.
+  const typing = deferred();
+  f.adapters[0].type = async () => { await typing.promise; };
+  const second = f.submit(c, { key: 'two', prompt: 'second private prompt', expectedRevision: (await f.runtime.get(c.id)).revision });
+  for (let n = 0; n < 500 && !(await f.runtime.get(c.id)).writer.active; n++) await new Promise(setImmediate);
+  assert.throws(() => acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }), /lease is held/);
+  typing.resolve();
+  await second;
+  const two = await f.settle(c.id);
+  assert.equal(two.turn.send.state, 'observed');
+  assert.equal(two.reply.state, 'ready');
+  for (let n = 0; n < 500 && (await f.runtime.get(c.id)).writer.active; n++) await new Promise(setImmediate);
+  assert.equal((await f.runtime.get(c.id)).writer.active, false);
+  // Separate correlation: distinct turn ids, keys, delivery identities and reply identities.
+  assert.notEqual(one.turn.id, two.turn.id);
+  assert.notEqual(one.turn.key, two.turn.key);
+  assert.notEqual(one.turn.send.evidence.identity, two.turn.send.evidence.identity);
+  assert.notEqual(one.reply.evidence.identity, two.reply.evidence.identity);
+  // An idempotent replay of turn one is a pure read: same attempt, no second dispatch.
+  const dispatches = f.calls.filter((v) => v === 'submit').length;
+  const replay = await f.submit(c, { key: 'one', prompt: 'first private prompt', expectedRevision: (await f.runtime.get(c.id)).revision });
+  assert.equal(replay.turn.id, one.turn.id);
+  assert.equal(f.calls.filter((v) => v === 'submit').length, dispatches);
+  // The durable thread journal holds both turns fully resolved (delivered + attributed reply + readiness).
+  const journalDir = path.join(f.paths.root, 'conversations', 'thread-turns');
+  const journalFile = fs.readdirSync(journalDir).find((n) => n.endsWith('.turn-journal.json'));
+  const journal = JSON.parse(fs.readFileSync(path.join(journalDir, journalFile), 'utf8'));
+  assert.equal(journal.snapshot.turns.length, 2);
+  for (const turn of journal.snapshot.turns) {
+    assert.equal(turn.delivery.state, 'observed');
+    assert.equal(turn.reply.state, 'observed');
+    assert.equal(turn.readiness.state, 'ready');
+  }
+});
+
 test('owner metadata recovers attach/save window without reattaching or dispatching', async (t) => {
   let owner;
   const f = fixture(t, { ownerIsAlive: () => false, listSessions: () => owner ? [{ id: 'recoverable-session', conversationOwner: { conversationId: owner } }] : [] });
