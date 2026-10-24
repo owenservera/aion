@@ -10,24 +10,38 @@
     "branch": "integration/agent14-four-lane-20261024",
     "status": "draft-not-merged-at-initial-review"
   },
-  "phase": "P0-committed-v8-semantic-smoke-passed-node22-pending",
+  "phase": "P1-P2-offline-components-committed-real-Studio-and-Node22-unverified",
   "owner": "AION Discovery-to-Read",
   "sourceAuthority": "GitHub initiative branch; Windows master for actual Studio deployment",
   "testStatus": {
     "javascriptV8SourceReplay": {
-      "tests": 21,
-      "passed": 21,
+      "tests": 52,
+      "passed": 52,
       "failed": 0,
-      "note": "Same GitHub source compiled in isolated V8 with URL, structuredClone, node:test and assert shims; NOT actual Node22 execution"
+      "note": "V8 same GitHub source with test/URL/path/fs and assertion shims; no Node filesystem."
     },
-    "node22": "not-run-in-checkout",
-    "syntheticFixtureOnly": true,
+    "v8SimulatedFileSystemCas": {
+      "tests": 10,
+      "passed": 10,
+      "failed": 0,
+      "note": "VersionedStore + CAS from GitHub source with in-memory simulated filesystem, not real lock/fdatasync/NTFS proof"
+    },
+    "committedTestCases": 62,
+    "node22": "not-run-in-checked-out-repository",
+    "realDiskIO": "not-run",
     "liveBrowser": "not-run",
     "g1g7": "not-run",
     "profilePromotion": "not-performed"
   },
   "productionCodeChanged": false,
   "promotionAuthorized": false,
-  "next": "Execute offline suite; wire original-source lookup and structural-read receipt after Z.ai integration",
-  "lastVerified": "2026-10-24"
+  "next": "Reconcile Z.ai PR #77; run Node22 unit suite and demo; implement source-specific truth/extraction adapters, route all profile writes through a single owner, test Windows before activating any learned rules",
+  "lastVerified": "2026-10-24",
+  "components": {
+    "studioSourceReader": "committed; requires trusted original acquisition/account resolver",
+    "structuralSemanticVerdict": "committed; requires independent real native truth",
+    "discoveryIntake": "committed; real capture-to-probes not wired",
+    "profileCasOwner": "committed; all live writers and Windows crash behavior not verified",
+    "syntheticDemo": "full fixture read-to-semantic pipeline; unexecuted in Node22"
+  }
 }
