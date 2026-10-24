@@ -10,11 +10,17 @@
     "branch": "integration/agent14-four-lane-20261024",
     "status": "draft-not-merged-at-initial-review"
   },
-  "phase": "P0-source-committed-offline-verification-pending",
+  "phase": "P0-committed-v8-semantic-smoke-passed-node22-pending",
   "owner": "AION Discovery-to-Read",
   "sourceAuthority": "GitHub initiative branch; Windows master for actual Studio deployment",
   "testStatus": {
-    "node22": "not-run-by-github-author",
+    "javascriptV8SourceReplay": {
+      "tests": 21,
+      "passed": 21,
+      "failed": 0,
+      "note": "Same GitHub source compiled in isolated V8 with URL, structuredClone, node:test and assert shims; NOT actual Node22 execution"
+    },
+    "node22": "not-run-in-checkout",
     "syntheticFixtureOnly": true,
     "liveBrowser": "not-run",
     "g1g7": "not-run",
@@ -22,5 +28,6 @@
   },
   "productionCodeChanged": false,
   "promotionAuthorized": false,
-  "next": "Execute offline suite; wire original-source lookup and structural-read receipt after Z.ai integration"
+  "next": "Execute offline suite; wire original-source lookup and structural-read receipt after Z.ai integration",
+  "lastVerified": "2026-10-24"
 }
