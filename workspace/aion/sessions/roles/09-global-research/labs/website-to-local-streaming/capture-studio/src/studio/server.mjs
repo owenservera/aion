@@ -23,6 +23,9 @@ import { VERSION } from '../config.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
 import { buildSiteContinuity, siteFromSession, originFromSession, continuityTime } from '../intel/continuity.mjs';
 import { createIntegrationHub } from './integration-hub.mjs';
+import { VersionedStore } from '../store/versioned.mjs';
+import { createAdapterFactory } from './adapter-factory-service.mjs';
+import { setLearnedAdapterProvider } from '../profiles/sites/index.mjs';
 import { handlePlatformX } from './platform-x.mjs';
 import { problem, storageName } from './http.mjs';
 import { createDriveApi } from './drive-api.mjs';
@@ -106,7 +109,12 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   // read-only tools. submit_conversation_turn is NEVER auto-retried here - the journal owns it.
   const harnessRuns = createHarnessRunStore({ dir: path.join(paths.root, 'harness-runs'), toolExecutor: conversationToolExecutor(conversationRuntime), retryableTools: HARNESS_RETRYABLE_TOOLS });
   const harnessApi = createHarnessApi({ runs: harnessRuns });
-  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id) });
+  // Adaptive webapp adapter factory (Agent 14 Round 8): versioned, data-only, READ-ONLY learned
+// adapters under <root>/learned-adapters. The read view is wired into the sites registry;
+// the execution path (drive/send via getAdapter) never sees learned adapters.
+const adapterFactory = createAdapterFactory({ learnedStore: new VersionedStore(path.join(paths.root, 'learned-adapters'), { kind: 'learned adapter' }) });
+setLearnedAdapterProvider(adapterFactory.registryProvider());
+const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id), adapterFactory });
   const driveApi = createDriveApi({ dataDir: paths.root, port: cdpPort, drive, campaign });
 
   const tokenBuf = Buffer.from(token);

@@ -301,6 +301,9 @@ export async function sendMessage(page, adapter = null, deps = {}) {
   };
   const strategy = adapter?.send?.strategy ?? 'both';
   const notAttempted = (method, reason) => ({ ok: false, sent: false, method, dispatched: false, sendStatus: 'not-attempted', uncertain: false, reason });
+  // Learned (adapter-factory) adapters are data-only and read-only by construction; their
+  // strategy is an explicit refusal so they can never become a send path, even by accident.
+  if (strategy === 'learned-readonly') return notAttempted('preflight', 'learned data-only adapter does not grant send permission (adapter authority: sendPermission=false)');
 
   let before;
   try { before = await d.sendState(page, adapter); }

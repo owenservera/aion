@@ -39,6 +39,10 @@ export async function launchChrome({ profileDir, port = 9222, url = 'about:blank
   }
   mkdirSync(profileDir, { recursive: true });
   const exe = findChrome();
+  // Local-integrator escape hatch (owner machines and synthetic-https test fixtures): extra,
+  // explicitly operator-provided Chrome flags. Opt-in via environment only; never set by
+  // Capture Studio itself, and the listener stays loopback-only regardless of the flags.
+  const envArgs = String(process.env.CAPTURE_STUDIO_CHROME_ARGS ?? '').split(/\s+/).filter(Boolean);
   const args = [
     `--remote-debugging-port=${port}`,
     '--remote-debugging-address=127.0.0.1',
@@ -47,6 +51,7 @@ export async function launchChrome({ profileDir, port = 9222, url = 'about:blank
     '--no-default-browser-check',
     ...(headless ? ['--headless=new'] : []),
     ...extraArgs,
+    ...envArgs,
     url,
   ];
   const child = spawn(exe, args, { detached: true, stdio: 'ignore', windowsHide: false });
