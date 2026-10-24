@@ -42,6 +42,12 @@
 
 **Owners and routing:** Development/Core #68 implements capture/runtime seams; UI #69 presents evidence; QA #72 independently qualifies; Knowledge #70 and Value #71 consume only qualified captures; role 14 owns taxonomy/evidence/negative cases, *not* a competing renderer/actor. Writing this queue does not launch or notify Z.ai. Reply with source commit, tests, evidence class, unresolved losses and the highest-value next failure, not a generic progress report.
 
+## Implementation handoff now published — 2026-10-24
+
+Agent 14 can publish **ready-to-integrate, isolated specialist components and adversarial tests** to GitHub for Z.ai to pull; this owner-directed work is preferred to documentation-only handoffs when a concrete missing seam is known. Keep canonical runtime changes with Core/Z.ai; no competing actor or untested overwrite.
+
+**Shipped:** [Round 6 implementation source + tests + guide](implementations/round6/README.md) (GitHub main publication `5debf2286b9a6a9becd97c6bb75086d563474048`). Hardened drop-in run store + preflight adapter, 18/18 focused Node22 synthetic tests; exact remote readback verified. [Core #68 handoff](https://github.com/owenservera/aion/issues/68#issuecomment-6384442742). Pending Z.ai branch reconciliation, full product suite, Windows crash/lock and authenticated provider acceptance. Original Z.ai legacy tests contain two superseded unsafe expectations; guide identifies them.
+
 ## First agent-owned research actions
 1. Check current repo HEAD and the latest Z.ai execution artifacts. The original ten Z.ai patches are not integration proof.
 2. Compare native shape structures for a citation-rich ChatGPT response and one Claude Artifact against provider docs and saved captures; explicitly identify which evidence exists and what cannot yet be observed.
