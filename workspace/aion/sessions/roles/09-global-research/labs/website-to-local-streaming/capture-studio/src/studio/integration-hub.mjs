@@ -3,16 +3,22 @@ import { readdirSync, existsSync, statSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Session, listSessions } from '../store/session.mjs';
 import { stateAt } from '../replay/derive.mjs';
+import { observeSession } from '../shapes/observation.mjs';
+import { readAcceptance } from '../capture/acceptance.mjs';
 import { StreamReducer } from '../replay/reducer.mjs';
 import { TemporalGraph } from '../intel/graph.mjs';
 import { ScopedLearner, SCOPES, ROLES, activeQuestions } from '../intel/learn.mjs';
 import { buildSiteContinuity, siteFromSession, originFromSession } from '../intel/continuity.mjs';
+import { transcriptFromSession, transcriptFromLivePage, probesFromLivePage } from './adapter-probes.mjs';
+import { getReadAdapter, listReadAdapters } from '../profiles/sites/index.mjs';
+import { AdapterFactoryError } from './adapter-factory-service.mjs';
 import { VERSION } from '../config.mjs';
 import { EventFeed, EVENT_TYPES } from './event-feed.mjs';
 import { Webhooks } from './webhooks.mjs';
 import { registerCapabilities, LIVE_EVENTS } from './capabilities.mjs';
 import { problem, json, integer, text, object, storageName, timestamp, page, datasetPage } from './http.mjs';
 import { registerConversationTools } from './conversation-tools.mjs';
+import { registerHarnessTools } from './harness-api.mjs';
 
 const str = { type: 'string' };
 const pagination = { offset: { type: 'integer', minimum: 0, maximum: 1000000 }, limit: { type: 'integer', minimum: 1, maximum: 1000 } };
@@ -20,7 +26,7 @@ const timeQuery = { at: { description: 'Epoch milliseconds or ISO timestamp', ty
 const sessionQuery = { ...pagination, site: str, origin: str, status: str, profile: str, q: str };
 const objectSchema = (properties = {}, required = []) => ({ type: 'object', properties, ...(required.length ? { required } : {}) });
 
-export function createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, deriveSession, previewRecord, previewEvent, getPort, getAccessMode = () => 'local', cdpPort, deriving = new Set(), invalidateReplay = () => {} }) {
+export function createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord, previewEvent, getPort, getAccessMode = () => 'local', cdpPort, deriving = new Set(), invalidateReplay = () => {}, adapterFactory = null, learningPipeline = null }) {
   const feed = new EventFeed();
   const webhooks = new Webhooks(feed, { forbiddenPorts: () => [getPort(), cdpPort] });
   const routes = [];
@@ -76,10 +82,27 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
     && (!q.q || [s.id, s.site, s.target?.title, s.target?.url].some((v) => String(v ?? '').toLowerCase().includes(String(q.q).toLowerCase()))));
   const profileFor = (s) => s.kv.get('PROFILE_SNAPSHOT') ?? profileStore.load(s.meta.profile?.name ?? 'generic');
 
+  // ---- Adaptive webapp adapter factory (learned data-only adapters; read-only surfaces) ----
+  const originOfSession = (s) => { try { return new URL(s.kv.get('RECEIPT', null)?.pageUrl ?? s.meta?.target?.url ?? '').origin; } catch { return null; } };
+  const resolveSessions = (ids) => (Array.isArray(ids) ? ids : []).map((id) => {
+    if (typeof id !== 'string' || !id.length) throw problem(400, 'sessionIds must be non-empty strings');
+    const s = sessionOf(id); savedOnly(s);
+    return s;
+  });
+  const factoryCall = (fn) => (...args) => {
+    if (!adapterFactory) throw problem(501, 'Adapter factory not wired in this process (learned-adapters store unavailable)', 'ADAPTER_FACTORY_UNAVAILABLE');
+    try { return fn(...args); } catch (e) {
+      if (e instanceof AdapterFactoryError) throw problem(400, e.message, e.code);
+      throw e;
+    }
+  };
+  const candidateBody = { type: 'object', description: 'aion.adaptive-webapp-adapter/1 candidate as returned by synthesize' };
+
   function add(method, routePath, summary, handler, { query = {}, body, tool, contentType = 'application/json', annotations, inputSchema, pathParameters = {}, successStatus = 200 } = {}) {
     routes.push({ method, path: '/api/v1' + routePath, parts: ('/api/v1' + routePath).split('/'), summary, handler, query, body, tool, contentType, annotations, inputSchema, pathParameters, successStatus });
   }
   registerConversationTools({ add, conversationRuntime });
+  registerHarnessTools({ add, harnessApi });
 
   add('GET', '/health', 'Studio process health without probing Chrome', () => ({ version: VERSION, apiVersion: 1, time: new Date().toISOString(), recorder: recorder.status(), events: feed.info() }), { tool: 'studio_health' });
   add('GET', '/sessions', 'List and filter saved recordings', ({ q }) => page(selectedSessions(q), q), { query: sessionQuery, tool: 'list_sessions' });
@@ -102,6 +125,15 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
     const result = await deriveSession(s, body.profile);
     return { session: s.id, records: result.records, receipt: result.receipt, knowledge: result.knowledge, recordCounts: result.recordCounts, familyCounts: result.familyCounts };
   }, { body: objectSchema({ profile: str }) });
+
+  add('GET', '/sessions/{session}/observation', 'Loss-aware aion.web-observation/1 projection over this session\'s derived evidence (identity never fabricated; DOM and network kept separable)',
+    async ({ p }) => {
+      const s = sessionOf(p.session); savedOnly(s);
+      let profile = null;
+      try { profile = s.kv.get('PROFILE_SNAPSHOT', null) ?? profileStore.load(s.meta.profile?.name ?? 'generic'); } catch { profile = null; }
+      const observation = await observeSession(s, { profile, acceptance: readAcceptance(s) });
+      return { session: s.id, observation };
+    }, { tool: 'get_session_observation', annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } });
 
   add('GET', '/sessions/{session}/replay/records', 'Page raw-log evidence by durable sequence, with explicit preview mode', async ({ p, q }) => {
     const s = sessionOf(p.session); savedOnly(s);
@@ -279,6 +311,149 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       return { kind, calibrated: local.calibrator.calibrate(kind, body.confidence), ece: local.calibrator.ece(kind) };
     });
   }, { body: objectSchema({ expectedRevision: revisionSchema, kind: str, confidence: { type: 'number', minimum: 0, maximum: 1 }, accepted: { type: 'boolean' } }, ['expectedRevision', 'kind', 'confidence', 'accepted']) });
+
+  // ---- Learned webapp adapter lifecycle (Agent 14 Round 8 factory; data-only, read-only) ----
+  const priorSelectorsOf = (priorName) => {
+    if (!priorName) return {};
+    const prior = adapterFactory?.loadRecord?.(priorName)?.candidate ?? null;
+    if (!prior) return {};
+    const pick = (f) => (prior.features?.[f]?.selected?.candidate ? [prior.features[f].selected.candidate] : []);
+    return { 'user-turn': pick('user-turn'), 'assistant-turn': pick('assistant-turn'), 'thread-route': pick('thread-route') };
+  };
+  const liveProbesIfRequested = async (body) => {
+    if (!body.live) return [];
+    if (!recorder?.dom || recorder.state !== 'recording' || !recorder.session) throw problem(409, 'live synthesis requires an active capture with an attached page', 'NOT_LIVE');
+    const pageOrigin = (() => { try { return new URL(recorder.pageUrl ?? '').origin; } catch { return null; } })();
+    if (pageOrigin !== body.origin) throw problem(409, `Active page origin ${pageOrigin ?? 'unknown'} does not match the synthesis origin ${body.origin}`, 'ORIGIN_MISMATCH');
+    return await probesFromLivePage({ dom: recorder.dom, origin: body.origin, captureId: `live-${recorder.session.id}`, priorSelectors: priorSelectorsOf(body.priorName ?? null) });
+  };
+  add('POST', '/adapters/learned/synthesize', 'Synthesize a data-only adapter candidate from saved derived sessions (+ optional live=1 read-only page measurement of the actively captured tab; pure: nothing persisted, nothing activated)',
+    factoryCall(async ({ body }) => {
+      const sessions = resolveSessions(body.sessionIds);
+      const liveProbes = await liveProbesIfRequested(body);
+      const out = adapterFactory.synthesize({ siteId: body.siteId, origin: body.origin, surface: body.surface, sessions, priorName: body.priorName ?? null, liveProbes });
+      return { ...out, drift: out.candidate.drift, coverage: out.candidate.coverage, authority: out.candidate.authority, note: 'Candidate only. Shadow-evaluate against held-out sessions before considering promotion.' };
+    }), {
+      body: objectSchema({ siteId: str, origin: str, surface: str, sessionIds: { type: 'array', items: str }, priorName: str, live: { type: 'boolean' } }, ['siteId', 'origin', 'sessionIds']),
+      tool: 'synthesize_webapp_adapter', annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    });
+
+  add('POST', '/adapters/learned/shadow-evaluate', 'Evaluate a candidate against held-out saved sessions (pure shadow replay; no activation)',
+    factoryCall(({ body }) => {
+      const sessions = resolveSessions(body.sessionIds);
+      return adapterFactory.shadowEvaluate({ candidate: body.candidate, sessions });
+    }), {
+      body: objectSchema({ candidate: candidateBody, sessionIds: { type: 'array', items: str } }, ['candidate', 'sessionIds']),
+      tool: 'shadow_evaluate_webapp_adapter', annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    });
+
+  add('POST', '/adapters/learned/promote', 'Promote a candidate to a versioned READ-ONLY learned adapter after server-side re-verification against held-out sessions',
+    factoryCall(({ body }) => {
+      const sessions = resolveSessions(body.sessionIds);
+      const rec = adapterFactory.promote({ candidate: body.candidate, sessions, clientShadow: body.shadow ?? null, note: body.note ?? '' });
+      return { ...rec, readFeatures: rec.adapter?.factory?.readFeatures ?? [], sendPermission: false, note2: 'Read-only activation only; never a send grant.' };
+    }), {
+      body: objectSchema({ candidate: candidateBody, sessionIds: { type: 'array', items: str }, shadow: { type: 'object' }, note: str }, ['candidate', 'sessionIds']),
+      tool: 'promote_learned_adapter', annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    });
+
+  add('GET', '/adapters/learned', 'List learned data-only adapters with their versions and CURRENT pointers',
+    factoryCall(() => ({ items: adapterFactory.list() })), { tool: 'list_learned_adapters', annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } });
+
+  add('GET', '/adapters/learned/{name}', 'Read one learned adapter: CURRENT candidate, shadow receipt and version history',
+    factoryCall(({ p }) => {
+      const entry = adapterFactory.list().find((x) => x.name === p.name);
+      if (!entry) throw problem(404, `No learned adapter "${p.name}"`, 'NOT_FOUND');
+      const adapter = adapterFactory.loadLearned(p.name);
+      return { ...entry, adapter };
+    }), { tool: 'get_learned_adapter', annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } });
+
+  add('POST', '/adapters/learned/{name}/rollback', 'Point a learned adapter back at a historical version (pointer move; no re-synthesis)',
+    factoryCall(({ p, body }) => {
+      if (body.confirm !== true) throw problem(400, 'confirm:true is required to roll back a learned adapter');
+      const v = integer(body.version, 1, Number.MAX_SAFE_INTEGER);
+      if (v === undefined) throw problem(400, 'version is required');
+      return adapterFactory.rollback(p.name, v);
+    }), {
+      body: objectSchema({ version: { type: 'integer', minimum: 1 }, confirm: { const: true } }, ['version', 'confirm']),
+      tool: 'rollback_learned_adapter', annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    });
+
+  add('GET', '/adapters/learned/{name}/transcript', 'Read-only conversation transcript under the CURRENT learned adapter, from a saved session or (live=1) the actively captured page',
+    factoryCall(async ({ p, q }) => {
+      const record = adapterFactory.loadRecord(p.name);
+      if (!record) throw problem(404, `No learned adapter "${p.name}"`, 'NOT_FOUND');
+      const candidate = record.candidate;
+      const live = q.live === '1' || q.live === 'true';
+      if (live) {
+        if (!recorder?.dom || recorder.state !== 'recording' || !recorder.session) throw problem(409, 'Live transcript requires an active capture with an attached page', 'NOT_LIVE');
+        const pageOrigin = (() => { try { return new URL(recorder.pageUrl ?? '').origin; } catch { return null; } })();
+        if (pageOrigin !== candidate.origin) throw problem(409, `Active page origin ${pageOrigin ?? 'unknown'} does not match the learned adapter origin ${candidate.origin}`, 'ORIGIN_MISMATCH');
+        return await transcriptFromLivePage({ dom: recorder.dom, candidate, scrub: (t) => recorder.privacy.text(t) });
+      }
+      if (!q.session) throw problem(400, 'query "session" is required (or live=1)', 'SESSION_REQUIRED');
+      const s = sessionOf(q.session); savedOnly(s);
+      const sOrigin = originOfSession(s);
+      if (sOrigin !== candidate.origin) throw problem(409, `Session origin ${sOrigin ?? 'unknown'} does not match the learned adapter origin ${candidate.origin}`, 'ORIGIN_MISMATCH');
+      return transcriptFromSession(s, candidate);
+    }), {
+      query: { session: str, live: str },
+      tool: 'read_learned_transcript', annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    });
+
+  add('GET', '/adapters/read', 'Read-view of the site registry: handwritten seed adapters plus learned data-only adapters (the drive/send path never sees learned adapters)',
+    async () => ({ items: await listReadAdapters() }), { tool: 'list_read_adapters', annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } });
+
+  add('GET', '/adapters/read/{id}', 'Resolve one adapter through the read view (seed first, then learned candidates)',
+    async ({ p }) => {
+      const a = await getReadAdapter(p.id);
+      if (!a) throw problem(404, `No adapter for "${p.id}" in the read view`, 'NOT_FOUND');
+      return { adapter: { id: a.id, label: a.label ?? a.id, hosts: a.hosts ?? [], url: a.url ?? null, learned: a.learned === true, readOnly: a.readOnly === true, sendStrategy: a.send?.strategy ?? 'both', readFeatures: a.factory?.readFeatures ?? [], authority: a.authority ?? null } };
+    }, { tool: 'get_read_adapter', annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } });
+
+  // Four-lane Intelligence integration: the guarded I1 improvement pipeline over REAL saved
+  // sessions. Proposals are computed server-side from Core-verified evidence only; promotion
+  // is read-only, CAS-guarded and reachable ONLY through a server-minted proposalDigest
+  // (a client-submitted JSON object can never satisfy the minted-ledger lookup). No route
+  // here grants a browser effect: writes go to the existing learned-adapter VersionedStore.
+  if (learningPipeline) {
+    const scopeBody = objectSchema({
+      siteId: str, origin: str, surface: str, accountRef: str,
+      training: { type: 'array', items: str }, heldout: { type: 'array', items: str },
+      trigger: { type: 'string', enum: ['new-evidence', 'drift', 'reviewed-correction'] },
+      testOnly: { type: 'boolean' }, seed: { type: 'object' },
+      incumbent: str, newSelector: str, driftEvidence: { type: 'array', items: { type: 'object' } },
+    }, ['siteId', 'origin', 'training', 'heldout']);
+    const readScope = (body) => ({ siteId: body.siteId, origin: body.origin,
+      surface: body.surface ?? 'chat', accountRef: body.accountRef ?? 'unknown' });
+    add('POST', '/adapters/intelligence/propose', 'Run the guarded adapter-improvement pipeline over saved sessions: server-verified manifests, independent train/held-out lineage, Round 8 synthesis, Round 9 holdout gate, shadow evaluation (pure: computes and mints a proposal, activates nothing)',
+      async ({ body }) => {
+        const proposal = await learningPipeline.propose({
+          scope: readScope(body), training: body.training, heldout: body.heldout,
+          seed: body.seed ?? null, testOnly: body.testOnly === true, trigger: body.trigger ?? 'new-evidence',
+          incumbent: body.incumbent ?? null, newSelector: body.newSelector ?? null, driftEvidence: body.driftEvidence ?? null,
+        });
+        return { ...proposal, note: 'Read-only proposal. Promotion only via the server-minted proposalDigest; no browser effects, no send permission.' };
+      }, { body: scopeBody, tool: 'propose_adapter_improvement',
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
+    add('POST', '/adapters/intelligence/promote', 'Promote a SERVER-MINTED read-only proposal through the expected-version CAS store (versioned learned-read adapter; sendPermission stays false; the digest must come from propose in this process)',
+      async ({ body }) => {
+        if (typeof body.proposalDigest !== 'string' || !body.proposalDigest) throw problem(400, 'proposalDigest is required', 'PROPOSAL_DIGEST_REQUIRED');
+        return { promoted: await learningPipeline.promote(body.proposalDigest) };
+      }, { body: objectSchema({ proposalDigest: str }, ['proposalDigest']), tool: 'promote_read_only_adapter',
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
+    add('POST', '/adapters/intelligence/rollback', 'Roll the learned read-adapter for one scope back to an explicit earlier version under expected-version CAS (pointer move only; immutable history preserved)',
+      async ({ body }) => ({ rolledBack: await learningPipeline.rollback(readScope(body), body.targetVersion, body.expectedVersion ?? null) }),
+      { body: objectSchema({ siteId: str, origin: str, surface: str, accountRef: str, targetVersion: { type: 'integer', minimum: 1 }, expectedVersion: { type: 'integer', minimum: 0 } }, ['siteId', 'origin', 'targetVersion']),
+        tool: 'rollback_read_only_adapter', annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
+    add('GET', '/adapters/intelligence/proposals', 'List proposals minted in this process (digest, status, evidence class, promotion state)',
+      () => ({ proposals: learningPipeline.listProposals() }),
+      { tool: 'list_adapter_proposals', annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } });
+    add('POST', '/adapters/intelligence/read-selection', 'Read-only selection view for one scope: which adapter (learned vs seed) would serve reads, with sendPermission always false (diagnostic; the registry remains the executable source of truth)',
+      async ({ body }) => learningPipeline.resolveRead(readScope(body), body.seed ?? null, { simulation: body.simulation === true, proposal: null }),
+      { body: objectSchema({ siteId: str, origin: str, surface: str, accountRef: str, seed: { type: 'object' }, simulation: { type: 'boolean' } }, ['siteId', 'origin']),
+        tool: 'resolve_read_selection', annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } });
+  }
 
   add('GET', '/events', 'Resumable live SSE previews; Last-Event-ID or after cursor, heartbeat and gap reset', ({ req, res, q }) => feed.subscribe(req, res, q, { status: recorder.status() }), { query: { types: str, session: str, sid: str, after: str, replay: { type: 'integer', minimum: 0, maximum: 1000 } }, contentType: 'text/event-stream' });
   add('GET', '/integrations', 'Integration capabilities and privacy/delivery semantics', () => ({ apiVersion: 1, events: EVENT_TYPES, liveEvents: LIVE_EVENTS, feed: feed.info(), liveFeed: capabilities.liveFeed.info(), endpoints: { events: '/api/v1/events', live: '/api/v1/live', liveView: '/live/view', mirrors: '/api/v1/mirrors', deriveAll: '/api/v1/sessions/{session}/derive-all', artifacts: '/api/v1/sessions/{session}/artifacts', schemas: '/api/v1/sessions/{session}/schemas', rankedGraph: '/api/v1/sessions/{session}/graph/ranked', timelines: '/api/v1/sessions/{session}/timelines', search: '/api/v1/search', openapi: '/api/v1/openapi.json', tools: '/api/v1/integrations/tools', invoke: '/api/v1/integrations/tools/call', webhooks: '/api/v1/integrations/webhooks' }, optionalCapabilities: 'Loaded on demand; HTTP 501 means the backend module or export is unavailable', authentication: 'Localhost requires no token by default; optional token mode accepts x-studio-token or Studio cookie; both enforce same loopback Host/Origin policy', mirrors: { scope: 'literal-loopback-only', lifetime: 'Studio process', maxInstances: 8, privacy: 'Explicit start exposes captured replay data on the returned local mirror port; Studio authentication protects management endpoints, not the mirror backend' }, webhooks: { scope: 'literal-loopback-only', registration: 'process-lifetime', delivery: 'one attempt; unknown network effects are not retried', defaultPayload: 'metadata-only', confirmation: 'registration POST is explicit opt-in' }, tools: { protocol: 'MCP-style JSON manifest and invocation adapter, not a full MCP transport', readOnly: false, streaming: 'Live feed calls return a subscription descriptor; derive_all calls return final JSON. Use the declared HTTP endpoint for SSE progress.' } }));

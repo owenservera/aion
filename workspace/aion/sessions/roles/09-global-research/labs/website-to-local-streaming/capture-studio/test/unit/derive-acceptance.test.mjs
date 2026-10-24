@@ -83,7 +83,7 @@ test('derive writes acceptance.json and a receipt line for a clean synthetic ses
   assert.equal(s.kv.get('RECEIPT').acceptance, 'verdict capture_incomplete: G1-G3 not-checked, G4-G7 passed');
 });
 
-test('GET /api/sessions/:id/acceptance returns the stored label; unassessed for a session without the file; 405 for POST', async (t) => {
+test('GET /api/sessions/:id/acceptance returns the stored label; unassessed for a session without the file; POST evaluates with optional context', async (t) => {
   const e = env(t);
   const derived = await seed(e.paths);
   await derive(derived, e.profile, { learner: e.learner });
@@ -99,8 +99,21 @@ test('GET /api/sessions/:id/acceptance returns the stored label; unassessed for 
   const none = await fetch(`${base}/${bare.id}/acceptance`);
   assert.equal(none.status, 200);
   assert.deepEqual(await none.json(), { verdict: 'unassessed', reason: 'no acceptance.json' });
+  // POST without context re-evaluates honestly: G1-G3 not-checked, G4-G7 re-derived, verdict incomplete.
   const post = await fetch(`${base}/${derived.id}/acceptance`, { method: 'POST', body: '{}' });
-  assert.equal(post.status, 405);
+  assert.equal(post.status, 200);
+  const receipt = await post.json();
+  assert.equal(receipt.verdict, 'capture_incomplete');
+  assert.equal(receipt.gates.G1, 'not-checked');
+  assert.equal(receipt.gates.G4, 'passed');
+  assert.deepEqual(await (await fetch(`${base}/${derived.id}/acceptance`)).json(), readAcceptance(derived));
+  // Malformed context fails closed before any evaluation or write.
+  const bad = await fetch(`${base}/${derived.id}/acceptance`, { method: 'POST',
+    body: JSON.stringify({ conversation: { prompt: 'x', baseline: { userTurns: -1, assistantTurns: 0 } } }) });
+  assert.equal(bad.status, 400);
+  const badUnexpected = await fetch(`${base}/${derived.id}/acceptance`, { method: 'POST',
+    body: JSON.stringify({ conversation: { prompt: 'x', forged: true } }) });
+  assert.equal(badUnexpected.status, 400);
 });
 
 test('tampering with a raw segment after derive makes the route return unassessed', async (t) => {

@@ -19,6 +19,8 @@ const REPLY = 'Hello there';
 const CONVERSATION = {
   prompt: PROMPT, expectedReplyWords: ['hello', 'there'],
   completionRule: { requireDone: true, stableObserved: true },
+  // Pre-send freshness cursor: the fixture page has no turns before the send.
+  baseline: { userTurns: 0, assistantTurns: 0 },
 };
 const event = (type, obj) => 'event: ' + type + '\ndata: ' + JSON.stringify(obj) + '\n\n';
 const SSE = [

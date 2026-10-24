@@ -11,7 +11,7 @@ import { listTargets, browserVersion, isReachable } from '../cdp/discovery.mjs';
 import { launchChrome } from '../chrome/launch.mjs';
 import { Session, listSessions } from '../store/session.mjs';
 import { derive, streamBytes, stateAt, search } from '../replay/derive.mjs';
-import { readAcceptance } from '../capture/acceptance.mjs';
+import { readAcceptance, evaluateAcceptance, writeAcceptance, reuseAcceptedContext } from '../capture/acceptance.mjs';
 import { exportDataset, exportTranscript } from '../export/export.mjs';
 import { applySuggestion } from '../profiles/apply.mjs';
 import { profileDiff, normalizeProfile } from '../profiles/profiles.mjs';
@@ -23,18 +23,58 @@ import { VERSION } from '../config.mjs';
 import { ScopedLearner } from '../intel/learn.mjs';
 import { buildSiteContinuity, siteFromSession, originFromSession, continuityTime } from '../intel/continuity.mjs';
 import { createIntegrationHub } from './integration-hub.mjs';
+import { VersionedStore } from '../store/versioned.mjs';
+import { createAdapterFactory } from './adapter-factory-service.mjs';
+import { createStudioLearningPipeline } from './adapter-learning-pipeline.mjs';
+import { createIntentBindingStore } from './intent-bindings.mjs';
+import { setLearnedAdapterProvider } from '../profiles/sites/index.mjs';
 import { handlePlatformX } from './platform-x.mjs';
 import { problem, storageName } from './http.mjs';
 import { createDriveApi } from './drive-api.mjs';
 import { createConversationApi, defaultConversationRuntime } from './conversation-api.mjs';
+import { createConversationEvents } from './conversation-events.mjs';
+import { createHarnessRunStore } from '../capture/harness-runs.mjs';
+import { createHarnessApi, registerHarnessTools, conversationToolExecutor, HARNESS_RETRYABLE_TOOLS } from './harness-api.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
+
+// Drive context for the explicit acceptance evaluation (POST /api/v1/sessions/{session}/acceptance).
+// Bounded and closed: unknown fields are rejected so the evaluator never sees unvalidated context.
+function validateAcceptanceContext(body) {
+  if (body === undefined || body === null) return null;
+  if (typeof body !== 'object' || Array.isArray(body)) throw problem(400, 'Body must be an object');
+  if (Object.keys(body).some((k) => k !== 'conversation')) throw problem(400, 'Unexpected request field');
+  if (body.conversation === undefined || body.conversation === null) return null;
+  const c = body.conversation;
+  if (typeof c !== 'object' || Array.isArray(c)) throw problem(400, 'conversation must be an object');
+  if (Object.keys(c).some((k) => !['prompt', 'expectedReplyWords', 'completionRule', 'baseline'].includes(k))) throw problem(400, 'Unexpected conversation field');
+  if (typeof c.prompt !== 'string' || !c.prompt || c.prompt.length > 250000) throw problem(400, 'conversation.prompt must be a nonempty string of at most 250000 characters');
+  if (c.expectedReplyWords !== undefined
+    && (!Array.isArray(c.expectedReplyWords) || c.expectedReplyWords.length > 50
+      || c.expectedReplyWords.some((w) => typeof w !== 'string' || !w || w.length > 1000))) throw problem(400, 'expectedReplyWords must be at most 50 nonempty strings of at most 1000 characters');
+  if (c.completionRule !== undefined) {
+    const r = c.completionRule;
+    if (!r || typeof r !== 'object' || Array.isArray(r) || typeof r.stableObserved !== 'boolean'
+      || (r.requireDone !== undefined && typeof r.requireDone !== 'boolean')
+      || Object.keys(r).some((k) => !['stableObserved', 'requireDone'].includes(k))) throw problem(400, 'completionRule must be { stableObserved: boolean, requireDone?: boolean }');
+  }
+  if (c.baseline !== undefined && c.baseline !== null) {
+    const b = c.baseline;
+    if (!b || typeof b !== 'object' || Array.isArray(b)
+      || !Number.isSafeInteger(b.userTurns) || b.userTurns < 0
+      || !Number.isSafeInteger(b.assistantTurns) || b.assistantTurns < 0
+      || (b.sampledAt !== undefined && !Number.isFinite(Date.parse(b.sampledAt)))
+      || Object.keys(b).some((k) => !['userTurns', 'assistantTurns', 'sampledAt'].includes(k))) throw problem(400, 'baseline must be { userTurns, assistantTurns, sampledAt? } with nonnegative integer counts');
+  }
+  return c;
+}
 
 export async function startStudio({ paths, profileStore, familyStore, cdpPort = 9222, port = 7878, token, accessMode = process.env.CAPTURE_STUDIO_ACCESS_MODE ?? (token === undefined ? 'local' : 'token'), rawOptions, drive, campaign, conversationRuntime, conversationRuntimeFactory = defaultConversationRuntime } = {}) {
   if (!['local', 'token'].includes(accessMode)) throw new Error('CAPTURE_STUDIO_ACCESS_MODE must be local or token');
   token ??= randomBytes(18).toString('base64url');
   conversationRuntime ??= await conversationRuntimeFactory({ paths, profileStore, familyStore, port: cdpPort });
-  const conversationApi = createConversationApi({ runtime: conversationRuntime });
+  const conversationEvents = createConversationEvents({ runtime: conversationRuntime });
+  const conversationApi = createConversationApi({ runtime: conversationRuntime, events: conversationEvents });
   // Persistent learning state (role models, corrections, calibration) lives in the data dir.
   const learner = new ScopedLearner(paths.learner ?? path.join(paths.root, 'learner'));
   const recorder = new Recorder({ sessionsDir: paths.sessions, profileStore, familyStore, port: cdpPort, rawOptions, learner });
@@ -64,7 +104,32 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
       return result;
     } finally { deriving.delete(session.id); }
   }
-  const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id) });
+  // Durable harness run identity: steps execute through the SAME conversation runtime and the
+  // SAME tool validation path; the store owns only durable idempotency and the step ledger.
+  // Agent 14 Round 6 hardening: in-flight reservation before effect, per-run exclusive lock,
+  // uncertain-effect fencing; same-key retry after proven not-dispatched only for registry
+  // read-only tools. submit_conversation_turn is NEVER auto-retried here - the journal owns it.
+  // Durable pre-effect intent bindings for harness submit steps (Agent 14 Round 7 seam):
+// recorded BEFORE dispatch by this effect-owner path, completed with the journal turn
+// identity read from the owning journal; read-only reconcile joins them via the pure
+// Agent 14 classifier. No raw prompt bodies are ever persisted here.
+const intentBindings = createIntentBindingStore({ dir: path.join(paths.root, 'intent-bindings') });
+const harnessRuns = createHarnessRunStore({ dir: path.join(paths.root, 'harness-runs'), toolExecutor: conversationToolExecutor(conversationRuntime), retryableTools: HARNESS_RETRYABLE_TOOLS });
+  const harnessApi = createHarnessApi({ runs: harnessRuns, intentBindings, conversationRuntime });
+  // Adaptive webapp adapter factory (Agent 14 Round 8): versioned, data-only, READ-ONLY learned
+// adapters under <root>/learned-adapters. The read view is wired into the sites registry;
+// the execution path (drive/send via getAdapter) never sees learned adapters.
+const adapterFactory = createAdapterFactory({ learnedStore: new VersionedStore(path.join(paths.root, 'learned-adapters'), { kind: 'learned adapter' }) });
+setLearnedAdapterProvider(adapterFactory.registryProvider());
+// Four-lane Intelligence integration: guarded I1 improvement pipeline bound to the SAME
+// learned-adapter VersionedStore (single registry) with expected-version CAS fencing and the
+// real acceptance/session owners as the only evidence source. Proposals are server-minted;
+// promotion is read-only; no second browser actor, sender or registry exists.
+const learningPipeline = createStudioLearningPipeline({
+  sessionsDir: paths.sessions, lockDir: path.join(paths.root, 'locks'),
+  store: new VersionedStore(path.join(paths.root, 'learned-adapters'), { kind: 'learned adapter' }),
+});
+const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id), adapterFactory, learningPipeline });
   const driveApi = createDriveApi({ dataDir: paths.root, port: cdpPort, drive, campaign });
 
   const tokenBuf = Buffer.from(token);
@@ -112,11 +177,13 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         res.writeHead(200, { 'content-type': script ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" });
         return res.end(content);
       }
-      if (['/chat', '/ui/chat.mjs'].includes(url.pathname)) {
+      if (['/chat', '/ui/chat.mjs', '/ui/universal-chat.mjs'].includes(url.pathname)) {
         if (req.method !== 'GET') { res.setHeader('allow', 'GET'); return send(res, 405, { error: 'GET required' }); }
         const script = url.pathname.endsWith('.mjs');
         let content;
-        try { content = readFileSync(new URL(script ? './ui/chat.mjs' : './ui/chat.html', import.meta.url)); }
+        // universal-chat.mjs is the U1 additive read-only panel module mounted by chat.mjs
+        const file = url.pathname === '/ui/universal-chat.mjs' ? './ui/universal-chat.mjs' : script ? './ui/chat.mjs' : './ui/chat.html';
+        try { content = readFileSync(new URL(file, import.meta.url)); }
         catch (e) { if (e.code === 'ENOENT') return send(res, 404, { error: 'Chat UI not installed yet' }); throw e; }
         res.writeHead(200, { 'content-type': script ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" });
         return res.end(content);
@@ -206,10 +273,28 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
         return send(res, 200, s.kv.get('STREAM_COMPONENTS', null) ?? { status: 'not_derived' });
       }
       if (c === 'acceptance') {
-        if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
-        // Read-only label. Legacy sessions have no acceptance.json; readAcceptance fails closed on mismatch.
-        if (!existsSync(path.join(s.dir, 'acceptance.json'))) return send(res, 200, { verdict: 'unassessed', reason: 'no acceptance.json' });
-        return send(res, 200, readAcceptance(s));
+        if (req.method === 'GET') {
+          // Read-only label. Legacy sessions have no acceptance.json; readAcceptance fails closed on mismatch.
+          if (!existsSync(path.join(s.dir, 'acceptance.json'))) return send(res, 200, { verdict: 'unassessed', reason: 'no acceptance.json' });
+          return send(res, 200, readAcceptance(s));
+        }
+        if (req.method !== 'POST') return send(res, 405, { error: 'GET or POST required' });
+        // Explicit context evaluation (G1-G3): saved raw evidence alone cannot prove turn freshness.
+        // The caller supplies the drive context - prompt, optional expectedReplyWords, completionRule
+        // attestation and the pre-send baseline cursor. Same write path as derive's acceptanceLabel:
+        // previously proven context is reused only through readAcceptance, G4-G7 re-evaluate, and the
+        // verdict always follows from the gates.
+        if (deriving.has(s.id)) return send(res, 409, { error: 'Session derivation is already running', code: 'DERIVATION_BUSY' });
+        if (conversationRuntime.isSessionActive(s.id)) return send(res, 409, { error: 'Finish conversation capture before evaluating acceptance', code: 'SESSION_ACTIVE' });
+        if (['recording', 'stopping'].includes(recorder.state) && recorder.session?.id === s.id) return send(res, 409, { error: 'Stop capture before evaluating acceptance', code: 'SESSION_ACTIVE' });
+        const conversation = validateAcceptanceContext(body);
+        const previous = readAcceptance(s);
+        const evaluated = await evaluateAcceptance({ session: s, conversation });
+        const doc = reuseAcceptedContext(previous, evaluated);
+        if (doc.verdict !== 'unassessed') writeAcceptance(s, doc);
+        return send(res, 200, { verdict: doc.verdict, evaluatedAt: doc.evaluatedAt,
+          gates: Object.fromEntries(Object.entries(doc.gates ?? {}).map(([id, g]) => [id, g.value])),
+          reasons: doc.reasons ?? [], reusedContext: doc.contextualEvidence?.kind ?? null });
       }
       if (c === 'continuity') {
         if (req.method !== 'GET') return send(res, 405, { error: 'GET required' });
@@ -364,19 +449,19 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   }
 
   try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }); }
-  catch (e) { hub.close(); await conversationRuntime.close(); throw e; }
+  catch (e) { hub.close(); conversationEvents.close(); await conversationRuntime.close(); throw e; }
   const actualPort = server.address().port;
   port = actualPort;
   // Self-capture guard: the studio's own UI/API/SSE requests must never become captured targets.
   // The real port is only known after listen (port 0 selects a free one), so set it here.
   recorder.ignoreTargetUrls = [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`];
-  server.once('close', () => { hub.close(); driveApi.close().catch(() => {}); });
+  server.once('close', () => { hub.close(); conversationEvents.close(); driveApi.close().catch(() => {}); });
   let closing;
   const close = () => closing ??= (async () => {
     try { await conversationRuntime.close(); await driveApi.close(); if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); }
-    finally { await hub.close(); await new Promise((resolve) => server.close(resolve)); }
+    finally { await hub.close(); conversationEvents.close(); await new Promise((resolve) => server.close(resolve)); }
   })();
-  return { server, recorder, conversationRuntime, integrations: hub, port: actualPort, token, accessMode,
+  return { server, recorder, conversationRuntime, conversationEvents, integrations: hub, port: actualPort, token, accessMode,
     url: accessMode === 'token' ? `http://127.0.0.1:${actualPort}/?token=${token}` : `http://127.0.0.1:${actualPort}/`, close };
 }
 
