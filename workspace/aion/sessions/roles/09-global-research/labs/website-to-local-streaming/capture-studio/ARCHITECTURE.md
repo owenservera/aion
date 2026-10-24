@@ -518,6 +518,41 @@ refused generation). No authenticated conversation, no paid API, no new harness/
   minimax/kimi redirects. **No real model reply was obtainable; none is claimed.** The
   authenticated two-turn live gate remains with the owner's Windows runtime.
 
+### Webapp-native harness checkpoint — 2026-10-24, Z.ai sandbox (observation projection, capability capsules, shape atlas)
+
+Implements the first concrete L02/L3 seam of the frozen architecture decision (one harness, one
+evidence engine, one browser authority, per-provider native shape systems, small common graph) as
+defined in `roles/14-webapp-native-harness/CONTRACTS.md` v0.1. Branch rebased onto the moved
+`main` (`bbf9d674`: the specialist's docs-only workspace) with all 15 prior commits intact.
+
+- **`aion.web-observation/1` (commit `d8d3a030`):** `src/shapes/observation.mjs` +
+  `GET /api/v1/sessions/{session}/observation` — a loss-aware projection over the EXISTING derive
+  outputs. Unknown native parts project as `unknown-native` with loss markers (never coerced to
+  text); conversation identity is surfaced ONLY through the source-supported durable parser
+  (ChatGPT `/c/<uuid>`) — guest `?chatID` ids and every other site stay `binding:'unverified'`,
+  `nativeRef:null`; the five completion facts are distinct fields (providerNetworkEnded /
+  pageStable / turnAttribution / captureFinalized / captureAccepted), each naming its evidence
+  class. Bench Tier-0 E00/E03 covered as negative tests.
+- **`aion.capability-capsule/1` (same commit):** `src/capture/conversation-capsule.mjs` +
+  `runtime.capsule(id)` + `GET /api/v1/conversations/{id}/capsule` — page-local
+  supported/unavailable/unverified operations with the runtime's own gate reasons; `stop_generation`
+  reports NOT_IMPLEMENTED_IN_RUNTIME rather than fabricating a capability; advisory only, every
+  gate re-checked at effect time. Bench E08 covered.
+- **`aion.shape-atlas/1` (commit `0b54d0b6`):** `scripts/shape-atlas.mjs` +
+  `docs/shape-atlas/{README,chatgpt,claude}.md` + committed `atlas.json` — the side-by-side
+  native-shape atlas with every claim labeled SOURCE/SYNTHETIC/REAL/PRODUCT/UNKNOWN: ChatGPT
+  identity grammar + path-ops stream (SOURCE+SYNTHETIC), Claude StreamTimeline Connect/protobuf
+  leads with field hypothesis 1.1.5.9 UNCONFIRMED and no durable binding claimed, sandbox live
+  receipts (duck.ai dispatch/refusal, z.ai, huggingface, claude.ai 302 login wall, chatgpt 403),
+  and five explicit gaps.
+- **Suites at head `0b54d0b6`:** unit 1,253 / 1,252 pass / 0 fail / 1 pre-existing TODO;
+  live-e2e 14/14 on real Chrome — step 13 now also asserts the observation envelope on the REAL
+  captured session (unverified identity for the non-parser fixture site, chat surface, five
+  completion facts, accepted verdict preserved, loss markers present).
+- **Still not claimed:** authenticated ChatGPT/Claude fresh observation (login walls recorded,
+  not bypassed), verified Claude reply reconstruction, artifact/task native parses (PRODUCT-only),
+  and the authenticated two-turn live gate (owner's Windows runtime).
+
 ## 7. Roadmap (intelligence-first order)
 
 > **Agent-harness path (2026-10-23):** the intelligence-first list below remains context. For the owner's
