@@ -332,6 +332,9 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
   return {
     id, file,
     threadKey: () => threadJournal().threadKey,
+    // Read-only journal snapshot for reconciliation surfaces (Round 7 seam). The journal's
+    // own read() is already a structured clone; no recovery, no mutation, no admission change.
+    journalSnapshot: () => threadJournal().read(),
     lookupRequest: ({ key, payloadDigest }) => replayRequest(key, payloadDigest),
     // Local snapshots only, with no browser/adapter calls. A clone prevents caller mutation.
     read: () => view(),

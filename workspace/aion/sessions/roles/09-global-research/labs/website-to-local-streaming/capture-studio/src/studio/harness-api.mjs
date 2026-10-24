@@ -4,6 +4,8 @@
 import { problem } from './http.mjs';
 import { CONVERSATION_TOOLS, executeConversationTool, validateConversationTool } from './conversation-tools.mjs';
 import { withDispatchPreflight } from './harness-executor-preflight.mjs';
+import { reconcileUncertainStep } from './uncertain-step-reconciler.mjs';
+import { argsDigestOf } from '../capture/harness-runs.mjs';
 
 // Same-key retry after a PROVEN not-dispatched failure is allowed only for tools the registry
 // itself marks read-only. The policy is derived from the single tool surface — never hand-maintained
@@ -27,19 +29,73 @@ const noteBody = objectSchema({ context: { type: 'object' } }, ['context']);
 
 const runView = (run) => ({ ...run });
 
-export function createHarnessApi({ runs }) {
+export function createHarnessApi({ runs, intentBindings = null, conversationRuntime = null } = {}) {
   if (!runs) return null;
+  // Round 7 seam: submit steps get a durable pre-effect intent binding recorded BEFORE the store
+  // dispatches, and completed with the OBSERVED journal turn identity after the executor returns.
+  // A crash between the two leaves an incomplete binding, which the read-only reconcile query
+  // honestly classifies as still_unknown — never a guess, never a resend authorization.
+  const recordSubmitIntent = (runId, body) => {
+    if (!intentBindings || !conversationRuntime || body.tool !== 'submit_conversation_turn') return null;
+    const conversationId = body.arguments?.conversation;
+    if (typeof conversationId !== 'string' || !conversationId) return null;
+    let threadKey = null;
+    try { threadKey = conversationRuntime.journalSnapshot?.(conversationId)?.threadKey ?? null; } catch { threadKey = null; }
+    if (!threadKey) return null; // no durable thread identity observable pre-effect: no binding claim
+    return intentBindings.record({
+      runId, stepKey: body.key, stepTool: body.tool,
+      argsDigest: argsDigestOf(body.arguments ?? {}),
+      conversationId, threadKey,
+    });
+  };
+  const completeSubmitIntent = (binding, runId, body) => {
+    if (!binding || !intentBindings || !conversationRuntime) return;
+    const conversationId = body.arguments?.conversation;
+    const requestKey = body.arguments?.key;
+    if (typeof conversationId !== 'string' || typeof requestKey !== 'string' || !requestKey) return;
+    try {
+      // The journal owns turn identity: the submit args' durable request key IS the journal
+      // turn key, so the join is read from the journal itself (not from a summarized result).
+      const turn = conversationRuntime.journalSnapshot(conversationId)?.turns?.find((t) => t?.key === requestKey) ?? null;
+      if (turn?.key && turn?.payloadDigest) {
+        intentBindings.complete({ runId: binding.runId, stepKey: binding.stepKey, journalTurnKey: turn.key, journalPayloadDigest: turn.payloadDigest });
+      }
+      // No journal turn under that key: the dispatch never reached the journal. The binding
+      // stays incomplete; the reconcile query classifies it honestly as still_unknown.
+    } catch { /* journal unreadable: reconcile classifies the incomplete binding honestly */ }
+  };
   return {
     create: (body) => ({ run: runView(runs.create(body)) }),
     list: () => ({ runs: runs.list() }),
     get: (id) => ({ run: runView(runs.get(id)) }),
     step: async (id, body) => {
-      const out = await runs.step(id, { key: body.key, tool: body.tool, args: body.arguments ?? {} });
+      const binding = recordSubmitIntent(id, body);
+      // The completion runs in `finally`: an uncertain step THROWS (STEP_UNCERTAIN) and that is
+      // precisely the case the binding must survive for — the journal-side join is read after
+      // the store has durably recorded the attempt, success or failure alike.
+      let out;
+      try {
+        out = await runs.step(id, { key: body.key, tool: body.tool, args: body.arguments ?? {} });
+      } finally {
+        completeSubmitIntent(binding, id, body);
+      }
       return { run: runView(out.run), step: out.step, replayed: out.replayed,
         ...(out.replayed ? { note: out.note } : { result: out.result }) };
     },
     finish: (id, body) => ({ run: runView(runs.finish(id, body)) }),
     note: (id, body) => ({ run: runView(runs.note(id, body)) }),
+    // Read-only uncertain-step reconciliation (Agent 14 Round 7): store snapshot + durable intent
+    // binding + journal snapshot through the runtime's own read path. Never mutates anything.
+    reconcileStep: (runId, stepKey) => {
+      if (!intentBindings || !conversationRuntime) throw problem(501, 'Intent binding store or runtime journal unavailable', 'RECONCILE_UNAVAILABLE');
+      const run = runs.get(runId);
+      const binding = intentBindings.find({ runId, stepKey });
+      let journal = null;
+      if (run.conversationId) {
+        try { journal = conversationRuntime.journalSnapshot(run.conversationId); } catch { journal = null; }
+      }
+      return reconcileUncertainStep({ run, stepKey, journal, intentBinding: binding });
+    },
   };
 }
 
@@ -63,6 +119,14 @@ export function registerHarnessTools({ add, harnessApi }) {
     async ({ p, body }) => harnessApi.step(p.run, body),
     { body: stepBody, tool: 'harness_run_step', pathParameters: runParameter,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } });
+  add('POST', '/harness/runs/{run}/reconcile', 'Classify one unresolved harness step against the durable intent binding and the owning conversation journal (READ-ONLY: verdict + evidence only, never mutates, never authorizes a resend)',
+    ({ p, body }) => {
+      if (typeof body.stepKey !== 'string' || !body.stepKey.length || body.stepKey.length > 200) throw problem(400, 'stepKey is required (1..200 chars)');
+      return { run: p.run, stepKey: body.stepKey, reconciliation: harnessApi.reconcileStep(p.run, body.stepKey) };
+    },
+    { body: objectSchema({ stepKey: { ...str, minLength: 1, maxLength: 200 } }, ['stepKey']), tool: 'harness_reconcile_step',
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } });
+
   add('POST', '/harness/runs/{run}/finish', 'Close a harness run with an explicit final status; the ledger becomes immutable',
     ({ p, body }) => harnessApi.finish(p.run, body),
     { body: finishBody, tool: 'harness_finish_run', pathParameters: runParameter,

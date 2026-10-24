@@ -40,7 +40,7 @@ function canonicalJson(value) {
   }
   return JSON.stringify(walk(value));
 }
-const argsDigestOf = (args) => createHash('sha256').update(canonicalJson(args)).digest('hex');
+export const argsDigestOf = (args) => createHash('sha256').update(canonicalJson(args)).digest('hex');
 
 // The summary is bounded and intentionally never stores reply/prompt bodies.
 export function summarizeResult(result) {

@@ -227,6 +227,13 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     };
   }
   return {
+    // Read-only journal snapshot through the owning service (pure snapshot when the conversation
+    // is not open). Used by the Round 7 uncertain-step reconciliation; never mutates anything.
+    journalSnapshot(id) {
+      active();
+      const entry = entries.has(id) ? entries.get(id) : peek(id);
+      return entry.service.journalSnapshot();
+    },
     async chatIndex(body) {
       active();
       // Explicit observation only: the reader owns/detaches its own CDP session. No conversation,

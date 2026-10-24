@@ -25,6 +25,7 @@ import { buildSiteContinuity, siteFromSession, originFromSession, continuityTime
 import { createIntegrationHub } from './integration-hub.mjs';
 import { VersionedStore } from '../store/versioned.mjs';
 import { createAdapterFactory } from './adapter-factory-service.mjs';
+import { createIntentBindingStore } from './intent-bindings.mjs';
 import { setLearnedAdapterProvider } from '../profiles/sites/index.mjs';
 import { handlePlatformX } from './platform-x.mjs';
 import { problem, storageName } from './http.mjs';
@@ -107,8 +108,13 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   // Agent 14 Round 6 hardening: in-flight reservation before effect, per-run exclusive lock,
   // uncertain-effect fencing; same-key retry after proven not-dispatched only for registry
   // read-only tools. submit_conversation_turn is NEVER auto-retried here - the journal owns it.
-  const harnessRuns = createHarnessRunStore({ dir: path.join(paths.root, 'harness-runs'), toolExecutor: conversationToolExecutor(conversationRuntime), retryableTools: HARNESS_RETRYABLE_TOOLS });
-  const harnessApi = createHarnessApi({ runs: harnessRuns });
+  // Durable pre-effect intent bindings for harness submit steps (Agent 14 Round 7 seam):
+// recorded BEFORE dispatch by this effect-owner path, completed with the journal turn
+// identity read from the owning journal; read-only reconcile joins them via the pure
+// Agent 14 classifier. No raw prompt bodies are ever persisted here.
+const intentBindings = createIntentBindingStore({ dir: path.join(paths.root, 'intent-bindings') });
+const harnessRuns = createHarnessRunStore({ dir: path.join(paths.root, 'harness-runs'), toolExecutor: conversationToolExecutor(conversationRuntime), retryableTools: HARNESS_RETRYABLE_TOOLS });
+  const harnessApi = createHarnessApi({ runs: harnessRuns, intentBindings, conversationRuntime });
   // Adaptive webapp adapter factory (Agent 14 Round 8): versioned, data-only, READ-ONLY learned
 // adapters under <root>/learned-adapters. The read view is wired into the sites registry;
 // the execution path (drive/send via getAdapter) never sees learned adapters.
