@@ -5,6 +5,28 @@
 ## Thesis
 **One harness, one Capture Studio browser/capture/send authority, multiple independent provider-native shape systems, and one small evidence-linked semantic projection.** Do not force ChatGPT/Claude webapps into their model API schemas; do not discard native structures in order to obtain a plain `response.text`.
 
+## Architecture correction — automated adapter intelligence (owner direction, 2026-10-24)
+
+**AION must have one generic harness and one adaptive adapter *factory*, not merely a set of manually programmed ChatGPT/Claude-specific adapters.** Capture Studio intelligence is responsible for discovering, generating, validating, versioning, selecting and repairing webapp-specific adapters from observed DOM/a11y/network/stream/task evidence. Handwritten `src/profiles/sites/*.mjs` modules are seeds and fallback evidence, not the onboarding requirement for a new webapp.
+
+```text
+Generic Harness -> Existing Studio effect/capture owner -> Selected Versioned Data Adapter
+                                                           ^             |
+                                                           |             v
+Current Profile/Version Store <- Shadow Fidelity Gate <- Adapter Candidate Synthesizer
+                                                              ^
+                                                              |
+                        Existing Capture Studio evidence + discovery + learning + correlation
+```
+
+**Continuous closed loop:** unknown webapp observation -> page capabilities and native response structures inferred -> data-only candidate compiled -> replay/shadow against different saved sessions -> activate proven read-only behavior via the existing adapter registry -> observe real use and drift -> improve/rollback version. User corrections train scoped models. Effectful actions remain routed solely through Studio's existing lease/journal/effect authority with fresh page preflight; an automatically learned selector is never itself send authority.
+
+**Generic, native-preserving modules:** detection/origin scope; semantic DOM/a11y controls; conversation/project/task identity (including explicit unknown); native content, citations/artifacts/revisions; protocol/stream decode plug-ins; candidate capability and confidence; evidence references; target-specific site-version drift. A provider may require specialized decoding (e.g., Claude Connect/protobuf), but the harness does not require a special product implementation per provider.
+
+**Existing reusable intelligence:** `src/intel/{schema,discover,learn,correlate,join}.mjs`, `src/shapes/infer.mjs`, `src/families/build.mjs`, `src/store/versioned.mjs`. **Current missing connection:** `src/profiles/sites/index.mjs` statically enumerates/loads JS adapters and `src/capture/conversation-thread.mjs` parses only ChatGPT durable conversation IDs. The factory must drive **the same** registry and actor with versioned data adapters, not introduce a competing registry or browser.
+
+**Executable starting point:** [Agent 14 Round 8 automated adapter candidate synthesizer + shadow evaluator](implementations/round8/README.md). Node 22, 17/17 focused synthetic tests; GitHub remote readback verified. It does not yet read actual Studio raw sessions, train/evaluate a selector extractor, activate through the registry or prove native browser acceptance. These integration seams belong to Core/Z.ai.
+
 ## Four layers
 1. **Immutable source evidence:** Capture Studio CDP network/HTTP/SSE/WS/Connect/protobuf raw stream, DOM and accessibility observations, action timeline, gaps, session and sequence references. Local private data stays out of Git.
 2. **Native provider shape:** Versioned ChatGPT and Claude web *surface*, thread, message, revision, generation, model/mode, blocks, references, artifact, task/progress and visible tool-activity representations. Unknown structures stay opaque + source-linked, not deleted.
