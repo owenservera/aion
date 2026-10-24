@@ -13,6 +13,17 @@ const problem = (code) => Object.assign(new Error(code), { code, status: 409 });
 const digest = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
 export const readTurnPage = (page, adapter) => evaluate(page, turnObservationExpression(adapter));
 
+// Pre-send per-turn cursor: what already exists on the page (count, role split, ordered ids, content
+// digest) and the prior stream cursor (raw-log sequence). Metadata only; never message bodies.
+export function turnCursor(messages, streamSequence) {
+  const list = Array.isArray(messages) ? messages : [];
+  const count = (role) => list.filter((m) => m?.role === role).length;
+  return { messageCount: list.length, userCount: count('user'), assistantCount: count('assistant'),
+    idsDigest: digest(list.map((m) => `${m.role}:${m.id}`).join('\n')),
+    contentDigest: digest(list.map((m) => `${m.role}:${m.id}:${digest(String(m.text ?? ''))}`).join('\n')),
+    streamSequence };
+}
+
 // Specific user-authored nodes, not generic markdown/sidebar text. Keep duplicate text: two
 // identical prompts are two turns. Require the entire old prefix unchanged before attributing one.
 export async function readUserTurns(page) {
@@ -366,7 +377,7 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
         // A just-created page has no rendered turns; the scan is still taken from the same store
         // so the cursor semantics match every other path.
         return { binding: { ...binding }, draft: { present: false, chars: 0 }, boundary, controls: page.controls, priorReplies: [], ready: true, creation: { threadless: true },
-          baseline: { userTurns: 0, assistantTurns: 0, sampledAt: new Date().toISOString() } };
+          baseline: { userTurns: 0, assistantTurns: 0, sampledAt: new Date().toISOString() }, cursor: turnCursor([], boundary.sequence) };
       }
       requireRecording();
       const composer = await d.findComposer(recorder.page, siteAdapter);
@@ -384,11 +395,19 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
         persist({ source: 'page', kind: 'prior-reply-invalidated', turnIds: invalidatedTurnIds });
         throw Object.assign(problem('PRIOR_REPLY_CHANGED'), { invalidatedTurnIds });
       }
+      // Every earlier turn this thread delivered by a page-visible user message must still be on the page:
+      // an edited/branched/regenerated history is a different thread state, so this turn is blocked pre-effect.
+      const missing = priorTurns.filter((t) => t.delivery?.state === 'observed' && t.delivery.evidence?.kind === 'new-user-turn'
+        && !page.messages.some((m) => m.id === t.delivery.evidence.identity && m.role === 'user')).map((t) => t.id);
+      if (missing.length) {
+        persist({ source: 'page', kind: 'prior-turn-missing', turnIds: missing });
+        throw problem('THREAD_CHANGED_BETWEEN_TURNS');
+      }
       const boundary = { sessionId: recorder.session.id, sequence: recorder.session.raw.seq, transcriptCount: page.messages.length };
       pending = { baseline: structuredClone(page.messages), boundary };
       return { binding: { ...binding }, draft: { present: page.draft?.chars > 0, chars: page.draft?.chars }, boundary,
         controls: page.controls, priorReplies, ready: idleControls(page.controls) && !priorReplies.length,
-        baseline: await this.sampleTurnBaseline() };
+        baseline: await this.sampleTurnBaseline(), cursor: turnCursor(page.messages, boundary.sequence) };
     },
     async type({ prompt, turnId, beforeEffect }) {
       await check();
@@ -469,6 +488,9 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
       const end = Date.now() + d.replyTimeoutMs;
       while (!waiting.signal.aborted && Date.now() < end) {
         const page = await pageState(), index = page.messages.findIndex((m) => m.id === saved.outgoing.identity && m.role === 'user');
+        // The turn's own user message must sit directly after the pre-send baseline, and everything before it must be
+        // unchanged: an earlier reply regenerated/edited, or history rewritten, mid-wait is never attributed to this turn.
+        if (!samePrefix(page, saved) || (index >= 0 && index !== saved.baseline.length)) throw problem('TURN_BOUNDARY_CHANGED');
         const candidate = index < 0 ? null : page.messages[index + 1];
         if (candidate?.role === 'assistant' && !saved.baseline.some((m) => m.id === candidate.id)) {
           const update = sampleReply(saved, candidate, page.controls);

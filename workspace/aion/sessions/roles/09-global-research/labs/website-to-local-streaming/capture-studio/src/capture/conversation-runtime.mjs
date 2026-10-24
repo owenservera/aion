@@ -89,7 +89,8 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     const turnView = (turn) => {
       const r = { ...turn.reply }; if (summary) delete r.text;
       return { id: turn.id, key: turn.key, conversationId: turn.journal?.conversationId ?? s.id, payloadDigest: turn.payloadDigest,
-        phase: turn.phase, reason: turn.reason ?? null, boundary: turn.boundary, baseline: turn.baseline ?? null, send: structuredClone(turn.send), reply: r,
+        phase: turn.phase, reason: turn.reason ?? null, boundary: turn.boundary, baseline: turn.baseline ?? null, cursor: turn.cursor ?? null,
+        sessionId: turn.journal?.boundary?.sessionId ?? turn.send?.evidence?.sessionId ?? null, send: structuredClone(turn.send), reply: r,
         readiness: turn.journal?.readiness ?? turn.readiness ?? { state: 'unknown', evidence: null },
         completion: turn.journal?.completion ?? turn.completion ?? { state: 'unknown', evidence: null } };
     };
@@ -122,8 +123,11 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
         writes = writes.then(async () => {
           const saved = await entry.service.recordReply(update);
           if (update.state === 'ready' || update.state === 'interrupted' || update.state === 'unknown') {
-            await entry.adapter.stopTurnCapture?.().catch(() => {});
-            await entry.service.recordCapture({ state: 'idle' }).catch(() => {});
+            // Only a confirmed stop makes capture idle (a next turn may then arm a fresh one); a failed stop
+            // is recorded as incomplete and blocks the next turn instead of pretending it was finalized.
+            let stopped = true;
+            await entry.adapter.stopTurnCapture?.().catch(() => { stopped = false; });
+            await entry.service.recordCapture({ state: stopped ? 'idle' : 'incomplete' }).catch(() => {});
           }
           return saved;
         }); return writes;
@@ -403,6 +407,11 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
         }
         if (s.finish.requested || entry.finishing) throw fail(409, 'CONVERSATION_FINISHED');
         if (entry.recovered) throw fail(409, 'CONVERSATION_NOT_WRITABLE');
+        // A completed previous turn may still be stopping its own capture; the next turn starts only after that
+        // work settled (never two captures at once). An unresolved previous turn is not waited for: the thread
+        // journal fences it (THREAD_FENCED) and the uncertain-send lock stays.
+        const prior = s.attempts.at(-1);
+        if (prior?.send.state === 'observed' && prior.journal?.readiness?.state === 'ready') await entry.work.catch(() => {});
         scheduleBudget(entry); // The duration clock starts at explicit send, not at idle connect.
         let resolve, reject;
         const ack = new Promise((yes, no) => { resolve = yes; reject = no; });

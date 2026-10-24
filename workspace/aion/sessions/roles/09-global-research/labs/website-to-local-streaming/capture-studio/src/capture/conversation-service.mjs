@@ -42,6 +42,18 @@ const baselineOf = (b) => validBaseline(b)
   ? { userTurns: b.userTurns, assistantTurns: b.assistantTurns, ...(typeof b.sampledAt === 'string' ? { sampledAt: b.sampledAt } : {}) }
   : null;
 
+// Pre-send per-turn cursor from the adapter preflight (count/role split/ordered-id digest/content digest of what
+// already exists on the page, plus the prior stream cursor). Metadata only. Malformed or absent persists as null.
+const hex64 = (v) => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
+const count = (v) => Number.isSafeInteger(v) && v >= 0;
+const cursorOf = (c) => !!c && typeof c === 'object' && count(c.messageCount) && count(c.userCount) && count(c.assistantCount)
+  && c.userCount + c.assistantCount <= c.messageCount && hex64(c.idsDigest) && hex64(c.contentDigest) && count(c.streamSequence)
+  ? { messageCount: c.messageCount, userCount: c.userCount, assistantCount: c.assistantCount, idsDigest: c.idsDigest, contentDigest: c.contentDigest, streamSequence: c.streamSequence }
+  : null;
+// A delivered turn adds its user message; a recorded reply adds its assistant message. The next turn's page can never
+// hold fewer messages than that, or history was removed/rewritten between turns.
+const expectedFloor = (a) => a.cursor ? a.cursor.messageCount + (a.send?.state === 'observed' ? 1 : 0) + (a.reply?.state === 'ready' ? 1 : 0) : 0;
+
 function validSnapshot(s, id) {
   if (!s || s.version !== 1 || s.id !== id || !Number.isSafeInteger(s.revision) || s.revision < 0
     || !['disconnected', 'attaching', 'ready', 'busy', 'blocked', 'needs-reconciliation', 'finalizing', 'closed'].includes(s.state)
@@ -278,7 +290,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
     if (preflight?.targetThread || preflight?.pageThread) { snapshot.attempts.push(attempt); prove(); return finish(); }
     if (!threadless || !idle || !draftOk || !boundaryOk || !exactBinding(snapshot.binding, preflight?.binding)) throw error('THREAD_IDENTITY_UNVERIFIED');
     attempt.boundary = { sequence: preflight.boundary.sequence, transcriptCount: preflight.boundary.transcriptCount };
-    attempt.baseline = baselineOf(preflight.baseline);
+    attempt.baseline = baselineOf(preflight.baseline); attempt.cursor = cursorOf(preflight.cursor);
     snapshot.attempts.push(attempt); snapshot.state = 'busy'; save();
     const stopEarly = () => {
       if (!submissionStopped) return false;
@@ -427,6 +439,11 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         // A proven pre-typing rejection ('blocked' without typing) remains
         // eligible for one fresh attempt after the user clears the draft.
         if (snapshot.attempts.some((a) => !a.journal)) throw error('LEGACY_ATTEMPT_REQUIRES_RECONCILIATION');
+        // Cheap early look at the same fence reserve() enforces: a send that is going to be fenced must not arm a new
+        // capture first (the journal remains the authority; this only avoids an orphan recording).
+        if (threadJournal().read().turns.some((a) => !(a.phase === 'blocked' || a.delivery.state === 'observed' && a.reply.state === 'observed' && a.readiness.state === 'ready'))) throw error('THREAD_FENCED');
+        // Next turn only after the previous turn's capture was cleanly stopped (never reuse an unfinalized capture).
+        if (snapshot.attempts.some((a) => a.send.state === 'observed') && snapshot.capture.state === 'incomplete') throw error('PRIOR_TURN_CAPTURE_NOT_FINALIZED');
         await ensureCapture();
         const reservation = threadJournal().reserve({ key, payloadDigest, conversationId: id });
         if (!reservation.admitted) throw error('THREAD_FENCED');
@@ -472,8 +489,16 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
           snapshot.state = 'blocked'; updateAttempt(attempt, 'blocked', 'not-attempted'); save(); throw error('DRAFT_OR_BINDING_NOT_READY');
         }
         if (stopped()) return view().attempts.find((a) => a.id === attempt.id);
+        // Per-turn freshness cursor. History must not have shrunk since the last delivered turn.
+        const cursor = cursorOf(preflight.cursor);
+        const floor = Math.max(0, ...snapshot.attempts.filter((a) => a.id !== attempt.id).map(expectedFloor));
+        if (cursor && cursor.messageCount < floor) {
+          attempt.reason = 'THREAD_CHANGED_BETWEEN_TURNS'; blockPreEffect(attempt);
+          snapshot.readiness = { ready: false, draft: { present: false, chars: 0 }, reason: attempt.reason };
+          snapshot.state = 'blocked'; updateAttempt(attempt, 'blocked', 'not-attempted'); save(); throw error('THREAD_CHANGED_BETWEEN_TURNS');
+        }
         attempt.boundary = { sequence: preflight.boundary.sequence, transcriptCount: preflight.boundary.transcriptCount };
-        attempt.baseline = baselineOf(preflight.baseline); save();
+        attempt.baseline = baselineOf(preflight.baseline); attempt.cursor = cursor; save();
         attempt.journal = threadJournal().markTyping({ turnId: attempt.id, expectedRevision: journalTurn(attempt).revision,
           boundary: { ...attempt.boundary, sessionId: snapshot.sessionId } });
         attempt.typingStartedAt = now(); save();
