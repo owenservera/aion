@@ -461,11 +461,29 @@ async function main() {
         const fin = await (await fetch(`${runsUrl}/${run.id}/finish`, { method: 'POST',
           headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ status: 'succeeded' }) })).json();
         if (fin.run?.status !== 'succeeded') throw new Error('harness finish did not record the final status');
+        // Loss-aware observation envelope over the REAL captured session: identity stays
+        // unverified for a non-parser site (no fabrication), streams and DOM turns are projected,
+        // and the five completion facts are present and distinct.
+        const obsRes = await fetch(`${origin}/api/v1/sessions/${encodeURIComponent(sessionId)}/observation`, { headers, signal: AbortSignal.timeout(30000) });
+        if (obsRes.status !== 200) throw new Error(`GET observation returned HTTP ${obsRes.status}: ${oneLine(await obsRes.text()).slice(0, 160)}`);
+        const obs = (await obsRes.json()).observation;
+        if (obs.schema !== 'aion.web-observation/1') throw new Error('observation envelope has the wrong schema');
+        if (obs.conversation.binding !== 'unverified' || obs.conversation.nativeRef !== null) {
+          throw new Error('observation fabricated a conversation identity for a non-parser site: ' + JSON.stringify(obs.conversation));
+        }
+        if (obs.surface !== 'chat' || !Array.isArray(obs.streams) || !obs.streams.length || obs.turns.length < 2) {
+          throw new Error('observation missed the captured chat surface: ' + JSON.stringify({ surface: obs.surface, streams: obs.streams?.length, turns: obs.turns?.length }));
+        }
+        for (const fact of ['providerNetworkEnded', 'pageStable', 'turnAttribution', 'captureFinalized', 'captureAccepted']) {
+          if (!(fact in obs.completion)) throw new Error(`observation completion lacks ${fact}`);
+        }
+        if (obs.completion.captureAccepted !== 'capture_accepted') throw new Error('observation lost the accepted verdict');
+        if (!Array.isArray(obs.lossMarkers)) throw new Error('observation lacks loss markers');
         fs.writeFileSync(path.join(dataDir, 'saved-links.json'), JSON.stringify({ sessionId,
           ui: `${origin}/#session=${encodeURIComponent(sessionId)}`, api: `${origin}/api/sessions/${encodeURIComponent(sessionId)}`,
-          harnessRun: run.id,
+          harnessRun: run.id, observation: { provider: obs.provider, streams: obs.streams.length, turns: obs.turns.length, lossMarkers: obs.lossMarkers.length },
           proof: 'HTTP and exact API source-line checks only; not visual UI proof' }, null, 2));
-        return { detail: `studio on port ${info.port}: /api/x/stats ${statsRes.status}, /platform ${platformRes.status}, acceptance=${receipt.verdict} (baseline enforced), harness run ${run.id} succeeded with idempotent replay` };
+        return { detail: `studio on port ${info.port}: /api/x/stats ${statsRes.status}, /platform ${platformRes.status}, acceptance=${receipt.verdict} (baseline enforced), harness run ${run.id} succeeded with idempotent replay, observation ${obs.streams.length} stream(s)/${obs.turns.length} turn(s), ${obs.lossMarkers.length} loss marker(s)` };
       }
       return { detail: `studio on port ${info.port}: /api/x/stats ${statsRes.status}, /platform ${platformRes.status}` };
     });
