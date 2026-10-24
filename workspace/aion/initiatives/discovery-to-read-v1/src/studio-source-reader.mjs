@@ -5,6 +5,7 @@
 // reader, never by user/client-provided JSON. This module cannot infer account,
 // acquisition family or immutable lineage from arbitrary raw DOM by itself.
 import path from 'node:path';
+import { realpathSync } from 'node:fs';
 import { Session } from '../../../sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/store/session.mjs';
 import { rawDigest, domDigest, readAcceptance } from '../../../sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/capture/acceptance.mjs';
 import { RECEIPT_SCHEMA } from './evidence-receipts.mjs';
@@ -22,7 +23,9 @@ function stableScope(s) {
 function snapshotRoot(dir,sessionsDir,id) {
   // Never accept an ambiguous Session.open() prefix or a traversal/linked directory.
   const root=path.resolve(sessionsDir),wanted=path.resolve(root,id);
-  return path.resolve(dir)===wanted;
+  try { return path.resolve(dir)===wanted && realpathSync(dir)===realpathSync(wanted) &&
+    realpathSync(path.dirname(dir))===realpathSync(root); }
+  catch { return false; }
 }
 
 /**
