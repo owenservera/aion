@@ -247,6 +247,13 @@ export function canSend(snap, { prompt = '', busy = false } = {}) {
 export function pickSnapshot(current, incoming) {
   if (!incoming || typeof incoming.id !== 'string') return current ?? null;
   if (current && current.id === incoming.id && Number(incoming.revision) < Number(current.revision)) return current;
+  if (current && current.id === incoming.id && Number(incoming.revision) === Number(current.revision)
+    && typeof current.reply?.text === 'string' && typeof incoming.reply?.text === 'string'
+    && current.reply.text.length > incoming.reply.text.length) {
+    // An equal-revision refresh must never roll back reply text the live event stream delivered.
+    return { ...incoming, reply: { ...incoming.reply, text: current.reply.text,
+      chars: Math.max(incoming.reply.chars ?? 0, current.reply.chars ?? 0) } };
+  }
   return incoming;
 }
 export function unwrapConversation(data) {
@@ -285,6 +292,20 @@ export function replyBlocks(reply) {
   return blocks.sort((a, b) => (a.kind === 'answer' ? 0 : 1) - (b.kind === 'answer' ? 0 : 1));
 }
 export function shownChars(blocks) { return blocks.filter((b) => b.kind === 'answer').reduce((n, b) => n + (b.text?.length ?? 0), 0); }
+
+// Merge one opt-in reply_text SSE event into the locally held reply. Snapshot semantics: text is
+// monotonic — a capped event never shortens locally known text; state/source/completion follow
+// the event (server truth). Returns a NEW reply object, or null when nothing changes.
+export function mergeReplyText(reply, r) {
+  if (!reply || !r || typeof r.text !== 'string') return null;
+  const cur = typeof reply.text === 'string' ? reply.text : '';
+  const curChars = Number.isFinite(reply.chars) ? reply.chars : cur.length;
+  const evChars = Number.isFinite(r.chars) ? r.chars : r.text.length;
+  const text = r.truncated && r.text.length < cur.length ? cur : (r.text.length > cur.length ? r.text : cur);
+  if (text === cur && r.state === reply.state && r.source === reply.source && r.completion === reply.completion) return null;
+  return { ...reply, text, chars: Math.max(curChars, evChars), state: r.state ?? reply.state,
+    source: r.source ?? reply.source, completion: r.completion ?? reply.completion };
+}
 
 // Reply chips. Unknown network completion is a visible warning chip, never a quiet footnote.
 const SOURCE_TONES = { network: 't-info', page: 't-mute', differ: 't-warn', candidate: 't-warn' };
@@ -579,6 +600,9 @@ function boot() {
     pickRef: null, pickNote: '',
     // Page read: kept in memory only (never stored in the browser), always tied to the conversation it came from.
     reading: false, readSeq: 0, transcript: null,
+    // Opt-in live reply stream (SSE). The poll loop stays the owner of state; events only make
+    // streaming text and state changes appear sooner. Never sends, never replays actions.
+    stream: null, streamTimer: null,
   };
 
   /* ---- api ---- */
@@ -621,6 +645,7 @@ function boot() {
         S.unknownDetail = ''; S.checkedNote = ''; S.copyState = ''; S.finishFocus = false;
         S.transcript = null; S.reading = false; ++S.readSeq; setError('#readError', '');
         S.sentPrompt = store.get('sessionStorage', 'chat.sent.' + picked.id) ?? ''; loadPending(picked.id);
+        openStream(picked.id);
         // The user's own unsent text is kept; only a different conversation gets its own saved draft.
         const saved = store.get('sessionStorage', 'chat.draft.' + picked.id) ?? '';
         if (prevId && prevId !== picked.id) $('#prompt').value = saved; else if (!$('#prompt').value) $('#prompt').value = saved;
@@ -658,7 +683,7 @@ function boot() {
     } catch (e) {
       if (!stillOn(id)) return;
       if (e.status === 404) {
-        stopPolling();
+        stopPolling(); closeStream();
         if (S.snap?.id === id) { ++S.openSeq; S.snap = null; store.del('localStorage', SELECTED_KEY); }
         showProblem('That conversation is no longer available on the Studio.'); render(); return;
       }
@@ -676,6 +701,36 @@ function boot() {
     S.timer = setTimeout(() => { if (S.snap?.id === id) refresh(id); }, delay);
   }
   function showProblem(text) { const p = $('#problem'); p.textContent = text; p.hidden = !text; }
+
+  /* ---- live reply stream (opt-in SSE; poll loop remains the owner of state) ---- */
+  function closeStream() {
+    clearTimeout(S.streamTimer); S.streamTimer = null;
+    if (S.stream) { S.stream.close(); S.stream = null; }
+  }
+  function openStream(id) {
+    closeStream();
+    if (!id || typeof EventSource !== 'function') return;
+    let source;
+    try { source = new EventSource(API + '/conversations/' + encodeURIComponent(id) + '/events?include=text'); }
+    catch { return; }
+    source.addEventListener('conversation.reply_text', (ev) => {
+      let data; try { data = JSON.parse(ev.data); } catch { return; }
+      if (!stillOn(data.conversationId) || !S.snap || data.turnId !== S.snap.turn?.id) return;
+      const merged = mergeReplyText(S.snap.reply, data.reply);
+      if (!merged) return;
+      S.snap.reply = merged;
+      if (S.snap.turn && S.snap.turn.id === data.turnId && S.snap.turn.reply) S.snap.turn.reply = merged;
+      render();
+    });
+    source.addEventListener('conversation.changed', () => {
+      // The poll loop owns snapshots; events only accelerate the next refresh.
+      if (S.streamTimer || !S.snap || S.snap.id !== id) return;
+      S.streamTimer = setTimeout(() => { S.streamTimer = null; if (stillOn(id)) refresh(id); }, 250);
+    });
+    source.addEventListener('reset', () => { if (stillOn(id)) refresh(id); });
+    source.onerror = () => { /* EventSource reconnects on its own; polling remains the fallback. */ };
+    S.stream = source;
+  }
 
   /* ---- targets and list ---- */
   async function loadTargets() {
@@ -715,7 +770,7 @@ function boot() {
       if (e.status === 404) {
         // An unavailable list entry does not invalidate the different conversation currently on screen.
         if (S.snap?.id === id) {
-          stopPolling(); S.snap = null;
+          stopPolling(); closeStream(); S.snap = null;
           store.del('localStorage', SELECTED_KEY);
           showProblem('That conversation is no longer available. Choose an earlier conversation or connect again.');
         } else showProblem('The requested conversation is unavailable. The previously selected conversation remains visible; no new send was attempted.');

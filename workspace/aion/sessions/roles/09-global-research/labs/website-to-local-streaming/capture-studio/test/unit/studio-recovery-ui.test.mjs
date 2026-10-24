@@ -24,7 +24,7 @@ function chatSelectionFixture() {
   const ctx={S,api:(url)=>{const id=decodeURIComponent(url.split('/').pop());return d.get(id)?.promise??Promise.reject(new Error('No fixture '+id));},
     unwrapConversation:(x)=>x,unreadable:()=>new Error('Malformed'),store:save,SELECTED_KEY:'selected',
     applySnapshot:(c)=>{S.snap=c;events.push(['applied',c.id]);},showProblem:(msg)=>events.push(['message',msg]),
-    stopPolling:()=>events.push(['stop']),render:()=>events.push(['render']),describe:(e)=>e.message};
+    stopPolling:()=>events.push(['stop']),closeStream:()=>events.push(['stream','close']),render:()=>events.push(['render']),describe:(e)=>e.message};
   const code=between(chat,'  async function openConversation(id) {','  /* ---- connect ---- */');
   const {openConversation}=runInNewContext(code+'\n({openConversation})',ctx,{timeout:1000});
   return {S,events,d,openConversation};
