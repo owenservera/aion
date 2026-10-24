@@ -788,13 +788,28 @@ export async function detectSiteFailure(page, adapter = null) {
     // dialog text is not always inside <main>, and it is often not in the last 4000 chars.
     for (const d of document.querySelectorAll('[role="dialog"],dialog,[class*="modal" i],[class*="dialog" i],[class*="mask" i]')) {
       if (!vis(d)) continue;
+      // A real blocking dialog is short. A class-name wildcard can match a layout wrapper that
+      // contains the whole sidebar (the owner's chat history), which is not a site failure.
+      if (String(d.innerText || '').length > 800) continue;
       const dt = String(d.innerText || '').replace(/\s+/g, ' ').slice(0, 400);
       for (const p of patterns) {
         const m = dt.match(p);
         if (m) return { failed: true, message: m[0].slice(0, 120) };
       }
     }
-    const text = String((root && root.innerText) || '').slice(-4000) + ' ' + String((document.body && document.body.innerText) || '').slice(0, 4000);
+    // Sidebar/nav chat titles and home-page suggestion chips are the owner's own content, not a
+    // site failure. On a page with no conversation turns (a new chat) only alert-like regions are
+    // scanned; otherwise <main> is scanned (blocking dialogs were already checked above).
+    const mainEl = document.querySelector('main');
+    const hasTurns = !!document.querySelector('[data-message-author-role],[data-testid*="conversation-turn"],article');
+    let text;
+    if (!hasTurns && mainEl) {
+      text = [...document.querySelectorAll('[role="alert"],[role="status"],[data-testid*="error" i],[class*="toast" i],[class*="error" i]')]
+        .filter((e) => vis(e) && String(e.innerText || '').length <= 800).map((e) => e.innerText).join(' ');
+    } else {
+      text = mainEl ? String(mainEl.innerText || '').slice(-4000)
+        : String((root && root.innerText) || '').slice(-4000) + ' ' + String((document.body && document.body.innerText) || '').slice(0, 4000);
+    }
     for (const p of patterns) {
       const m = text.match(p);
       if (m) return { failed: true, message: m[0].slice(0, 120) };

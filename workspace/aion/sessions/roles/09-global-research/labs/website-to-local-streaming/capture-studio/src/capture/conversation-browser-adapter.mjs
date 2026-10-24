@@ -215,7 +215,9 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
     const page = await pageState(), priorReplies = auditReplies(page);
     if (priorReplies.length) throw Object.assign(problem('PRIOR_REPLY_CHANGED'), { priorReplies });
     if (!idleControls(page.controls)) throw problem('GENERATION_CONTROLS_UNAVAILABLE_OR_BUSY');
-    if (typeof page.draft?.text !== 'string' || page.draft.text !== (empty ? '' : saved.prompt.replace(/\r\n/g, '\n'))) throw problem('COMPOSER_READBACK_MISMATCH');
+    // An empty rich-text (ProseMirror) composer reports a lone trailing line break, not ''.
+    const trailing = (t) => String(t).replace(/\r\n/g, '\n').replace(/\n$/, '');
+    if (typeof page.draft?.text !== 'string' || trailing(page.draft.text) !== (empty ? '' : trailing(saved.prompt))) throw problem('COMPOSER_READBACK_MISMATCH');
     if (!empty && !samePrefix(page, saved)) throw problem('TURN_BOUNDARY_CHANGED');
     if (submissionStopped) throw problem('SUBMISSION_STOPPED');
     beforeEffect?.(page); // Fresh persisted thread+reply fence check is LAST, after asynchronous page inspection.
@@ -334,7 +336,7 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
       const saved = attempts.get(fromId);
       if (!saved || attempts.has(toId)) throw problem('TURN_NOT_FOUND');
       saved.turnId = toId; attempts.delete(fromId); attempts.set(toId, saved);
-      recorder?.session?.kv?.set?.(`CONVERSATION_ATTEMPT:${toId}`, saved);
+      recorder?.session?.kv?.set?.(`CONVERSATION_ATTEMPT_${toId}`, saved);
     },
     // The pre-send freshness cursor for acceptance G1/G2: user/assistant turn counts from the
     // SAME page-agent full-DOM scan that later produces DOM_TURNS, sampled before anything is
@@ -426,7 +428,7 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
         if (!state.evalOk || state.draftChars !== 0) throw problem('DRAFT_PRESENT');
         const saved = { ...pending, turnId, prompt, payloadDigest: digest(prompt), samples: [], creation: true };
         attempts.set(turnId, saved);
-        recorder.session.kv.set(`CONVERSATION_ATTEMPT:${turnId}`, saved);
+        recorder.session.kv.set(`CONVERSATION_ATTEMPT_${turnId}`, saved);
         const typed = await d.typeText(recorder.page, prompt, { human: false, beforeInsert: async () => { await guard(); beforeEffect?.(); } });
         await check();
         const after = await d.readTurnPage(recorder.page, siteAdapter);
@@ -443,7 +445,7 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
       if (!state.evalOk || state.draftChars !== 0) throw problem('DRAFT_PRESENT');
       const saved = { ...pending, turnId, prompt, payloadDigest: digest(prompt), samples: [] };
       attempts.set(turnId, saved);
-      recorder.session.kv.set(`CONVERSATION_ATTEMPT:${turnId}`, saved); // Protected local capture storage only.
+      recorder.session.kv.set(`CONVERSATION_ATTEMPT_${turnId}`, saved); // Protected local capture storage only.
       const typed = await d.typeText(recorder.page, prompt, { human: false,
         beforeInsert: () => effectPreflight(saved, beforeEffect, true) });
       await check();

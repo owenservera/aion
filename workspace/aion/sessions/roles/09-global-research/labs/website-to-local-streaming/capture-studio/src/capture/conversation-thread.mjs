@@ -55,7 +55,11 @@ export function turnObservationExpression(adapter = {}) {
     const nodes=[...new Set([...users,...assistants])].filter(el=>!users.includes(el)||!assistants.includes(el));
     const kept=nodes.filter(el=>!nodes.some(other=>other!==el&&other.contains(el)));
     kept.sort((a,b)=>a===b?0:(a.compareDocumentPosition(b)&4)?-1:1);
-    const messages=kept.map(el=>{ const owner=el.closest('[data-message-id]'); return {role:users.includes(el)?'user':'assistant',id:owner?.getAttribute('data-message-id')||null,text:String(el.innerText??el.textContent??'').replace(/\\r\\n/g,'\\n')}; });
+    const idOf=el=>{ const owner=el.closest('[data-message-id]'); if(owner) return owner.getAttribute('data-message-id')||null;
+      const unit=el.getAttribute('data-chatgpt-search-message-ids'); if(unit&&unit.trim()) return unit.trim().split(/\\s+/)[0];
+      const inner=el.querySelector('[data-chatgpt-selection-message-id],[data-dil-source-message-id]');
+      return inner?(inner.getAttribute('data-chatgpt-selection-message-id')||inner.getAttribute('data-dil-source-message-id')||null):null; };
+    const messages=kept.map(el=>{ return {role:users.includes(el)?'user':'assistant',id:idOf(el),text:String(el.innerText??el.textContent??'').replace(/\\r\\n/g,'\\n')}; });
     const composer=all(${JSON.stringify(adapter.composer?.selectors ?? [])})[0];
     const text=composer?String(composer.value??composer.innerText??composer.textContent??'').replace(/\\r\\n/g,'\\n'):null;
     const stop=all(${JSON.stringify(adapter.assistant?.streamingSelectors ?? [])}).length>0;

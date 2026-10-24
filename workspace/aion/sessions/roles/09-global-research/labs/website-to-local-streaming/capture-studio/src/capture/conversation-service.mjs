@@ -304,7 +304,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         beforeEffect: () => { if (submissionStopped) throw Object.assign(error('SUBMISSION_STOPPED'), { notTyped: true }); } });
     } catch (e) {
       if ((e?.code === 'PREEXISTING_THREAD' || e?.code === 'SUBMISSION_STOPPED') && e.notTyped === true) { prove(); if (e.code === 'SUBMISSION_STOPPED') attempt.reason = 'SUBMISSION_STOPPED'; return finish(); }
-      uncertain('CREATION_UNPINNED'); return finish();
+      console.error('[conv] creation type-step failed:', e?.code, e?.message); uncertain('CREATION_UNPINNED'); return finish();
     }
     if (stopEarly()) return finish();
     updateAttempt(attempt, 'dispatching', 'submitting'); save();
@@ -314,11 +314,11 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         beforeEffect: () => { if (submissionStopped) throw Object.assign(error('SUBMISSION_STOPPED'), { notDispatched: true }); } });
     } catch (e) {
       if (e?.notDispatched === true && e?.code === 'PREEXISTING_THREAD' && !attempt.typingStartedAt) { prove(); return finish(); }
-      uncertain('CREATION_UNPINNED'); return finish();
+      console.error('[conv] creation submit-step failed:', e?.code, e?.message); uncertain('CREATION_UNPINNED'); return finish();
     }
     const target = report?.targetThread, page = report?.pageThread;
     const same = target && page && validThread(target) && target.ref === page.ref && target.id === page.id;
-    if (report?.creation !== true || report?.dispatched !== true || !same || deniedRef(target.ref)) { uncertain('CREATION_UNPINNED'); return finish(); }
+    if (report?.creation !== true || report?.dispatched !== true || !same || deniedRef(target.ref)) { console.error('[conv] creation report invalid:', JSON.stringify({c:report?.creation,d:report?.dispatched,same:!!same,t:target?.ref,p:page?.ref})); uncertain('CREATION_UNPINNED'); return finish(); }
     try {
       const pinned = typeof adapter.pinThread === 'function' ? await adapter.pinThread(target, snapshot.threadDenylist) : null;
       if (!pinned?.thread || pinned.thread.ref !== target.ref) { uncertain('CREATION_UNPINNED'); return finish(); }
@@ -336,7 +336,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
       else { unknown(attempt, 'ACK_LOST'); updateAttempt(attempt, 'uncertain', 'uncertain'); snapshot.uncertainty = 'send-acknowledgement-lost'; snapshot.state = 'needs-reconciliation'; }
     } catch (e) {
       if (e?.code === 'PERSISTENCE_FAILED_REOPEN_REQUIRED' || e?.code === 'JOURNAL_PERSISTENCE_FAILED_REOPEN_REQUIRED') throw e;
-      uncertain('CREATION_UNPINNED');
+      console.error('[conv] creation pin/reconcile failed:', e?.code, e?.message); uncertain('CREATION_UNPINNED');
     }
     return finish();
   }
@@ -504,7 +504,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         attempt.typingStartedAt = now(); save();
         try { await adapter.type({ binding: structuredClone(snapshot.binding), turnId: attempt.id, prompt,
           beforeEffect: (page) => effectPermit(attempt, 'typing', page) }); }
-        catch (e) { applyPriorReplies(e.priorReplies); unknown(attempt, 'TYPING_INTERRUPTED'); snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'partial-draft-possible'; updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); throw error('TYPING_INTERRUPTED'); }
+        catch (e) { console.error('[conv] followup type-step failed:', e?.code, e?.message); applyPriorReplies(e.priorReplies); unknown(attempt, 'TYPING_INTERRUPTED'); snapshot.state = 'needs-reconciliation'; snapshot.uncertainty = 'partial-draft-possible'; updateAttempt(attempt, 'needs-reconciliation', 'not-attempted'); save(); throw error('TYPING_INTERRUPTED'); }
         if (stopped()) return view().attempts.find((a) => a.id === attempt.id);
         updateAttempt(attempt, 'dispatching', 'submitting'); save();
         attempt.journal = threadJournal().markDispatching({ turnId: attempt.id, expectedRevision: journalTurn(attempt).revision });
@@ -512,6 +512,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         try { observation = await adapter.submit({ binding: structuredClone(snapshot.binding), turnId: attempt.id, payloadDigest,
           beforeEffect: (page) => effectPermit(attempt, 'dispatching', page) }); }
         catch (e) {
+          console.error('[conv] followup submit-step failed:', e?.code, e?.message);
           applyPriorReplies(e.priorReplies);
           if (e.notDispatched === true && /^[A-Z][A-Z0-9_]{0,79}$/.test(e.code ?? '')) {
             // Adapter proved nothing was dispatched (stop latch or sendMessage refusal): never 'uncertain'.
