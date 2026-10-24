@@ -44,3 +44,20 @@ All fixtures are explicitly synthetic and cannot authorize or prove production p
 (1) Unknown-site candidate generated from verified-original source receipts; (2) truly independent train/heldout lineage; (3) observed semantics can become a read-only preview; (4) provider-native blocks retain exact source identity/revisions; (5) drift/rollback, including adversarial failures; (6) actual Studio wiring and Chrome/Windows evidence, **separate from offline success**.
 
 **Do not merge to main or activate learned profiles merely because this folder exists.**
+
+
+## Second development pass — integrated intake and transaction candidate
+
+The following code is now **committed in this initiative**. It is not mounted in production Studio.
+
+- `src/studio-source-reader.mjs`: direct import of canonical Studio `Session`, `rawDigest`, `domDigest`, and `readAcceptance`; original session exact-ID, finalization, manifest/sequence integrity, account/acquisition identity, twice-hashed source verification and receipt minting. A mandatory internal `resolveTrustedIdentity` callback must bind account/lineage from the original Studio run/journal; those fields are not presently derivable automatically from an arbitrary capture.
+- `src/structural-read-verdict.mjs`: independent native-reference-versus-candidate interpretation score on each heldout source; selectors matching the wrong assistant/native ID cannot pass. This requires an independent Studio truth reader; fixture results are not production proof.
+- `src/discovery-intake.mjs`: one callable pipeline consuming saved training/heldout capture IDs, trusted source receipts, bound structural probes, Round8/9 shadow and semantic validation. Returns a candidate or quarantine; **no dispatch, send, promotion or goal verdict**.
+- `src/profile-cas-owner.mjs`: optional lock-and-expected-version adapter over existing `VersionedStore`. Saves immutable snapshots and supports atomic pointer replacement for rollback. It cannot protect writes that bypass its lock; full crash durability and Windows NTFS acceptance remain unproven.
+- `test/{studio-source-reader,structural-read-verdict,discovery-intake,profile-cas-owner}.test.mjs`: 41 additional cases; total **62 committed**.
+
+**Verification:** 52 cases passed with GitHub-source V8 contract shims; 10 CAS cases passed with an in-memory V8 filesystem shim = **62/62 simulated source-level assertions**. Neither run is an actual Node22 test, full real disk I/O verification, Windows acceptance or authenticated website capture. `npm test` remains the authoritative next check in a checked-out repo.
+
+`npm run demo` now exercises the full fictional intake → Round8/9 → independent semantic fixture → native graph rather than only Round8/9. It never writes a live profile.
+
+**Next actual dependencies:** a server-internal `resolveTrustedIdentity` grounded in original run metadata, a genuine independent native role/reference reader, all existing profile writers routed to a single CAS owner, and integration inside the already-existing `/chat` read path after Z.ai PR #77 reconciliation.
