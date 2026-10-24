@@ -55,6 +55,14 @@ Agent 14 can publish **ready-to-integrate, isolated specialist components and ad
 - **Published** [Round 7 pure uncertain-step reconciler](implementations/round7/README.md), 17/17 offline tests; source remote readback verified. Classifies `executed/not_executed/still_unknown` only with trusted prior durable binding; no mutation, no retry permission. Z.ai must implement pre-effect link producer in existing runtime before this is useful; never fabricate links after a crash.
 - [Core #68 supplier/assessment handoff](https://github.com/owenservera/aion/issues/68#issuecomment-6385093109). Highest-value next: pull/integrate Round7 supplier, write binding at effect owner, re-run full suite and Windows/NTFS checks, promote 20 patches safely, then real owner browser acceptance.
 
+## New P0 — self-generating adaptive webapp adapters (2026-10-24)
+
+Owner clarified the product should **automatically generate and maintain webapp-specific adapters from Capture Studio intelligence**, not require hand-coded adapters for every provider. Prioritize the missing capture/intelligence -> adapter-candidate -> shadow-replay -> versioned profile -> existing site registry feedback loop.
+
+**Delivered code:** [Round 8 generic adaptive-adapter factory + tests](implementations/round8/README.md); 17/17 focused Node 22 tests and remote GitHub readback verified. Learns candidates from capture-qualified site/origin/surface probes, caps repeated votes per session, separates synthetic from real evidence, flags drift and mismatched scopes, recommends read-only shadow previews without granting send. **Not** connected to actual observations, version store or runtime yet.
+
+**Z.ai/Core requested next increments:** normalize authentic DOM/a11y/stream observations into source-linked candidate probes (with coverage); connect existing discover/learn/correlate outputs to Round 8 supplier; shadow-test against distinct saved sessions and auto-version safe read-only profiles; evolve existing adapter registry to dynamically select those profiles, preserving manual seeds; move provider-specific thread parser behind the same adapter without weakening exact-thread guard; measure an unseen synthetic site automatically learned and one saved real-site differential replay. Keep effects under the existing Studio actor/journal. Do not promote automatically when identity/recipient/effect evidence is incomplete.
+
 ## First agent-owned research actions
 1. Check current repo HEAD and the latest Z.ai execution artifacts. The original ten Z.ai patches are not integration proof.
 2. Compare native shape structures for a citation-rich ChatGPT response and one Claude Artifact against provider docs and saved captures; explicitly identify which evidence exists and what cannot yet be observed.
