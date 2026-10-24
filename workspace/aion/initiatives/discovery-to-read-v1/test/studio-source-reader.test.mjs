@@ -115,3 +115,16 @@ test('linked session directories cannot evade read boundary',async t=>{
   h.session.dir=elsewhere;
   await assert.rejects(createStudioSourceReader(h.deps).lookupCapture(h.id),exactCode('SESSION_IDENTITY_MISMATCH'));
 });
+
+test('symlinked session dir to outside sessions root fails closed',async t=>{
+  const h=harness(t),elsewhere=fs.mkdtempSync(path.join(os.tmpdir(),'aion-escaped-'));
+  t.after(()=>fs.rmSync(elsewhere,{recursive:true,force:true}));
+  fs.rmSync(h.dir,{recursive:true,force:true});
+  try {fs.symlinkSync(elsewhere,h.dir,process.platform==='win32'?'junction':'dir');}
+  catch(e) {
+    if(['EPERM','EACCES','ENOTSUP'].includes(e?.code)){t.skip('creating directory symlinks is prohibited on this host');return;}
+    throw e;
+  }
+  await assert.rejects(createStudioSourceReader(h.deps).lookupCapture(h.id),
+    code('SESSION_IDENTITY_MISMATCH'));
+});
