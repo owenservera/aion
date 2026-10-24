@@ -3,6 +3,8 @@ import { readdirSync, existsSync, statSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Session, listSessions } from '../store/session.mjs';
 import { stateAt } from '../replay/derive.mjs';
+import { observeSession } from '../shapes/observation.mjs';
+import { readAcceptance } from '../capture/acceptance.mjs';
 import { StreamReducer } from '../replay/reducer.mjs';
 import { TemporalGraph } from '../intel/graph.mjs';
 import { ScopedLearner, SCOPES, ROLES, activeQuestions } from '../intel/learn.mjs';
@@ -104,6 +106,15 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
     const result = await deriveSession(s, body.profile);
     return { session: s.id, records: result.records, receipt: result.receipt, knowledge: result.knowledge, recordCounts: result.recordCounts, familyCounts: result.familyCounts };
   }, { body: objectSchema({ profile: str }) });
+
+  add('GET', '/sessions/{session}/observation', 'Loss-aware aion.web-observation/1 projection over this session\'s derived evidence (identity never fabricated; DOM and network kept separable)',
+    async ({ p }) => {
+      const s = sessionOf(p.session); savedOnly(s);
+      let profile = null;
+      try { profile = s.kv.get('PROFILE_SNAPSHOT', null) ?? profileStore.load(s.meta.profile?.name ?? 'generic'); } catch { profile = null; }
+      const observation = await observeSession(s, { profile, acceptance: readAcceptance(s) });
+      return { session: s.id, observation };
+    }, { tool: 'get_session_observation', annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } });
 
   add('GET', '/sessions/{session}/replay/records', 'Page raw-log evidence by durable sequence, with explicit preview mode', async ({ p, q }) => {
     const s = sessionOf(p.session); savedOnly(s);

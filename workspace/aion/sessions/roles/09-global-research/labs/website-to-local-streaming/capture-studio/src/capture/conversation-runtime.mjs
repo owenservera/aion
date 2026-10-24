@@ -9,6 +9,7 @@ import { createConversationService } from './conversation-service.mjs';
 import { createConversationBrowserAdapter } from './conversation-browser-adapter.mjs';
 import { acquireDriveLease } from './drive-lease.mjs';
 import { parseThread, threadSupported, TRANSCRIPT_LIMITS } from './conversation-thread.mjs';
+import { buildCapabilityCapsule } from './conversation-capsule.mjs';
 import { readChatIndex } from './chatgpt-chat-index-reader.mjs';
 
 const fail = (status, code) => Object.assign(new Error(code), { status, code });
@@ -433,6 +434,14 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       } catch (e) { throw outward(e); }
     },
     async finish(id, body = {}) { try { return await finishEntry(load(id), body); } catch (e) { throw outward(e); } },
+    // Page-local capability capsule: what this conversation can do NOW per the runtime's own
+    // evidence. Advisory only; every gate is re-checked at effect time by the same runtime.
+    async capsule(id) {
+      const entry = peek(id);
+      const snapshot = view(entry, true);
+      const profile = snapshot.site ? await d.getAdapter(snapshot.site) : null;
+      return buildCapabilityCapsule({ view: snapshot, profile: profile && profile.id === snapshot.site ? profile : null });
+    },
     async close() {
       closed = true;
       // Every live entry is finalized on close, lease or not: an idle connected conversation may

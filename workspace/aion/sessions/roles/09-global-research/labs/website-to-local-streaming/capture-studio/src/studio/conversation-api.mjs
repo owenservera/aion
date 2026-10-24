@@ -59,12 +59,12 @@ export function createConversationApi({ runtime, events } = {}) {
         ? json(res, 200, { conversations: await runtime.list() })
         : json(res, 201, { conversation: await runtime.connect(validateConversationBody('connect', body)) });
     } else {
-      const match = /^\/api\/v1\/conversations\/([^/]+)(?:\/(turns|reconcile|finish|read|events))?$/.exec(p);
+      const match = /^\/api\/v1\/conversations\/([^/]+)(?:\/(turns|reconcile|finish|read|events|capsule))?$/.exec(p);
       if (!match) { json(res, 404, { error: 'Unknown conversation endpoint' }); return true; }
       let id;
       try { id = storageName(decodeURIComponent(match[1]), 'conversation'); } catch { throw problem(400, 'Invalid conversation id'); }
       const kind = match[2] === 'turns' ? 'submit' : match[2];
-      methods = kind === 'events' ? ['GET'] : kind ? ['POST'] : ['GET'];
+      methods = kind === 'events' || kind === 'capsule' ? ['GET'] : kind ? ['POST'] : ['GET'];
       // Read answers with a bounded transcript (a browser observation), never a conversation snapshot wrapper.
       // events is a resumable SSE stream of derived conversation state (no prompt/reply text; reconnect via
       // Last-Event-ID, reset on cursor loss — clients re-read state, never replay actions).
@@ -72,7 +72,9 @@ export function createConversationApi({ runtime, events } = {}) {
         ? json(res, 200, { transcript: await runtime.read(id, validateConversationBody('read', body)) })
         : kind === 'events'
           ? (events ?? throwUnavailable()).subscribe(req, res, id, Object.fromEntries(url.searchParams))
-          : json(res, kind === 'submit' ? 202 : 200, { conversation: kind ? await runtime[kind](id, validateConversationBody(kind, body)) : await runtime.get(id) });
+          : kind === 'capsule'
+            ? json(res, 200, typeof runtime.capsule === 'function' ? await runtime.capsule(id) : throwUnavailable())
+            : json(res, kind === 'submit' ? 202 : 200, { conversation: kind ? await runtime[kind](id, validateConversationBody(kind, body)) : await runtime.get(id) });
     }
     if (!methods.includes(req.method)) {
       res.setHeader('allow', methods.join(', ')); json(res, 405, { error: `${methods.join(' or ')} required` }); return true;
