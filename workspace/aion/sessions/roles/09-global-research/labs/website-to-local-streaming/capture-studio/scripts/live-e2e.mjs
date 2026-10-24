@@ -422,9 +422,50 @@ async function main() {
           if (linked.status !== 200) throw new Error('saved-session UI entry link unavailable');
           await linked.arrayBuffer();
         }
+        // Explicit acceptance context over the API (G1-G3 with a pre-send baseline): the fixture
+        // capture honestly satisfies it — prompt rendered as the first user turn, reply words in
+        // order as the first assistant turn, done record present. The stored label then flips to
+        // capture_accepted through the same write path derive uses.
+        const postBody = JSON.stringify({ conversation: { prompt: 'hello fixture', expectedReplyWords: [...CHAT_WORDS],
+          completionRule: { requireDone: true, stableObserved: true }, baseline: { userTurns: 0, assistantTurns: 0 } } });
+        const postRes = await fetch(`${origin}/api/sessions/${encodeURIComponent(sessionId)}/acceptance`, { method: 'POST',
+          headers: { ...headers, 'content-type': 'application/json' }, signal: AbortSignal.timeout(30000), body: postBody });
+        if (postRes.status !== 200) throw new Error(`POST acceptance returned HTTP ${postRes.status}: ${oneLine(await postRes.text()).slice(0, 200)}`);
+        const receipt = await postRes.json();
+        if (receipt.verdict !== 'capture_accepted' || receipt.gates.G1 !== 'passed' || receipt.gates.G2 !== 'passed' || receipt.gates.G3 !== 'passed') {
+          throw new Error('explicit-context acceptance did not reach capture_accepted: ' + JSON.stringify(receipt).slice(0, 240));
+        }
+        const after = await get('/acceptance');
+        if (after.verdict !== 'capture_accepted' || after.gates?.G1?.evidence?.freshness !== 'pre-send baseline enforced') {
+          throw new Error('stored acceptance did not record the enforced pre-send baseline');
+        }
+        // Durable harness run over the same server and the same runtime: execute, replay, conflict, finish.
+        const runsUrl = `${origin}/api/v1/harness/runs`;
+        const manifest = await (await fetch(`${origin}/api/v1/integrations/tools`, { headers, signal: AbortSignal.timeout(30000) })).json();
+        for (const tool of ['harness_start_run', 'harness_run_step', 'harness_get_run', 'harness_finish_run']) {
+          if (!manifest.tools?.some((t) => t.name === tool)) throw new Error(`tool manifest lacks ${tool}`);
+        }
+        const runRes = await fetch(runsUrl, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ task: 'live-e2e harness verification' }) });
+        if (runRes.status !== 201) throw new Error(`harness run create returned HTTP ${runRes.status}`);
+        const run = (await runRes.json()).run;
+        const stepCall = (key, tool, args) => fetch(`${runsUrl}/${run.id}/steps`, { method: 'POST',
+          headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ key, tool, arguments: args }) });
+        const exec = await (await stepCall('list-1', 'list_conversations', {})).json();
+        if (exec.replayed !== false || exec.step?.status !== 'succeeded' || !Array.isArray(exec.result)) {
+          throw new Error('harness step did not execute through the shared runtime: ' + JSON.stringify(exec).slice(0, 200));
+        }
+        const replay = await (await stepCall('list-1', 'list_conversations', {})).json();
+        if (replay.replayed !== true) throw new Error('harness replay did not reuse the recorded outcome');
+        const conflict = await stepCall('list-1', 'list_conversations', { differing: true });
+        if (conflict.status !== 409) throw new Error('same key with different arguments must be IDEMPOTENCY_CONFLICT');
+        const fin = await (await fetch(`${runsUrl}/${run.id}/finish`, { method: 'POST',
+          headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ status: 'succeeded' }) })).json();
+        if (fin.run?.status !== 'succeeded') throw new Error('harness finish did not record the final status');
         fs.writeFileSync(path.join(dataDir, 'saved-links.json'), JSON.stringify({ sessionId,
           ui: `${origin}/#session=${encodeURIComponent(sessionId)}`, api: `${origin}/api/sessions/${encodeURIComponent(sessionId)}`,
+          harnessRun: run.id,
           proof: 'HTTP and exact API source-line checks only; not visual UI proof' }, null, 2));
+        return { detail: `studio on port ${info.port}: /api/x/stats ${statsRes.status}, /platform ${platformRes.status}, acceptance=${receipt.verdict} (baseline enforced), harness run ${run.id} succeeded with idempotent replay` };
       }
       return { detail: `studio on port ${info.port}: /api/x/stats ${statsRes.status}, /platform ${platformRes.status}` };
     });
