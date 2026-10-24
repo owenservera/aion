@@ -16,6 +16,10 @@ function outward(e) {
   if (e.status) return e;
   return Object.assign(e, { status: /INVALID_|CONFIRM_REQUIRED/.test(e.code ?? '') ? 400 : 409 });
 }
+// Accounting shape for a lease release that could not be proven complete: the directory may still
+// be occupied, so callers keep reporting it instead of silently claiming a free host.
+const leaseFailure = (e) => ({ code: /^[A-Z][A-Z0-9_]{0,79}$/.test(e?.code ?? '') ? e.code : 'LEASE_RELEASE_FAILED',
+  at: new Date().toISOString(), message: String(e?.message ?? e).slice(0, 300) });
 
 export function createConversationRuntime({ paths, profileStore, familyStore, port = 9222, dependencies = {} } = {}) {
   const d = { listTargets, getAdapter, createAdapter: createConversationBrowserAdapter, acquireLease: acquireDriveLease,
@@ -60,7 +64,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     const readOnly = Number.isInteger(pid) && pid > 0 && d.ownerIsAlive(pid);
     const adapter = { async reconcile() { return null; }, async stop() { throw fail(409, 'RECOVERED_CAPTURE_INCOMPLETE'); } };
     const service = createConversationService({ dataDir: directory, id, adapter, recover: !readOnly, context: { restarted: true, recoveredSessionId: owned[0]?.id } });
-    const entry = { service, adapter, recovered: true, readOnly, registration: Promise.resolve(), work: Promise.resolve(), lease: null };
+    const entry = { service, adapter, recovered: true, readOnly, registration: Promise.resolve(), work: Promise.resolve(), lease: null, leaseReleaseError: null };
     entry.writer = writerWindow(entry);
     entries.set(id, entry); return entry;
   }
@@ -95,7 +99,13 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     return { id: s.id, revision: s.revision, state: s.state, site: s.site, binding: s.binding, sessionId: s.sessionId,
       turn: a ? turnView(a) : null, turns: s.attempts.map(turnView),
       identity: s.identity, recovery: { pending },
-      readiness: s.readiness, writer: { active: !!entry.lease }, diagnostic: { finishPhase: s.finish.phase, finishError: s.finish.error ?? null, uncertainty: s.uncertainty },
+      readiness: s.readiness,
+      // writer.active is honest occupancy accounting: true while this conversation holds the
+      // window OR while its last release could not be proven complete (the lease directory may
+      // still be occupied). releaseError carries the unproven-release code until a later enter()
+      // proves a fresh window or a later release succeeds.
+      writer: { active: !!(entry.lease || entry.leaseReleaseError), releaseError: entry.leaseReleaseError ?? null },
+      diagnostic: { finishPhase: s.finish.phase, finishError: s.finish.error ?? null, uncertainty: s.uncertainty },
       reply, capture, limitations: [...s.limitations, ...(entry.recovered ? ['Recovered snapshot only; interrupted capture ownership requires reconciliation, never automatic replay'] : []),
         ...(pending ? ['Stored snapshot read without recovery; the owning process is gone, so its state is stale until an explicit reconcile, finish or recover'] : [])] };
   }
@@ -156,6 +166,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
   // released, in every path (a failed connect never keeps the host's single driving lease);
   // (3) anything left behind is written to the snapshot so the user is told. Never throws.
   async function abortFailedConnect(entry, lease) {
+    let unaccounted = null;
     try {
       if (!entry) return;
       clearTimeout(entry.timer);
@@ -170,29 +181,47 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       try { if (entry.service.read().sessionId) await entry.service.recordCapture({ state: 'incomplete', bytesWritten: entry.adapter.bytesWritten ?? 0 }); } catch {}
       for (const note of notes) { try { await entry.service.addLimitation(note); } catch {} }
     } finally {
-      try { lease?.release(); } catch {}
-      if (entry) entry.lease = null;
+      // Same accounting as the writer window: a release that cannot be proven is recorded on the
+      // entry when one exists, or returned for the caller to attach to the connect error.
+      if (entry && entry.lease === lease) entry.writer?.release();
+      else try { lease?.release(); } catch (e) { unaccounted = leaseFailure(e); }
     }
+    return unaccounted;
   }
   // Short foreground writer window (the documented target model for the drive lease). The host's
   // single driving lease is held only while this conversation can actually drive the page: from
   // just before a turn's typing through delivery observation, and for as long as an unresolved
-  // unknown delivery or partial draft exists (including across a restart, where the next submit
-  // re-opens the window before the journal fence rejects it). Passive capture, Read, chat-index
-  // and reconcile stay lease-free. enter() returns false when a window is already open — an
-  // earlier unresolved turn owns it — and release() drops the handle even if the lease file no
-  // longer proves ownership, because the turn journal, not this handle, fences duplicate sends.
+  // unknown delivery or partial draft exists. A next submit on the same live conversation finds
+  // the window already open (enter() refuses) and the journal fence rejects it; a fenced submit
+  // that DID open a window — e.g. a fresh conversation sharing the fenced thread — keeps it until
+  // reconcile/finish resolves the fence. Passive capture, Read, chat-index and reconcile stay
+  // lease-free. enter() returns false when a window is already open — an earlier unresolved turn
+  // owns it — and release() drops the handle even if the lease file no longer proves ownership,
+  // because the turn journal, not this handle, fences duplicate sends. A RESTARTED runtime never
+  // admits new sends (CONVERSATION_NOT_WRITABLE), holds no lease for loaded snapshots, and the
+  // next real window open anywhere on the host reclaims a crashed holder's stale lease by the
+  // dead-pid proof in drive-lease.
   function writerWindow(entry) {
     return {
       enter() {
         if (entry.lease) return false;
         entry.lease = d.acquireLease({ port, root: d.leaseRoot, holder: { kind: 'conversation-writer', id: entry.service.id } });
+        entry.leaseReleaseError = null; // A freshly proven window supersedes any earlier unproven release.
         return true;
       },
       release() {
         const lease = entry.lease; entry.lease = null;
         if (!lease) return;
-        try { lease.release(); } catch { /* Ownership unconfirmable: the directory is another live owner's or reclaimable after grace. */ }
+        try { lease.release(); entry.leaseReleaseError = null; }
+        catch (e) {
+          // Release failure is ACCOUNTED, never retried here: ownership is unconfirmable
+          // (LEASE_OWNER_UNKNOWN), was taken over (LEASE_OWNER_CHANGED) or deletion failed, so the
+          // directory may still be occupied. The view keeps reporting an active writer with the
+          // code until a later enter() proves a fresh window; a subsequent enter() that hits
+          // DRIVE_LEASE_BUSY surfaces the holder instead of wedging silently. The turn journal,
+          // not this handle, fences duplicate sends.
+          entry.leaseReleaseError = leaseFailure(e);
+        }
       },
     };
   }
@@ -332,15 +361,17 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
           freshTab, conversationId: id, ownerToken: lease?.token ?? null, maxBytes: d.maxBytes });
         const service = createConversationService({ dataDir: directory, id, adapter, io: d.io,
           context: { site: body.site, owner: { pid: process.pid, token: lease?.token ?? null, port }, capture: { endsAt: new Date(Date.now() + d.maxDurationMs).toISOString(), maxBytes: d.maxBytes, bytesWritten: 0, limitReason: null } } });
-        entry = { service, adapter, lease, registration: Promise.resolve(), work: Promise.resolve(), recovered: false };
+        entry = { service, adapter, lease, registration: Promise.resolve(), work: Promise.resolve(), recovered: false, leaseReleaseError: null };
         entry.writer = writerWindow(entry);
         entries.set(id, entry);
         await service.connect({ targetId: body.targetId ?? `pending-${id}`, origin, ownedByStudio: freshTab, thread, identity, ...(freshTab ? { threadDenylist } : {}), expectedRevision: service.read().revision });
         entry.writer.release(); // The idle fresh tab keeps no driving lease between turns.
         return view(entry);
       } catch (e) {
-        await abortFailedConnect(entry, lease);
-        throw Object.assign(outward(e), { conversationId: id });
+        const unaccounted = await abortFailedConnect(entry, lease);
+        const leaseReleaseError = entry?.leaseReleaseError ?? unaccounted;
+        throw Object.assign(outward(e), { conversationId: id,
+          ...(leaseReleaseError ? { leaseReleaseError } : {}) });
       }
     },
     async submit(id, body = {}) {

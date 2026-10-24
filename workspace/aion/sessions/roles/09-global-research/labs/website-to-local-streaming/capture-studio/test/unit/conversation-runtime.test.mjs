@@ -11,6 +11,7 @@ import { RawLog } from '../../src/store/raw-log.mjs';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
 import { canonicalThreadKey } from '../../src/capture/thread-turn-journal.mjs';
+import { spawn } from 'node:child_process';
 
 function qualifiedReply(adapter, args, text, state = 'ready') {
   const contentDigest = createHash('sha256').update(text).digest('hex'), previous = adapter.replyMetadata;
@@ -204,6 +205,163 @@ test('a second conversation attaches while the first is connected and collides o
   const second = await f.runtime.submit(b.id, { key: 'one', prompt: 'private prompt', confirm: true, expectedRevision: (await f.runtime.get(b.id)).revision });
   assert.equal(second.turn.phase, 'preparing');
   f.releaseReply.resolve(); await f.settle(a.id);
+});
+
+test('a failed lease release stays accounted: active writer with releaseError, honest busy on the next window, cleared by a later proven window', async (t) => {
+  let failRelease = true, failAcquire = false, releases = 0;
+  const f = fixture(t, {
+    acquireLease() {
+      if (failAcquire) throw Object.assign(new Error('Browser driving lease is held by a live owner'), { code: 'DRIVE_LEASE_BUSY', status: 409, holder: { kind: 'conversation-writer', id: 'other-window' } });
+      return { release() { if (failRelease) throw Object.assign(new Error('Lease ownership changed'), { code: 'LEASE_OWNER_CHANGED', status: 409 }); releases++; } };
+    },
+  });
+  const c = await f.connect();
+  assert.equal((await f.runtime.get(c.id)).writer.active, false);
+  assert.equal((await f.runtime.get(c.id)).writer.releaseError, null);
+  await f.submit(c);
+  for (let n = 0; n < 500 && (await f.runtime.get(c.id)).turn.send.state !== 'observed'; n++) await new Promise(setImmediate);
+  // Delivery was observed and the window tried to close, but the release could not be proven:
+  // the view keeps reporting occupancy with the code instead of claiming a free host.
+  const held = await f.runtime.get(c.id);
+  assert.equal(held.writer.active, true);
+  assert.equal(held.writer.releaseError.code, 'LEASE_OWNER_CHANGED');
+  assert.ok(held.writer.releaseError.at);
+  f.releaseReply.resolve(); await f.settle(c.id);
+  // The next window open surfaces the busy host honestly and leaves no journal residue (no blind resend).
+  failAcquire = true;
+  const revision = (await f.runtime.get(c.id)).revision;
+  await assert.rejects(f.submit(c, { key: 'two', expectedRevision: revision }), (e) => e.status === 409 && e.code === 'DRIVE_LEASE_BUSY');
+  assert.equal((await f.runtime.get(c.id)).turns.length, 1);
+  assert.equal((await f.runtime.get(c.id)).writer.active, true); // still accounted
+  // Recovery is explicit and user-driven: the next successful enter proves a fresh window and clears the stale failure.
+  failAcquire = false; failRelease = false;
+  const second = await f.submit(c, { key: 'two', expectedRevision: (await f.runtime.get(c.id)).revision });
+  assert.equal(second.turn.phase, 'preparing');
+  assert.equal((await f.runtime.get(c.id)).writer.releaseError, null); // cleared by the proven re-entry
+  for (let n = 0; n < 500 && (await f.runtime.get(c.id)).writer.active; n++) await new Promise(setImmediate);
+  const settled = await f.runtime.get(c.id);
+  assert.equal(settled.writer.active, false); assert.equal(settled.writer.releaseError, null);
+  assert.equal(releases, 1);
+});
+
+test('a failed fresh-tab connect whose lease release cannot be proven reports it on the error and the listed entry', async (t) => {
+  const f = fixture(t, {
+    createAdapter: () => ({ mayOwnResources: false, async connect() { throw new Error('no effect'); } }),
+    acquireLease: () => ({ release() { throw Object.assign(new Error('Lease ownership changed'), { code: 'LEASE_OWNER_CHANGED', status: 409 }); } }),
+  });
+  const e = await f.connect({ freshTab: true, targetId: undefined }).then(() => { throw new Error('expected connect rejection'); }, (err) => err);
+  assert.equal(e.code, 'ATTACHMENT_FAILED');
+  assert.equal(e.leaseReleaseError.code, 'LEASE_OWNER_CHANGED');
+  assert.ok(e.conversationId);
+  const listed = await f.runtime.list();
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0].writer.active, true);
+  assert.equal(listed[0].writer.releaseError.code, 'LEASE_OWNER_CHANGED');
+});
+
+test('the writer window is host-wide: a second runtime instance is fenced by the first one open window', async (t) => {
+  const f = fixture(t);
+  f.setTargets([
+    { id: 'selected', type: 'page', url: 'https://chatgpt.com/c/11111111-1111-4111-8111-111111111111' },
+    { id: 'other', type: 'page', url: 'https://chatgpt.com/c/22222222-2222-4222-8222-222222222222' }]);
+  const a = await f.connect();
+  const typing = deferred();
+  f.adapters[0].type = async () => { await typing.promise; };
+  await f.submit(a);
+  for (let n = 0; n < 500 && !(await f.runtime.get(a.id)).writer.active; n++) await new Promise(setImmediate);
+  const second = createConversationRuntime({ paths: f.paths, port: 19222, dependencies: f.dependencies });
+  t.after(() => second.close().catch(() => {}));
+  const b = await second.connect({ site: 'chatgpt', targetId: 'other' });
+  // The interlock is the physical lease directory, not in-runtime state: the second runtime's
+  // window open hits DRIVE_LEASE_BUSY with the live holder, and no journal residue appears.
+  await assert.rejects(second.submit(b.id, { key: 'one', prompt: 'private prompt', confirm: true, expectedRevision: b.revision }),
+    (e) => e.status === 409 && e.code === 'DRIVE_LEASE_BUSY' && e.holder?.kind === 'conversation-writer');
+  assert.equal((await second.get(b.id)).turns.length, 0);
+  typing.resolve();
+  for (let n = 0; n < 500 && (await f.runtime.get(a.id)).writer.active; n++) await new Promise(setImmediate);
+  const admitted = await second.submit(b.id, { key: 'one', prompt: 'private prompt', confirm: true, expectedRevision: (await second.get(b.id)).revision });
+  assert.equal(admitted.turn.phase, 'preparing');
+  f.releaseReply.resolve(); await f.settle(a.id);
+});
+
+test('restart: a loaded snapshot holds no lease and stays replay-only; a stale crashed lease is reclaimed by the next real window; the thread stays fenced with no blind resend', async (t) => {
+  const f = fixture(t, { ownerIsAlive: () => false });
+  f.setObserve(false);
+  const c = await f.connect(); await f.submit(c); await f.settle(c.id); // uncertain delivery, window held
+  await f.runtime.close(); // finalize: capture stopped, window released, journal keeps the unresolved turn
+  acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release(); // host is free after close
+  // Reshape the snapshot to crash-state (no clean finish), as a killed process would leave it.
+  const crashedFile = path.join(f.paths.root, 'conversations', `${c.id}.conversation.json`);
+  const crashed = JSON.parse(fs.readFileSync(crashedFile, 'utf8'));
+  crashed.finish = { requested: false, phase: 'idle', error: null };
+  crashed.state = 'needs-reconciliation';
+  fs.writeFileSync(crashedFile, JSON.stringify(crashed));
+  // A crashed process left a stale lease in the same slot: a child acquired it and exited without releasing.
+  const moduleUrl = new URL('../../src/capture/drive-lease.mjs', import.meta.url).href;
+  const child = spawn(process.execPath, ['--input-type=module', '-e',
+    `import {acquireDriveLease} from ${JSON.stringify(moduleUrl)}; acquireDriveLease(${JSON.stringify({ root: f.dependencies.leaseRoot, port: 19222 })});`], { stdio: 'ignore' });
+  await new Promise((resolve, reject) => { child.on('error', reject); child.on('exit', (code) => code === 0 ? resolve() : reject(new Error('child failed'))); });
+  const restarted = createConversationRuntime({ paths: f.paths, port: 19222, dependencies: f.dependencies });
+  t.after(() => restarted.close().catch(() => {}));
+  const before = await restarted.get(c.id);
+  assert.equal(before.turn.send.state, 'uncertain');
+  assert.equal(before.writer.active, false); // honest restart accounting: this process holds nothing
+  assert.equal(before.writer.releaseError, null);
+  assert.equal(before.recovery.pending, true); // the owning process is gone and the snapshot is unfinished: stale until an explicit mutation
+  // A restarted conversation is replay-only: a new key is refused before any window opens, no residue.
+  await assert.rejects(restarted.submit(c.id, { key: 'different', prompt: 'private prompt', confirm: true, expectedRevision: before.revision }),
+    (e) => e.status === 409 && e.code === 'CONVERSATION_NOT_WRITABLE');
+  assert.equal((await restarted.get(c.id)).writer.active, false); // the refused submit opened no window
+  assert.equal((await restarted.get(c.id)).turns.length, 1);
+  // The stale dead-owner lease is reclaimed by the next REAL window open: a new live conversation on the same thread.
+  const c2 = await restarted.connect({ site: 'chatgpt', targetId: 'selected' });
+  // Same thread: the durable thread journal still fences the crashed unresolved turn — no blind resend across restart.
+  await assert.rejects(restarted.submit(c2.id, { key: 'two', prompt: 'private prompt', confirm: true, expectedRevision: c2.revision }),
+    (e) => e.status === 409 && e.code === 'THREAD_FENCED');
+  const fenced = await restarted.get(c2.id);
+  assert.equal(fenced.turns.length, 0); // the fence admitted nothing
+  assert.equal(fenced.writer.active, true); // the window this submit opened stays held on the fenced thread
+  assert.throws(() => acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }), /lease is held/); // stale lease was replaced by a live window
+  await restarted.finish(c2.id); // teardown closes the window
+  acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release(); // the host is free again
+  const journalDir = path.join(f.paths.root, 'conversations', 'thread-turns');
+  const journalFile = fs.readdirSync(journalDir).find((n) => n.endsWith('.turn-journal.json'));
+  const journal = JSON.parse(fs.readFileSync(path.join(journalDir, journalFile), 'utf8'));
+  assert.equal(journal.snapshot.turns.length, 1);
+  assert.equal(journal.snapshot.turns[0].phase, 'unknown'); // the crashed turn stays unresolved: the fence is durable
+  f.releaseReply.resolve();
+});
+
+test('partial typing keeps the window held, is never promoted by page observation, and stays fenced until teardown', async (t) => {
+  const f = fixture(t);
+  const c = await f.connect();
+  f.adapters[0].type = async () => { throw new Error('interrupted mid-draft'); };
+  await f.submit(c); // the runtime ack resolves at admission; the typing failure surfaces in the view
+  for (let n = 0; n < 500 && (await f.runtime.get(c.id)).state !== 'needs-reconciliation'; n++) await new Promise(setImmediate);
+  const v = await f.runtime.get(c.id);
+  assert.equal(v.state, 'needs-reconciliation');
+  assert.equal(v.diagnostic.uncertainty, 'partial-draft-possible');
+  assert.equal(v.turn.send.state, 'not-attempted'); // typing began, dispatch never did
+  assert.equal(v.writer.active, true); // the window stays with the partial draft
+  assert.throws(() => acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }), /lease is held/);
+  await assert.rejects(f.submit(c, { key: 'two', expectedRevision: v.revision }), (e) => e.code === 'THREAD_FENCED'); // no resend past a partial draft
+  // A page observation that claims the user turn is delivered cannot promote a partial draft
+  // (the same rule as a preparing crash): the attempt stays not-attempted and the fence holds.
+  f.adapters[0].reconcile = async () => ({ binding: v.binding, evidence: { turnId: v.turn.id, payloadDigest: v.turn.payloadDigest,
+    sessionId: c.sessionId, sequence: 11, kind: 'new-user-turn', source: 'page', identity: `user-${v.turn.id}` } });
+  const checked = await f.runtime.reconcile(c.id, { expectedRevision: (await f.runtime.get(c.id)).revision });
+  assert.equal(checked.turn.send.state, 'not-attempted');
+  assert.equal((await f.runtime.get(c.id)).writer.active, true); // still fenced, window still held
+  const journalDir = path.join(f.paths.root, 'conversations', 'thread-turns');
+  const journalFile = fs.readdirSync(journalDir).find((n) => n.endsWith('.turn-journal.json'));
+  const journal = JSON.parse(fs.readFileSync(path.join(journalDir, journalFile), 'utf8'));
+  assert.equal(journal.snapshot.turns[0].phase, 'unknown'); // the durable thread fence
+  // Teardown is the only exit: finish stops the capture, releases the window, and keeps the uncertainty honest.
+  const done = await f.runtime.finish(c.id);
+  assert.equal(done.diagnostic.uncertainty, 'partial-draft-possible');
+  assert.equal((await f.runtime.get(c.id)).writer.active, false);
+  acquireDriveLease({ root: f.dependencies.leaseRoot, port: 19222 }).release();
+  f.releaseReply.resolve();
 });
 
 test('owner metadata recovers attach/save window without reattaching or dispatching', async (t) => {
