@@ -4,6 +4,15 @@
 
 ## One working outcome
 
+### Owner-Windows update — 2026-10-24
+
+- Current execution is Capture Studio `/chat` on `main c3e3e2d`, issue #84; the Oct21 relay/register sequence below is historical, not current task authority.
+- [Windows first-turn receipt](../../../../../../agents/windows-master/CAPTURE-STUDIO-FIRST-TURN-2026-10-24.md): backup/restore verified, startup/UI passed, first turn **blocked before Send**; **0 sends**, no fresh capture, no L5/M1 claim.
+- Core/UI seam: idle connect defers capture (`sessionId:null`); reconcile returns early without rechecking; UI also requires already-recording capture. Two narrow offline expected-red reproductions; no product source changed. Initial `BINDING_CHANGED` trigger remains unknown.
+- Test conversation closed/writer released; own runtime/browser stopped; normal Chrome and 108 existing saved sessions preserved. Parent review before publishing; genuine second turn remains separate.
+
+### Historical Oct21 context — not the current execution plan
+
 **Get the owner-Windows AION CLI to observe one independently originated message in the exact authenticated, explicitly bound ChatGPT `chief` conversation (I1)**. This is the first missing *live* acceptance gate toward the accepted interactive two-way CLI. I2 and I3 follow once I1 actually works, not when source/fixtures merely exist.
 
 - **Shared source reality:** [PR #62](https://github.com/owenservera/aion/pull/62) merged on 2026-10-21 as `1db6afa`: P2/P3/P4 watch-only receive source, explicit account-registration diagnostics and PACK-04–07 staging are in `main`. An older work-desk row claiming these were uncommitted is historical. [Development desk](../../DELIVERABLES.md) and [shared implementation/proof map](https://github.com/owenservera/aion/blob/main/workspace/aion/shared/agent-communications/intelligence/agents/10-development/README.md) are the current navigation/evidence owners.

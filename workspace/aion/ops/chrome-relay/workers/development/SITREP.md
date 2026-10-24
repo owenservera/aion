@@ -1,6 +1,12 @@
 # development — SITREP entry point
 
-## Status report — 2026-10-24 21:46 UTC
+## Status report — 2026-10-24 21:56 UTC
+
+**Execution result: BLOCKED BEFORE SEND; 0 sends.** The executor returned its [sanitized Windows receipt](../../../../agents/windows-master/CAPTURE-STUDIO-FIRST-TURN-2026-10-24.md). Parent reviewed that artifact and independently confirmed the source guards at `conversation-service.mjs:523` and `chat.mjs:243`; private runtime logs have not been independently audited. Verified backup, startup, UI blocker observation and cleanup are recorded in the executor's receipt. No fresh capture, derive or L5/M1 acceptance occurred.
+
+**Concrete next engineering task:** reconcile deferred capture with first-turn readiness: idle connect has no session, read-only reconcile returns before preflight when no session exists, and UI admission requires capture already recording. The original live `BINDING_CHANGED` trigger remains unknown. Fix/test the lifecycle contract without weakening ownership, attribution or uncertain-effect protections, then repeat one bounded first-turn test. No second send or bypass was attempted by this lane.
+
+### Earlier dispatch checkpoint — 21:46 UTC (superseded by result above)
 
 - **Verified locally:** branch `main`, HEAD `c3e3e2dae769bdaf7f12f2b22fd0360fb2b1b594`; working tree clean before this report. Remote configured as `https://github.com/owenservera/aion.git`; remote HEAD was not rechecked during this check-in.
 - **Owner-reported integration baseline:** PRs #80/#82 merged; last Windows regression receipt 1,554 passed, zero failed, one existing TODO. These numbers were supplied in the owner's audit, not rerun or independently inspected in this check-in.
