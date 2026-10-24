@@ -5,7 +5,7 @@
  *
  * Injected adapter contract (all async; no retries, fallback sends or implicit navigation):
  * connect(binding) -> { binding, sessionId }; attaches/arms capture on that exact target only.
- * preflight(binding) -> { binding, draft:{present,chars}, boundary:{sequence,transcriptCount} };
+ * preflight(binding) -> { binding, draft:{present,chars}, boundary:{sequence,transcriptCount}, baseline?:{userTurns,assistantTurns,sampledAt} };
  *   read-only, current composer/binding check immediately before type; never clears a draft.
  * type({binding,turnId,prompt}) -> void; types once, never submits or clears existing content.
  * submit({binding,turnId,payloadDigest}) -> observation|null; ONE send action, never types.
@@ -33,6 +33,14 @@ const error = (code) => Object.assign(new Error(code), { code });
 // A bound thread is part of the binding: same target and origin on another thread is NOT the same binding.
 const exactBinding = (a, b) => a?.targetId === b?.targetId && a?.origin === b?.origin && sameThread(a?.thread, b?.thread);
 const phases = ['preparing', 'dispatching', 'observed', 'uncertain', 'needs-reconciliation', 'blocked'];
+// Pre-send acceptance-freshness cursor supplied by the adapter preflight (acceptance G1/G2).
+// Persisted verbatim per attempt; malformed shapes persist as null so evaluation stays honest.
+const validBaseline = (b) => !!b && typeof b === 'object'
+  && Number.isSafeInteger(b.userTurns) && b.userTurns >= 0
+  && Number.isSafeInteger(b.assistantTurns) && b.assistantTurns >= 0;
+const baselineOf = (b) => validBaseline(b)
+  ? { userTurns: b.userTurns, assistantTurns: b.assistantTurns, ...(typeof b.sampledAt === 'string' ? { sampledAt: b.sampledAt } : {}) }
+  : null;
 
 function validSnapshot(s, id) {
   if (!s || s.version !== 1 || s.id !== id || !Number.isSafeInteger(s.revision) || s.revision < 0
@@ -270,6 +278,7 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
     if (preflight?.targetThread || preflight?.pageThread) { snapshot.attempts.push(attempt); prove(); return finish(); }
     if (!threadless || !idle || !draftOk || !boundaryOk || !exactBinding(snapshot.binding, preflight?.binding)) throw error('THREAD_IDENTITY_UNVERIFIED');
     attempt.boundary = { sequence: preflight.boundary.sequence, transcriptCount: preflight.boundary.transcriptCount };
+    attempt.baseline = baselineOf(preflight.baseline);
     snapshot.attempts.push(attempt); snapshot.state = 'busy'; save();
     const stopEarly = () => {
       if (!submissionStopped) return false;
@@ -460,7 +469,8 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
           snapshot.state = 'blocked'; updateAttempt(attempt, 'blocked', 'not-attempted'); save(); throw error('DRAFT_OR_BINDING_NOT_READY');
         }
         if (stopped()) return view().attempts.find((a) => a.id === attempt.id);
-        attempt.boundary = { sequence: preflight.boundary.sequence, transcriptCount: preflight.boundary.transcriptCount }; save();
+        attempt.boundary = { sequence: preflight.boundary.sequence, transcriptCount: preflight.boundary.transcriptCount };
+        attempt.baseline = baselineOf(preflight.baseline); save();
         attempt.journal = threadJournal().markTyping({ turnId: attempt.id, expectedRevision: journalTurn(attempt).revision,
           boundary: { ...attempt.boundary, sessionId: snapshot.sessionId } });
         attempt.typingStartedAt = now(); save();

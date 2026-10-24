@@ -19,7 +19,10 @@ const fixture = JSON.parse(readFileSync(path.join(here, '..', 'fixtures', 'ai-ch
 const PROMPT = 'Say something synthetic please.';
 const REPLY = 'Hello from a made-up synthetic stream. Second sentence.';
 const WORDS = ['hello', 'synthetic', 'second', 'sentence'];
-const CONVERSATION = { prompt: PROMPT, expectedReplyWords: WORDS, completionRule: { requireDone: true, stableObserved: true } };
+// The baseline cursor is the honest pre-send truth for this fixture: an empty page before the
+// send (0/0), measured by the same full-DOM scan that produced DOM_TURNS. G1/G2 enforce growth
+// from it; without a baseline a text match alone can no longer reach capture_accepted.
+const CONVERSATION = { prompt: PROMPT, expectedReplyWords: WORDS, completionRule: { requireDone: true, stableObserved: true }, baseline: { userTurns: 0, assistantTurns: 0 } };
 
 function sseOf(payloads) {
   return payloads.map((p) => {

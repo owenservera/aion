@@ -365,7 +365,10 @@ export async function runCampaign({
       if (match) siteResult.verified = match.ok;
       const conversation = match?.ok && driven.done === true
         ? { prompt, expectedReplyWords: expectedWords,
-            completionRule: { requireDone: true, stableObserved: driven.done === true } }
+            completionRule: { requireDone: true, stableObserved: driven.done === true },
+            // Pre-send freshness cursor measured by the drive; without it G1/G2 would stay
+            // 'unknown' and no family could ever be promoted on honest evidence.
+            ...(driven.baselineTurns ? { baseline: driven.baselineTurns } : {}) }
         : null;
       const built = await deriveAndConsolidate({
         sessionId: siteResult.sessionId, adapter, targetUrl: driven?.target?.url ?? targetUrl,

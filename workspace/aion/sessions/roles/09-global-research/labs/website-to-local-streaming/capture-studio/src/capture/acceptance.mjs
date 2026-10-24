@@ -27,7 +27,10 @@ import { reconcileFinal } from '../intel/correlate.mjs';
 import { streamText } from '../replay/derive.mjs';
 
 export const ACCEPTANCE_SCHEMA = 'capture-studio.acceptance/1';
-export const EVALUATOR_VERSION = '1.0.0';
+// 1.1.0: G1/G2 gained pre-send baseline freshness. A text match without a baseline is now
+// 'unknown' (capture_incomplete), never 'passed', so prior accepted documents are not reused
+// across the semantic change (reuseAcceptedContext refuses version mismatches).
+export const EVALUATOR_VERSION = '1.1.0';
 export const DEFAULT_RECIPE = Object.freeze({ id: 'clean-data-gate', version: 1 });
 export const GATE_IDS = Object.freeze(['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7']);
 export const VERDICTS = Object.freeze(['capture_accepted', 'capture_rejected', 'capture_incomplete', 'unassessed']);
@@ -101,38 +104,79 @@ async function replyText(session) {
 const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const tokens = (s) => String(s ?? '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 const turnsOf = (dom, role) => (Array.isArray(dom) ? dom : []).filter((t) => t && t.role === role && typeof t.text === 'string');
+// The pre-send freshness cursor: counts of user/assistant turns rendered in the SAME full-DOM
+// scan the DOM_TURNS projection uses, sampled before the send. The drive supplies it from the
+// page-agent store before typing (creation paths measure an empty page: 0/0).
+const isBaseline = (b) => !!b && typeof b === 'object'
+  && Number.isSafeInteger(b.userTurns) && b.userTurns >= 0
+  && Number.isSafeInteger(b.assistantTurns) && b.assistantTurns >= 0;
 
 // ---- gates -----------------------------------------------------------------------------------------
 
-// G1: the newest user turn in the DOM transcript is the sent prompt. Earlier transcript is ignored
-// (design 12.4: G1 applies to the new submitted turn, not the whole pre-existing transcript).
+// G1: the sent prompt is a NEW user turn rendered after the pre-send baseline. With a baseline,
+// the first user turn after it must exist (growth) and equal the prompt — a historical transcript
+// that merely re-rendered cannot pass. Without a baseline a text match alone proves nothing about
+// freshness (Core #68): matched text is 'unknown', so the verdict is capture_incomplete, never
+// accepted; a mismatch is still a definite failure.
 function gateG1(conv, dom) {
   if (!conv) return notChecked('no conversation context supplied');
   if (typeof conv.prompt !== 'string') return unknown('conversation.prompt missing');
   const users = turnsOf(dom, 'user');
   if (!users.length) return unknown('no user turn captured in DOM_TURNS');
+  const baseline = conv.baseline;
+  if (baseline !== undefined && baseline !== null) {
+    if (!isBaseline(baseline)) return unknown('conversation.baseline is malformed; freshness cannot be judged', { userTurns: users.length });
+    if (users.length <= baseline.userTurns) {
+      return gate('failed', 'no user turn rendered after the pre-send baseline',
+        { userTurns: users.length, baselineUserTurns: baseline.userTurns, freshness: 'pre-send baseline enforced' });
+    }
+    const matched = norm(users[baseline.userTurns].text) === norm(conv.prompt);
+    return gate(matched ? 'passed' : 'failed',
+      matched ? 'the first user turn after the pre-send baseline equals the sent prompt'
+        : 'the first user turn after the pre-send baseline differs from the sent prompt',
+      { userTurns: users.length, baselineUserTurns: baseline.userTurns, matched, freshness: 'pre-send baseline enforced' });
+  }
   const matched = norm(users.at(-1).text) === norm(conv.prompt);
-  return gate(matched ? 'passed' : 'failed',
-    matched ? 'newest user turn equals the sent prompt' : 'newest user turn differs from the sent prompt',
-    { userTurns: users.length, matched });
+  return gate(matched ? 'unknown' : 'failed',
+    matched ? 'newest user turn equals the sent prompt, but no pre-send baseline was supplied, so freshness is unproven'
+      : 'newest user turn differs from the sent prompt',
+    { userTurns: users.length, matched, freshness: 'unproven (no baseline supplied)' });
 }
 
-// G2 (order part only): the expected reply words appear in order in the newest assistant turn.
-// The "count grew after send" part needs a baseline count that the conversation input does not carry.
+// G2: the expected reply words appear in order in the FIRST assistant turn rendered after the
+// pre-send baseline. With a baseline this performs the historical "count grew after send" check
+// (Core #68): no growth is a definite failure, and the matched turn is the new one, not merely
+// the newest. Without a baseline a match alone is 'unknown' (capture_incomplete, never accepted).
 function gateG2(conv, dom) {
   if (!conv) return notChecked('no conversation context supplied');
   if (!Array.isArray(conv.expectedReplyWords)) return notChecked('no expectedReplyWords supplied (calibration-only check)');
   const replies = turnsOf(dom, 'assistant');
   if (!replies.length) return unknown('no assistant turn captured in DOM_TURNS');
   const words = conv.expectedReplyWords.flatMap((w) => tokens(w));
+  const baseline = conv.baseline;
+  if (baseline !== undefined && baseline !== null) {
+    if (!isBaseline(baseline)) return unknown('conversation.baseline is malformed; freshness cannot be judged', { assistantTurns: replies.length });
+    if (replies.length <= baseline.assistantTurns) {
+      return gate('failed', 'no assistant turn rendered after the pre-send baseline',
+        { assistantTurns: replies.length, baselineAssistantTurns: baseline.assistantTurns, expectedWords: words.length, freshness: 'pre-send baseline enforced' });
+    }
+    const seen = tokens(replies[baseline.assistantTurns].text);
+    let i = 0;
+    for (const t of seen) if (i < words.length && t === words[i]) i++;
+    const ok = i === words.length;
+    return gate(ok ? 'passed' : 'failed',
+      ok ? 'expected reply words appear in order in the first assistant turn after the pre-send baseline'
+        : 'expected reply words not found in order in the first assistant turn after the pre-send baseline',
+      { assistantTurns: replies.length, baselineAssistantTurns: baseline.assistantTurns, expectedWords: words.length, matchedInOrder: i, freshness: 'pre-send baseline enforced' });
+  }
   const seen = tokens(replies.at(-1).text);
   let i = 0;
   for (const t of seen) if (i < words.length && t === words[i]) i++;
   const ok = i === words.length;
-  return gate(ok ? 'passed' : 'failed',
-    ok ? 'expected reply words appear in order in the newest assistant turn'
+  return gate(ok ? 'unknown' : 'failed',
+    ok ? 'expected reply words appear in order in the newest assistant turn, but no pre-send baseline was supplied, so freshness is unproven'
       : 'expected reply words not found in order in the newest assistant turn',
-    { expectedWords: words.length, matchedInOrder: i, baselineCountCheck: 'not performed (no baseline supplied)' });
+    { expectedWords: words.length, matchedInOrder: i, freshness: 'unproven (no baseline supplied)' });
 }
 
 // G3: completion. The caller attests drive-time stability (stableObserved, from waitForCompletion);
@@ -235,9 +279,13 @@ function unassessedDoc({ evaluatedAt, binding, reasons }) {
 // ---- public API ------------------------------------------------------------------------------------
 
 /**
- * @param {{session: object, conversation?: {prompt: string, expectedReplyWords?: string[], completionRule?: {requireDone?: boolean, stableObserved: boolean}}|null, recipe?: object}} input
+ * @param {{session: object, conversation?: {prompt: string, expectedReplyWords?: string[], completionRule?: {requireDone?: boolean, stableObserved: boolean}, baseline?: {userTurns: number, assistantTurns: number, sampledAt?: string}|null}|null, recipe?: object}} input
  *   conversation.completionRule.stableObserved is attested by the live driver (waitForCompletion);
  *   it is context, not something the saved session can prove.
+ *   conversation.baseline is the pre-send freshness cursor: user/assistant turn counts sampled by
+ *   the SAME full-DOM scan that later produces DOM_TURNS, before the send. With a baseline, G1/G2
+ *   enforce post-send growth and match the FIRST new turn; without one, a text match alone stays
+ *   'unknown' so the verdict can never be capture_accepted on historical text (Core #68).
  * @returns {Promise<object>} acceptance document (not written)
  */
 export async function evaluateAcceptance({ session, conversation = null, recipe = DEFAULT_RECIPE } = {}) {

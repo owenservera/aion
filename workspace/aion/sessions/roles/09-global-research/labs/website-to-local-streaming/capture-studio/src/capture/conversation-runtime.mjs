@@ -88,7 +88,7 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     const turnView = (turn) => {
       const r = { ...turn.reply }; if (summary) delete r.text;
       return { id: turn.id, key: turn.key, conversationId: turn.journal?.conversationId ?? s.id, payloadDigest: turn.payloadDigest,
-        phase: turn.phase, reason: turn.reason ?? null, boundary: turn.boundary, send: structuredClone(turn.send), reply: r,
+        phase: turn.phase, reason: turn.reason ?? null, boundary: turn.boundary, baseline: turn.baseline ?? null, send: structuredClone(turn.send), reply: r,
         readiness: turn.journal?.readiness ?? turn.readiness ?? { state: 'unknown', evidence: null },
         completion: turn.journal?.completion ?? turn.completion ?? { state: 'unknown', evidence: null } };
     };

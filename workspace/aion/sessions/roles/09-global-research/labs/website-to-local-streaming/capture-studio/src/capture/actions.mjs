@@ -1159,6 +1159,14 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     const baseCount = pre.count ?? 0;
     result.baseline = baseline ? baseline.slice(0, 200) : '';
     result.baselineCount = baseCount;
+    // Pre-send acceptance-freshness cursor (G1/G2): user/assistant counts from the SAME page-agent
+    // full-DOM scan that produces DOM_TURNS at stop. null when unmeasurable — evaluation stays
+    // honest rather than guessing an empty page.
+    try {
+      const t0 = await recorder.domTurns();
+      result.baselineTurns = { userTurns: t0.filter((x) => x?.role === 'user').length,
+        assistantTurns: t0.filter((x) => x?.role === 'assistant').length, sampledAt: new Date().toISOString() };
+    } catch { result.baselineTurns = null; }
 
     const typed = await typeText(page, result.prompt, { human: humanPace });
     emit({ type: 'typed', ok: typed.ok, method: typed.method, chars: String(typed.typed ?? '').length, grewBy: typed.grewBy });

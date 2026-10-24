@@ -325,6 +325,16 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
       saved.turnId = toId; attempts.delete(fromId); attempts.set(toId, saved);
       recorder?.session?.kv?.set?.(`CONVERSATION_ATTEMPT:${toId}`, saved);
     },
+    // The pre-send freshness cursor for acceptance G1/G2: user/assistant turn counts from the
+    // SAME page-agent full-DOM scan that later produces DOM_TURNS, sampled before anything is
+    // typed. Unmeasurable (agent down, page gone) is reported as null, never guessed as 0.
+    async sampleTurnBaseline() {
+      try {
+        const turns = await recorder.domTurns();
+        const count = (role) => turns.filter((t) => t?.role === role).length;
+        return { userTurns: count('user'), assistantTurns: count('assistant'), sampledAt: new Date().toISOString() };
+      } catch { return null; }
+    },
     async preflight(_, { priorTurns = [] } = {}) {
       await check();
       if (!binding.thread) {
@@ -345,7 +355,10 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
         if (state.draftChars !== 0 || page?.draft?.chars !== 0) throw problem('DRAFT_PRESENT');
         const boundary = { sessionId: recorder.session.id, sequence: recorder.session.raw.seq, transcriptCount: 0 };
         pending = { baseline: [], boundary, creation: true };
-        return { binding: { ...binding }, draft: { present: false, chars: 0 }, boundary, controls: page.controls, priorReplies: [], ready: true, creation: { threadless: true } };
+        // A just-created page has no rendered turns; the scan is still taken from the same store
+        // so the cursor semantics match every other path.
+        return { binding: { ...binding }, draft: { present: false, chars: 0 }, boundary, controls: page.controls, priorReplies: [], ready: true, creation: { threadless: true },
+          baseline: { userTurns: 0, assistantTurns: 0, sampledAt: new Date().toISOString() } };
       }
       requireRecording();
       const composer = await d.findComposer(recorder.page, siteAdapter);
@@ -366,7 +379,8 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
       const boundary = { sessionId: recorder.session.id, sequence: recorder.session.raw.seq, transcriptCount: page.messages.length };
       pending = { baseline: structuredClone(page.messages), boundary };
       return { binding: { ...binding }, draft: { present: page.draft?.chars > 0, chars: page.draft?.chars }, boundary,
-        controls: page.controls, priorReplies, ready: idleControls(page.controls) && !priorReplies.length };
+        controls: page.controls, priorReplies, ready: idleControls(page.controls) && !priorReplies.length,
+        baseline: await this.sampleTurnBaseline() };
     },
     async type({ prompt, turnId, beforeEffect }) {
       await check();
