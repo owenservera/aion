@@ -1,4 +1,7 @@
 # AGENTS.md — INTAKE 07
+
+> **Active owner direction — execute, don't add process.** Root `AGENTS.md` takes precedence: do the available task directly, avoid automatic orchestration, agent delegation, mandatory memory/skills/bootstrap/check-in loops, and invented gates. For engineering, change existing code, test and run the real app. Preserve actual data/effect safety. Historical procedures are optional references, not prerequisites.
+
 Scope: `workspace/aion/sessions/roles/07-proposal-intake-commons/` and intake-owned artifacts under `workspace/aion/shared/technical-proposals/`.
 
 ## Read order
