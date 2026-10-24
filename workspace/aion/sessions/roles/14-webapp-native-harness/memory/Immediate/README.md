@@ -16,6 +16,12 @@
 - First package shipped: `implementations/round6/`: hardened drop-in `harness-runs.mjs`, pure preflight adapter, two adversarial test files and README. 18/18 focused Node22 tests passed locally; remote readback verified at GitHub commit `5debf2286b9a6a9becd97c6bb75086d563474048`. Core issue comment https://github.com/owenservera/aion/issues/68#issuecomment-6384442742.
 - Latest outstanding next action: Z.ai safely reconciles its 18-patch export branch against main, imports components, reruns full suites and verifies on owner Windows. Do not claim this is yet integrated into canonical Studio runtime or proves real webapp replies.
 
+## 2026-10-24 new active state (Z.ai TAR 5)
+
+- Z.ai Round6 integrated our first package in its **sandbox branch** `d9f401d7`, not GitHub main. Source/audit receipts: 20 patches, unchanged patch change-IDs for the first 18, valid checksums; narrow 19/19 + real child-process crash 14/14 independently reproduced. 1262-pass full suite + Chrome 14/14 are integrator-reported; Windows/real provider acceptance open.
+- New highest-value gap: no durable run-step ↔ turn-journal binding for unknown-effect resolution. Wrote/pushed tested **Round7 pure reconciler** `implementations/round7/` with 17/17 fixtures, [Core issue handoff](https://github.com/owenservera/aion/issues/68#issuecomment-6385093109). Requires trusted pre-effect binding in actual Studio executor; no automatic retry/commit of uncertain effect.
+- Continue independent code supplier practice only within specialist implementations; Z.ai integrates into canonical Capture Studio. Do not claim runtime integration of Round7 from GitHub source publication.
+
 ## Most important next action
 Launch a distinct `#AION @Webapp-Native-Harness BOOTSTRAP` conversation, then reconcile actual AION HEAD, the latest Z.ai source bundle, Capture Studio architecture and issues #67–72/#43. Start with native ChatGPT/Claude response-shape/evidence asymmetry; do not invent a new runtime.
 
