@@ -58,7 +58,7 @@ test('submit step: binding recorded pre-effect, completed from the journal, verd
   assert.equal(step.status, 'uncertain'); // unknown effect is fenced, not failed
 
   // The binding was completed from the JOURNAL (key + payloadDigest), not from a summarized result.
-  const binding = api.reconcileStep(run.id, 'send-key');
+  const binding = api.reconcileStep(run.id, 'send-key').reconciliation;
   assert.equal(binding.verdict, 'executed');
   assert.equal(binding.reason, 'JOURNAL_CONFIRMS_DELIVERY');
   assert.equal(binding.retryAuthorized, false);
@@ -67,7 +67,7 @@ test('submit step: binding recorded pre-effect, completed from the journal, verd
 
   // Reconciliation is read-only: the journal and the run are unchanged by the query.
   const before = journal.read();
-  api.reconcileStep(run.id, 'send-key');
+  api.reconcileStep(run.id, 'send-key').reconciliation;
   assert.deepEqual(journal.read(), before);
   assert.equal(api.get(run.id).run.steps.find((s) => s.key === 'send-key').status, 'uncertain');
 
@@ -90,7 +90,7 @@ test('incomplete binding (dispatch never reached the journal) classifies honestl
     key: 'lost-step', tool: 'submit_conversation_turn',
     arguments: { conversation: 'convo42', key: 'lost-key', prompt: 'x', confirm: true, expectedRevision: 0 },
   }).catch(() => {});
-  const verdict = api.reconcileStep(run.id, 'lost-step');
+  const verdict = api.reconcileStep(run.id, 'lost-step').reconciliation;
   assert.equal(verdict.verdict, 'still_unknown');
   assert.equal(verdict.reason, 'DURABLE_INTENT_BINDING_MISSING_OR_MISMATCHED'); // journal fields absent
   assert.equal(verdict.retryAuthorized, false);
@@ -108,7 +108,7 @@ test('no observable thread identity pre-effect => no binding recorded, reconcile
       key: 's1', tool: 'submit_conversation_turn',
       arguments: { conversation: 'convo42', key: 'k1', prompt: 'x', confirm: true, expectedRevision: 0 },
     }).catch(() => {}); // uncertain step: the reconcile path is exactly for these
-    const verdict = api.reconcileStep(run.id, 's1');
+    const verdict = api.reconcileStep(run.id, 's1').reconciliation;
     assert.equal(verdict.verdict, 'still_unknown');
     assert.equal(verdict.reason, 'DURABLE_INTENT_BINDING_MISSING_OR_MISMATCHED');
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -129,7 +129,7 @@ test('not_executed only from a trusted pre-effect audit, and still never a resen
     key: 'blocked-key', tool: 'submit_conversation_turn',
     arguments: { conversation: 'convo42', key: 'blocked-key', prompt: 'x', confirm: true, expectedRevision: 0 },
   }).catch(() => {});
-  const verdict = api.reconcileStep(run.id, 'blocked-key');
+  const verdict = api.reconcileStep(run.id, 'blocked-key').reconciliation;
   assert.equal(verdict.verdict, 'not_executed');
   assert.equal(verdict.reason, 'TRUSTED_PRE_EFFECT_AUDIT');
   assert.equal(verdict.retryAuthorized, false); // not a new send permit — the journal owner reconciles
