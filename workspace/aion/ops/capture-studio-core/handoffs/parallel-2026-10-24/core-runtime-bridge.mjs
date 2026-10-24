@@ -65,6 +65,7 @@ export function capabilityTruth({attachment,feature,staticHint=false,pageProbe=n
   const tier=verifiedAction?'verified-action':observed?'page-observed':staticHint?'static-hint':'unknown';
   const availability=observed?(pageProbe.state==='available'?'supported':'unavailable'):'unverified';
   return Object.freeze({schema:BRIDGE_SCHEMA,feature,availability,tier,
+    scope:{providerId:attachment.adapter.providerId,siteId:attachment.adapter.siteId,surface:attachment.adapter.surface,origin:a.origin,targetId:a.targetId,captureRef:a.captureRef,attachmentSequence:a.sequence},
     evidence:verifiedAction?[pageProbe.reference,ownerEffectProof.reference]:observed?[pageProbe.reference]:[],
     // These are read-only claims; no discovered adapter gains execution authority.
     executionAuthority:'existing-studio-effect-owner-only',sendAuthorized:false});
@@ -75,6 +76,11 @@ export function effectBoundary({attachment,capability,tool,requestedEffect,prefl
   const deny = reason => Object.freeze({schema:BRIDGE_SCHEMA,decision:'deny',reason,dispatch:false,retryAuthorized:false});
   if (attachment?.schema!==BRIDGE_SCHEMA || capability?.schema!==BRIDGE_SCHEMA) return deny('UNVERIFIED_CONTRACT');
   if (requestedEffect!=='read' && requestedEffect!=='submit') return deny('UNKNOWN_EFFECT');
+  const scope=capability.scope, target=attachment.attachment;
+  if (!scope || scope.providerId!==attachment.adapter.providerId || scope.siteId!==attachment.adapter.siteId
+    || scope.surface!==attachment.adapter.surface || scope.origin!==target.origin
+    || scope.targetId!==target.targetId || scope.captureRef!==target.captureRef
+    || scope.attachmentSequence!==target.sequence) return deny('CAPABILITY_SCOPE_MISMATCH');
   if (requestedEffect==='read') return Object.freeze({schema:BRIDGE_SCHEMA,decision:'read-only-consumer',reason:'NO_BROWSER_EFFECT',dispatch:false,retryAuthorized:false});
   if (tool!=='submit_conversation_turn') return deny('UNREGISTERED_EFFECT_TOOL');
   if (attachment.identity.conversation.state!=='bound' && attachment.identity.task.state!=='bound') return deny('NATIVE_IDENTITY_UNVERIFIED');
@@ -86,8 +92,12 @@ export function effectBoundary({attachment,capability,tool,requestedEffect,prefl
   if (lease?.owner!=='capture-studio' || lease.targetId!==a.targetId || lease.state!=='held') return deny('STUDIO_LEASE_NOT_PROVEN');
   if (journal?.admitted!==true || journal?.status!=='pre-dispatch' || !str(journal.intentBindingRef)) return deny('JOURNAL_NOT_ADMITTED');
   if (preflight?.state!=='fresh' || preflight.targetId!==a.targetId || preflight.origin!==a.origin
-    || !seq(preflight.sequence) || preflight.sequence< a.sequence || preflight.conversationRef!==attachment.identity.conversation.nativeRef && attachment.identity.conversation.state==='bound')
+    || !seq(preflight.sequence) || preflight.sequence < a.sequence)
     return deny('PREFLIGHT_STALE_OR_WRONG_TARGET');
+  for (const [kind, field] of [['conversation','conversationRef'],['task','taskRef'],['branch','branchRef'],['generation','generationRef']]) {
+    const bound=attachment.identity[kind];
+    if(bound.state==='bound' && preflight[field]!==bound.nativeRef) return deny('PREFLIGHT_NATIVE_IDENTITY_MISMATCH');
+  }
   return Object.freeze({schema:BRIDGE_SCHEMA,decision:'defer-to-studio',reason:'ALL_ADVISORY_PREDICATES_MET',dispatch:false,retryAuthorized:false});
 }
 

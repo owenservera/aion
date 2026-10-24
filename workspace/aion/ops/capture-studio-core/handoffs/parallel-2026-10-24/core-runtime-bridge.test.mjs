@@ -133,3 +133,18 @@ test('real classified acceptance still needs independently verified goal class',
  assert.equal(x.acceptedEvidence.state,'observed');assert.equal(x.userGoal.state,'unknown');
  s.goal.evidenceClass='SAVED_REAL_CAPTURE';x=life(s);assert.equal(x.userGoal.state,'observed');
 });
+
+test('capability from another attachment cannot be borrowed to send',()=>{
+ const s=scenario('chatgpt',true), other=scenario('chatgpt',true);
+ const capability=capabilityTruth({attachment:other.attachment,feature:'send-control',pageProbe:{state:'available',targetId:other.page.targetId,origin:other.origin,captureRef:other.page.captureRef,sequence:11,source:'studio-page-observation',reference:'probe'}});
+ const foreign={...capability,scope:{...capability.scope,captureRef:'another-session'}};
+ assert.equal(denied(s,{capability:foreign}).reason,'CAPABILITY_SCOPE_MISMATCH');
+});
+test('task/branch/generation identities also require exact fresh preflight',()=>{
+ const s=scenario('chatgpt',true), c=capabilityTruth({attachment:s.attachment,feature:'send-control',pageProbe:{state:'available',targetId:s.page.targetId,origin:s.origin,captureRef:s.page.captureRef,sequence:11,source:'studio-page-observation',reference:'probe'}});
+ const attachment={...s.attachment,identity:{...s.attachment.identity,task:{state:'bound',nativeRef:'task-native-1'},branch:{state:'bound',nativeRef:'branch-native-1'},generation:{state:'bound',nativeRef:'gen-native-1'}}};
+ const common={attachment,capability:c,tool:'submit_conversation_turn',requestedEffect:'submit',owner:{id:'capture-studio',effectExecutor:'existing-conversation-runtime'},lease:{owner:'capture-studio',targetId:s.page.targetId,state:'held'},journal:{admitted:true,status:'pre-dispatch',intentBindingRef:'binding'},preflight:{state:'fresh',targetId:s.page.targetId,origin:s.origin,sequence:12,conversationRef:s.attachment.identity.conversation.nativeRef,taskRef:'task-native-1',branchRef:'branch-native-1',generationRef:'gen-native-1'}};
+ assert.equal(effectBoundary(common).decision,'defer-to-studio');
+ assert.equal(effectBoundary({...common,preflight:{...common.preflight,generationRef:'wrong'}}).reason,'PREFLIGHT_NATIVE_IDENTITY_MISMATCH');
+ assert.equal(effectBoundary({...common,preflight:{...common.preflight,taskRef:null}}).reason,'PREFLIGHT_NATIVE_IDENTITY_MISMATCH');
+});
