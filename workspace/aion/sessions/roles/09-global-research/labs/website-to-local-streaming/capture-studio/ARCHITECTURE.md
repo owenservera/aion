@@ -553,6 +553,62 @@ defined in `roles/14-webapp-native-harness/CONTRACTS.md` v0.1. Branch rebased on
   not bypassed), verified Claude reply reconstruction, artifact/task native parses (PRODUCT-only),
   and the authenticated two-turn live gate (owner's Windows runtime).
 
+### Round 6 integration checkpoint — 2026-10-24, Z.ai sandbox (Agent 14 hardened harness-run store + dispatch preflight)
+
+Agent 14 published an executable package on GitHub main
+(`roles/14-webapp-native-harness/implementations/round6/`, 5 files, 18 focused tests, remote
+readback verified). This round integrated it into the product rather than rebuilding it, after
+reconciling the 18-commit sandbox branch onto the moved main (`91039694`).
+
+- **Hardened harness-run store (integrated verbatim):** `src/capture/harness-runs.mjs` is now
+  Agent 14's hardened drop-in. Upgrades over the Round 4 store: step identity is
+  `(runId, key, tool, canonical JSON args digest)` — order-independent canonical serialization
+  (the previous digest hashed JS insertion order; equivalent key orders now replay, real changes
+  conflict), with prototype-pollution and cycle rejection; an `in_flight` step is written to
+  durable JSON BEFORE the executor is invoked; every state transition runs under an exclusive
+  per-run `.run.json.lock` (busy locks are refused `RUN_BUSY`, never force-stolen); an executor
+  exception is an UNCERTAIN effect unless the executor proves `effectState:'not_dispatched'`
+  (only then is a `failed` step recorded); same-key retry after a proven not-dispatched failure
+  is restricted to `retryableTools`; `finish` refuses a run with `in_flight`/`uncertain` steps
+  (`RUN_HAS_UNRESOLVED_EFFECT`); concurrent notes are preserved by fresh re-read under the lock;
+  and `recoverAbandonedLock(id,{expectedPid})` releases a crash-left lock only after verifying
+  the owner process is dead — it never clears `in_flight`/`uncertain` effect fences.
+- **Dispatch preflight (new module, verbatim):** `src/studio/harness-executor-preflight.mjs`
+  wraps the single shared executor: `withDispatchPreflight(execute, validate)` runs the pure
+  `validateConversationTool` first and annotates only pre-dispatch validation failures with
+  `effectState:'not_dispatched'` — grounded because validation precedes execution. Errors after
+  that point stay unannotated, so the store fences them as uncertain. `harness-api.mjs`'s
+  `conversationToolExecutor` now routes through it; retry policy is DERIVED from the single tool
+  registry (`HARNESS_RETRYABLE_TOOLS` = tools whose own annotations mark them read-only), so a
+  future read-only tool is automatically covered and an effectful tool can never slip in.
+  `submit_conversation_turn` is never auto-retried here — the conversation journal owns re-dispatch.
+- **Superseded semantics (intentional, not restored):** the Round 4 behavior "any executor error
+  records a failed step, failed steps auto-retry under the same key" is replaced by
+  fail-closed fencing. Two original test assertions were superseded accordingly and are NOT
+  restored; the HTTP fixture's argument-validation failure remains `failed` (proven
+  not_dispatched by the pure preflight). Migration note: steps persisted by the Round 4 store
+  used order-dependent digests — replaying them across the upgrade is fail-closed
+  (`IDEMPOTENCY_CONFLICT`) rather than silently re-executing; per-run ledgers are local task
+  state, not captured evidence, so no evidence migration is implicated.
+- **Tests:** Agent 14's 15 adversarial store tests + 3 preflight tests installed at product
+  paths (`test/unit/harness-runs.test.mjs`, `test/unit/harness-executor-preflight.test.mjs`),
+  plus one preserved-original assertion block (identity validation, not-found and finished-run
+  fencing). Focused: 22/22. Full unit suite at the integration head: 1,263 tests / 1,262 pass /
+  0 fail / 1 pre-existing TODO (offline).
+- **Real crash/lock probe (new):** `scripts/harness-crash-probe.mjs` proves the store's
+  invariants with REAL child processes, no injected io faults — P1 cross-process same-key
+  contention (`STEP_UNCERTAIN` while the first process's executor runs; replay without
+  re-execution afterwards), P2 real SIGKILL mid-executor (step stays `in_flight` after restart,
+  same key refused `STEP_UNCERTAIN`, `finish` refused `RUN_HAS_UNRESOLVED_EFFECT`, executor ran
+  exactly once), P3 owner-verified stale-lock recovery (wrong pid `LOCK_OWNER_MISMATCH`, living
+  owner `LOCK_OWNER_STILL_ALIVE`, verified dead pid released, run usable afterwards).
+  14/14 invariants held in this sandbox (Linux); the SAME command is the standing Windows/NTFS
+  local test for the owner runbook. live-e2e: 14/14 on Chrome for Testing 143 — step 13 drives
+  the hardened store through the real HTTP API (idempotent replay, conflict, finish).
+- **Still not claimed:** authenticated two-turn live acceptance (owner runtime); uncertain-step
+  journal reconciliation remains a documented boundary (Agent 14's package does not implement
+  the journal-specific resolution action; uncertain steps stay fenced until reconciled).
+
 ## 7. Roadmap (intelligence-first order)
 
 > **Agent-harness path (2026-10-23):** the intelligence-first list below remains context. For the owner's
@@ -579,6 +635,8 @@ node bin/studio.mjs record --target chatgpt
 node bin/studio.mjs sessions ; node bin/studio.mjs receipt latest
 npm test                              # unit
 $env:CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe"; npm run test:e2e
+node bin/studio.mjs doctor
+node scripts/harness-crash-probe.mjs  # harness-run store crash/lock recovery proof (keep the receipt)
 node eval/run.mjs                     # intelligence evaluation (roadmap step 1)
 ```
 
