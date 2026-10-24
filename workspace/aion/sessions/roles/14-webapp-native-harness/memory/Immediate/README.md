@@ -22,6 +22,13 @@
 - New highest-value gap: no durable run-step ↔ turn-journal binding for unknown-effect resolution. Wrote/pushed tested **Round7 pure reconciler** `implementations/round7/` with 17/17 fixtures, [Core issue handoff](https://github.com/owenservera/aion/issues/68#issuecomment-6385093109). Requires trusted pre-effect binding in actual Studio executor; no automatic retry/commit of uncertain effect.
 - Continue independent code supplier practice only within specialist implementations; Z.ai integrates into canonical Capture Studio. Do not claim runtime integration of Round7 from GitHub source publication.
 
+## 2026-10-24 — latest Z.ai Round 8 package and owner-direction continuity
+
+- Generic Harness + **Capture Studio intelligence-generated webapp-specific adapters** remains the owner product north star; send/effect authority stays in the one Studio browser actor. Seed adapters must not permanently defeat learned READ repair.
+- Latest owner TAR has 23-patch unmerged Z.ai branch (`23185932` on main `e652a705`), manifest 24/24. Source includes factory probe producer, shadow promotion and rollback; synthetic new-host demo 15/15 reported. Round7 reconciler wired. Agent14 independently ran 34/34 pure tests and reproduced 2 critical integration holes: binding `INTENT_BINDING_EXISTS` on identical replay and train-set/heldout capture reuse yielding fake candidate validation.
+- Agent14 published [Round9](implementations/round9/README.md) replacement binding store + holdout disjoint gate, 12/12 independent Node22 tests, incl two child processes. [Issue #68 steering](https://github.com/owenservera/aion/issues/68#issuecomment-6386556303). Neither Round8 Z.ai integration nor Round9 candidate has been proven on owner's Windows or accepted authenticated ChatGPT/Claude two-turn.
+- Highest-value next action: Z.ai promotes 23 patches safely, integrates Round9 guardrails and replay tests, closes seed-precedence and automatic lifecycle gaps; then Windows live qualifications and native rich output.
+
 ## Most important next action
 Launch a distinct `#AION @Webapp-Native-Harness BOOTSTRAP` conversation, then reconcile actual AION HEAD, the latest Z.ai source bundle, Capture Studio architecture and issues #67–72/#43. Start with native ChatGPT/Claude response-shape/evidence asymmetry; do not invent a new runtime.
 
