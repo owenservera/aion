@@ -23,12 +23,15 @@ export function captureToAdapterEvents(captures){
   if(!plain(c)||!plain(c.scope)||!plain(c.source))throw new Error('INVALID_CAPTURE_ENVELOPE');
   const obs=[];
   for(const [field,carrier] of [['dom','dom'],['a11y','a11y']]){
+   // Source carrier is independently established by Core; do not relabel DOM as a11y.
+   if(c.source.carrier!==carrier)continue;
    const nodes=c[field]??[];
    if(!Array.isArray(nodes)||nodes.length>1000)throw new Error('OBSERVATION_BUDGET');
    for(const n of nodes){const o=signal(n,c.source,carrier);if(o)obs.push(o);}
   }
   // Decode/schema induction may identify typed component paths, NOT message roles.
   for(const x of c.intelligence?.streamComponents??[]){
+   if(!['network','correlated'].includes(c.source.carrier))continue;
    if(x?.evidenceRef!==c.source.evidenceRef||x?.sourceKind!=='CORE_DECODED' ||
      !safe(x.path)||x.outcome!=='present')continue;
    obs.push({feature:'stream-component',streamPath:x.path,outcome:'present',evidenceRef:c.source.evidenceRef});
