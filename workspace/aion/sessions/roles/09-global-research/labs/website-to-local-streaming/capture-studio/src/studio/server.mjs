@@ -27,6 +27,7 @@ import { handlePlatformX } from './platform-x.mjs';
 import { problem, storageName } from './http.mjs';
 import { createDriveApi } from './drive-api.mjs';
 import { createConversationApi, defaultConversationRuntime } from './conversation-api.mjs';
+import { createConversationEvents } from './conversation-events.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
@@ -34,7 +35,8 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   if (!['local', 'token'].includes(accessMode)) throw new Error('CAPTURE_STUDIO_ACCESS_MODE must be local or token');
   token ??= randomBytes(18).toString('base64url');
   conversationRuntime ??= await conversationRuntimeFactory({ paths, profileStore, familyStore, port: cdpPort });
-  const conversationApi = createConversationApi({ runtime: conversationRuntime });
+  const conversationEvents = createConversationEvents({ runtime: conversationRuntime });
+  const conversationApi = createConversationApi({ runtime: conversationRuntime, events: conversationEvents });
   // Persistent learning state (role models, corrections, calibration) lives in the data dir.
   const learner = new ScopedLearner(paths.learner ?? path.join(paths.root, 'learner'));
   const recorder = new Recorder({ sessionsDir: paths.sessions, profileStore, familyStore, port: cdpPort, rawOptions, learner });
@@ -364,19 +366,19 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   }
 
   try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }); }
-  catch (e) { hub.close(); await conversationRuntime.close(); throw e; }
+  catch (e) { hub.close(); conversationEvents.close(); await conversationRuntime.close(); throw e; }
   const actualPort = server.address().port;
   port = actualPort;
   // Self-capture guard: the studio's own UI/API/SSE requests must never become captured targets.
   // The real port is only known after listen (port 0 selects a free one), so set it here.
   recorder.ignoreTargetUrls = [`http://127.0.0.1:${actualPort}`, `http://localhost:${actualPort}`];
-  server.once('close', () => { hub.close(); driveApi.close().catch(() => {}); });
+  server.once('close', () => { hub.close(); conversationEvents.close(); driveApi.close().catch(() => {}); });
   let closing;
   const close = () => closing ??= (async () => {
     try { await conversationRuntime.close(); await driveApi.close(); if (recorder.state === 'recording') await recorder.stop({ reason: 'studio_shutdown' }); }
-    finally { await hub.close(); await new Promise((resolve) => server.close(resolve)); }
+    finally { await hub.close(); conversationEvents.close(); await new Promise((resolve) => server.close(resolve)); }
   })();
-  return { server, recorder, conversationRuntime, integrations: hub, port: actualPort, token, accessMode,
+  return { server, recorder, conversationRuntime, conversationEvents, integrations: hub, port: actualPort, token, accessMode,
     url: accessMode === 'token' ? `http://127.0.0.1:${actualPort}/?token=${token}` : `http://127.0.0.1:${actualPort}/`, close };
 }
 
