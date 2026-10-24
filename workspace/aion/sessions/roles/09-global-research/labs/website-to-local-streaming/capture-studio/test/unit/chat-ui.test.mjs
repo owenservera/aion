@@ -164,14 +164,14 @@ test('stale snapshots never replace newer ones; other conversations switch', () 
   assert.equal(ui.unwrapConversation({ error: 'x' }), null);
 });
 
-test('send gating: one turn, drafts and uncertain sends block, readiness must be reported ready', () => {
+test('send gating: one turn at a time, drafts and uncertain sends block, readiness must be reported ready', () => {
   assert.equal(ui.canSend(ready(), { prompt: 'hi' }).ok, true);
   assert.equal(ui.canSend(ready(), { prompt: '   ' }).ok, false);
   assert.equal(ui.canSend(null, { prompt: 'hi' }).ok, false);
   assert.equal(ui.canSend(ready(), { prompt: 'hi', busy: true }).ok, false);
   const sent = ready({ turn: { id: 't', phase: 'observed', send: { state: 'observed' } } });
   assert.equal(ui.canSend(sent, { prompt: 'hi' }).ok, false);
-  assert.match(ui.canSend(sent, { prompt: 'hi' }).reason, /one message per conversation/);
+  assert.match(ui.canSend(sent, { prompt: 'hi' }).reason, /one turn at a time/, 'a started, unfinished turn blocks the next one');
   assert.equal(ui.canSend(ready({ state: 'needs-reconciliation' }), { prompt: 'hi' }).ok, false);
   assert.equal(ui.canSend(ready({ state: 'closed' }), { prompt: 'hi' }).ok, false);
   assert.equal(ui.canSend(ready({ state: 'martian' }), { prompt: 'hi' }).ok, false);
@@ -286,10 +286,11 @@ test('blocked and preparing turns are not shown as sent; the composer keeps the 
   assert.equal(ui.isActive(ready({ turn: { id: 'a', phase: 'preparing', send: { state: 'not-attempted' } } })), true);
   assert.equal(ui.isActive(draftBlocked()), false);
   // The composer is only emptied when a send was actually started (guarded), never for a blocked turn.
-  assert.match(source, /if \(messageStarted\(snap\)\) prompt\.value = '';/);
+  // ...and only once per started turn, so a message typed for the NEXT turn survives refreshes of an already-sent one.
+  assert.match(source, /if \(messageStarted\(snap\) && S\.clearedTurn !== snap\.turn\.id\) \{ prompt\.value = ''; S\.clearedTurn = snap\.turn\.id; \}/);
   assert.doesNotMatch(source, /if \(snap\?\.turn\) prompt\.value = ''/);
   assert.match(source, /chat\.draft\./, 'unsent text survives a reload in this tab');
-  assert.match(source, /prompt\.disabled = !!snap && \(snap\.state === 'closed' \|\| \(!!snap\.turn && !isBlockedTurn\(snap\)\)\)/);
+  assert.match(source, /prompt\.disabled = !!snap && \(snap\.state === 'closed' \|\| turnInFlight\(snap\)\)/);
 });
 
 test('HTTP ambiguity: network loss, 5xx and unreadable replies keep the key; 4xx does not', () => {
@@ -511,8 +512,8 @@ test('reply text updates in place; count and age are shown; nothing is rendered 
   assert.doesNotMatch(fnBody('function renderTranscript('), /replyBlocks'\)\.replaceChildren|holder\.replaceChildren\(\.\.\.\(blocks/);
 });
 
-test('structure: composer steps aside after the one send, banner focus once, links and copy button', () => {
-  assert.match(source, /\$\('#composer'\)\.hidden = messageStarted\(snap\)/);
+test('structure: composer steps aside only while a turn is in flight, banner focus once, links and copy button', () => {
+  assert.match(source, /\$\('#composer'\)\.hidden = messageStarted\(snap\) && !composerOpen\(snap\)/);
   // The banner is focused once per transition: keyed, and not also a role=alert (no double announcement).
   assert.match(html, /<div class="banner" id="uncertain" tabindex="-1" aria-labelledby="uncertainHead" hidden>/);
   assert.equal((source.match(/banner\.focus\(\)/g) ?? []).length, 1);
@@ -580,11 +581,11 @@ class FakeEl {
 const textNode = () => ({ data: '', appendData(s) { this.data += s; } });
 
 // Serves one ready conversation. The first POST to /turns fails like a lost connection; later ones are accepted.
-function fakeStudio({ failFirstTurn = true } = {}) {
+function fakeStudio({ failFirstTurn = true, initial, afterTurn } = {}) {
   const posts = [];
   let turnCalls = 0;
-  const snapshot = ready();
-  const sent = ready({ revision: 4, turn: { id: 't1', phase: 'observed', send: { state: 'observed' } }, reply: { state: 'waiting', text: '', source: 'page', completion: 'unknown' } });
+  const snapshot = initial ?? ready();
+  const sent = afterTurn ?? ready({ revision: 4, turn: { id: 't1', phase: 'observed', send: { state: 'observed' } }, reply: { state: 'waiting', text: '', source: 'page', completion: 'unknown' } });
   const answer = (status, body) => ({ ok: status < 400, status, statusText: '', text: async () => JSON.stringify(body) });
   const fetchStub = async (url, init = {}) => {
     const method = init.method ?? 'GET', p = String(url).replace(/^\/api\/v1/, '');
@@ -606,12 +607,12 @@ const settle = async () => { for (let i = 0; i < 25; i++) await new Promise((r) 
 
 let bootCount = 0;
 // Installs the globals the page needs, evaluates a fresh copy of chat.mjs (which boots itself), and always restores them.
-async function withPage({ omit = [], failFirstTurn = true } = {}, body) {
+async function withPage({ omit = [], failFirstTurn = true, initial, afterTurn } = {}, body) {
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]).filter((id) => !omit.includes(id));
   const byId = new Map(ids.map((id) => [id, new FakeEl('div', id)]));
   const windowListeners = {}, warnings = [], unhandled = [];
   const store = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
-  const studio = fakeStudio({ failFirstTurn });
+  const studio = fakeStudio({ failFirstTurn, initial, afterTurn });
   const fakeDocument = {
     hidden: false,
     getElementById: (id) => byId.get(id) ?? null,
@@ -710,10 +711,10 @@ test('Send again posts a NEW idempotency key and keeps the same text; the first 
 });
 
 test('a missing optional note is skipped and logged once; a missing required control fails loudly', async () => {
-  await withPage({ omit: ['oneTurnNote'] }, async ({ warnings, unhandled, el }) => {
+  await withPage({ omit: ['turnNote'] }, async ({ warnings, unhandled, el }) => {
     assert.match(el('stageLine').textContent, /Step 3 of 5/, 'the page still finished wiring');
     assert.deepEqual(unhandled, []);
-    assert.equal(warnings.filter((w) => w.includes('#oneTurnNote')).length, 1, 'logged exactly once');
+    assert.equal(warnings.filter((w) => w.includes('#turnNote')).length, 1, 'logged exactly once');
   });
   await assert.rejects(withPage({ omit: ['btnSendAgain'] }, async () => {}), TypeError, 'a required control throws at boot, which this test catches');
 });
@@ -721,4 +722,115 @@ test('a missing optional note is skipped and logged once; a missing required con
 test('chat.mjs never renders HTML strings: no innerHTML, insertAdjacentHTML, outerHTML or document.write', () => {
   assert.doesNotMatch(source, /innerHTML|insertAdjacentHTML|outerHTML|document\.write/);
   assert.match(source, /textContent/);
+});
+
+/* ---------------- Round C: successive turns in one conversation (issue #84) ---------------- */
+const settledTurn = (n, extra = {}) => ({ id: 't' + n, key: 'k' + n, phase: 'delivered', sessionId: 's' + n, send: { state: 'observed' },
+  reply: { state: 'ready', text: 'answer ' + n }, readiness: { state: 'ready' }, completion: { state: 'unknown' }, ...extra });
+const afterTurnOne = (extra = {}) => ready({ revision: 9, turn: settledTurn(1), turns: [settledTurn(1)], capture: { state: 'idle', integrity: null },
+  reply: { state: 'ready', text: 'answer 1', source: 'page', completion: 'unknown' }, ...extra });
+
+test('multi-turn gating: a completed turn re-opens the composer; anything unfinished, uncertain or unrecorded does not', () => {
+  const done = afterTurnOne();
+  assert.equal(ui.turnSettled(done.turn), true);
+  assert.equal(ui.canSend(done, { prompt: 'next' }).ok, true, 'turn 1 complete, capture finished, chat box ready');
+  assert.equal(ui.composerOpen(done), true);
+  assert.match(ui.stageInfo(done).text, /Turn 1 complete\. Write your next message/);
+  const block = (extra, why) => { const r = ui.canSend({ ...done, ...extra }, { prompt: 'next' }); assert.equal(r.ok, false, why); return r; };
+  // reply still coming / readiness not proven / send unconfirmed
+  const streaming = { ...settledTurn(1), reply: { state: 'streaming' }, readiness: { state: 'unknown' } };
+  assert.match(block({ turn: streaming, turns: [streaming] }, 'streaming').reason, /one turn at a time/);
+  assert.equal(ui.composerOpen({ ...done, turn: streaming, turns: [streaming] }), false);
+  const unproven = { ...settledTurn(1), readiness: { state: 'unknown' } };
+  block({ turn: unproven, turns: [unproven] }, 'reply ready but readiness unproven');
+  const uncertain = { ...settledTurn(1), send: { state: 'uncertain' }, phase: 'uncertain' };
+  assert.match(block({ turn: uncertain, turns: [uncertain] }, 'uncertain send').reason, /checked/);
+  // an EARLIER uncertain turn keeps the lock even when the latest turn looks fine
+  const t2 = settledTurn(2);
+  assert.match(block({ turn: t2, turns: [uncertain, t2] }, 'earlier uncertain turn').reason, /checked/);
+  assert.equal(ui.hasUncertainTurn({ turns: [uncertain, t2] }), true);
+  // capture: previous recording must be finished (idle); running, incomplete, rejected or unreported all block
+  for (const state of ['recording', 'incomplete', 'finalizing', 'rejected', 'accepted', undefined]) block({ capture: { state } }, 'capture ' + state);
+  block({ capture: undefined }, 'capture unreported');
+  // binding changed / unready / unverified / needs checking
+  block({ state: 'blocked', readiness: { ready: false, draft: { present: null, chars: null }, reason: 'BINDING_CHANGED' } }, 'binding changed');
+  block({ readiness: { ready: false, draft: { present: true, chars: 3 }, reason: 'DRAFT_PRESENT' } }, 'draft');
+  block({ identity: { state: 'unverified', reason: 'UNSUPPORTED_PATH' } }, 'identity');
+  block({ state: 'needs-reconciliation' }, 'needs checking');
+  block({ state: 'closed' }, 'closed');
+  // a turn blocked before typing never counts against the next one
+  const blocked = { id: 't2', phase: 'blocked', reason: 'THREAD_CHANGED_BETWEEN_TURNS', send: { state: 'not-attempted' } };
+  assert.equal(ui.canSend({ ...done, turn: blocked, turns: [settledTurn(1), blocked] }, { prompt: 'next' }).ok, true);
+  assert.equal(ui.turnCount({ turns: [settledTurn(1), blocked] }), 1);
+});
+
+test('multi-turn: Check again releases a pending unknown only when the service shows no new turn and none is in flight', () => {
+  const pending = { convId: 'c1', key: 'k', prompt: 'p', priorTurnId: 't1' };
+  assert.equal(ui.checkFoundNoMessage(pending, afterTurnOne()), true, 'the service never registered a turn 2');
+  const registered = ready({ turn: settledTurn(2), turns: [settledTurn(1), settledTurn(2)], capture: { state: 'idle' } });
+  assert.equal(ui.pendingRegistered(pending, registered), true);
+  assert.equal(ui.checkFoundNoMessage(pending, afterTurnOne({ state: 'needs-reconciliation' })), false);
+});
+
+test('turn list: every turn keeps its own number, state, session, message and reply (no flattening)', () => {
+  const t2 = settledTurn(2, { reply: { state: 'streaming', text: 'partial' }, readiness: { state: 'unknown' } });
+  const snap = ready({ turn: t2, turns: [settledTurn(1), t2, { id: 't3', phase: 'blocked', reason: 'BINDING_CHANGED', send: { state: 'not-attempted' } }] });
+  const rows = ui.turnRows(snap, { t1: 'first question', t2: 'second question' });
+  assert.deepEqual(rows.map((r) => r.n), [1, 2, 3]);
+  assert.deepEqual(rows.map((r) => r.current), [false, true, false], 'the latest started turn is the detailed one');
+  assert.equal(rows[0].prompt, 'first question'); assert.equal(rows[0].reply, 'answer 1'); assert.equal(rows[0].sessionId, 's1'); assert.equal(rows[1].sessionId, 's2');
+  assert.deepEqual(rows[0].chips.map((c) => c[0]), ['Send observed', 'Reply ready']);
+  assert.deepEqual(rows[1].chips.map((c) => c[0]), ['Send observed', 'Reply streaming']);
+  assert.equal(rows[2].blocked, true); assert.equal(rows[2].reason, 'BINDING_CHANGED'); assert.deepEqual(rows[2].chips.map((c) => c[0]), ['Not sent yet']);
+  assert.deepEqual(ui.turnRows(null), []);
+});
+
+test('page: after a complete turn 1 the composer is back, Send posts a NEW key for turn 2 and never touches turn 1', async () => {
+  const afterTurn = ready({ revision: 10, turn: settledTurn(2, { reply: { state: 'waiting', text: '' }, readiness: { state: 'unknown' } }),
+    turns: [settledTurn(1), settledTurn(2, { reply: { state: 'waiting', text: '' }, readiness: { state: 'unknown' } })], capture: { state: 'recording' },
+    reply: { state: 'waiting', text: '', source: 'page', completion: 'unknown' } });
+  await withPage({ failFirstTurn: false, initial: afterTurnOne(), afterTurn }, async ({ el, studio, warnings, unhandled }) => {
+    assert.equal(el('composer').hidden, false, 'composer is available again after a safe completion');
+    assert.equal(el('prompt').disabled, false);
+    assert.match(el('stageLine').textContent, /Turn 1 complete/);
+    assert.equal(el('turnList').hidden, true, 'one turn: no list yet');
+    el('prompt').value = 'follow-up question';
+    await el('prompt').dispatch('input');
+    assert.equal(el('btnSend').disabled, false);
+    assert.match(el('sendHint').textContent, /becomes turn 2 in the same chat/);
+    await el('btnSend').dispatch('click');
+    await settle();
+    const posts = studio.turnPosts();
+    assert.equal(posts.length, 1); assert.equal(posts[0].body.prompt, 'follow-up question'); assert.equal(posts[0].body.confirm, true);
+    assert.notEqual(posts[0].body.key, 'k1', 'a new idempotency key, never turn 1’s');
+    // Turn 2 is now in flight: composer steps aside, list shows both turns, Send is off.
+    assert.equal(el('composer').hidden, true);
+    assert.equal(el('turnList').hidden, false); assert.equal(el('turnList').children.length, 2);
+    assert.equal(el('btnSend').disabled, true);
+    assert.equal(el('youHead').textContent, 'Turn 2: You');
+    assert.equal(el('youText').textContent, 'follow-up question');
+    assert.equal(el('replyHead').textContent, 'Turn 2: Reply from chatgpt');
+    assert.deepEqual(unhandled, []); assert.deepEqual(warnings, []);
+    assert.deepEqual(studio.otherPosts(), [], 'nothing but the one explicit turn post');
+  });
+});
+
+test('page: a message typed for the next turn survives a refresh of the already-sent turn', async () => {
+  await withPage({ failFirstTurn: false, initial: afterTurnOne() }, async ({ el }) => {
+    el('prompt').value = 'draft for turn two';
+    await el('prompt').dispatch('input');
+    await el('btnReconcile').dispatch('click'); // any refresh path re-renders
+    await settle();
+    assert.equal(el('prompt').value, 'draft for turn two');
+  });
+});
+
+test('page: a started turn still being answered keeps the composer closed; the one-message wording is gone', async () => {
+  const inFlight = ready({ revision: 5, turn: settledTurn(1, { reply: { state: 'streaming', text: 'par' }, readiness: { state: 'unknown' } }),
+    capture: { state: 'recording' }, reply: { state: 'streaming', text: 'par', source: 'page', completion: 'unknown' } });
+  await withPage({ failFirstTurn: false, initial: inFlight }, async ({ el }) => {
+    assert.equal(el('composer').hidden, true); assert.equal(el('btnSend').disabled, true);
+  });
+  assert.doesNotMatch(html, /One message per conversation/);
+  assert.match(html, /id="turnList"/);
 });

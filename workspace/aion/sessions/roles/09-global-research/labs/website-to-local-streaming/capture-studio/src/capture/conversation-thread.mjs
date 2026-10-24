@@ -59,9 +59,11 @@ export function turnObservationExpression(adapter = {}) {
     const composer=all(${JSON.stringify(adapter.composer?.selectors ?? [])})[0];
     const text=composer?String(composer.value??composer.innerText??composer.textContent??'').replace(/\\r\\n/g,'\\n'):null;
     const stop=all(${JSON.stringify(adapter.assistant?.streamingSelectors ?? [])}).length>0;
-    const idle=all(${JSON.stringify(adapter.send?.buttonSelectors ?? [])}).length>0;
+    const sendBtn=all(${JSON.stringify(adapter.send?.buttonSelectors ?? [])}).length>0;
+    const emptyDraft=!!composer&&String(composer.value??composer.innerText??composer.textContent??'').replace(/\\s+/g,'').length===0;
+    const idle=sendBtn||(emptyDraft&&!stop);
     const enabled=!!composer && composer.disabled!==true && composer.getAttribute('aria-disabled')!=='true';
-    return {origin:String(location.origin),pathname:String(location.pathname),messages,draft:{text,chars:text===null?null:text.length},
+    return {origin:String(location.origin),pathname:String(location.pathname),messages,draft:{text,chars:text===null?null:text.replace(/\\s+/g,' ').trim().length},
       controls:{observed:!!composer&&idle,state:stop?'busy':idle&&enabled?'idle':'unknown',idleControlPresent:idle,stopPresent:stop,composerEnabled:enabled}};
   })()`;
 }

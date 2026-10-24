@@ -21,7 +21,7 @@ const REPLY_STATES = {
   interrupted: ['Reply interrupted', 't-warn'], unknown: ['Reply state unknown', 't-warn'],
 };
 const CAPTURE_STATES = {
-  recording: ['Recording', 't-rec'], finalizing: ['Finishing capture…', 't-warn'], accepted: ['Capture accepted', 't-ok'],
+  recording: ['Recording', 't-rec'], idle: ['Not recording', 't-mute'], finalizing: ['Finishing capture…', 't-warn'], accepted: ['Capture accepted', 't-ok'],
   rejected: ['Capture rejected', 't-bad'], incomplete: ['Capture incomplete', 't-warn'],
 };
 const SOURCE_LABELS = {
@@ -65,6 +65,9 @@ const FINISH_ERRORS = {
 const ERROR_TEXT = {
   STALE_REVISION: 'This conversation changed since you last saw it, so nothing was sent. It has been refreshed.',
   ONE_TURN_LIMIT: 'This release sends one message per conversation.',
+  THREAD_FENCED: 'The previous turn in this chat isn’t complete or confirmed yet, so Studio won’t send another. Nothing was sent.',
+  PRIOR_TURN_CAPTURE_NOT_FINALIZED: 'The previous turn’s recording isn’t finished, so Studio won’t start the next turn. Nothing was sent.',
+  THREAD_CHANGED_BETWEEN_TURNS: 'This chat changed since the last turn (an earlier message was edited, removed or regenerated). Nothing was sent.',
   NOT_READY: 'Studio isn’t ready to send. Use Check again (read-only) first.',
   CONFIRM_REQUIRED: 'Sending needs your explicit confirmation.',
   INVALID_SUBMISSION: 'The message is empty or longer than 250000 characters.',
@@ -154,6 +157,31 @@ export const isBlockedTurn = (snap) => snap?.turn?.phase === 'blocked' && snap?.
 export const messageStarted = (snap) => !!snap?.turn && snap.turn.send?.state !== 'not-attempted';
 export const isPreparing = (snap) => snap?.turn?.phase === 'preparing';
 
+/* ---- successive turns: one conversation, one native thread, one turn at a time ---- */
+// Every turn of the conversation, oldest first. Older snapshots that only carry the latest turn still work.
+export const turnsOf = (snap) => (Array.isArray(snap?.turns) && snap.turns.length ? snap.turns : snap?.turn ? [snap.turn] : []);
+const turnBlockedBeforeTyping = (t) => t?.phase === 'blocked' && t?.send?.state === 'not-attempted';
+// A turn is complete only when its send was observed, its reply is finalized and the reply's readiness is proven.
+export const turnSettled = (t) => t?.send?.state === 'observed' && t?.reply?.state === 'ready' && t?.readiness?.state === 'ready';
+// A turn that was started (or is being prepared/uncertain) and is not complete: it keeps the composer closed.
+export const turnInFlight = (snap) => turnsOf(snap).some((t) => !turnBlockedBeforeTyping(t) && !turnSettled(t));
+export const hasUncertainTurn = (snap) => turnsOf(snap).some((t) => t?.send?.state === 'uncertain' || t?.phase === 'needs-reconciliation');
+export const turnCount = (snap) => turnsOf(snap).filter((t) => !turnBlockedBeforeTyping(t)).length;
+// The composer is open for another turn once every started turn is complete (never while one is in flight).
+export const composerOpen = (snap) => !!snap && !['closed', 'finalizing'].includes(snap.state) && !turnInFlight(snap);
+// Per-turn rows for the turn list. `current` is the latest started/preparing turn (shown in full below the list).
+export function turnRows(snap, prompts = {}) {
+  const turns = turnsOf(snap);
+  const detail = [...turns].reverse().find((t) => !turnBlockedBeforeTyping(t) || t?.phase === 'preparing');
+  return turns.map((t, i) => {
+    const blocked = turnBlockedBeforeTyping(t), reply = t?.reply ?? {};
+    return { n: i + 1, id: t?.id ?? '', current: t === detail, blocked, settled: turnSettled(t),
+      chips: [blocked ? ['Not sent yet', 't-mute'] : sendChip(t?.send?.state), ...(!blocked && t?.send?.state !== 'not-attempted' ? [replyChip(reply.state)] : [])],
+      reason: blocked ? t.reason ?? null : null, sessionId: t?.sessionId ?? null,
+      prompt: typeof prompts?.[t?.id] === 'string' ? prompts[t.id] : '', reply: typeof reply.text === 'string' ? reply.text : '' };
+  });
+}
+
 export function draftInfo(snap) {
   const d = snap?.readiness?.draft ?? snap?.draft ?? snap?.binding?.draft ?? null;
   if (d === true) return { present: true, unknown: false, chars: null };
@@ -185,7 +213,7 @@ export function chromeGuidance(snap, sendUnsure) {
   return (sendUnsure ? 'Open the tab in Chrome to see whether it was sent.' : 'Switch to the Chrome tab for this conversation and look at the chat.') + where;
 }
 export function readinessChip(snap) {
-  if (!snap || snap.state === 'closed' || messageStarted(snap) || (snap.turn && !isBlockedTurn(snap))) return null;
+  if (!snap || snap.state === 'closed' || turnInFlight(snap)) return null;
   const r = snap.readiness, d = draftInfo(snap);
   if (!r || r.reason === 'NOT_CHECKED' && r.ready !== true) return ['Chat box not checked', 't-mute'];
   if (d.present) return ['Draft in chat box', 't-warn'];
@@ -205,7 +233,7 @@ export function readinessText(snap) {
 export function readinessPanel(snap) {
   const off = { show: false, draft: false, chars: null, heading: '', lines: [] };
   if (!snap || ['closed', 'finalizing', 'attaching', 'disconnected', 'busy', 'needs-reconciliation'].includes(snap.state)) return off;
-  if (messageStarted(snap) || (snap.turn && !isBlockedTurn(snap))) return off;
+  if (turnInFlight(snap)) return off;
   if (snap.state === 'ready' && snap.readiness?.ready === true) return off;
   const d = draftInfo(snap), lines = [], add = (t) => { if (t && !lines.includes(t)) lines.push(t); };
   const r = snap.readiness;
@@ -229,20 +257,25 @@ export function canSend(snap, { prompt = '', busy = false } = {}) {
   if (busy) return { ok: false, reason: 'Working…' };
   if (snap.state === 'closed') return { ok: false, reason: 'This conversation is closed. Start a new one to send another message.' };
   if (snap.state === 'finalizing') return { ok: false, reason: 'Finishing the capture…' };
-  // One message per conversation. The only exception: a turn that was rejected before anything was typed.
-  if (snap.turn && !isBlockedTurn(snap)) {
-    return { ok: false, reason: isUncertain(snap) ? 'Sending is off until this conversation is checked.' : 'This release sends one message per conversation. Finish the capture, then start a new conversation.' };
+  // One turn at a time. Another message is allowed only after every started turn is complete (send observed, reply
+  // finalized, readiness proven). A turn rejected before anything was typed never counts. An uncertain turn locks.
+  if (turnInFlight(snap)) {
+    return { ok: false, reason: isUncertain(snap) || hasUncertainTurn(snap) ? 'Sending is off until this conversation is checked.' : 'Wait for the current reply to finish. Studio sends one turn at a time in this chat.' };
   }
-  if (isUncertain(snap)) return { ok: false, reason: 'Sending is off until this conversation is checked.' };
+  if (isUncertain(snap) || hasUncertainTurn(snap)) return { ok: false, reason: 'Sending is off until this conversation is checked.' };
   if (snap.identity?.state === 'unverified') return { ok: false, reason: 'Sending is off: Studio can’t tell which chat this tab is showing, and it won’t send into a chat it can’t identify.' };
   if (draftInfo(snap).present) return { ok: false, reason: 'There’s a draft in the chat box. Resolve it in Chrome, then press Check again (read-only).' };
   if (snap.state === 'attaching') return { ok: false, reason: 'Connecting…' };
   if (snap.state === 'busy') return { ok: false, reason: 'Studio is working. Wait a moment.' };
   if (snap.state !== 'ready') return { ok: false, reason: snap.state === 'blocked' ? 'Studio can’t send yet. Use Check again (read-only).' : 'Not ready to send (' + word(snap.state) + ').' };
   if (snap.readiness?.ready !== true) return { ok: false, reason: 'Studio hasn’t confirmed the chat box is ready. Use Check again (read-only).' };
-  // Capture starts with the send itself (deferred capture): an idle, ready, unblocked conversation may start its
-  // first turn. Any other capture state (incomplete, finalizing, rejected, unreported...) still blocks.
-  if (!['recording', 'idle'].includes(snap.capture?.state)) return { ok: false, reason: 'Studio isn’t ready to record this tab, so it won’t send.' };
+  // Capture starts with the send itself (deferred capture): an idle, ready, unblocked conversation may start a turn.
+  // After an earlier turn the previous capture must be finished (idle), never still running or incomplete.
+  // Any other capture state (incomplete, finalizing, rejected, unreported...) still blocks.
+  const earlierTurn = turnCount(snap) > 0;
+  if (earlierTurn ? snap.capture?.state !== 'idle' : !['recording', 'idle'].includes(snap.capture?.state)) {
+    return { ok: false, reason: earlierTurn ? 'The previous turn’s recording isn’t finished, so Studio won’t start the next turn.' : 'Studio isn’t ready to record this tab, so it won’t send.' };
+  }
   if (!String(prompt).trim()) return { ok: false, reason: 'Write a message to continue.' };
   return { ok: true, reason: '' };
 }
@@ -270,7 +303,8 @@ export const pendingRegistered = (pending, snap) => !!pending && !!snap && pendi
 // A send request whose outcome is unknown: it was posted, nothing came back, and no new turn is visible yet.
 export const pendingUnknown = (pending, snap, submitting = false) => !!pending && !!snap && !submitting && pending.convId === snap.id && !pendingRegistered(pending, snap);
 // After a read-only check: no turn registered for the unknown request and nothing else blocks sending.
-export const checkFoundNoMessage = (pending, snap) => pendingUnknown(pending, snap) && !isUncertain(snap) && (!snap.turn || isBlockedTurn(snap));
+export const checkFoundNoMessage = (pending, snap) => pendingUnknown(pending, snap) && !isUncertain(snap) && !hasUncertainTurn(snap)
+  && (!snap.turn || isBlockedTurn(snap) || (snap.turn.id === (pending.priorTurnId ?? null) && !turnInFlight(snap)));
 export function ownedByStudio(snap) {
   const b = snap?.binding ?? {};
   return b.ownedByStudio === true || b.freshTab === true || b.owner === 'studio';
@@ -339,6 +373,7 @@ export function stageInfo(snap, { pending = false, submitting = false } = {}) {
   if (pending || snap.turn?.send?.state === 'uncertain') return at(3, 'Send not confirmed');
   if (messageStarted(snap)) {
     const r = snap.reply?.state;
+    if (r === 'ready' && turnSettled(snap.turn) && canSend(snap, { prompt: 'x' }).ok) return at(3, 'Turn ' + turnCount(snap) + ' complete. Write your next message');
     if (r === 'ready') return at(5, snap.capture?.state === 'recording' ? 'Reply ready. Still recording' : 'Reply ready');
     return at(4, { waiting: 'Waiting for the reply', streaming: 'Reply streaming', interrupted: 'Reply interrupted' }[r] ?? 'Reply state unknown');
   }
@@ -601,6 +636,8 @@ function boot() {
     openSeq: 0,
     pending: null, timer: null, failures: 0, announced: '', bannerFocus: '',
     focusMessage: false, openBlocks: {}, sentPrompt: '', authExpired: false,
+    // Prompt text per turn id (kept in this browser tab's sessionStorage only; the service never returns prompt bodies).
+    prompts: {}, clearedTurn: null,
     unknownDetail: '', checkedNote: '', copyState: '', replyTrack: null, finishFocus: false,
     // Exact thread reference seen when the tab was chosen; sent as expectedThread so a moved tab is refused, not followed.
     pickRef: null, pickNote: '',
@@ -650,7 +687,8 @@ function boot() {
         S.bannerFocus = ''; S.openBlocks = {}; textBlocks.clear(); S.replyTrack = null;
         S.unknownDetail = ''; S.checkedNote = ''; S.copyState = ''; S.finishFocus = false;
         S.transcript = null; S.reading = false; ++S.readSeq; setError('#readError', '');
-        S.sentPrompt = store.get('sessionStorage', 'chat.sent.' + picked.id) ?? ''; loadPending(picked.id);
+        S.sentPrompt = store.get('sessionStorage', 'chat.sent.' + picked.id) ?? ''; loadPending(picked.id); loadPrompts(picked.id);
+        S.clearedTurn = picked.turn?.id ?? null; // an already-sent turn never wipes a draft typed for the next one
         openStream(picked.id);
         // The user's own unsent text is kept; only a different conversation gets its own saved draft.
         const saved = store.get('sessionStorage', 'chat.draft.' + picked.id) ?? '';
@@ -661,9 +699,10 @@ function boot() {
     }
     if (pendingRegistered(S.pending, S.snap)) {
       S.sentPrompt = S.pending.prompt; store.set('sessionStorage', 'chat.sent.' + S.snap.id, S.sentPrompt);
+      rememberPrompt(S.snap.id, S.snap.turn.id, S.pending.prompt);
+      store.del('sessionStorage', 'chat.draft.' + S.snap.id);
       clearPending(); S.unknownDetail = '';
     }
-    if (messageStarted(S.snap)) store.del('sessionStorage', 'chat.draft.' + S.snap.id);
     const i = S.list.findIndex((c) => c.id === S.snap.id);
     const summary = { id: S.snap.id, site: S.snap.site, state: S.snap.state, revision: S.snap.revision };
     if (i >= 0) S.list[i] = { ...S.list[i], ...summary }; else S.list.unshift(summary);
@@ -671,6 +710,14 @@ function boot() {
   }
   function loadPending(id) {
     try { const p = JSON.parse(store.get('sessionStorage', 'chat.pending.' + id) ?? 'null'); S.pending = p && p.key ? p : null; } catch { S.pending = null; }
+  }
+  function loadPrompts(id) {
+    try { const p = JSON.parse(store.get('sessionStorage', 'chat.prompts.' + id) ?? 'null'); S.prompts = p && typeof p === 'object' && !Array.isArray(p) ? p : {}; } catch { S.prompts = {}; }
+  }
+  function rememberPrompt(convId, turnId, text) {
+    if (!turnId || typeof text !== 'string' || (S.snap && S.snap.id !== convId)) return;
+    S.prompts = { ...S.prompts, [turnId]: text };
+    store.set('sessionStorage', 'chat.prompts.' + convId, JSON.stringify(S.prompts));
   }
   function savePending() { if (S.pending) store.set('sessionStorage', 'chat.pending.' + S.pending.convId, JSON.stringify(S.pending)); }
   function clearPending() { if (S.pending) store.del('sessionStorage', 'chat.pending.' + S.pending.convId); S.pending = null; }
@@ -848,6 +895,7 @@ function boot() {
       if (!c || c.id !== snap.id) throw Object.assign(new Error('The Studio accepted the request but returned an unreadable or mismatched conversation.'), { status: 200, malformed: true });
       // Persist the result for the original conversation, never for a different one now on screen.
       store.set('sessionStorage', 'chat.sent.' + snap.id, attempt.prompt);
+      if (c.turn?.id && c.turn.id !== (attempt.priorTurnId ?? null)) rememberPrompt(snap.id, c.turn.id, attempt.prompt);
       if (S.pending?.convId === snap.id && S.pending.key === attempt.key) clearPending();
       else store.del('sessionStorage', 'chat.pending.' + snap.id);
       if (stillOn(snap.id)) { S.sentPrompt = attempt.prompt; applySnapshot(c); }
@@ -926,7 +974,7 @@ function boot() {
   function newConversation() {
     ++S.openSeq;
     S.transcript = null; S.reading = false; ++S.readSeq; setError('#readError', '');
-    stopPolling(); S.snap = null; S.pending = null; S.sentPrompt = ''; S.failures = 0;
+    stopPolling(); S.snap = null; S.pending = null; S.sentPrompt = ''; S.prompts = {}; S.clearedTurn = null; S.failures = 0;
     S.unknownDetail = ''; S.checkedNote = ''; S.copyState = ''; S.replyTrack = null; S.finishFocus = false; textBlocks.clear();
     store.del('localStorage', SELECTED_KEY); $('#prompt').value = ''; $('#prompt').readOnly = false;
     $('#detailsKv').replaceChildren(); showProblem(''); render(); loadTargets(); $('#connectBox').open = true;
@@ -1028,24 +1076,43 @@ function boot() {
     const have = Array.from(holder.children);
     if (have.length !== want.length || want.some((n, i) => n !== have[i])) holder.replaceChildren(...want);
   }
+  // One row per turn (Turn 1, 2, 3 ...), each with its own send/reply state, never merged into one blob. The latest
+  // started turn is shown in full below the list; earlier turns keep their own message and reply here.
+  function renderTurns(snap) {
+    const list = $('#turnList'), rows = snap ? turnRows(snap, S.prompts) : [];
+    list.hidden = rows.length < 2;
+    const sig = JSON.stringify(rows.map((r) => [r.n, r.id, r.current, r.blocked, r.chips, r.reason, r.sessionId, r.prompt, r.current ? '' : r.reply]));
+    if (list.dataset.sig === sig) return;
+    list.dataset.sig = sig;
+    list.replaceChildren(...rows.map((r) => el('li', { class: 'turn' }, [
+      el('p', { class: 'note' }, [el('b', { text: 'Turn ' + r.n + (r.current ? ' (shown in full below)' : '') }), ' ', ...r.chips.map(chip)]),
+      r.reason ? el('p', { class: 'note', text: reasonText(r.reason) }) : null,
+      !r.current && r.prompt ? el('p', { class: 'body', text: 'You: ' + r.prompt }) : null,
+      !r.current && r.reply ? el('details', { class: 'blk' }, [el('summary', { text: 'Reply to turn ' + r.n }), el('p', { class: 'body', text: r.reply })]) : null,
+    ])));
+  }
   function renderTranscript(snap) {
     const started = messageStarted(snap), preparing = isPreparing(snap);
+    renderTurns(snap);
     const empty = $('#emptyState');
     empty.hidden = !!snap && (started || preparing);
     setText(empty, !snap ? 'No conversation yet. Connect to a site above.'
       : 'Connected. Earlier messages in this chat aren’t shown here. Write your message below.');
     $('#youMsg').hidden = !(started || preparing); $('#phaseLine').hidden = !started; $('#replyMsg').hidden = !started || !snap?.reply;
     if (!(started || preparing)) return;
-    setText($('#youText'), S.sentPrompt || $('#prompt').value || 'Your message isn’t kept in this browser tab.');
+    const n = turnCount(snap), own = S.prompts[snap.turn.id];
+    const fallback = preparing && !started ? (S.pending?.prompt || $('#prompt').value) : n <= 1 ? (S.sentPrompt || $('#prompt').value) : S.sentPrompt;
+    setText($('#youHead'), n > 1 ? 'Turn ' + n + ': You' : 'You');
+    setText($('#youText'), own || fallback || 'Your message isn’t kept in this browser tab.');
     setText($('#youNote'), preparing ? 'Not sent yet. Studio is checking the chat box and typing.'
       : (snap.turn.send?.observationSource ? 'Send seen in: ' + word(snap.turn.send.observationSource) + '. ' : '') + 'Studio can’t prove the site received it only once.');
     const copy = $('#btnCopy');
-    copy.hidden = !S.sentPrompt;
+    copy.hidden = !(own || S.sentPrompt);
     setText(copy, S.copyState === 'copied' ? 'Message copied' : S.copyState === 'failed' ? 'Couldn’t copy. Select the text instead' : 'Copy my message');
     if (!started) return;
     syncChips($('#phaseLine'), [sendChip(snap.turn.send?.state), ...(snap.reply ? [replyChip(snap.reply.state)] : [])]);
     const reply = snap.reply; if (!reply) return;
-    setText($('#replyHead'), 'Reply from ' + siteName(snap.site));
+    setText($('#replyHead'), (n > 1 ? 'Turn ' + n + ': ' : '') + 'Reply from ' + siteName(snap.site));
     const blocks = replyBlocks(reply);
     syncReplyBlocks(blocks, reply);
     syncChips($('#replyChips'), [sourceChip(reply.source), completionChip(reply.completion)]);
@@ -1095,16 +1162,18 @@ function boot() {
   function renderComposer() {
     const snap = S.snap, prompt = $('#prompt');
     const locked = !!S.pending && !!snap && S.pending.convId === snap.id && !pendingRegistered(S.pending, snap);
-    // Once the one message has been sent the composer steps aside and Finish becomes the next action.
-    $('#composer').hidden = messageStarted(snap);
+    // While a started turn is in flight the composer steps aside; once it is complete the composer is back for the next turn.
+    $('#composer').hidden = messageStarted(snap) && !composerOpen(snap);
     if (locked) prompt.value = S.pending.prompt;
-    // The text leaves the box only once a send was actually started; a blocked or interrupted attempt keeps it.
-    if (messageStarted(snap)) prompt.value = '';
-    prompt.disabled = !!snap && (snap.state === 'closed' || (!!snap.turn && !isBlockedTurn(snap)));
+    // The text leaves the box once, when a send was actually started; a blocked or interrupted attempt keeps it,
+    // and a message typed for the NEXT turn is never wiped by a later refresh of an already-sent turn.
+    if (messageStarted(snap) && S.clearedTurn !== snap.turn.id) { prompt.value = ''; S.clearedTurn = snap.turn.id; }
+    prompt.disabled = !!snap && (snap.state === 'closed' || turnInFlight(snap));
     prompt.readOnly = locked || S.submitting;
     const check = canSend(snap, { prompt: prompt.value, busy: S.submitting || locked });
     $('#btnSend').disabled = !check.ok;
-    $('#sendHint').textContent = check.ok ? (isBlockedTurn(snap) ? 'Your earlier attempt was stopped before anything was typed or sent.' : '')
+    $('#sendHint').textContent = check.ok ? (isBlockedTurn(snap) ? 'Your earlier attempt was stopped before anything was typed or sent.'
+      : turnCount(snap) > 0 ? 'Turn ' + turnCount(snap) + ' is complete. This message becomes turn ' + (turnCount(snap) + 1) + ' in the same chat.' : '')
       : locked && !S.submitting ? 'Locked: Studio can’t confirm your last message was sent. Use Check again or Send again in the notice above.' : check.reason;
   }
   function renderFinish(snap) {
@@ -1116,6 +1185,7 @@ function boot() {
     const bits = [];
     if (!out) {
       if (snap.reply?.state === 'ready' && messageStarted(snap) && snap.capture?.state === 'recording') bits.push('Reply ready. Still recording.');
+      else if (snap.capture?.state === 'idle' && turnCount(snap) > 0) bits.push('Turn ' + turnCount(snap) + ' is recorded and its recording is stopped. Finish when you are done with this chat.');
       else if (snap.capture) bits.push(captureChip(snap.capture.state)[0] + '.');
       if (ctl.early) bits.push('The reply isn’t finished. Finishing now will probably leave the capture incomplete.');
       if (snap.capture?.state === 'recording' && !(snap.reply?.state === 'ready' && messageStarted(snap))) bits.push('Recording continues until you finish it' + (limitStatus(snap.capture).lines.length ? ' or the recording budget runs out.' : '.'));
@@ -1128,7 +1198,7 @@ function boot() {
     if (!showClose) $('#closeTab').checked = false;
     if (!closed && !showClose) bits.push(isUncertain(snap) || snap.diagnostic?.uncertainty ? 'The tab stays open because the state isn’t confirmed.' : 'Studio won’t close this tab.');
     setText($('#finishNote'), bits.join(' '));
-    optHidden('#oneTurnNote', !(messageStarted(snap) && !closed));
+    optHidden('#turnNote', !(messageStarted(snap) && !closed));
     // Outcome: chip, the failed or unknown checks behind it, and the saved session, all in the bar itself.
     setText($('#finishHeading'), out ? 'Result: ' + out.chip[0] : 'Capture');
     $('#finishOutcome').hidden = !out; syncChips($('#finishOutcome'), out ? [out.chip] : []);
@@ -1196,7 +1266,7 @@ function boot() {
     // Phase changes only. Streaming text is never announced; a ready reply adds its source and completion once.
     const unsure = pendingUnknown(S.pending, snap, S.submitting);
     const ready = replyReadyText(snap);
-    const key = snap ? [snap.state, snap.turn?.phase, snap.turn?.send?.state, snap.reply?.state, snap.capture?.state, snap.readiness?.ready, unsure, ready].join('|') : '';
+    const key = snap ? [snap.state, snap.turn?.phase, snap.turn?.send?.state, snap.reply?.state, snap.capture?.state, snap.readiness?.ready, unsure, ready, turnCount(snap), composerOpen(snap)].join('|') : '';
     if (key === S.announced) return;
     S.announced = key;
     if (!snap) { $('#announce').textContent = ''; return; }

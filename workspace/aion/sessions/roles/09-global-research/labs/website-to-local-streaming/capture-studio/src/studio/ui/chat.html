@@ -242,8 +242,9 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
 
       <div class="panel" id="transcript" role="log" aria-live="off" aria-label="Conversation" tabindex="0">
         <p class="empty" id="emptyState">No conversation yet. Connect to a site above.</p>
+        <ol class="plain" id="turnList" aria-label="Turns in this chat, oldest first" hidden></ol>
         <article class="msg you" id="youMsg" hidden>
-          <h3>You</h3>
+          <h3 id="youHead">You</h3>
           <p class="body" id="youText"></p>
           <p class="note" id="youNote"></p>
           <button type="button" id="btnCopy" hidden>Copy my message</button>
@@ -288,7 +289,7 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
       <div class="chips" id="finishOutcome" hidden></div>
       <ul class="plain" id="finishReasons"></ul>
       <div class="note" id="finishNote"></div>
-      <p class="note" id="oneTurnNote" hidden>One message per conversation. To send another, finish this capture and start a new conversation.</p>
+      <p class="note" id="turnNote" hidden>Each Send adds one turn to this same chat. Studio sends the next message only after the previous reply is complete and its recording has stopped. Finish when you are done.</p>
       <label class="pick" for="closeTab" id="closeTabField" hidden><input type="checkbox" id="closeTab"><span>Also close the tab Studio opened</span></label>
       <div class="row" style="margin-top:6px">
         <button type="button" id="btnFinish">Finish capture</button>
@@ -305,7 +306,7 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
       <div class="row" style="margin-top:8px">
         <button type="button" class="primary" id="btnSend" disabled>Send</button>
       </div>
-      <p class="note" id="sendNote" style="margin:6px 0 0">Sends 1 message with your logged-in account. It uses quota and adds to this chat’s history. One message per conversation. Up to 250,000 characters. Enter adds a new line.</p>
+      <p class="note" id="sendNote" style="margin:6px 0 0">Sends 1 message with your logged-in account. It uses quota and adds to this chat’s history. One turn at a time. Up to 250,000 characters. Enter adds a new line.</p>
       <div class="err" id="sendError" role="alert" style="margin-top:6px"></div>
     </form>
   </main>
