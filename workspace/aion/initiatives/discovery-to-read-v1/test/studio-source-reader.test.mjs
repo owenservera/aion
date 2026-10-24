@@ -126,5 +126,5 @@ test('symlinked session dir to outside sessions root fails closed',async t=>{
     throw e;
   }
   await assert.rejects(createStudioSourceReader(h.deps).lookupCapture(h.id),
-    code('SESSION_IDENTITY_MISMATCH'));
+    exactCode('SESSION_IDENTITY_MISMATCH'));
 });
