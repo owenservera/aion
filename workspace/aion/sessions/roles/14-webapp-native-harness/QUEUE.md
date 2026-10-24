@@ -48,6 +48,13 @@ Agent 14 can publish **ready-to-integrate, isolated specialist components and ad
 
 **Shipped:** [Round 6 implementation source + tests + guide](implementations/round6/README.md) (GitHub main publication `5debf2286b9a6a9becd97c6bb75086d563474048`). Hardened drop-in run store + preflight adapter, 18/18 focused Node22 synthetic tests; exact remote readback verified. [Core #68 handoff](https://github.com/owenservera/aion/issues/68#issuecomment-6384442742). Pending Z.ai branch reconciliation, full product suite, Windows crash/lock and authenticated provider acceptance. Original Z.ai legacy tests contain two superseded unsafe expectations; guide identifies them.
 
+## 2026-10-24 — Z.ai Round 6 verified assessment and new Round 7 supplier
+
+- Owner's Z.ai TAR (5) exported 20 rebased sequential patches, bundle `d9f401d7` based on `91039694`. Manifests pass (19/19 original, 21/21 Round6); first 18 patch **diff identities** match the earlier series via stable patch-id. Full suite 1,262 pass/1 TODO and Chrome 14/14 are Z.ai-reported; 19/19 narrow module tests + 14/14 real child-process Linux crash invariants independently rerun from reconstructed export. GitHub main does **not** contain Z.ai promotion patches; Windows and authenticated provider acceptance remain pending.
+- Critical new integration seam: run step `key/tool/argsDigest` and journal `turn.key/payloadDigest/threadKey` have no assured durable linkage. Do not infer from timestamps, conversation ID or matching text.
+- **Published** [Round 7 pure uncertain-step reconciler](implementations/round7/README.md), 17/17 offline tests; source remote readback verified. Classifies `executed/not_executed/still_unknown` only with trusted prior durable binding; no mutation, no retry permission. Z.ai must implement pre-effect link producer in existing runtime before this is useful; never fabricate links after a crash.
+- [Core #68 supplier/assessment handoff](https://github.com/owenservera/aion/issues/68#issuecomment-6385093109). Highest-value next: pull/integrate Round7 supplier, write binding at effect owner, re-run full suite and Windows/NTFS checks, promote 20 patches safely, then real owner browser acceptance.
+
 ## First agent-owned research actions
 1. Check current repo HEAD and the latest Z.ai execution artifacts. The original ten Z.ai patches are not integration proof.
 2. Compare native shape structures for a citation-rich ChatGPT response and one Claude Artifact against provider docs and saved captures; explicitly identify which evidence exists and what cannot yet be observed.
