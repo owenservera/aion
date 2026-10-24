@@ -8,8 +8,8 @@
 - Worktree path: `workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/`.
 - Exact Git blob SHAs, independent of commit metadata:
   - `core-runtime-bridge.mjs`: `90967c465e1abe5c6e0fe9fe390850234c2a8603`
-  - `core-runtime-bridge.test.mjs`: `6184dbaa6798ad16ec552d0e688ca85ae21383a2`
-  - `offline-fixture.mjs`: `1f18776c29aa589194ae3edfa3f356af5727b723`
+  - `core-runtime-bridge.test.mjs`: `5d3b38925c0bdc3cd9228c073a3d3071013cb13d`
+  - `offline-fixture.mjs`: `a0d236e57f6b0ae39ea9054253e0dd7dd50edf4e`
 - File contents contain no cookies, credentials, .env, private transcripts, provider requests or embedded secrets. No browser driver/dependency imports.
 
 ## Node 22 entrypoints and schemas
@@ -40,11 +40,11 @@ node --version                     # v22.16.0
 node --check core-runtime-bridge.mjs
 node --check offline-fixture.mjs
 node --check core-runtime-bridge.test.mjs
-node --test core-runtime-bridge.test.mjs  # 31 pass / 0 fail / 0 skipped / 0 TODO
+node --test core-runtime-bridge.test.mjs  # 32 pass / 0 fail / 0 skipped / 0 TODO
 node offline-fixture.mjs                 # JSON: unknown + registered, both liveAcceptance=false
 ```
 
-Execution environment: isolated Linux container, offline, no browser/Windows/Chrome. Source code passes Node 22 syntax and 31 adversarial assertions. This does NOT retest Z.ai's proposed 23 patches, the product suite, or authenticated providers; no real G1–G7 accepted capture is claimed.
+Execution environment: isolated Linux container, offline, no browser/Windows/Chrome. Source code passes Node 22 syntax and 32 adversarial assertions. This does NOT retest Z.ai's proposed 23 patches, the product suite, or authenticated providers; no real G1–G7 accepted capture is claimed.
 
 ## Integration into existing Studio: exact destination seams
 

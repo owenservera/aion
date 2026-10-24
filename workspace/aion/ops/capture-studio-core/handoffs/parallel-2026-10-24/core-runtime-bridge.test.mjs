@@ -148,3 +148,7 @@ test('task/branch/generation identities also require exact fresh preflight',()=>
  assert.equal(effectBoundary({...common,preflight:{...common.preflight,generationRef:'wrong'}}).reason,'PREFLIGHT_NATIVE_IDENTITY_MISMATCH');
  assert.equal(effectBoundary({...common,preflight:{...common.preflight,taskRef:null}}).reason,'PREFLIGHT_NATIVE_IDENTITY_MISMATCH');
 });
+
+test('registered provider fixture route is the actual strict /c/ UUID specialization',()=>{
+ const s=scenario('chatgpt',true);assert.equal(new URL(s.page.url).pathname,'/c/12345678-1234-1234-1234-123456789abc');
+});

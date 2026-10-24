@@ -6,7 +6,7 @@ export function scenario(siteId='unknown-lab', registered=false){
   const origin=registered?'https://chatgpt.com':'https://lab.example';
   const captureRef='fixture-session-1';
   const adapter={siteId,providerId:registered?'openai.chatgpt.web':'lab.unknown.web',origin,surface:'chat',version:'fixture-v1',kind:registered?'seed':'learned-read-only'};
-  const page={targetId:'fixture-target-1',captureRef,sequence:10,observedAt:when,url:`${origin}/chat/example`,origin,siteId,surface:'chat',account:{state:'unknown'}};
+  const page={targetId:'fixture-target-1',captureRef,sequence:10,observedAt:when,url:registered?`${origin}/c/12345678-1234-1234-1234-123456789abc`:`${origin}/chat/example`,origin,siteId,surface:'chat',account:{state:'unknown'}};
   const nativeRef=registered?'chatgpt-c:12345678-1234-1234-1234-123456789abc':'opaque-thread:fixture';
   const attachment=resolveAttachment({adapter,page,resolved:{conversation:{kind:'conversation',nativeRef,origin,verified:true,source:source(captureRef)}}});
   const readCapability=capabilityTruth({attachment,feature:'assistant-turn',staticHint:true,pageProbe:{state:'available',targetId:page.targetId,origin,captureRef,sequence:11,source:'studio-page-observation',reference:'probe:read'}});
