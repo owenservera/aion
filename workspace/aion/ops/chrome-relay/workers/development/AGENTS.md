@@ -1,3 +1,5 @@
+> **Active execution override:** Follow root AGENTS.md. For owner-directed engineering, implement and run the existing application directly. Avoid default subagent delegation, repeated bootstrap/memory/skill scans, extra reports, and waiting for other workers. Preserve normal tests and real-effect safeguards.
+
 # development — Agent instructions
 
 Respect repository root `AGENTS.md`, this role's existing BOOTSTRAP/DELIVERABLES and current owner direction. This is a pointer, not a replacement for the role's original workspace.
