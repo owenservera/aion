@@ -4,15 +4,14 @@
 
 ## Files and extraction
 
-`U1-SOURCE.tar.gz` is a reproducible source package containing these three readable files; it is not runtime-transpiled/minified code and contains no third-party dependencies:
+This GitHub supplier folder contains the following three readable source files directly, plus this handoff; no extraction or dependency installation is required. An optional local `.tar.gz` archive is also available in the conversation deliverables:
 - `universal-chat.mjs` — `projectWorkspace`, `projectRail`, `projectCapability`, `projectAdapter`, `evidenceRef`, `projectOutcome`, `recoveryView`, `createConversationStore`, `renderNativeBlock`, `mountUniversalChat`.
 - `fixtures.mjs` — explicitly fictional synthetic provider/native blocks, seeded and learned adapter versions, rejected shadow drift, streaming revisions, account index and tab fixtures.
 - `universal-chat.test.mjs` — native Node tests with injected minimal DOM, no network/CDP/sends.
 
-From this folder (Node >=22, built-in `tar`):
+From this folder (Node >=22):
 
 ```sh
-tar -xzf U1-SOURCE.tar.gz
 node --check universal-chat.mjs
 node --test universal-chat.test.mjs
 ```
@@ -23,7 +22,7 @@ node --test universal-chat.test.mjs
 
 Destination *only after Z.ai reviews its own 23-patch unmerged export and current main*: `workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/ui/universal-chat.mjs`. Keep existing `chat.html` + `chat.mjs` and current Core `api('/api/v1/...')` implementation; do not replace their sender, event polling, read/reconcile or `#transcript`.
 
-1. Extract archive, copy `universal-chat.mjs` to the destination above; port `universal-chat.test.mjs` to product `test/unit/` with import path adapted, and fixture beside tests. This candidate does not touch canonical files itself.
+1. Copy `universal-chat.mjs` to the destination above; port `universal-chat.test.mjs` to product `test/unit/` with import path adapted, and fixture beside tests. This candidate does not touch canonical files itself.
 2. Add near top of existing `src/studio/ui/chat.mjs`: `import { mountUniversalChat } from './universal-chat.mjs';`. Within existing `boot()`, mount **once** into an element under existing `#detailsBody` or into a dedicated `<div id="universalIntelligence"></div>` within the same `/chat` page: `const universal = mountUniversalChat({document, root: document.querySelector('#universalIntelligence'), onInspect: ({conversationId}) => { /* verify id === S.snap?.id, then call existing read-only reconcile() */ }, onEvidence: ({sid,sequence}) => { /* existing verified evidence explorer navigation using actual SID+seq */ }, onReviewAdapter: ({site,version,rollbackVersion}) => { /* existing read-only adapter details, NEVER effect/promote */ } });`.
 3. Extend the **existing** Chat `render()` *after* snapshot refresh to call `universal.show({snapshot:S.snap, openTabs:S.targets, accountChats:SERVER_READ_ACCOUNT_INDEX_ONLY, providers:SERVER_PROVIDER_RAIL, tasks:SERVER_TASK_INDEX, adapters:SERVER_ADAPTER_INTELLIGENCE_READ_ONLY, capabilities:SERVER_LIVE_CAPABILITY_SNAPSHOT, events:SERVER_ATTRIBUTED_NATIVE_BLOCK_EVENTS, turnIds:SERVER_TRUSTED_TURN_IDS, outcome:SERVER_SEPARATE_OUTCOMES});`. These uppercase names are **integration placeholders**, not purported current Core variables or existing routes. Pass `[]` until their actual Core/Intelligence producers are verified. Do not turn the existing tab list into account history.
 4. Event contract: `{turnId,blockId,eventId,sequence,op:'open'|'append'|'replace'|'patch'|'close'|'invalidate',kind,text?,payload?,nativeType?,revision?,evidence?:{grounded:true,sid:string,seq:number,...}}`. Require identifiers and sequence from source; **do not synthesize a native turn key from matching text/timestamp/tab title**. A patch requires a full replacement text or payload; otherwise UI preserves current content and abstains. `accept(event)` buffers chunks; call `show(...)` in coalesced batches, not for every network byte. Never declare G1–G7 success from a UI projection.
