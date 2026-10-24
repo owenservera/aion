@@ -640,4 +640,78 @@ node scripts/harness-crash-probe.mjs  # harness-run store crash/lock recovery pr
 node eval/run.mjs                     # intelligence evaluation (roadmap step 1)
 ```
 
+### Round 8 integration checkpoint — 2026-10-24, Z.ai sandbox (Agent 14 adaptive adapter factory + Round 7 uncertain-step reconciler)
+
+Agent 14 published two executable packages on GitHub main: `implementations/round8/` (generic
+adaptive webapp adapter factory: candidate synthesis, evidence-weighted ranking, drift detection,
+held-out shadow evaluation; 17 tests) and `implementations/round7/` (pure uncertain-step
+reconciler; 17 tests). Both are now installed in the product verbatim and wired to the existing
+Capture Studio systems — no second registry, no second browser actor, no send grant.
+
+- **Self-generating webapp adapters (Round 8).** The corrected architecture is now live in code:
+  handwritten `src/profiles/sites/*.mjs` adapters remain the seeds/fallbacks, while the factory
+  turns Capture Studio's own evidence into data-only learned adapters.
+  - Probe production (`src/studio/adapter-probes.mjs`): SAVED_REAL_CAPTURE probes from existing
+    derive outputs (DOM_TURNS attribute selectors, ASSEMBLED stream endpoints, DOM_INSPECT /
+    RECEIPT thread-URL route templates) and SANDBOX_REAL_BROWSER probes from a bounded READ-ONLY
+    in-page measurement through the existing DomObserver. Absence is only claimed by a complete
+    whole-document measurement; saved captures contribute presence votes only; thread routes are
+    only proposed when the page URL carries identity-shaped tokens (never titles/ordinals/text).
+  - Lifecycle (`src/studio/adapter-factory-service.mjs`): synthesize -> shadow-evaluate ->
+    promote -> rollback over a VersionedStore at `<root>/learned-adapters/`. Promotion RE-COMPUTES
+    the held-out shadow evaluation server-side; a client receipt alone never promotes;
+    `AUTHORITY_VIOLATION`, `SHADOW_MISMATCH` and `PROMOTION_NOT_EARNED` fail closed. A learned
+    adapter activates only held-out-confirmed READ features (user-turn, assistant-turn,
+    thread-route, stream-component; composer/send-control/stop-control can never appear).
+  - One registry, two views (`src/profiles/sites/index.mjs`): the execution path (`getAdapter`,
+    used by drive/send) is byte-identical to before and can never resolve a learned adapter;
+    `getReadAdapter`/`listReadAdapters` expose seeds + learned to observation surfaces. Defense
+    in depth: a learned adapter carries `send.strategy 'learned-readonly'` and
+    `sendMessage` refuses it before any CDP traffic (`src/capture/actions.mjs`).
+  - API/tools (`src/studio/integration-hub.mjs`): `/api/v1/adapters/learned/*` (synthesize with
+    optional live=1 measurement of the actively captured tab, shadow-evaluate, promote, list,
+    get, rollback, transcript with `live=1` through the serve process's own recorder) and
+    `/api/v1/adapters/read` (read view). Drift = synthesis with a prior: live absence of the
+    previous selectors yields `PREVIOUS_CANDIDATE_NEGATIVE_OBSERVATION`; a replacement candidate
+    yields `PROPOSED_REPLACEMENT_REQUIRES_SHADOW_VALIDATION`; versioned rollback is a pointer move.
+- **Uncertain-step reconciliation (Round 7).** `src/studio/uncertain-step-reconciler.mjs`
+  (verbatim) classifies unresolved submit steps against a durable pre-effect intent binding
+  (`src/studio/intent-bindings.mjs`, atomic tmp+rename, one record per run+step, digests and
+  identifiers only) recorded by the harness API BEFORE dispatch and completed from the OWNING
+  journal (the submit args' durable request key IS the journal turn key) in a `finally` block —
+  uncertain steps throw, and that is exactly the case the binding must survive. Read-only query:
+  `POST /api/v1/harness/runs/{run}/reconcile`. Missing/incomplete/mismatched bindings stay
+  `still_unknown`; `executed` is observed delivery, not acceptance; `not_executed` is never a
+  resend permit. Journal access is the service's own read-only snapshot (new `journalSnapshot()`
+  accessor; pure snapshot when the conversation is not open) — no competing parser. The step
+  args digest comes from the store's own canonicalization (now exported as `argsDigestOf`) so
+  binding and step identity can never diverge.
+- **Local-integrator flag:** `launchChrome` honors opt-in `CAPTURE_STUDIO_CHROME_ARGS` (owner
+  machines and synthetic-https fixtures); the CDP listener stays loopback-only.
+- **Unseen-webapp demonstration** (`scripts/adapter-factory-demo.mjs` + unregistered synthetic
+  https chat host `scripts/adapter-fixture-site.mjs`): zero handwritten adapters; four real
+  `studio drive` exchanges through generic heuristics; candidate synthesized from three captures
+  (probes=9, user-turn/assistant-turn/thread-route all shadow-ready); held-out shadow evaluation
+  3/3 positive -> `candidate-read-only-preview`; server-re-verified promotion to v1
+  (readFeatures=assistant-turn+thread-route+user-turn); saved-session transcript (2 turns,
+  thread binding honestly `unverified` — no supported parser for the host); LIVE transcript while
+  the serve process records; read view shows the learned adapter while a dry-run drive still
+  resolves generic heuristics; v2 UI mutation -> two more drives + live measurement -> both drift
+  reasons -> shadow 3/3 -> v2 promoted (`[data-msg-role="user"]`); rollback v2->v1->v2 verified.
+  All 15 steps PASS on Chrome for Testing 143.0.7499.4.
+- **Evidence labels:** everything above is OFFLINE-SUITE + SANDBOX-REAL-BROWSER against a local
+  synthetic host (SANDBOX-DEMO). No third-party provider, no authenticated surface, no
+  Windows-specific claim. `shadow-ready`/`candidate-read-only-preview` are ranking outcomes,
+  not acceptance, runtime send capability or permission.
+- **Tests:** +63 (Agent 14 packages 17+17 verbatim; probes 14; factory service 5; registry 4;
+  learned-readonly send fence 2; Round 7 reconciler integration 4 with a real journal fixture).
+  Full suite at the Round 8 head: 1326 tests / 1325 pass / 0 fail / 1 pre-existing todo.
+  live-e2e 14/14 unchanged on Chrome for Testing 143.
+- **Remaining gaps:** automatic extraction from provider-native encodings (Claude
+  Connect/protobuf) stays a specialist decoder path (atlas B03); scheduled drift sweeps not
+  built (drift fires on synthesis with a prior); learned-composer activation deliberately never
+  (read-only authority); Windows/NTFS conformance for the learned/binding stores remains the
+  owner handoff (same as the Round 6 store probe); read-only transcript identity stays
+  `unverified` for hosts without a source-supported parser (by design, anti-fabrication).
+
 Session data lives outside the repository, under `%LOCALAPPDATA%\AION\capture-studio`. Never commit captured data.
