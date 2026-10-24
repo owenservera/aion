@@ -428,6 +428,42 @@ quote either as an accepted total.
   Windows runtime. The lease change is a precondition cleanup for M2/M5, not live acceptance of
   either.
 
+### Release accounting and restart semantics checkpoint — 2026-10-24, Z.ai sandbox, offline only
+
+Responds to the owner's integration review (INTEGRATION_REVIEW.md flags 1-3). Evidence label for
+everything in this section: **Locally demonstrated on synthetic data (injected fake adapters and a
+real drive-lease directory; child processes for dead-owner proofs)** — no live claim.
+
+- **Unproven-release accounting (flag 1, commit `6a3635ec`):** `writerWindow.release()` no longer
+  swallows a failed underlying release. A release that cannot be proven (ownership unreadable,
+  taken over, or deletion failed) records `leaseReleaseError { code, at, message }` on the entry;
+  `writer.active` stays **true** — the host may still be occupied — and `writer.releaseError`
+  carries the code until a later `enter()` proves a fresh window or a release succeeds.
+  `abortFailedConnect` uses the same accounting and attaches `leaseReleaseError` to the
+  failed-connect error. There is deliberately **no retry, no reclaim and no blind resend**: a
+  subsequent `enter()` that hits `DRIVE_LEASE_BUSY` surfaces the live holder honestly and leaves
+  no journal residue.
+- **Restart semantics (flag 2, corrected description + tests):** the earlier comment claimed a
+  restarted runtime "re-opens the window on the next submit"; that was inaccurate — a restarted
+  runtime admits **no new sends** into a loaded conversation (`CONVERSATION_NOT_WRITABLE`, a gate
+  that predates the lease work). The accurate semantics, now tested: a restarted runtime holds no
+  lease for loaded snapshots (`writer.active false`, `writer.releaseError null`); a refused submit
+  opens no window and leaves no journal residue; a **stale crashed-holder lease is reclaimed by
+  the next real window open anywhere on the host** (dead-pid proof in drive-lease, proven with a
+  child process that acquires and exits); and the durable thread journal keeps fencing the
+  unresolved crashed turn — a new live conversation on the same thread gets `THREAD_FENCED`, its
+  opened window stays held on the fenced thread until reconcile/finish resolves, and teardown
+  frees the host.
+- **Failure-case matrix additions (flag 3):** partial typing (`TYPING_INTERRUPTED`) keeps the
+  window held with `partial-draft-possible`, is **never promoted by a page observation** (the same
+  rule as a preparing crash — the journal turn stays `unknown`, the thread stays fenced), and only
+  teardown (`finish`) closes the window while keeping the uncertainty honest. Cross-runtime host
+  interlock is proven at runtime level: a second runtime instance sharing the lease root hits
+  `DRIVE_LEASE_BUSY` with the live `conversation-writer` holder and no journal residue.
+- Full suite after these changes: **1,204 tests, 1,203 pass, 0 fail, 1 existing TODO** at commit
+  `6a3635ec` (node --test, offline).
+- **Not proved live, unchanged:** all M0-M2 live gates still require the owner's Windows runtime.
+
 ## 7. Roadmap (intelligence-first order)
 
 > **Agent-harness path (2026-10-23):** the intelligence-first list below remains context. For the owner's
