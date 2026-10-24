@@ -70,16 +70,24 @@ export function validateConversationTool(name, args = {}) {
   return { definition, body, conversation: args.conversation };
 }
 
+// One execution path for conversation tools, shared by the MCP/HTTP tool registry and the
+// harness run executor: validate through the same schema, dispatch to the same runtime owner.
+export async function executeConversationTool(conversationRuntime, name, args = {}) {
+  const definition = CONVERSATION_TOOLS.find((tool) => tool.name === name);
+  if (!definition) throw problem(404, 'Unknown conversation tool', 'UNKNOWN_CONVERSATION_TOOL');
+  const valid = validateConversationTool(name, args);
+  const handler = conversationRuntime[definition.runtime];
+  if (typeof handler !== 'function') throw problem(501, 'Owning runtime capability unavailable', 'CONVERSATION_CAPABILITY_UNAVAILABLE');
+  return handler.apply(conversationRuntime, valid.conversation !== undefined
+    ? definition.kind ? [valid.conversation, valid.body] : [valid.conversation]
+    : definition.kind ? [valid.body] : []);
+}
+
 export function registerConversationTools({ add, conversationRuntime }) {
   if (!conversationRuntime) return; // Do not advertise a missing owner or construct a replacement.
   for (const tool of CONVERSATION_TOOLS) add(tool.method, tool.path, tool.description, async ({ p = {}, body = {} }) => {
     const args = { ...body, ...(p.conversation !== undefined ? { conversation: p.conversation } : {}) };
-    const valid = validateConversationTool(tool.name, args);
-    const handler = conversationRuntime[tool.runtime];
-    if (typeof handler !== 'function') throw problem(501, 'Owning runtime capability unavailable', 'CONVERSATION_CAPABILITY_UNAVAILABLE');
-    const value = await handler.apply(conversationRuntime, valid.conversation !== undefined
-      ? tool.kind ? [valid.conversation, valid.body] : [valid.conversation]
-      : tool.kind ? [valid.body] : []);
+    const value = await executeConversationTool(conversationRuntime, tool.name, args);
     return tool.wrapper ? { [tool.wrapper]: value } : value;
   }, { body: tool.body, tool: tool.name, annotations: tool.annotations, inputSchema: tool.inputSchema,
     pathParameters: { conversation }, successStatus: tool.status ?? 200 });
