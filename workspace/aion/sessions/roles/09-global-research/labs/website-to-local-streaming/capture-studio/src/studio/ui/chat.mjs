@@ -240,7 +240,9 @@ export function canSend(snap, { prompt = '', busy = false } = {}) {
   if (snap.state === 'busy') return { ok: false, reason: 'Studio is working. Wait a moment.' };
   if (snap.state !== 'ready') return { ok: false, reason: snap.state === 'blocked' ? 'Studio can’t send yet. Use Check again (read-only).' : 'Not ready to send (' + word(snap.state) + ').' };
   if (snap.readiness?.ready !== true) return { ok: false, reason: 'Studio hasn’t confirmed the chat box is ready. Use Check again (read-only).' };
-  if (snap.capture?.state !== 'recording') return { ok: false, reason: 'Studio isn’t recording this tab, so it won’t send.' };
+  // Capture starts with the send itself (deferred capture): an idle, ready, unblocked conversation may start its
+  // first turn. Any other capture state (incomplete, finalizing, rejected, unreported...) still blocks.
+  if (!['recording', 'idle'].includes(snap.capture?.state)) return { ok: false, reason: 'Studio isn’t ready to record this tab, so it won’t send.' };
   if (!String(prompt).trim()) return { ok: false, reason: 'Write a message to continue.' };
   return { ok: true, reason: '' };
 }

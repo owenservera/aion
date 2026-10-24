@@ -31,7 +31,7 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
   const d = { listTargets, listSessions, Recorder, CdpConnection, browserWsUrl, fetch: globalThis.fetch, evaluate, findComposer, focusComposer,
     typeText, sendMessage, sendState, readTranscript, waitForCompletion, readUserTurns, detectAuthWall, detectSiteFailure,
     readTurnPage, sleep, replyPollMs: 250, replyTimeoutMs: 120000,
-    readinessTimeoutMs: 20000, readinessPollMs: 200, fetchTimeoutMs: 10000, connectGraceMs: 2000, ...dependencies };
+    readinessTimeoutMs: 20000, readinessPollMs: 200, checkAgainTimeoutMs: 3000, fetchTimeoutMs: 10000, connectGraceMs: 2000, ...dependencies };
   let recorder, binding, pending, stopResult, tap, idlePage, idleConn, connectHooks;
   const attempts = new Map();
   let mayOwnResources = false;
@@ -335,7 +335,15 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
         return { userTurns: count('user'), assistantTurns: count('assistant'), sampledAt: new Date().toISOString() };
       } catch { return null; }
     },
-    async preflight(_, { priorTurns = [] } = {}) {
+    async preflight(_, { priorTurns = [], readOnly = false } = {}) {
+      // Read-only "Check again" with no armed capture (deferred first turn, or between turns): inspect the
+      // idle page only. No recorder is armed, nothing is typed or sent, and no turn baseline is taken.
+      if (readOnly && !recorder?.page) {
+        if (!livePage()) throw problem('CAPTURE_NOT_ACTIVE');
+        const result = await readiness(Date.now() + d.checkAgainTimeoutMs);
+        return { binding: { ...binding }, ready: result.ready, reason: result.reason, draft: result.draft,
+          boundary: { sequence: 0, transcriptCount: 0 }, readOnly: true, ...(result.creation ? { creation: result.creation } : {}) };
+      }
       await check();
       if (!binding.thread) {
         if (!freshTab) throw problem('THREAD_IDENTITY_UNVERIFIED');

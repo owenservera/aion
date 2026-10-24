@@ -520,13 +520,22 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
         }
         const attempt = turnId ? snapshot.attempts.find((a) => a.id === turnId) : snapshot.attempts.at(-1);
         if (turnId && !attempt) throw error('TURN_NOT_FOUND');
-        if (!snapshot.sessionId) { save(); return view(); }
+        // Capture is deferred until the first explicit send, so a connected idle conversation has no
+        // session yet. It is still inspectable read-only (no type, no send, no capture arm) — but never
+        // when a failed/interrupted attachment left an uncertainty that only a human may clear.
+        const deferredIdle = !snapshot.sessionId && !snapshot.finish.requested && ['ready', 'blocked'].includes(snapshot.state)
+          && !snapshot.uncertainty && snapshot.capture.state === 'idle';
+        // A previous turn that completed safely (delivered, reply finalized and ready) is not an
+        // unresolved observation: an unscoped "Check again" refreshes readiness for the NEXT turn.
+        const settled = (a) => a?.send?.state === 'observed' && a.reply?.state === 'ready' && a.journal?.readiness?.state === 'ready';
+        if (!snapshot.sessionId && !deferredIdle) { save(); return view(); }
         // A pre-typing rejection is not a send attempt. "Check again" only refreshes current
         // readiness; the original blocked key remains blocked/idempotent, and a new key is needed.
-        if (!snapshot.finish.requested && (!attempt || attempt.phase === 'blocked' && !attempt.typingStartedAt)) {
+        if (!snapshot.finish.requested && (!attempt || attempt.phase === 'blocked' && !attempt.typingStartedAt
+          || !turnId && !snapshot.uncertainty && settled(attempt))) {
           save(); // Fail closed before the read-only browser inspection, as on the observation path.
           let preflight;
-          try { preflight = await adapter.preflight(structuredClone(snapshot.binding)); }
+          try { preflight = await adapter.preflight(structuredClone(snapshot.binding), { readOnly: true }); }
           catch (e) {
             snapshot.readiness = { ready: false, draft: { present: null, chars: null },
               reason: /^[A-Z][A-Z0-9_]{0,79}$/.test(e.code ?? '') ? e.code : 'PREFLIGHT_FAILED' };
@@ -538,9 +547,12 @@ export function createConversationService({ dataDir, id = randomUUID(), adapter,
           const validBoundary = Number.isSafeInteger(preflight?.boundary?.sequence) && preflight.boundary.sequence >= 0
             && Number.isSafeInteger(preflight?.boundary?.transcriptCount) && preflight.boundary.transcriptCount >= 0;
           const unverified = snapshot.identity.state === 'unverified';
-          const ready = bound && validDraft && validBoundary && !preflight.draft.present && !unverified;
+          // The adapter may refuse readiness itself (auth wall, site gate, composer unavailable...) with a coded reason.
+          const refused = preflight?.ready === false;
+          const code = /^[A-Z][A-Z0-9_]{0,79}$/.test(preflight?.reason ?? '') ? preflight.reason : null;
+          const ready = bound && validDraft && validBoundary && !preflight.draft.present && !unverified && !refused;
           snapshot.readiness = { ready, draft: validDraft ? { present: preflight.draft.present, chars: preflight.draft.chars } : { present: null, chars: null },
-            reason: ready ? null : !bound ? 'BINDING_CHANGED' : !validDraft || !validBoundary ? 'DRAFT_OR_BINDING_NOT_READY' : unverified && !preflight.draft.present ? 'THREAD_IDENTITY_UNVERIFIED' : 'DRAFT_PRESENT' };
+            reason: ready ? null : !bound ? 'BINDING_CHANGED' : refused && code ? code : !validDraft || !validBoundary ? 'DRAFT_OR_BINDING_NOT_READY' : unverified && !preflight.draft.present ? 'THREAD_IDENTITY_UNVERIFIED' : 'DRAFT_PRESENT' };
           snapshot.state = ready ? 'ready' : 'blocked'; save(); return view();
         }
         if (!attempt) { save(); return view(); }
