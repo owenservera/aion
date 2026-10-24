@@ -1,0 +1,23 @@
+#AION @CORE +/EXECUTE — PARALLEL SUPPLIER LANE C1
+THINKING EFFORT: HIGH
+
+REPOSITORY: owenservera/aion. Read current root AGENTS.md and REPOSITORY-GOVERNANCE.md, the governing Capture Studio ARCHITECTURE.md, and your own existing queue/workspace. Refresh main and issues; do not trust old SHAs as current.
+PRODUCT NORTH STAR: one provider-independent AION agentic harness; Capture Studio is the only Chrome/CDP capture and browser-effect authority; Capture Studio intelligence automatically learns, validates, versions, selects and repairs site/surface-specific data adapters. ChatGPT/Claude are adapters, not hardcoded foundations. Preserve provider-native structures and original evidence.
+CONCURRENCY: Z.ai has an owner-uploaded, proposed 23-patch export with head 23185932 (not verified merged on GitHub main at campaign preparation). Do NOT claim to inspect it merely from main. Read Agent14 packages implementations/round6, round7, round8 and round9, its Queue and Contracts. Build in YOUR owned isolated supplier folder / temporary branch or worktree; no concurrent blind writes, no force push. Do not edit a peer's source. Existing main remains shared; source integrations into canonical Studio are Z.ai's responsibility unless owner directs otherwise.
+EXECUTION: produce working Node >=22 code, relevant tests, executable fixtures and reusable integration seams, not a research-only or documentation-only delivery (Systems may provide independent algorithms/benchmarks but must not alter product implementation). No Playwright, Puppeteer, Orca, Slack, paid provider API substitution or unauthorized browser effect. Do not upload .env, cookies, DBs, transcripts, raw private captures or system secrets.
+RECEIPT: publish code and a concise HANDOFF.md with: exact base and result SHA; file list and entrypoints; imports/API schemas; test commands and environment with pass/fail counts; evidence class; edge/failure cases; compatibility/migration and rollback; collisions/dependencies; what Z.ai can copy/import; what still requires real Windows/Claude/ChatGPT proof. GitHub files/comments do not wake another agent. Report a direct source link and SHA.
+
+SCOPE: Core runtime/contract only. Read GitHub issues #68, #67 and #72. Source seams: capture-studio/src/capture/{conversation-runtime,conversation-browser-adapter,conversation-thread,thread-turn-journal}.mjs; src/studio/{conversation-tools,conversation-api,integration-hub}.mjs; src/profiles/sites/index.mjs. Be mindful existing Studio already owns actor, lease, capture, evidence and persistence.
+
+MISSION: Build a ready-to-integrate GENERIC WEBAPP HARNESS RUNTIME BRIDGE (not a ChatGPT fork), reconciling learned adapters with exact identity and safe effects. Work in workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/ or an isolated short-lived branch. Make runnable Node22 modules + fixtures/tests.
+
+IMPLEMENT AND PROVE:
+1. A provider-neutral adapter-facing identity and attachment contract: provider/site/surface, account state, conversation/task/branch/generation identity, browser target, source/confidence. Explicit unverified state when no durable identity; no title/text/position identity. ChatGPT /c UUID is a specialization only.
+2. Capability and effect boundary for discovered data adapters: static hint vs page-observed vs verified action, read-only consumption, never treating a learned selector as send authority. Existing lease/journal/effect owner must remain unique.
+3. A deterministic lifecycle/evidence bridge: same-run step correlation to trusted journal intent and fresh response; separate delivery, reply attribution, network terminal, capture finalized, G1-G7 accepted, and user goal. Exercise missing/stale/wrong-origin/wrong-thread IDs, duplicated old reply, unknown effect and crash recovery.
+4. A narrowly scoped offline integration fixture demonstrating unknown-provider read-only adapter + existing registered provider semantics; run code and preserve source evidence/unknowns. Reuse Round6/7/9 instead of rewriting them.
+5. Capture-specific integration contract for Z.ai: precise function exports, event envelopes, existing-file wiring changes, API versioning and negative tests.
+
+DO NOT: edit UI, learning engine or new adapter registry; claim live acceptance from offline fixtures; push Z.ai's unmerged branch; introduce another browser driver. Prefer a drop-in compatibility layer over a generalized redesign.
+
+DELIVER: C1 executable package, tests, HANDOFF.md; verified commit(s). State exact deltas over Round6/7/9 and unresolved real-provider boundary. Continue autonomously to maximum useful safe completion.
