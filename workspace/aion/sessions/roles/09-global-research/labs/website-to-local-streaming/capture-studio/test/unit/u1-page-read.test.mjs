@@ -74,3 +74,20 @@ test('200k character budget and 200 row bound prevent runaway rendering',()=>{
   assert.ok(p.messages.length<=200);
   assert.ok(p.messages.reduce((n,m)=>n+m.text.length,0)<=200000);
 });
+
+test('native block state is erased when conversation changes even if turn ID collides',()=>{
+  const root=doc.createElement('aside'),ui=mountUniversalChat({document:doc,root});
+  ui.show({snapshot:snap(),events:[{turnId:'turn-1',blockId:'b',eventId:'e',sequence:1,op:'open',text:'PRIVATE OLD',kind:'text'}],turnIds:['turn-1']});
+  assert.match(flatten(ui.element),/PRIVATE OLD/);
+  const next=ui.show({snapshot:snap('conversation-2','native-thread-2'),turnIds:['turn-1']});
+  assert.equal(next.acceptedEvents,0);
+  assert.doesNotMatch(flatten(ui.element),/PRIVATE OLD/);
+});
+test('changed browser attachment resets cached native blocks even for same conversation id',()=>{
+  const root=doc.createElement('aside'),ui=mountUniversalChat({document:doc,root});
+  const old={...snap(),binding:{thread:{ref:'native-thread-1'},targetId:'tab-a'}};
+  const newer={...snap(),binding:{thread:{ref:'native-thread-1'},targetId:'tab-b'}};
+  ui.show({snapshot:old,events:[{turnId:'turn-1',blockId:'b',eventId:'e',sequence:1,op:'open',text:'Tab A only',kind:'text'}],turnIds:['turn-1']});
+  ui.show({snapshot:newer,turnIds:['turn-1']});
+  assert.doesNotMatch(flatten(ui.element),/Tab A only/);
+});
