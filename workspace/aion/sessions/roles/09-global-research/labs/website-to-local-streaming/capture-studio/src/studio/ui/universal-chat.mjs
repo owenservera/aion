@@ -212,10 +212,16 @@ export function renderNativeBlock(document, parent, block) {
 /** Mounts one additive panel inside existing /chat. No fetch, no router, no sender. */
 export function mountUniversalChat({ document, root, onInspect = () => {}, onEvidence = () => {}, onReviewAdapter = () => {} }) {
   if(!document || !root) throw new TypeError('Existing /chat root and document required');
-  const store=createConversationStore(), ui=document.createElement('section');ui.className='aion-u1';ui.setAttribute('aria-label','Universal webapp intelligence');
+  let store=createConversationStore(), shown=false, lastScope=null;
+  const ui=document.createElement('section');ui.className='aion-u1';ui.setAttribute('aria-label','Universal webapp intelligence');
   root.appendChild(ui);
   const cache=new Map();
   function show({ snapshot={},openTabs=[],accountChats=[],providers=[],tasks=[],adapters=[],capabilities=[],events=[],turnIds=[],outcome={},pageRead=null }={}) {
+    const scope=JSON.stringify([id(snapshot?.id), id(snapshot?.binding?.targetId)||id(snapshot?.binding?.tabId), id(snapshot?.binding?.thread?.ref)||id(snapshot?.binding?.thread?.key)||id(snapshot?.binding?.threadKey)]);
+    // Native event IDs are meaningful only within their originating conversation/attachment.
+    // A new scope must never reuse the prior conversation's blocks or cached DOM nodes.
+    if(shown && scope !== lastScope){store=createConversationStore();cache.clear();}
+    shown=true;lastScope=scope;
     for(const event of asArray(events)) store.accept(event);
     ui.replaceChildren();
     const ws=projectWorkspace(snapshot,{openTabs,accountChats});
