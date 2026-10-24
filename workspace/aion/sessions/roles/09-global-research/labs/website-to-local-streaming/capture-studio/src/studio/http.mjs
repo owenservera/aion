@@ -3,6 +3,30 @@ export function problem(status, message, code = 'INVALID_REQUEST') {
   return Object.assign(new Error(message), { status, code });
 }
 
+// Stable HTTP status for persistence-owner errors (src/store/versioned.mjs and its I1/factory callers).
+export const STORE_ERROR_STATUS = Object.freeze({
+  STORE_NAME_INVALID: 400, STORE_PATH_ESCAPE: 400, STORE_VERSION_INVALID: 400, CAS_EXPECTED_VERSION_INVALID: 400, INVALID_ROLLBACK_VERSION: 400, RESERVED_NAMESPACE: 400,
+  STORE_NO_SUCH_ITEM: 404, STORE_NO_SUCH_VERSION: 404, CAS_VERSION_CONFLICT: 409, CAS_LOCKED: 423,
+  CAS_LOCK_RELEASE_UNVERIFIED: 500, STORE_CURRENT_CORRUPT: 500, STORE_RECORD_CORRUPT: 500, STORE_VERSION_EXISTS: 500, STORE_VERSION_LIMIT: 500,
+});
+
+// Machine-readable facts that must survive the HTTP boundary: a durable commit whose lock release was unverified
+// (committed:true + committedVersion - the client must NOT repeat the mutation) and the CAS conflict operands.
+export function storeFields(e) {
+  const out = {};
+  if (e && e.committed === true) { out.committed = true; out.committedVersion = Number.isSafeInteger(e.committedVersion) ? e.committedVersion : null; }
+  if (e && e.code === 'CAS_VERSION_CONFLICT') {
+    if (e.expected === null || Number.isSafeInteger(e.expected)) out.expected = e.expected;
+    if (e.actual === null || Number.isSafeInteger(e.actual)) out.actual = e.actual;
+  }
+  return out;
+}
+
+/** Map a persistence-owner error to an HTTP problem, keeping its stable code and storeFields(); other errors pass through. */
+export function storeProblem(e) {
+  if (!e || e.status || !STORE_ERROR_STATUS[e.code]) return e;
+  return Object.assign(problem(STORE_ERROR_STATUS[e.code], e.message, e.code), storeFields(e));
+}
 export function json(res, status, value) {
   if (res.destroyed || res.writableEnded) return;
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });

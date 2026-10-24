@@ -290,7 +290,7 @@ async function main() {
       });
 
       await step('4 promote to versioned READ-ONLY learned adapter (server-side re-verification)', async () => {
-        const rec = await api(servePort, 'POST', '/api/v1/adapters/learned/promote', { candidate, sessionIds: [drives[4]], shadow, note: 'v1 from three held training captures' });
+        const rec = await api(servePort, 'POST', '/api/v1/adapters/learned/promote', { candidate, sessionIds: [drives[4]], shadow, expectedVersion: null, note: 'v1 from three held training captures' });
         if (rec.adapter?.send?.strategy !== 'learned-readonly') throw new Error('promoted adapter must carry learned-readonly');
         return `v${rec.version} readFeatures=${rec.readFeatures.join('+')}`;
       });
@@ -390,20 +390,20 @@ async function main() {
           const drives2 = globalThis.__drives2;
           const shadow2 = await api(servePort, 'POST', '/api/v1/adapters/learned/shadow-evaluate', { candidate: globalThis.__v2candidate, sessionIds: [drives2[3]] });
           if (shadow2.recommendation !== 'candidate-read-only-preview') throw new Error(`shadow2: ${shadow2.recommendation}`);
-          const rec2 = await api(servePort, 'POST', '/api/v1/adapters/learned/promote', { candidate: globalThis.__v2candidate, sessionIds: [drives2[3]], shadow: shadow2, note: 'v2 relearn after UI drift' });
+          const rec2 = await api(servePort, 'POST', '/api/v1/adapters/learned/promote', { candidate: globalThis.__v2candidate, sessionIds: [drives2[3]], shadow: shadow2, expectedVersion: 1, note: 'v2 relearn after UI drift' });
           if (rec2.adapter.userTurn.selectors[0] !== '[data-msg-role="user"]') throw new Error(`v2 selector: ${rec2.adapter.userTurn.selectors[0]}`);
           return `v${rec2.version} userTurn=${rec2.adapter.userTurn.selectors[0]} (was [data-role="user"])`;
         });
 
-        await step('7 versioned rollback safety (v2 -> v1 -> v2)', async () => {
-          const r1 = await api(servePort, 'POST', `/api/v1/adapters/learned/${SITE}/rollback`, { version: 1, confirm: true });
+        await step('7 versioned rollback safety (restore v1, then restore v2; each appends a new version under strict expectedVersion)', async () => {
+          const r1 = await api(servePort, 'POST', `/api/v1/adapters/learned/${SITE}/rollback`, { version: 1, confirm: true, expectedVersion: 2 });
           const a1 = await api(servePort, 'GET', `/api/v1/adapters/learned/${SITE}`);
           const sel1 = a1.adapter?.userTurn?.selectors?.[0];
-          const r2 = await api(servePort, 'POST', `/api/v1/adapters/learned/${SITE}/rollback`, { version: 2, confirm: true });
+          const r2 = await api(servePort, 'POST', `/api/v1/adapters/learned/${SITE}/rollback`, { version: 2, confirm: true, expectedVersion: r1.version });
           const a2 = await api(servePort, 'GET', `/api/v1/adapters/learned/${SITE}`);
           const sel2 = a2.adapter?.userTurn?.selectors?.[0];
           if (sel1 !== '[data-role="user"]' || sel2 !== '[data-msg-role="user"]') throw new Error(`rollback pointers: v1=${sel1} v2=${sel2}`);
-          return `pointer v1=${sel1} -> v2=${sel2}; versions=${a1.versions.length}`;
+          return `restored v1=${sel1} (as v${r1.version}) -> restored v2=${sel2} (as v${r2.version}); versions=${a2.versions.length}`;
         });
       }
     } else {

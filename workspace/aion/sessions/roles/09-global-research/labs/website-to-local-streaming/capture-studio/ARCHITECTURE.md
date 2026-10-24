@@ -673,7 +673,7 @@ Capture Studio systems — no second registry, no second browser actor, no send 
     get, rollback, transcript with `live=1` through the serve process's own recorder) and
     `/api/v1/adapters/read` (read view). Drift = synthesis with a prior: live absence of the
     previous selectors yields `PREVIOUS_CANDIDATE_NEGATIVE_OBSERVATION`; a replacement candidate
-    yields `PROPOSED_REPLACEMENT_REQUIRES_SHADOW_VALIDATION`; versioned rollback is a pointer move.
+    yields `PROPOSED_REPLACEMENT_REQUIRES_SHADOW_VALIDATION`; learned-adapter rollback appends a new version restoring the target under a strict, explicit expectedVersion (promote: null for first create or the current integer; rollback: the current integer; a missing value is refused, never inferred), and all learned-adapter writes go through the one shared VersionedStore owner (per-name lock, expected-version CAS); profile/family rollback remains a pointer move.
 - **Uncertain-step reconciliation (Round 7).** `src/studio/uncertain-step-reconciler.mjs`
   (verbatim) classifies unresolved submit steps against a durable pre-effect intent binding
   (`src/studio/intent-bindings.mjs`, atomic tmp+rename, one record per run+step, digests and

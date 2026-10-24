@@ -29,7 +29,7 @@ import { createStudioLearningPipeline } from './adapter-learning-pipeline.mjs';
 import { createIntentBindingStore } from './intent-bindings.mjs';
 import { setLearnedAdapterProvider } from '../profiles/sites/index.mjs';
 import { handlePlatformX } from './platform-x.mjs';
-import { problem, storageName } from './http.mjs';
+import { problem, storageName, STORE_ERROR_STATUS, storeFields } from './http.mjs';
 import { createDriveApi } from './drive-api.mjs';
 import { createConversationApi, defaultConversationRuntime } from './conversation-api.mjs';
 import { createConversationEvents } from './conversation-events.mjs';
@@ -119,16 +119,17 @@ const harnessRuns = createHarnessRunStore({ dir: path.join(paths.root, 'harness-
   // Adaptive webapp adapter factory (Agent 14 Round 8): versioned, data-only, READ-ONLY learned
 // adapters under <root>/learned-adapters. The read view is wired into the sites registry;
 // the execution path (drive/send via getAdapter) never sees learned adapters.
-const adapterFactory = createAdapterFactory({ learnedStore: new VersionedStore(path.join(paths.root, 'learned-adapters'), { kind: 'learned adapter' }) });
+// ONE persistence owner (issue #81 P0): a single VersionedStore instance serves both the factory and
+// the I1 pipeline, so they share one validation, one per-name lock namespace (<dir>/.locks) and one
+// expected-version CAS. No second instance/registry over this directory is created in this process.
+const learnedStore = new VersionedStore(path.join(paths.root, 'learned-adapters'), { kind: 'learned adapter' });
+const adapterFactory = createAdapterFactory({ learnedStore });
 setLearnedAdapterProvider(adapterFactory.registryProvider());
 // Four-lane Intelligence integration: guarded I1 improvement pipeline bound to the SAME
 // learned-adapter VersionedStore (single registry) with expected-version CAS fencing and the
 // real acceptance/session owners as the only evidence source. Proposals are server-minted;
 // promotion is read-only; no second browser actor, sender or registry exists.
-const learningPipeline = createStudioLearningPipeline({
-  sessionsDir: paths.sessions, lockDir: path.join(paths.root, 'locks'),
-  store: new VersionedStore(path.join(paths.root, 'learned-adapters'), { kind: 'learned adapter' }),
-});
+const learningPipeline = createStudioLearningPipeline({ sessionsDir: paths.sessions, store: learnedStore });
 const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id), adapterFactory, learningPipeline });
   const driveApi = createDriveApi({ dataDir: paths.root, port: cdpPort, drive, campaign });
 
@@ -197,7 +198,7 @@ const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conve
       return await route(req, res, url, body);
     } catch (e) {
       if (res.headersSent) res.destroy();
-      else send(res, e.status ?? 500, { error: String(e.message ?? e), ...(e.code ? { code: e.code } : {}), ...(typeof e.conversationId === 'string' && /^[a-z0-9][a-z0-9_-]{0,127}$/i.test(e.conversationId) ? { conversationId: e.conversationId } : {}), ...(e.holder ? { holder: { kind: e.holder.kind, id: e.holder.id } } : {}), ...(e.activeJobId ? { activeJobId: e.activeJobId } : {}) });
+      else send(res, e.status ?? STORE_ERROR_STATUS[e.code] ?? 500, { error: String(e.message ?? e), ...(e.code ? { code: e.code } : {}), ...(typeof e.conversationId === 'string' && /^[a-z0-9][a-z0-9_-]{0,127}$/i.test(e.conversationId) ? { conversationId: e.conversationId } : {}), ...(e.holder ? { holder: { kind: e.holder.kind, id: e.holder.id } } : {}), ...(e.activeJobId ? { activeJobId: e.activeJobId } : {}), ...(STORE_ERROR_STATUS[e.code] ? storeFields(e) : {}) });
     }
   });
 

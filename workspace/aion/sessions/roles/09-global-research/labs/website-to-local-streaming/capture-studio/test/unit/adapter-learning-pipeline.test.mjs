@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { Session } from '../../src/store/session.mjs';
 import { VersionedStore } from '../../src/store/versioned.mjs';
@@ -234,31 +234,79 @@ test('drift trigger requires independent consecutive-window evidence before prop
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('CAS store: expected-version conflicts and live locks fail closed without writes', async () => {
+test('CAS store: strict expected-version, live locks and restore-rollback fail closed (issue #81)', async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'aion-fourlane-cas-'));
   try {
     const store = new VersionedStore(path.join(root, 'learned-adapters'), { kind: 'learned adapter' });
-    const cas = createCasVersionedStore({ store, lockDir: path.join(root, 'locks') });
-    const first = await cas.promote('k', { schema: 'aion.learned-read-adapter/1', adapter: { a: 1 }, sendPermission: false, readFeatures: ['assistant-turn'] }, 0);
+    const cas = createCasVersionedStore({ store });
+    const ro = (a, readFeatures = []) => ({ schema: 'aion.learned-read-adapter/1', adapter: a, sendPermission: false, readFeatures });
+    const first = await cas.promote('k', ro({ a: 1 }, ['assistant-turn']), null); // null = first write, must not exist
     assert.equal(first.version, 1);
-    await assert.rejects(() => cas.promote('k', { schema: 'aion.learned-read-adapter/1', adapter: { a: 2 }, sendPermission: false, readFeatures: [] }, 0), (e) => e.code === 'CAS_VERSION_CONFLICT');
+    await assert.rejects(() => cas.promote('k', ro({ a: 2 }), null), (e) => e.code === 'CAS_VERSION_CONFLICT' && e.expected === null && e.actual === 1);
+    for (const bad of [undefined, 0, '1', 1.5, NaN, -1]) {
+      await assert.rejects(() => cas.promote('k', ro({ a: 9 }), bad), (e) => e.code === 'CAS_EXPECTED_VERSION_INVALID', `promote expected=${String(bad)}`);
+    }
     const cur = await cas.current('k');
     assert.equal(cur.version, 1);
     assert.equal(cur.sendPermission, false);
     assert.deepEqual(cur.readFeatures, ['assistant-turn']);
-    // a live lock file (crashed holder) blocks mutation instead of stealing it
-    const { openSync, closeSync } = await import('node:fs');
-    const { createHash } = await import('node:crypto');
-    const lockName = path.join(root, 'locks', `.cas-${createHash('sha256').update('k').digest('hex')}.lock`);
-    const fd = openSync(lockName, 'wx'); closeSync(fd);
-    await assert.rejects(() => cas.promote('k', { schema: 'x', adapter: {}, sendPermission: false, readFeatures: [] }, 1), (e) => e.code === 'CAS_LOCKED');
-    await assert.rejects(() => cas.rollback('k', 1, 1), (e) => e.code === 'CAS_LOCKED');
-    existsSync(lockName) && rmSync(lockName);
-    const rb = await cas.rollback('k', 1, 1);
-    assert.equal(rb.rolledBack, true);
-    // payload without explicit read-only permission is refused outright
-    await assert.rejects(() => cas.promote('k2', { schema: 'x', adapter: {} }, 0), (e) => e.code === 'CAS_PAYLOAD_MUST_BE_READ_ONLY');
+    // a live lock file (crashed holder) blocks mutation instead of being stolen; ownership is by token
     const kName = 'i1-' + createHash('sha256').update('k').digest('hex').slice(0, 40);
-    assert.ok(readFileSync(path.join(root, 'learned-adapters', kName, 'CURRENT'), 'utf8').trim() === '1');
+    const lockName = store.lockPath(kName);
+    mkdirSync(path.dirname(lockName), { recursive: true });
+    writeFileSync(lockName, 'crashed holder');
+    const shortWait = new VersionedStore(path.join(root, 'learned-adapters'), { kind: 'learned adapter', lockWaitMs: 0 });
+    const casFast = createCasVersionedStore({ store: shortWait });
+    await assert.rejects(() => casFast.promote('k', ro({}), 1), (e) => e.code === 'CAS_LOCKED');
+    await assert.rejects(() => casFast.rollback('k', 1, 1), (e) => e.code === 'CAS_LOCKED');
+    assert.equal(readFileSync(lockName, 'utf8'), 'crashed holder', 'foreign lock is never touched');
+    rmSync(lockName);
+    await cas.promote('k', ro({ a: 2 }), 1);
+    // rollback needs an integer expectedVersion and APPENDS a restoring version (CURRENT never moves backwards)
+    await assert.rejects(() => cas.rollback('k', 1, null), (e) => e.code === 'CAS_EXPECTED_VERSION_INVALID');
+    await assert.rejects(() => cas.rollback('k', 1, undefined), (e) => e.code === 'CAS_EXPECTED_VERSION_INVALID');
+    await assert.rejects(() => cas.rollback('k', 1, 1), (e) => e.code === 'CAS_VERSION_CONFLICT'); // stale: CURRENT is 2
+    const rb = await cas.rollback('k', 1, 2);
+    assert.equal(rb.rolledBack, true);
+    assert.equal(rb.version, 3);
+    assert.equal(rb.restoredFrom, 1);
+    assert.equal((await cas.current('k')).version, 3);
+    assert.deepEqual((await cas.current('k')).adapter, { a: 1 });
+    // payload without explicit read-only permission is refused outright
+    await assert.rejects(() => cas.promote('k2', { schema: 'x', adapter: {} }, null), (e) => e.code === 'CAS_PAYLOAD_MUST_BE_READ_ONLY');
+    assert.ok(readFileSync(path.join(root, 'learned-adapters', kName, 'CURRENT'), 'utf8').trim() === '3');
+    assert.equal(store.versions(kName).length, 3);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+test('a durable promotion whose lock release is unverified marks the proposal promoted and is never retried as new (issue #81)', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'aion-fourlane-commit-'));
+  try {
+    const sessionsDir = path.join(root, 'sessions');
+    const dir = path.join(root, 'learned-adapters');
+    const failLockUnlink = (p) => { if (String(p).endsWith('.lock')) throw Object.assign(new Error('injected EPERM'), { code: 'EPERM' }); return unlinkSync(p); };
+    const store = new VersionedStore(dir, { kind: 'learned adapter', lockWaitMs: 0, io: { unlinkSync: failLockUnlink } });
+    const pipeline = createStudioLearningPipeline({ sessionsDir, store });
+    const t1 = await verifiedSession(sessionsDir); const t2 = await verifiedSession(sessionsDir); const t3 = await verifiedSession(sessionsDir);
+    const h1 = await verifiedSession(sessionsDir); const h2 = await verifiedSession(sessionsDir);
+    const proposal = await pipeline.propose({
+      scope: SCOPE, trigger: 'new-evidence',
+      training: [evidenceEvent(t1), evidenceEvent(t2), evidenceEvent(t3)], heldout: [evidenceEvent(h1), evidenceEvent(h2)],
+    });
+    assert.equal(proposal.status, 'ready-for-read-only-promotion');
+    const err = await pipeline.promote(proposal.proposalDigest).then(() => null, (e) => e);
+    assert.equal(err?.code, 'CAS_LOCK_RELEASE_UNVERIFIED');
+    assert.equal(err.committed, true);
+    assert.equal(err.committedVersion, 1);
+    assert.equal(pipeline.listProposals().find((p) => p.proposalDigest === proposal.proposalDigest).promoted, true, 'a durable commit is recorded as promoted');
+    const again = await pipeline.promote(proposal.proposalDigest).then(() => null, (e) => e);
+    assert.equal(again?.code, 'PROPOSAL_ALREADY_PROMOTED', 'not retried as a new promotion');
+    // the record really is durable and read-only; the stale lock stays until an operator releases it by token
+    const fresh = new VersionedStore(dir, { kind: 'learned adapter', lockWaitMs: 0 });
+    const name = 'i1-' + createHash('sha256').update(proposal.scopeKey).digest('hex').slice(0, 40);
+    assert.equal(fresh.current(name), 1);
+    assert.equal(fresh.load(name).sendPermission, false);
+    const info = fresh.inspectLock(name);
+    assert.equal(info.present, true);
+    assert.equal(fresh.releaseStaleLock(name, { token: info.token }).released, true);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
