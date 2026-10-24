@@ -1,0 +1,69 @@
+{
+  "schema": "aion.local-integration-bundle-ledger/1",
+  "created": "2026-10-24",
+  "source": {
+    "kind": "user-provided Z.ai workspace export",
+    "filename": "workspace-752735ef-5333-4dc9-b423-d81f416352a3 (6).tar",
+    "sha256": "d8e6ec1de13beb1ea5cdecc121ce17041a501473485d7cb8060e6e68036b06df",
+    "note": "Do not commit original user archive or embedded Next.js .git into AION. No runtime secrets were copied."
+  },
+  "canonicalRemote": {
+    "repo": "owenservera/aion",
+    "mainSha": "fa9cb7f5c20040377ebd8ff28678bb24c7cc7dc9",
+    "mainSourceAncestor": "e652a705e4dffe543a0c4ebcf402a6eed3e1d2bc"
+  },
+  "bundles": [
+    {
+      "relativePath": "artifacts/round8/aion-round8-integration.bundle",
+      "prerequisiteSha": "e652a705e4dffe543a0c4ebcf402a6eed3e1d2bc",
+      "headSha": "23185932abc7615a25207111f07328ebfb2a0074",
+      "ref": "refs/heads/studio/short-writer-lease",
+      "sha256": "5a94dd3ae13816117dd19789fe90255d16f7609f99e58664271f3839bcbad085",
+      "patchCount": 23
+    },
+    {
+      "relativePath": "artifacts/aion-fourlane-integration.bundle",
+      "prerequisiteSha": "23185932abc7615a25207111f07328ebfb2a0074",
+      "headSha": "5ef062581e9ef887b512f6e6ef65703bc72e3337",
+      "ref": "refs/heads/studio/four-lane-integration",
+      "sha256": "afa93c24706b2a9733af40379ddf842d5053b9730642837fb139a2abfb61a74a",
+      "patchCount": 4
+    }
+  ],
+  "archiveVerification": {
+    "bundleHashes": "verified locally against artifact SHA256SUMS manifests",
+    "patchHashes": "27 of 27 verified locally against manifests",
+    "archiveTarPaths": "831 members, no absolute paths or traversal and no symlinks",
+    "gitImportWindows": "not attempted",
+    "ownerWindowsAcceptance": "not attempted"
+  },
+  "supplierEvidence": {
+    "zaiSandboxNode": "v24.21.0/Linux",
+    "consolidatedFourLane": {
+      "passed": 141,
+      "failed": 0
+    },
+    "fullStudio": {
+      "total": 1490,
+      "passed": 1489,
+      "failed": 0,
+      "todo": 1
+    },
+    "windowsLocal": "UNVERIFIED",
+    "liveThirdPartyProvider": "UNVERIFIED"
+  },
+  "coordination": {
+    "integrationPullRequest": 77,
+    "discoveryToReadPullRequest": 78,
+    "qaIssue": 72
+  },
+  "restrictions": [
+    "Owner Windows machine is the local master",
+    "Do not overwrite local dirty files",
+    "One existing Studio actor and effect journal",
+    "Use two bundles once; do not also apply patches",
+    "Do not merge PR78 CAS prototype into Z.ai CAS without owner review",
+    "No Playwright or Puppeteer",
+    "No fresh third-party site prompts without explicit owner authorization"
+  ]
+}
