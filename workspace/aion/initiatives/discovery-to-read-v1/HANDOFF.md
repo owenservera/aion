@@ -43,10 +43,12 @@ Current Z.ai integration PR #77 owns production merge and local reconciliation. 
 - `projectNativeEvents` — original source-grounded U1 read model; not a permission or verified G1–G7 claim.
 
 ### Tests
-The repo provides `npm test` (now 62 `node:test` cases) and `npm run demo`. GitHub-source V8 shims passed 62/62; **neither Node22 actual execution nor Windows/NTFS/browser verification was run**. The CAS 10 cases used an in-memory FS shim and do not prove real filesystem locking/crash behavior. Keep this PR draft.
+The repo provides `npm test` (now 63 `node:test` cases) and `npm run demo`. GitHub-source V8 shims passed 63/63; **neither Node22 actual execution nor Windows/NTFS/browser verification was run**. The CAS 10 cases used an in-memory FS shim and do not prove real filesystem locking/crash behavior. Keep this PR draft.
 
 ### Non-negotiable production blockers
 1. Trusted original source/account/acquisition lineage reader (currently source adapter demands it, but does not create it).
 2. Truly independent original-native semantic reference producer.
 3. Retarget every live profile write/rollback path to a common single-owner CAS protocol; perform crash/restart/NTFS durability tests.
 4. Z.ai's verified production reconciled baseline and QA for unknown-site capture, learned-read fallback, identity and fresh reply.
+
+The current fictional full-intake demo returns `fixture-only-semantic-preview` with 4 synthetic native semantic checks. Its Round8 shadow recommendation remains `collect-more-evidence`, deliberately reflecting that synthetic sessions do not supply real evidence for activation. The exact shim verification receipt is in `verification/2026-10-24-v8-source-replay.json`.
