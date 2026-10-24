@@ -44,5 +44,13 @@ reconcile(capture, journal, page) -> evidence-linked state
 ```
 Adapter may not acquire a separate browser writer or replay undocumented authenticated backend requests. The common projection must not erase provider-specific semantics to satisfy an API-shaped schema.
 
+## Round 5 implementation-contract clarification — 2026-10-24
+
+- **Harness step uniqueness:** identity = (runId, callerKey, toolName, canonicalArgsDigest), not callerKey+args alone. A key reused for a different tool must conflict, not replay.
+- **In-flight reservation:** reserve/serialize a step before executing it; simultaneous same-key callers (including two store instances/processes) must not execute twice. Persist `pending/in-flight/uncertain` and reconcile after crash-before-record; durability of a finished JSON snapshot alone does not give exactly-once effects.
+- **Unknown effect rule:** an executor failure after possible dispatch is **not an automatically retriable failed step**. Reconcile in existing conversation journal/effect owner; never infer a retry is safe solely because the run ledger says failed. Read-only tools may follow an explicitly separate safe retry policy.
+- **Capability truth:** preserve distinct evidence for static profile selectors, actual page affordance observation, runtime gate eligibility and a successfully verified effect. A capsule calculated from a cached view cannot represent confirmed available page interaction merely because a selector is configured; use `unverified` until page evidence exists.
+- **Projection fidelity:** short previews are *summaries*, not full provider-native content. Preserve original full raw/DOM/stream identifiers, revision replacement history, unknown blocks, citation and artifact/resource pointers through loss-aware references, and never infer real webapp acceptance from a synthetic fixture.
+
 ## Invariants to validate
 One fresh user delivery per AION key; later reply/new content after baseline; distinct generations cannot claim same source evidence; same text across branches is not identity; DOM and network disagreement remains visible; a failed effect cannot be silently replayed; browser/tab remount does not automatically rebind the conversation; native artifact content and revisions remain available after projection.
