@@ -2,6 +2,14 @@
 
 **Seed: 2026-10-24**. Consult every interaction; refresh GitHub `main` before claiming status.
 
+## 2026-10-24 live priority after Z.ai export audit
+
+- Agent 14 read latest Z.ai TAR (4): bundle/18 patches proposed on base `bbf9d674`, head `ef787f2b`; current GitHub `main` `1469512972`. Reported suite 1252 pass/1 TODO, Chrome synthetic 14/14; no authenticated accepted ChatGPT/Claude multi-turn.
+- Node22 **independent reproduction** against exported `harness-runs.mjs`: concurrent same-key steps executed executor twice while saving one ledger step; same key+args with different tool silently replayed original. Source inspection found crash-after-effect-before-persist uncertainty.
+- Highest-value next: steer Z.ai to safely reconcile/promotion-test 18 patches and close run-step idempotency and crash fences before expanding native fidelity/capsule `/chat`. See role `QUEUE.md` and `CONTRACTS.md`.
+- This specialist did not install on Windows, launch a Z.ai job, independently rerun Z.ai's full suite, or prove an authenticated provider reply. QA controlled live captures deferred on its 2026-10-23 issue; recheck actual scope before effects.
+- Bootstrap read root governance, master kit/tracker, role instructions, global four-tier memory, agent commons, active intelligence index, relevant Capture Studio source, current GitHub issues and Z.ai export. Core-13 shared bootstrap tracker has no Agent14 column; **do not self-register or overwrite existing columns**. Runtime/skill invocation not verified.
+
 ## Most important next action
 Launch a distinct `#AION @Webapp-Native-Harness BOOTSTRAP` conversation, then reconcile actual AION HEAD, the latest Z.ai source bundle, Capture Studio architecture and issues #67–72/#43. Start with native ChatGPT/Claude response-shape/evidence asymmetry; do not invent a new runtime.
 
