@@ -2,7 +2,14 @@
 // steps executed through the same conversation tools and the same conversation runtime that serve
 // every other client. No second browser actor, no second evidence store, no new write path.
 import { problem } from './http.mjs';
-import { CONVERSATION_TOOLS, executeConversationTool } from './conversation-tools.mjs';
+import { CONVERSATION_TOOLS, executeConversationTool, validateConversationTool } from './conversation-tools.mjs';
+import { withDispatchPreflight } from './harness-executor-preflight.mjs';
+
+// Same-key retry after a PROVEN not-dispatched failure is allowed only for tools the registry
+// itself marks read-only. The policy is derived from the single tool surface — never hand-maintained
+// here — so a future read-only tool is automatically covered and an effectful tool can never slip in.
+export const HARNESS_RETRYABLE_TOOLS = Object.freeze(
+  CONVERSATION_TOOLS.filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name));
 
 const str = { type: 'string' };
 const objectSchema = (properties = {}, required = []) => ({ type: 'object', properties, ...(required.length ? { required } : {}) });
@@ -67,12 +74,15 @@ export function registerHarnessTools({ add, harnessApi }) {
 }
 
 // The executor handed to the run store: conversation tools through the shared single path.
+// Agent 14 Round 6 dispatch preflight: a PURE validation failure is proven not_dispatched
+// (the store may record a safe `failed` step); anything thrown after validation may have had a
+// real effect and is left unannotated so the store fences it as `uncertain`.
 export function conversationToolExecutor(conversationRuntime) {
   if (!conversationRuntime) throw problem(503, 'Conversation runtime unavailable', 'CONVERSATION_CAPABILITY_UNAVAILABLE');
-  return async ({ tool, args }) => {
-    try { return await executeConversationTool(conversationRuntime, tool, args); }
-    catch (e) { if (e?.status) throw e; throw problem(409, String(e?.message ?? e), e?.code ?? 'STEP_FAILED'); }
-  };
+  return withDispatchPreflight(
+    ({ tool, args }) => executeConversationTool(conversationRuntime, tool, args),
+    (tool, args) => validateConversationTool(tool, args),
+  );
 }
 
 // Tool-argument envelope validator used before the store is touched (fails closed on junk).

@@ -9,7 +9,7 @@ import { usageError } from '../lib/ui.mjs';
 import { EXIT } from '../../src/config.mjs';
 import { createHarnessRunStore } from '../../src/capture/harness-runs.mjs';
 import { defaultConversationRuntime } from '../../src/studio/conversation-api.mjs';
-import { conversationToolExecutor } from '../../src/studio/harness-api.mjs';
+import { conversationToolExecutor, HARNESS_RETRYABLE_TOOLS } from '../../src/studio/harness-api.mjs';
 
 defineGroup('run', {
   summary: 'Durable harness runs: persistent task/run identity with a resumable step ledger', section: 'Knowledge', default: 'list',
@@ -65,7 +65,7 @@ async function runStep(ctx) {
   const paths = ctx.paths;
   const runtime = await defaultConversationRuntime({ paths, profileStore: ctx.profiles(), familyStore: ctx.families(), port: ctx.port });
   try {
-    const store = createHarnessRunStore({ dir: paths.root + '/harness-runs', toolExecutor: conversationToolExecutor(runtime) });
+    const store = createHarnessRunStore({ dir: paths.root + '/harness-runs', toolExecutor: conversationToolExecutor(runtime), retryableTools: HARNESS_RETRYABLE_TOOLS });
     const out2 = await store.step(runId, { key, tool: flags.tool, args: argsJson });
     emit({ run: out2.run, step: out2.step, replayed: out2.replayed, ...(out2.replayed ? { note: out2.note } : { result: out2.result }) });
     if (out2.step.status === 'failed') process.exitCode = EXIT.ENVIRONMENT;

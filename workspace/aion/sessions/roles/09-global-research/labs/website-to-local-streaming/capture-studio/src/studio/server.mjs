@@ -29,7 +29,7 @@ import { createDriveApi } from './drive-api.mjs';
 import { createConversationApi, defaultConversationRuntime } from './conversation-api.mjs';
 import { createConversationEvents } from './conversation-events.mjs';
 import { createHarnessRunStore } from '../capture/harness-runs.mjs';
-import { createHarnessApi, registerHarnessTools, conversationToolExecutor } from './harness-api.mjs';
+import { createHarnessApi, registerHarnessTools, conversationToolExecutor, HARNESS_RETRYABLE_TOOLS } from './harness-api.mjs';
 
 const UI = new URL('./ui/index.html', import.meta.url);
 
@@ -101,7 +101,10 @@ export async function startStudio({ paths, profileStore, familyStore, cdpPort = 
   }
   // Durable harness run identity: steps execute through the SAME conversation runtime and the
   // SAME tool validation path; the store owns only durable idempotency and the step ledger.
-  const harnessRuns = createHarnessRunStore({ dir: path.join(paths.root, 'harness-runs'), toolExecutor: conversationToolExecutor(conversationRuntime) });
+  // Agent 14 Round 6 hardening: in-flight reservation before effect, per-run exclusive lock,
+  // uncertain-effect fencing; same-key retry after proven not-dispatched only for registry
+  // read-only tools. submit_conversation_turn is NEVER auto-retried here - the journal owns it.
+  const harnessRuns = createHarnessRunStore({ dir: path.join(paths.root, 'harness-runs'), toolExecutor: conversationToolExecutor(conversationRuntime), retryableTools: HARNESS_RETRYABLE_TOOLS });
   const harnessApi = createHarnessApi({ runs: harnessRuns });
   const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id) });
   const driveApi = createDriveApi({ dataDir: paths.root, port: cdpPort, drive, campaign });
