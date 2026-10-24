@@ -223,7 +223,7 @@ export function mountUniversalChat({ document, root, onInspect = () => {}, onEvi
     appendText(document,ui,'p',`Provider: ${ws.provider} · account: ${ws.accountState} · conversation: ${ws.identity.state}${ws.identity.exact?' (exact-bound)':' (not exact-bound)'}`);
     appendText(document,ui,'p',`Browser tabs: ${ws.openTabs.length} (NOT account chats) · account index: ${ws.accountChats.length} (coverage may be partial)`);
     appendText(document,ui,'p',`Attached tab: ${ws.attachment.tabRef||'none'} · chat ref: ${ws.identity.threadRef||'unverified'}`);
-    const observedRead = projectObservedPageRead(snap, pageRead);
+    const observedRead = projectObservedPageRead(snapshot, pageRead);
     if (observedRead.state === 'observed') {
       const panel=document.createElement('section');panel.setAttribute('aria-label','Observed page transcript (not native evidence)');
       appendText(document,panel,'h4','Observed page text — read-only, not verified native output');
