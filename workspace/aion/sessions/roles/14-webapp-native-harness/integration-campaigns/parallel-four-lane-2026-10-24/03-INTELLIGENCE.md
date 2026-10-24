@@ -1,0 +1,23 @@
+#AION @INTELLIGENCE +/EXECUTE — PARALLEL SUPPLIER LANE I1
+THINKING EFFORT: HIGH
+
+REPOSITORY: owenservera/aion. Read current root AGENTS.md and REPOSITORY-GOVERNANCE.md, the governing Capture Studio ARCHITECTURE.md, and your own existing queue/workspace. Refresh main and issues; do not trust old SHAs as current.
+PRODUCT NORTH STAR: one provider-independent AION agentic harness; Capture Studio is the only Chrome/CDP capture and browser-effect authority; Capture Studio intelligence automatically learns, validates, versions, selects and repairs site/surface-specific data adapters. ChatGPT/Claude are adapters, not hardcoded foundations. Preserve provider-native structures and original evidence.
+CONCURRENCY: Z.ai has an owner-uploaded, proposed 23-patch export with head 23185932 (not verified merged on GitHub main at campaign preparation). Do NOT claim to inspect it merely from main. Read Agent14 packages implementations/round6, round7, round8 and round9, its Queue and Contracts. Build in YOUR owned isolated supplier folder / temporary branch or worktree; no concurrent blind writes, no force push. Do not edit a peer's source. Existing main remains shared; source integrations into canonical Studio are Z.ai's responsibility unless owner directs otherwise.
+EXECUTION: produce working Node >=22 code, relevant tests, executable fixtures and reusable integration seams, not a research-only or documentation-only delivery (Systems may provide independent algorithms/benchmarks but must not alter product implementation). No Playwright, Puppeteer, Orca, Slack, paid provider API substitution or unauthorized browser effect. Do not upload .env, cookies, DBs, transcripts, raw private captures or system secrets.
+RECEIPT: publish code and a concise HANDOFF.md with: exact base and result SHA; file list and entrypoints; imports/API schemas; test commands and environment with pass/fail counts; evidence class; edge/failure cases; compatibility/migration and rollback; collisions/dependencies; what Z.ai can copy/import; what still requires real Windows/Claude/ChatGPT proof. GitHub files/comments do not wake another agent. Report a direct source link and SHA.
+
+SCOPE: L4/L5 intelligence and learned adapters only. Read issues #70, #68; existing src/intel/{discover,learn,schema,correlate,join}.mjs; src/shapes/infer.mjs; src/families/build.mjs; src/store/versioned.mjs; ops/capture-studio-knowledge-learning/ACCEPTANCE.md. Distinguish K1-K7 / A1-A7 builder tests from independent QA acceptance.
+
+MISSION: Deliver the missing AUTOMATIC ADAPTER LEARNING/REPAIR PIPELINE so Capture Studio intelligence generates and improves webapp adapters, including already-known providers. Do not create a second site registry or a second agent runtime. Work in workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/ or isolated branch.
+
+IMPLEMENT AND PROVE:
+1. Pure capture/derived-event intake converting observed DOM/a11y/stream/route/identity data into source-qualified adapter probes consumed by Agent14 Round8. Use real schema/intel outputs where possible; preserve capture/session/sequence/site/origin/account/surface/coverage.
+2. Event-driven candidate lifecycle: detect meaningful new evidence or drift, deduplicate, synthesize candidate, score/abstain, train on distinct captures, enforce Round9 held-out disjointness, evaluate on genuinely independent sessions, propose versioned read-only promotion, rollback. No self-trigger loops/continuous aggressive recapture.
+3. Learned-over-seed READ precedence for ChatGPT/Claude and unregistered host, with prove-and-fallback contract. Per-account/origin separation, no universal promotion of a correction on one account, and no learned selector becoming an effect grant. Show adaptation after a simulated site DOM redesign.
+4. Reproducible measurement: baseline vs learned read success, coverage/calibration, false matches, sample independence, drift recovery, field/identity role errors. Include adversarial identical text/history, cross-site/account, incomplete captures, disappeared controls, source mismatch, conflicting profile versions and rollback.
+5. Yield a small adapter candidate/proposal/version API that Core/UI can consume without changing their owned code; supply data-only JSON examples, no raw private site content.
+
+DO NOT: reimplement Core CDP/decode, issue model commands to providers, silently promote uncertain learning to fact, or claim real-site improvement from synthetic fixtures.
+
+DELIVER: I1 executable pipeline, tests with measured outcomes, integration adapter/events schema, independent evidence receipts, HANDOFF.md and verified commit(s). Prioritize actual functioning feedback loop over taxonomy proliferation.
