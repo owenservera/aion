@@ -8,7 +8,7 @@
   "records": [
     {
       "path": "lanes/core/HANDOFF.md",
-      "sha256": "d64cbfc7627978273c523f635551f53348b8fa5a8622836128a4b357d9a62"
+      "sha256": "d64cbfc7627978273c523f635551f53348b8fa9fa5a8622836128a4b357d9a62"
     },
     {
       "path": "lanes/core/core-runtime-bridge.mjs",
