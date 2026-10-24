@@ -1,6 +1,6 @@
 # AION Agent 14 — Four-lane parallel supplier campaign, 2026-10-24
 
-**Status: PROMPTS PREPARED — FOUR AGENTS NOT LAUNCHED; NOT YET A FINISHED Z.ai BUNDLE.**
+**Status as of 2026-10-24: FOUR SUPPLIER PACKAGES RECEIVED, IMMUTABLY COMPILED INTO [CONSOLIDATED](CONSOLIDATED/README.md) ON INTEGRATION BRANCH. Draft [PR #77](https://github.com/owenservera/aion/pull/77) for Z.ai; NOT installed in canonical Studio, NOT merged into main, NOT QA accepted.**
 
 **User goal:** Before next Z.ai integration round, run Core, UI, Intelligence and Systems in parallel; then consolidate into one massive updated integration bundle for Z.ai. Use existing GitHub task/collaboration surfaces and current main without parallel competing systems.
 
@@ -19,10 +19,10 @@ At plan creation GitHub main was `197a036f7d0258d2511ff030f5bdc90e25766b2d`. The
 ## Supplier outputs (fill only after verifying actual commits)
 | Lane | Intake GitHub path | Branch/commit | Tests & evidence | Integration status |
 | --- | --- | --- | --- | --- |
-| C1 | `workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/` | PENDING | PENDING | Not started |
-| U1 | `workspace/aion/ops/capture-studio-ui/handoffs/parallel-2026-10-24/` | PENDING | PENDING | Not started |
-| I1 | `workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/` | PENDING | PENDING | Not started |
-| S1 | `workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/` | PENDING | PENDING | Not started |
+| C1 | `workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/` | `3bbe8d9b` | Supplier 32/32 synthetic claims | Compiled, not installed |
+| U1 | `workspace/aion/ops/capture-studio-ui/handoffs/parallel-2026-10-24/` | `d403e350` | Supplier 43/43 synthetic claims | Compiled, not installed |
+| I1 | `workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/` | `661a4e7e` | Supplier 26/26 committed synthetic claims | Compiled, not installed |
+| S1 | `workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/` | `0a6eccaf` | Supplier 32/32 synthetic claims | Compiled, not installed |
 
 ## Consolidation contract — for Agent 14 on a new explicit user request
 1. Refresh GitHub main and each supplier branch; inspect actual files, tests, inputs, git parent, changed source and latest Z.ai source bundle available in that turn; no inferred agent acknowledgements.
@@ -35,3 +35,8 @@ At plan creation GitHub main was `197a036f7d0258d2511ff030f5bdc90e25766b2d`. The
 Each agent produces runnable code/tests and one concise HANDOFF.md with SHA, entrypoints, test commands, evidence class, dependencies, changed files, import wiring, pending full-suite/Windows/provider acceptance. Work safely in a distinct lane; avoid concurrent edits to canonical Studio source while Z.ai's 23 patches remain unmerged. No Playwright/Puppeteer/Orca, paid APIs or private transcripts in Git.
 
 This manifest is a **future intake plan**, not the compiled bundle and not a commitment to background execution.
+## 2026-10-24 compilation receipt
+- **Consolidated source:** [README](CONSOLIDATED/README.md) · [Z.ai wiring instructions](CONSOLIDATED/ZAI-INTEGRATION.md) · [source ledger](CONSOLIDATED/SOURCE-LEDGER.json) · [SHA256 integrity manifest](CONSOLIDATED/SHA256-MANIFEST.json).
+- Integration branch `integration/agent14-four-lane-20261024`, draft [PR #77](https://github.com/owenservera/aion/pull/77). Original lane blobs preserved (only I1 bridge relative import adjusted in bundle), 8 new cross-lane tests added and a scoped Node22 CI workflow prepared.
+- **Verification:** 28 SHA256 manifest file digests verified by GitHub readback. The 133 passing supplier tests are *supplier-reported*, NOT newly re-executed. Hosted CI jobs ended without steps/logs (inconclusive runner startup). Real Chrome/Windows and G1–G7 are not accepted. A successful Vercel preview is not harness-test proof.
+- **Integration block:** first reconcile Z.ai's separate 23 proposed patches and owner Windows local-master state; run Node22 candidate suite, Round6–9, full Capture Studio integration, QA #72 before production merge. GitHub publication does not wake Z.ai or update local Windows automatically.
