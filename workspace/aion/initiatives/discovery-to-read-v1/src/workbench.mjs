@@ -18,11 +18,13 @@ function observations(captures, siteId, scope) {
 
 // Strict completeness wrapper around Round8 shadowEvaluate: its recommendation is a
 // candidate preview, not proof that all heldout sessions exercised each selected rule.
-function completeHeldoutCoverage(candidate, heldout, heldoutIds, requiredFeatures) {
+function completeHeldoutCoverage(candidate, heldout, heldoutIds, requiredFeatures, fixtureOnly) {
   const misses=[];
   for (const feature of requiredFeatures) {
     const selected=candidate.features?.[feature]?.selected;
-    if (!READ_FEATURES.has(feature) || selected?.status!=='shadow-ready') {
+    if (!READ_FEATURES.has(feature) || !selected || (fixtureOnly
+      ? !['provisional','shadow-ready'].includes(selected.status)
+      : selected.status!=='shadow-ready')) {
       misses.push({feature,reason:'NOT_SHADOW_READY'}); continue;
     }
     for (const captureId of heldoutIds) {
@@ -52,9 +54,11 @@ export async function runDiscoveryReadReplay({ siteId, scope, training, heldout,
   // Shared Round 9 gate is necessary, while our source-lineage gate is stronger.
   const round9=assertIndependentAdapterHoldout(candidate,partition.heldoutIds);
   const shadow=shadowEvaluateAdapter(candidate,heldoutProbes);
-  const misses=completeHeldoutCoverage(candidate,heldoutProbes,partition.heldoutIds,requiredFeatures);
+  const misses=completeHeldoutCoverage(candidate,heldoutProbes,partition.heldoutIds,requiredFeatures,partition.fixtureOnly);
+  // Pure synthetic fixtures can exercise the workflow, but Round8 intentionally
+  // keeps them provisional. Their preview status is never eligible for production.
   const readQualified=shadow.contradicted===0 && misses.length===0
-    && shadow.recommendation==='candidate-read-only-preview';
+    && (partition.fixtureOnly || shadow.recommendation==='candidate-read-only-preview');
   return { schema:WORKBENCH_SCHEMA, siteId,scope:{...scope}, partition,round9,
     candidate,shadow,requiredFeatures,misses,
     status:!readQualified?'quarantined':partition.fixtureOnly?'fixture-only-preview':'read-only-preview-eligible',
