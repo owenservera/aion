@@ -1,4 +1,7 @@
 # AGENTS — Z-FORGE role instructions
+
+> **Active owner direction — execute, don't add process.** Root `AGENTS.md` takes precedence: do the available task directly, avoid automatic orchestration, agent delegation, mandatory memory/skills/bootstrap/check-in loops, and invented gates. For engineering, change existing code, test and run the real app. Preserve actual data/effect safety. Historical procedures are optional references, not prerequisites.
+
 Read order: BOOTSTRAP.md -> SITREP.md -> WORKSPACE.md -> TOOLS.json -> skills/README.md -> lab README/CAPABILITY-LEDGER/RESEARCH-BACKLOG/TURN-FEED -> matching SKILL.md -> evidence.
 All work is in existing AION main; preserve no-branch/no-new-platform rule for AION canonical files. Sandboxed development may occur within isolated test directories without exposing production credentials.
 
