@@ -39,7 +39,7 @@ function completeHeldoutCoverage(candidate, heldout, heldoutIds, requiredFeature
 }
 
 export async function runDiscoveryReadReplay({ siteId, scope, training, heldout,
-  lookupCapture, allowSynthetic=false, requiredFeatures=['user-turn','assistant-turn'] }={}) {
+  lookupCapture, allowSynthetic=false, requiredFeatures=['user-turn','assistant-turn'], prior=null }={}) {
   if (typeof siteId!=='string' || !Array.isArray(training) || !Array.isArray(heldout)) fail('INVALID_REPLAY_INPUT');
   if (!Array.isArray(requiredFeatures) || !requiredFeatures.length
     || requiredFeatures.some(x=>!READ_FEATURES.has(x))) fail('INVALID_REQUIRED_FEATURES');
@@ -50,7 +50,7 @@ export async function runDiscoveryReadReplay({ siteId, scope, training, heldout,
   const trainingProbes=observations(training,siteId,scope);
   const heldoutProbes=observations(heldout,siteId,scope);
   const candidate=synthesizeWebappAdapter({siteId, origin:scope.origin,surface:scope.surface,
-    observations:trainingProbes});
+    observations:trainingProbes,prior});
   // Shared Round 9 gate is necessary, while our source-lineage gate is stronger.
   const round9=assertIndependentAdapterHoldout(candidate,partition.heldoutIds);
   const shadow=shadowEvaluateAdapter(candidate,heldoutProbes);
