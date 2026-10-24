@@ -23,9 +23,11 @@ function stableScope(s) {
 function snapshotRoot(dir,sessionsDir,id) {
   // Never accept an ambiguous Session.open() prefix or a traversal/linked directory.
   const root=path.resolve(sessionsDir),wanted=path.resolve(root,id);
-  try { return path.resolve(dir)===wanted && realpathSync(dir)===realpathSync(wanted) &&
-    realpathSync(path.dirname(dir))===realpathSync(root); }
-  catch { return false; }
+  try {
+    const realRoot=realpathSync(root), realDir=realpathSync(dir);
+    return path.resolve(dir)===wanted && realDir===path.join(realRoot,id)
+      && path.dirname(realDir)===realRoot;
+  } catch { return false; }
 }
 
 /**
