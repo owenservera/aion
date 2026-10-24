@@ -15,8 +15,8 @@
   "sourceAuthority": "GitHub initiative branch; Windows master for actual Studio deployment",
   "testStatus": {
     "javascriptV8SourceReplay": {
-      "tests": 52,
-      "passed": 52,
+      "tests": 53,
+      "passed": 53,
       "failed": 0,
       "note": "V8 same GitHub source with test/URL/path/fs and assertion shims; no Node filesystem."
     },
@@ -26,12 +26,19 @@
       "failed": 0,
       "note": "VersionedStore + CAS from GitHub source with in-memory simulated filesystem, not real lock/fdatasync/NTFS proof"
     },
-    "committedTestCases": 62,
+    "committedTestCases": 63,
     "node22": "not-run-in-checked-out-repository",
     "realDiskIO": "not-run",
     "liveBrowser": "not-run",
     "g1g7": "not-run",
-    "profilePromotion": "not-performed"
+    "profilePromotion": "not-performed",
+    "demoGitHubSourceV8": {
+      "ran": true,
+      "status": "fixture-only-semantic-preview",
+      "semanticCases": 4,
+      "shadow": "collect-more-evidence",
+      "productionActivated": false
+    }
   },
   "productionCodeChanged": false,
   "promotionAuthorized": false,
@@ -43,5 +50,6 @@
     "discoveryIntake": "committed; real capture-to-probes not wired",
     "profileCasOwner": "committed; all live writers and Windows crash behavior not verified",
     "syntheticDemo": "full fixture read-to-semantic pipeline; unexecuted in Node22"
-  }
+  },
+  "verificationReceipt": "verification/2026-10-24-v8-source-replay.json"
 }
