@@ -1,0 +1,44 @@
+name: Agent14 four-lane offline candidate
+on:
+  push:
+    branches:
+      - integration/agent14-four-lane-20261024
+    paths:
+      - "workspace/aion/sessions/roles/14-webapp-native-harness/integration-campaigns/parallel-four-lane-2026-10-24/CONSOLIDATED/**"
+      - ".github/workflows/agent14-four-lane-ci.yml"
+  pull_request:
+    paths:
+      - "workspace/aion/sessions/roles/14-webapp-native-harness/integration-campaigns/parallel-four-lane-2026-10-24/CONSOLIDATED/**"
+      - ".github/workflows/agent14-four-lane-ci.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    name: Node 22 synthetic suite (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: workspace/aion/sessions/roles/14-webapp-native-harness/integration-campaigns/parallel-four-lane-2026-10-24/CONSOLIDATED
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Exact supplier + consolidated tests
+        run: npm test
+      - name: Core offline scenario
+        run: npm run fixture
+      - name: Build SHA256 source receipt
+        run: npm run hash
+      - name: Upload synthetic-only SHA256 manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent14-sha256-${{ matrix.os }}
+          path: workspace/aion/sessions/roles/14-webapp-native-harness/integration-campaigns/parallel-four-lane-2026-10-24/CONSOLIDATED/SHA256-MANIFEST.json
+          if-no-files-found: error
