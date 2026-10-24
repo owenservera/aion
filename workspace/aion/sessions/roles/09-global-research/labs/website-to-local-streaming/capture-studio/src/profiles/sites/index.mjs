@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const adaptersDir = path.dirname(fileURLToPath(import.meta.url));
 
 // The sites this build knows how to drive. An adapter file may be absent at any time.
-export const ADAPTER_IDS = ['chatgpt', 'claude', 'gemini', 'deepseek', 'zai', 'qwen', 'lmarena', 'minimax', 'kimi'];
+export const ADAPTER_IDS = ['chatgpt', 'claude', 'gemini', 'deepseek', 'zai', 'qwen', 'lmarena', 'minimax', 'kimi', 'duck-ai'];
 
 const cache = new Map(); // id -> adapter object | null
 
