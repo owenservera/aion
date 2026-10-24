@@ -6,7 +6,8 @@
 - [x] Build native event graph materializer with source ID and revision integrity.
 - [x] Bind existing Round8/9 into a runnable unknown-site replay workbench.
 - [x] Add fictionally sourced captures, tests and demo entrypoint.
-- [ ] Execute Node22 suite and retain exact logs; until actually executed mark UNVERIFIED.
+- [x] Replay 21 test cases against GitHub source in V8 JS shims: 21/21 pass (not Node22).
+- [ ] Execute Node22 suite and retain exact logs; until actually executed mark NODE22 UNVERIFIED.
 - [ ] Independently review against Z.ai's integrated production source after PR #77 lands.
 
 ## P1 — trusted producer and semantics [NOT STARTED]
