@@ -38,6 +38,43 @@ export function projectRail(providers = [], tasks = []) {
   };
 }
 
+/**
+ * Render the existing /chat zero-send page read as an explicitly limited observation.
+ * A page transcript has positional rows, NOT verified native message IDs, grounded
+ * capture SID/seq, or a trustworthy account index. Never convert it into U1 native
+ * stream events or mark it as an accepted recording.
+ */
+export function projectObservedPageRead(snapshot = {}, pageRead = null) {
+  const snap = obj(snapshot), read = obj(pageRead), view = obj(read.view);
+  const unavailable = reason => ({ state: 'unavailable', reason, messages: [], coverage: [], grounded: false, nativeIds: false, accepted: false });
+  if (!pageRead) return unavailable('not-read');
+  if (!id(snap.id) || read.convId !== snap.id) return unavailable('conversation-mismatch');
+  const thread = binding => {
+    const b = obj(binding), t = b.thread;
+    return typeof t === 'string' && t ? t : id(t?.ref) || id(t?.key) || id(b.threadKey) || null;
+  };
+  // The read is tied to the thread observed when the response arrived, even if
+  // a later snapshot keeps the same local conversation ID but changes binding.
+  if (!Object.hasOwn(read, 'threadRef') || read.threadRef !== thread(snap.binding)) return unavailable('thread-mismatch');
+  if (!Number.isSafeInteger(read.seq) || read.seq < 1 || view.ok !== true || !Array.isArray(view.messages)) return unavailable('invalid-read');
+  const messages = [];
+  let chars = 0;
+  for (const m of view.messages.slice(0, 200)) {
+    if (!['user','assistant'].includes(m?.role) || typeof m.text !== 'string') continue;
+    const text = m.text.slice(0, Math.max(0, 200000 - chars));
+    chars += text.length;
+    messages.push({ role: m.role, text, cut: m.cut === true || text.length < m.text.length, position: Number.isSafeInteger(m.n) && m.n > 0 ? m.n : null });
+    if (chars >= 200000) break;
+  }
+  return {
+    state: 'observed', reason: null, messages, grounded: false, nativeIds: false, accepted: false,
+    identity: snap.identity?.state === 'bound' ? 'bound' : 'unverified',
+    coverage: Array.isArray(view.lines) ? view.lines.filter(x => typeof x === 'string').slice(0, 12) : [],
+    completePageRead: view.chips?.some?.(x => x?.[0] === 'Not a complete copy') === false,
+    readAt: typeof view.readAt === 'string' ? view.readAt : null,
+  };
+}
+
 /** Capability is a multi-dimension read model, never one misleading 'supported' boolean. */
 export function projectCapability(x = {}) {
   const c = obj(x); const state = v => STATES.has(v) ? v : 'unverified';
@@ -178,7 +215,7 @@ export function mountUniversalChat({ document, root, onInspect = () => {}, onEvi
   const store=createConversationStore(), ui=document.createElement('section');ui.className='aion-u1';ui.setAttribute('aria-label','Universal webapp intelligence');
   root.appendChild(ui);
   const cache=new Map();
-  function show({ snapshot={},openTabs=[],accountChats=[],providers=[],tasks=[],adapters=[],capabilities=[],events=[],turnIds=[],outcome={} }={}) {
+  function show({ snapshot={},openTabs=[],accountChats=[],providers=[],tasks=[],adapters=[],capabilities=[],events=[],turnIds=[],outcome={},pageRead=null }={}) {
     for(const event of asArray(events)) store.accept(event);
     ui.replaceChildren();
     const ws=projectWorkspace(snapshot,{openTabs,accountChats});
@@ -186,6 +223,22 @@ export function mountUniversalChat({ document, root, onInspect = () => {}, onEvi
     appendText(document,ui,'p',`Provider: ${ws.provider} · account: ${ws.accountState} · conversation: ${ws.identity.state}${ws.identity.exact?' (exact-bound)':' (not exact-bound)'}`);
     appendText(document,ui,'p',`Browser tabs: ${ws.openTabs.length} (NOT account chats) · account index: ${ws.accountChats.length} (coverage may be partial)`);
     appendText(document,ui,'p',`Attached tab: ${ws.attachment.tabRef||'none'} · chat ref: ${ws.identity.threadRef||'unverified'}`);
+    const observedRead = projectObservedPageRead(snap, pageRead);
+    if (observedRead.state === 'observed') {
+      const panel=document.createElement('section');panel.setAttribute('aria-label','Observed page transcript (not native evidence)');
+      appendText(document,panel,'h4','Observed page text — read-only, not verified native output');
+      appendText(document,panel,'p','These are page-visible text rows, not native message IDs or accepted capture evidence. Account history and unloaded messages may be missing.');
+      if(observedRead.identity !== 'bound') appendText(document,panel,'p','Thread identity is unverified; do not associate this read with an account chat.');
+      for(const line of observedRead.coverage) appendText(document,panel,'small',line);
+      for(const m of observedRead.messages) {
+        const item=document.createElement('article');
+        appendText(document,item,'strong',m.role + (m.position === null ? '' : ' · page position ' + m.position));
+        appendText(document,item,'pre',m.text,'aion-u1-page-text');
+        if(m.cut) appendText(document,item,'small','Partial text — truncated');
+        panel.appendChild(item);
+      }
+      ui.appendChild(panel);
+    } else if (pageRead) appendText(document,ui,'p','Previous page read withheld: ' + observedRead.reason + '. No cross-conversation text displayed.');
     const rail=projectRail(providers,tasks);
     if(rail.providers.length){const region=document.createElement('nav');region.setAttribute('aria-label','Providers');
       for(const p of rail.providers) appendText(document,region,'p',`${p.label} · ${p.accountState} · read ${p.readState} · send ${p.sendState}`);
@@ -225,7 +278,7 @@ export function mountUniversalChat({ document, root, onInspect = () => {}, onEvi
         if(b.evidence.grounded){const btn=document.createElement('button');btn.type='button';btn.textContent=`Inspect SID ${b.evidence.sid} / seq ${b.evidence.sequence}`;btn.addEventListener('click',()=>onEvidence({sid:b.evidence.sid,sequence:b.evidence.sequence,turnId:tid,blockId:b.id}));article.appendChild(btn);}
       } ui.appendChild(article);
     }
-    return {workspace:ws,visibleTurns:asArray(turnIds).length,acceptedEvents:store.changes};
+    return {workspace:ws,visibleTurns:asArray(turnIds).length,acceptedEvents:store.changes,pageReadState:observedRead.state};
   }
   return { show, accept:event=>store.accept(event), getTurn:store.getTurn, dispose:()=>ui.remove(), element:ui };
 }
