@@ -1,0 +1,11 @@
+{
+  "name": "aion-four-lane-candidate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test lanes/core/core-runtime-bridge.test.mjs lanes/ui/universal-chat.test.mjs lanes/intelligence/supplier.test.mjs lanes/intelligence/capture-to-signals.test.mjs lanes/systems/systems-probes.test.mjs integration-gates.test.mjs",
+    "fixture": "node lanes/core/offline-fixture.mjs",
+    "bench": "node lanes/systems/bench.mjs",
+    "hash": "node sha256-manifest.mjs"
+  }
+}

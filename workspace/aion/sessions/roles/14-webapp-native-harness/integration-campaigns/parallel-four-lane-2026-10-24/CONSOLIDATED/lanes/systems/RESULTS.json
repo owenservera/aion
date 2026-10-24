@@ -1,0 +1,108 @@
+{
+  "races": {
+    "schema": "aion.systems-s1/1",
+    "evidence": "synthetic-schedule-exploration",
+    "competingWriters": 2,
+    "totalSchedules": 20,
+    "unsafeReadThenWrite": {
+      "schedules": 20,
+      "multipleDispatchSchedules": 12,
+      "maxDispatch": 2,
+      "conflictSchedules": 0
+    },
+    "atomicAdmission": {
+      "schedules": 20,
+      "multipleDispatchSchedules": 0,
+      "maxDispatch": 1,
+      "conflictSchedules": 0
+    },
+    "effectAuthority": false
+  },
+  "schema": "aion.systems-s1-bench/1",
+  "env": {
+    "node": "v22.16.0",
+    "platform": "linux",
+    "arch": "x64",
+    "synthetic": true,
+    "isolation": "standalone S1 implementation; not production Studio or Windows accepted"
+  },
+  "measurements": [
+    {
+      "name": "heldout_lineage_300_train_100_validation",
+      "samples": 15,
+      "p50_ms": 0.307,
+      "p95_ms": 0.983,
+      "cpu_p50_ms": 0.388,
+      "example": {
+        "ok": true,
+        "decision": "qualify-shadow-only",
+        "trainSessions": 300,
+        "heldoutSessions": 100,
+        "independentLineages": 400,
+        "sendPermission": false
+      }
+    },
+    {
+      "name": "drift_120_qualified_votes",
+      "samples": 15,
+      "p50_ms": 0.097,
+      "p95_ms": 0.198,
+      "cpu_p50_ms": 0.098,
+      "example": {
+        "ok": true,
+        "decision": "shadow-revalidate-read-only",
+        "proposalVotes": 60,
+        "incumbentNegativeVotes": 60,
+        "consecutiveWindows": 3,
+        "rollbackPointerRequired": true,
+        "sendPermission": false
+      }
+    },
+    {
+      "name": "intent_trace_1000_reviews",
+      "samples": 15,
+      "p50_ms": 0.55,
+      "p95_ms": 1.618,
+      "cpu_p50_ms": 0.552,
+      "example": {
+        "ok": true,
+        "decision": "delivery-observed-not-outcome-accepted",
+        "retryAuthorized": false,
+        "sendPermission": false
+      }
+    },
+    {
+      "name": "provenance_1000_reviewed_qualifications",
+      "samples": 15,
+      "p50_ms": 0.881,
+      "p95_ms": 1.055,
+      "cpu_p50_ms": 0.893,
+      "example": {
+        "ok": true,
+        "decision": "eligible-for-scoped-review-only",
+        "refs": 1,
+        "autoLearn": false,
+        "effectAuthority": false
+      }
+    },
+    {
+      "name": "long_stream_20000_updates_32_streams",
+      "samples": 9,
+      "p50_ms": 7.646,
+      "p95_ms": 10.272,
+      "cpu_p50_ms": 8.105,
+      "example": {
+        "rawUpdates": 20000,
+        "projectionItems": 32,
+        "retainedChars": 131072,
+        "naiveEventTextChars": 327680000,
+        "declaredUiGaps": 20000,
+        "cap": {
+          "maxStreams": 32,
+          "maxChars": 4096
+        }
+      }
+    }
+  ],
+  "note": "Synthetic isolated probe speed, not Studio end-to-end throughput. UI preview truncations are explicit and raw log unaffected. Hardware and load determine timings."
+}
