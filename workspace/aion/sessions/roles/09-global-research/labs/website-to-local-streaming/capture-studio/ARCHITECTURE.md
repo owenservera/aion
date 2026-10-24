@@ -464,6 +464,60 @@ real drive-lease directory; child processes for dead-owner proofs)** — no live
   `6a3635ec` (node --test, offline).
 - **Not proved live, unchanged:** all M0-M2 live gates still require the owner's Windows runtime.
 
+### Full-integration checkpoint — 2026-10-24, Z.ai sandbox (Core #68 freshness, streamed reply text, durable harness runs)
+
+Evidence labels: **offline suite** (node --test), **real-Chrome fixture** (`scripts/live-e2e.mjs`,
+Chrome for Testing 143), and **real-provider browser receipt** (guest Duck.ai dispatch; provider
+refused generation). No authenticated conversation, no paid API, no new harness/browser actor.
+
+- **Acceptance freshness, G1/G2 (Core #68, commit `7e19a0f0`):** the clean-data gate no longer
+  accepts a historical prompt/reply that merely matches. The drive now records a **pre-send
+  baseline cursor** — user/assistant turn counts sampled by the SAME page-agent full-DOM scan that
+  later produces `DOM_TURNS`, before anything is typed (`attempt.baseline`, exposed in the
+  conversation view; `driveSite` supplies `baselineTurns` to campaign contexts). With a baseline,
+  G1/G2 enforce post-send growth and match the FIRST new turn (a re-rendered historical
+  transcript cannot pass); without one, a text match alone is `unknown`, so the verdict is
+  `capture_incomplete` — `capture_accepted` is unreachable on historical text. Evaluator version
+  1.1.0 refuses to reuse accepted G1-G3 across the semantics change. New
+  `POST /api/sessions/{session}/acceptance` evaluates with validated caller-supplied context
+  (prompt, expectedReplyWords, completionRule, baseline) through the same reuse/receipt path as
+  derive. live-e2e now proves the API path flips the stored fixture label to `capture_accepted`
+  with "pre-send baseline enforced" recorded.
+- **Streamed reply text (commit `b4538f42`):** the conversation event stream gains an opt-in text
+  feed on the same EventFeed contract: default subscribers keep the exact metadata-only stream;
+  `GET /api/v1/conversations/{id}/events?include=text` additionally receives bounded
+  `conversation.reply_text` snapshots (source confidence network/page/differ, attribution
+  identity, durable revision, true char count, truncated flag at 16k chars). Snapshots make any
+  single event self-sufficient under bounded replay; prompts are still never included; events
+  still cannot cause a resend. The Studio chat UI subscribes with include=text while a
+  conversation is open — text merges monotonically, the poll loop remains the owner of state,
+  and `reset` still forces a GET re-read.
+- **Durable harness runs (commit `f3f9130b`):** run/task identity is now a durable file
+  (`<data-dir>/harness-runs/<id>.run.json`) with an append-only, idempotent step ledger, bound to
+  an optional conversation and resumable across processes. Steps execute the SAME nine
+  conversation tools through the SAME runtime owner (`executeConversationTool` is the single
+  shared path for the tool registry and the harness); steps record digests and bounded summaries,
+  never bodies. Caller-owned step keys: same key + same arguments replays the recorded outcome
+  without re-execution; a different digest is `IDEMPOTENCY_CONFLICT`; failed steps may be retried
+  with both attempts retained. Surfaces: `/api/v1/harness/runs*` (tool manifest
+  `harness_start_run` / `harness_run_step` / `harness_get_run` / `harness_list_runs` /
+  `harness_finish_run` / `harness_note_run`) and `studio run create|list|get|step|context|finish`.
+- **Suites at head `03dd5291`:** unit 1,241 tests / 1,240 pass / 0 fail / 1 pre-existing TODO;
+  live-e2e 14/14 on real Chrome (fixture capture, derive, kb search, outcome packet, export,
+  mirror, dedupe/detect/csv, integrity, studio API with acceptance-context flip and an idempotent
+  harness run).
+- **Real-provider receipt (2026-10-24, sandbox):** Duck.ai guest — the first dispatch LANDED
+  (user turn rendered, `?chatID=<uuid>` assigned; consent "Continue" gate observed once) and the
+  provider refused generation ("temporarily unavailable", anonymous code 02f8) for a datacenter
+  IP; the failure-path session was captured and derived through this build (baseline sampled
+  0/0 pre-send) and its acceptance honestly abstains (G1 unknown — the generic L3 role scan does
+  not recognize `data-testid="user-message"` turns, recorded in the duck-ai profile). Also
+  re-verified from this environment: z.ai renderer wedge (CDP evaluate timeout), Lumo
+  `ERR_HTTP2_PROTOCOL_ERROR` in Chrome, qwen bot-gated landing, HuggingFace composer found but
+  its send gate never enabled (real key events included), chatgpt/deepseek/arena 403,
+  minimax/kimi redirects. **No real model reply was obtainable; none is claimed.** The
+  authenticated two-turn live gate remains with the owner's Windows runtime.
+
 ## 7. Roadmap (intelligence-first order)
 
 > **Agent-harness path (2026-10-23):** the intelligence-first list below remains context. For the owner's

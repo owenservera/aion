@@ -61,8 +61,10 @@ export default {
     urlPatterns: [],
     notes: [
       'Live probe 2026-10-24 (guest, no account): composer verified, first message dispatched twice; the chat API answered "Duck.ai is temporarily unavailable" (anonymous error code shown inline) for a datacenter IP, so the reply transport is unverified.',
+      'Second live probe 2026-10-24, later run (guest, fresh profile): the first dispatch landed — the user turn rendered ("You said" + prompt), the URL gained ?chatID=<uuid>, and the provider again refused generation with the same "temporarily unavailable" + anonymous code 02f8; the composer then stayed disabled until reload. The dispatch itself is therefore proven; the refusal is provider-side.',
       'First-use privacy consent: a "We don\'t track you..." region with a Continue button appears before the first reply and must be accepted once before streaming starts.',
-      'Thread identity: after the first dispatch the URL gains ?chatID=<uuid>; the thread key is the chatID query parameter, not a path segment.',
+      'Thread identity: after the first dispatch the URL gains ?chatID=<uuid>; the thread key is the chatID query parameter, not a path segment. Guest chats are listed in a browser-local "Your recent chats" region; no durable cross-device identity was claimed or observed.',
+      'DOM turn shape: the user turn is div[data-testid="user-message"] containing an h3 "You said" heading plus the prompt text; the generic L3 role scan does not recognize test-id-prefixed roles, so DOM_TURNS stays empty on this site and acceptance G1/G2 honestly abstain rather than fabricate turns.',
     ].join(' '),
   },
 };
