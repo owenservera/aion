@@ -44,3 +44,23 @@ No Playwright, Puppeteer, second actor, unverified send authorization, hidden au
 
 ## Acceptance suite
 Test 1: synthetic unknown site with 3 distinct train + 2 distinct heldout captures; candidate + preview. Test 2: trust failure, forgeries, copies and account-crossing refuse. Test 3: heldout missing/contradicted refuses. Test 4: native append/replace/close, opaque artifact and exact identity. Test 5: interface drift emits candidate with no profile activation. Production release only after original-source attestation, real-window replay and QA.
+
+
+## Implementation pass 2 — 2026-10-24 contracts
+
+### Trusted Studio source adapter
+`createStudioSourceReader({sessionsDir,resolveTrustedIdentity})` imports the canonical `Session` and acceptance helpers; its result `lookupCapture(captureId)` is exactly consumable by `qualifyObservation`. Original source must have exact session ID (never partial lookup), finalized state, HTTPS target, integrity-verified manifested raw segments, no gaps/excluded/truncated body, stable twice-evaluated raw/DOM digests and valid recorded seq range. The internal resolver must pin actual target ID, account and immutable acquisition family/lineage; otherwise read abstains. The revalidated G1–G7 acceptance verdict is reported *separately* and is not invented by structural observation.
+
+The current recorder provides `meta.target` and sometimes `conversationOwner`, but **does not guarantee immutable account/lineage/family facts for every capture**. This is an integration blocker, not license to guess it from cookies, page text or URL. Never pass UI user strings directly to `resolveTrustedIdentity`.
+
+### Independent semantic verification
+`evaluateStructuralRead` requires independently sourced native IDs/roles/kinds for every required feature on every heldout session and checks the candidate interpreter against them, with the exact original raw and DOM digests. An observed selector's repeatability does not establish semantic truth. Model descriptions are suggestions, not proof.
+
+### One-call intake
+`createDiscoveryIntake` is the common server-side facade: `evaluate({siteId,trainingIds,heldoutIds})`. The internally injected `extractProbes` must return source-bound probes whose sequences lie within each verified original capture. Training/heldout separation, Round8 synthesis, Round9 guard, heldout completeness and independent native role evaluation occur before a read candidate is labeled qualified.
+
+### Existing VersionedStore transaction adapter
+`createProfileCasOwner({store})` serializes compliant writers by a lock under the existing profile directory, rejects stale expected versions, delegates immutable snapshots to **the canonical store**, and atomically replaces the `CURRENT` pointer for rollback. It is not safe to wire until *all* profile-writing paths honor the same lock. It intentionally does not auto-steal stale locks. `VersionedStore.save` itself has a crash window before fsync; these tests do not prove fully crash-atomic Windows persistence. The publisher never authorizes production activation or send.
+
+### Real gates still required
+The initiative has source/semantic/CAS **candidate implementations**, not a production-grade integrated learning engine. Accepted real receipts require original Studio identity/auditing and separate real-browser QA; synthetic fixture results remain `fixture-only-semantic-preview`. The no-effect boundary never changes.
