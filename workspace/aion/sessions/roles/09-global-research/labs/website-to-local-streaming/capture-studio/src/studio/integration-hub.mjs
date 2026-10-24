@@ -26,7 +26,7 @@ const timeQuery = { at: { description: 'Epoch milliseconds or ISO timestamp', ty
 const sessionQuery = { ...pagination, site: str, origin: str, status: str, profile: str, q: str };
 const objectSchema = (properties = {}, required = []) => ({ type: 'object', properties, ...(required.length ? { required } : {}) });
 
-export function createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord, previewEvent, getPort, getAccessMode = () => 'local', cdpPort, deriving = new Set(), invalidateReplay = () => {}, adapterFactory = null }) {
+export function createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord, previewEvent, getPort, getAccessMode = () => 'local', cdpPort, deriving = new Set(), invalidateReplay = () => {}, adapterFactory = null, learningPipeline = null }) {
   const feed = new EventFeed();
   const webhooks = new Webhooks(feed, { forbiddenPorts: () => [getPort(), cdpPort] });
   const routes = [];
@@ -410,6 +410,50 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       if (!a) throw problem(404, `No adapter for "${p.id}" in the read view`, 'NOT_FOUND');
       return { adapter: { id: a.id, label: a.label ?? a.id, hosts: a.hosts ?? [], url: a.url ?? null, learned: a.learned === true, readOnly: a.readOnly === true, sendStrategy: a.send?.strategy ?? 'both', readFeatures: a.factory?.readFeatures ?? [], authority: a.authority ?? null } };
     }, { tool: 'get_read_adapter', annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } });
+
+  // Four-lane Intelligence integration: the guarded I1 improvement pipeline over REAL saved
+  // sessions. Proposals are computed server-side from Core-verified evidence only; promotion
+  // is read-only, CAS-guarded and reachable ONLY through a server-minted proposalDigest
+  // (a client-submitted JSON object can never satisfy the minted-ledger lookup). No route
+  // here grants a browser effect: writes go to the existing learned-adapter VersionedStore.
+  if (learningPipeline) {
+    const scopeBody = objectSchema({
+      siteId: str, origin: str, surface: str, accountRef: str,
+      training: { type: 'array', items: str }, heldout: { type: 'array', items: str },
+      trigger: { type: 'string', enum: ['new-evidence', 'drift', 'reviewed-correction'] },
+      testOnly: { type: 'boolean' }, seed: { type: 'object' },
+      incumbent: str, newSelector: str, driftEvidence: { type: 'array', items: { type: 'object' } },
+    }, ['siteId', 'origin', 'training', 'heldout']);
+    const readScope = (body) => ({ siteId: body.siteId, origin: body.origin,
+      surface: body.surface ?? 'chat', accountRef: body.accountRef ?? 'unknown' });
+    add('POST', '/adapters/intelligence/propose', 'Run the guarded adapter-improvement pipeline over saved sessions: server-verified manifests, independent train/held-out lineage, Round 8 synthesis, Round 9 holdout gate, shadow evaluation (pure: computes and mints a proposal, activates nothing)',
+      async ({ body }) => {
+        const proposal = await learningPipeline.propose({
+          scope: readScope(body), training: body.training, heldout: body.heldout,
+          seed: body.seed ?? null, testOnly: body.testOnly === true, trigger: body.trigger ?? 'new-evidence',
+          incumbent: body.incumbent ?? null, newSelector: body.newSelector ?? null, driftEvidence: body.driftEvidence ?? null,
+        });
+        return { ...proposal, note: 'Read-only proposal. Promotion only via the server-minted proposalDigest; no browser effects, no send permission.' };
+      }, { body: scopeBody, tool: 'propose_adapter_improvement',
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
+    add('POST', '/adapters/intelligence/promote', 'Promote a SERVER-MINTED read-only proposal through the expected-version CAS store (versioned learned-read adapter; sendPermission stays false; the digest must come from propose in this process)',
+      async ({ body }) => {
+        if (typeof body.proposalDigest !== 'string' || !body.proposalDigest) throw problem(400, 'proposalDigest is required', 'PROPOSAL_DIGEST_REQUIRED');
+        return { promoted: await learningPipeline.promote(body.proposalDigest) };
+      }, { body: objectSchema({ proposalDigest: str }, ['proposalDigest']), tool: 'promote_read_only_adapter',
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
+    add('POST', '/adapters/intelligence/rollback', 'Roll the learned read-adapter for one scope back to an explicit earlier version under expected-version CAS (pointer move only; immutable history preserved)',
+      async ({ body }) => ({ rolledBack: await learningPipeline.rollback(readScope(body), body.targetVersion, body.expectedVersion ?? null) }),
+      { body: objectSchema({ siteId: str, origin: str, surface: str, accountRef: str, targetVersion: { type: 'integer', minimum: 1 }, expectedVersion: { type: 'integer', minimum: 0 } }, ['siteId', 'origin', 'targetVersion']),
+        tool: 'rollback_read_only_adapter', annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
+    add('GET', '/adapters/intelligence/proposals', 'List proposals minted in this process (digest, status, evidence class, promotion state)',
+      () => ({ proposals: learningPipeline.listProposals() }),
+      { tool: 'list_adapter_proposals', annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } });
+    add('POST', '/adapters/intelligence/read-selection', 'Read-only selection view for one scope: which adapter (learned vs seed) would serve reads, with sendPermission always false (diagnostic; the registry remains the executable source of truth)',
+      async ({ body }) => learningPipeline.resolveRead(readScope(body), body.seed ?? null, { simulation: body.simulation === true, proposal: null }),
+      { body: objectSchema({ siteId: str, origin: str, surface: str, accountRef: str, seed: { type: 'object' }, simulation: { type: 'boolean' } }, ['siteId', 'origin']),
+        tool: 'resolve_read_selection', annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } });
+  }
 
   add('GET', '/events', 'Resumable live SSE previews; Last-Event-ID or after cursor, heartbeat and gap reset', ({ req, res, q }) => feed.subscribe(req, res, q, { status: recorder.status() }), { query: { types: str, session: str, sid: str, after: str, replay: { type: 'integer', minimum: 0, maximum: 1000 } }, contentType: 'text/event-stream' });
   add('GET', '/integrations', 'Integration capabilities and privacy/delivery semantics', () => ({ apiVersion: 1, events: EVENT_TYPES, liveEvents: LIVE_EVENTS, feed: feed.info(), liveFeed: capabilities.liveFeed.info(), endpoints: { events: '/api/v1/events', live: '/api/v1/live', liveView: '/live/view', mirrors: '/api/v1/mirrors', deriveAll: '/api/v1/sessions/{session}/derive-all', artifacts: '/api/v1/sessions/{session}/artifacts', schemas: '/api/v1/sessions/{session}/schemas', rankedGraph: '/api/v1/sessions/{session}/graph/ranked', timelines: '/api/v1/sessions/{session}/timelines', search: '/api/v1/search', openapi: '/api/v1/openapi.json', tools: '/api/v1/integrations/tools', invoke: '/api/v1/integrations/tools/call', webhooks: '/api/v1/integrations/webhooks' }, optionalCapabilities: 'Loaded on demand; HTTP 501 means the backend module or export is unavailable', authentication: 'Localhost requires no token by default; optional token mode accepts x-studio-token or Studio cookie; both enforce same loopback Host/Origin policy', mirrors: { scope: 'literal-loopback-only', lifetime: 'Studio process', maxInstances: 8, privacy: 'Explicit start exposes captured replay data on the returned local mirror port; Studio authentication protects management endpoints, not the mirror backend' }, webhooks: { scope: 'literal-loopback-only', registration: 'process-lifetime', delivery: 'one attempt; unknown network effects are not retried', defaultPayload: 'metadata-only', confirmation: 'registration POST is explicit opt-in' }, tools: { protocol: 'MCP-style JSON manifest and invocation adapter, not a full MCP transport', readOnly: false, streaming: 'Live feed calls return a subscription descriptor; derive_all calls return final JSON. Use the declared HTTP endpoint for SSE progress.' } }));

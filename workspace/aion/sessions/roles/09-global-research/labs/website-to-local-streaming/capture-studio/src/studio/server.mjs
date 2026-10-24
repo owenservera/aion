@@ -25,6 +25,7 @@ import { buildSiteContinuity, siteFromSession, originFromSession, continuityTime
 import { createIntegrationHub } from './integration-hub.mjs';
 import { VersionedStore } from '../store/versioned.mjs';
 import { createAdapterFactory } from './adapter-factory-service.mjs';
+import { createStudioLearningPipeline } from './adapter-learning-pipeline.mjs';
 import { createIntentBindingStore } from './intent-bindings.mjs';
 import { setLearnedAdapterProvider } from '../profiles/sites/index.mjs';
 import { handlePlatformX } from './platform-x.mjs';
@@ -120,7 +121,15 @@ const harnessRuns = createHarnessRunStore({ dir: path.join(paths.root, 'harness-
 // the execution path (drive/send via getAdapter) never sees learned adapters.
 const adapterFactory = createAdapterFactory({ learnedStore: new VersionedStore(path.join(paths.root, 'learned-adapters'), { kind: 'learned adapter' }) });
 setLearnedAdapterProvider(adapterFactory.registryProvider());
-const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id), adapterFactory });
+// Four-lane Intelligence integration: guarded I1 improvement pipeline bound to the SAME
+// learned-adapter VersionedStore (single registry) with expected-version CAS fencing and the
+// real acceptance/session owners as the only evidence source. Proposals are server-minted;
+// promotion is read-only; no second browser actor, sender or registry exists.
+const learningPipeline = createStudioLearningPipeline({
+  sessionsDir: paths.sessions, lockDir: path.join(paths.root, 'locks'),
+  store: new VersionedStore(path.join(paths.root, 'learned-adapters'), { kind: 'learned adapter' }),
+});
+const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conversationRuntime, harnessApi, deriveSession, previewRecord: preview, previewEvent, getPort: () => port, getAccessMode: () => accessMode, cdpPort, deriving, invalidateReplay: (id) => replayCache.delete(id), adapterFactory, learningPipeline });
   const driveApi = createDriveApi({ dataDir: paths.root, port: cdpPort, drive, campaign });
 
   const tokenBuf = Buffer.from(token);
@@ -168,11 +177,13 @@ const hub = createIntegrationHub({ paths, profileStore, learner, recorder, conve
         res.writeHead(200, { 'content-type': script ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" });
         return res.end(content);
       }
-      if (['/chat', '/ui/chat.mjs'].includes(url.pathname)) {
+      if (['/chat', '/ui/chat.mjs', '/ui/universal-chat.mjs'].includes(url.pathname)) {
         if (req.method !== 'GET') { res.setHeader('allow', 'GET'); return send(res, 405, { error: 'GET required' }); }
         const script = url.pathname.endsWith('.mjs');
         let content;
-        try { content = readFileSync(new URL(script ? './ui/chat.mjs' : './ui/chat.html', import.meta.url)); }
+        // universal-chat.mjs is the U1 additive read-only panel module mounted by chat.mjs
+        const file = url.pathname === '/ui/universal-chat.mjs' ? './ui/universal-chat.mjs' : script ? './ui/chat.mjs' : './ui/chat.html';
+        try { content = readFileSync(new URL(file, import.meta.url)); }
         catch (e) { if (e.code === 'ENOENT') return send(res, 404, { error: 'Chat UI not installed yet' }); throw e; }
         res.writeHead(200, { 'content-type': script ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" });
         return res.end(content);

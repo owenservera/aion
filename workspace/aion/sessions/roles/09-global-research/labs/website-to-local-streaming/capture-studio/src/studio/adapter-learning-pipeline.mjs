@@ -1,0 +1,192 @@
+// Four-lane integration glue (Z.ai): binds the I1 adapter-improvement pipeline to the
+// EXISTING Studio owners — real acceptance producer, real session store, real VersionedStore.
+// No second registry, no second browser actor, no new effect authority:
+//   - verifyCapture          -> independently re-reads acceptance (G1-G7) + recomputes raw/DOM
+//                               digests from the saved session; a client boolean is never trusted.
+//   - getTrustedManifests    -> mints server-side session manifests; `lineage` derives ONLY from
+//                               immutable capture provenance (rawDigest|domDigest|seqRange), so
+//                               re-exports/remounts with new session ids cannot forge independence.
+//   - store                  -> expected-version CAS wrapper over the existing VersionedStore
+//                               (cross-process exclusive lock file; stale locks fail closed).
+// Promotion runs only from SERVER-MINTED proposals (in-memory ledger); an HTTP client can
+// submit a digest, never the proposal object. Synthetic evidence can only ever yield
+// `test-only-preview` — the pipeline refuses synthetic production promotion by construction.
+import { createHash } from 'node:crypto';
+import { mkdirSync, openSync, writeFileSync, fsyncSync, closeSync, unlinkSync } from 'node:fs';
+import path from 'node:path';
+import { Session } from '../store/session.mjs';
+import { readAcceptance, rawDigest, domDigest } from '../capture/acceptance.mjs';
+import { createGuardedStudioLearner } from './four-lane-gates.mjs';
+import { createStudioAdapterLearner } from './adapter-studio-bridge.mjs';
+
+const sha256hex = (x) => createHash('sha256').update(x).digest('hex');
+const coded = (code, extra = {}) => Object.assign(new Error(code), { code, ...extra });
+
+/** Expected-version compare-and-save over the existing VersionedStore.
+ * The base store appends versions without optimistic concurrency; this wrapper adds an
+ * exclusive cross-process lock file plus a re-read of CURRENT before every mutation.
+ * Locks are never auto-cleared: a crashed holder fails closed (CAS_LOCKED) until an
+ * operator removes the lock file, mirroring the harness-run fencing policy. */
+export function createCasVersionedStore({ store, lockDir } = {}) {
+  if (!store || typeof store.save !== 'function' || typeof store.load !== 'function' ||
+      typeof store.current !== 'function' || typeof store.rollback !== 'function' || typeof store.versions !== 'function')
+    throw new TypeError('VERSIONED_STORE_REQUIRED');
+  if (typeof lockDir !== 'string' || !lockDir) throw new TypeError('CAS_LOCK_DIR_REQUIRED');
+  mkdirSync(lockDir, { recursive: true });
+  // Scope keys are JSON strings (pipeline contract); VersionedStore names must be filesystem-
+  // safe. The mapping is deterministic and injective in practice: sha256(scopeKey).
+  const storeName = (name) => 'i1-' + sha256hex(String(name)).slice(0, 40);
+  const currentVersion = (name) => {
+    const v = store.current(storeName(name));
+    return Number.isSafeInteger(v) ? v : 0;
+  };
+  const withLock = (name, fn) => {
+    const lock = path.join(lockDir, `.cas-${sha256hex(String(name))}.lock`);
+    let fd;
+    try {
+      fd = openSync(lock, 'wx', 0o600);
+      writeFileSync(fd, JSON.stringify({ pid: process.pid, at: new Date().toISOString(), name: String(name) }));
+      fsyncSync(fd);
+    } catch (e) {
+      if (e.code === 'EEXIST') throw coded('CAS_LOCKED', { name: String(name) });
+      throw e;
+    }
+    try {
+      return fn();
+    } finally {
+      try { unlinkSync(lock); } catch { throw coded('CAS_LOCK_RELEASE_UNVERIFIED', { name: String(name) }); }
+    }
+  };
+  return {
+    async current(name) {
+      const v = currentVersion(name);
+      if (!v) return null;
+      try {
+        const rec = store.load(storeName(name), v);
+        if (rec?.sendPermission !== false || !rec?.adapter) return null; // only read-only records are selectable
+        return { version: rec.version, adapter: rec.adapter, status: 'active',
+          sendPermission: false, readFeatures: Array.isArray(rec.readFeatures) ? rec.readFeatures : [] };
+      } catch { return null; } // unreadable current: treat as absent, never guess
+    },
+    async promote(name, payload, expectedVersion) {
+      if (!payload || payload.sendPermission !== false) throw coded('CAS_PAYLOAD_MUST_BE_READ_ONLY');
+      return withLock(name, () => {
+        const v = currentVersion(name);
+        if (Number.isSafeInteger(expectedVersion) && v !== expectedVersion)
+          throw coded('CAS_VERSION_CONFLICT', { expected: expectedVersion, actual: v });
+        const rec = store.save(storeName(name), payload, payload.changeNote || 'I1 read-only adapter promotion');
+        return { version: rec.version, name: rec.name, schema: payload.schema, sendPermission: false };
+      });
+    },
+    async rollback(name, targetVersion, expectedVersion) {
+      if (!Number.isSafeInteger(targetVersion) || targetVersion < 1) throw coded('INVALID_ROLLBACK_VERSION');
+      return withLock(name, () => {
+        const v = currentVersion(name);
+        if (Number.isSafeInteger(expectedVersion) && v !== expectedVersion)
+          throw coded('CAS_VERSION_CONFLICT', { expected: expectedVersion, actual: v });
+        store.load(storeName(name), targetVersion); // throws when the target version does not exist
+        store.rollback(storeName(name), targetVersion);
+        return { version: targetVersion, fromVersion: v, rolledBack: true };
+      });
+    },
+  };
+}
+
+/** Server-side evidence verifier + trusted manifest provider over the REAL session store. */
+export function createTrustedManifestProvider({ sessionsDir } = {}) {
+  if (typeof sessionsDir !== 'string' || !sessionsDir) throw new TypeError('SESSIONS_DIR_REQUIRED');
+  const verifySession = (sessionId) => {
+    if (typeof sessionId !== 'string' || !sessionId) return null;
+    let session;
+    try { session = Session.open(sessionsDir, sessionId); } catch { return null; }
+    if (!session || session.id !== sessionId) return null; // prefix or remount ambiguity fails closed
+    const doc = readAcceptance(session);
+    if (!doc || doc.verdict !== 'capture_accepted' || !doc.binding?.rawDigest || !doc.binding?.domDigest) return null;
+    for (const g of ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7']) {
+      if (doc.gates?.[g]?.value !== 'passed') return null;
+    }
+    const rd = rawDigest(session); // independent re-verification against the saved bytes
+    if (!rd || rd.digest !== doc.binding.rawDigest || !rd.files) return null;
+    const dd = domDigest(session);
+    if (!dd || dd !== doc.binding.domDigest) return null;
+    return { session, acceptance: doc, rawDigest: rd.digest, domDigest: dd, seqRange: doc.binding.seqRange ?? null };
+  };
+  async function verifyCapture({ scope, source } = {}) {
+    if (!source || typeof source.sessionId !== 'string') return false;
+    const v = verifySession(source.sessionId);
+    if (!v) return false;
+    if (v.rawDigest !== source.rawDigest) return false;
+    // Corroborate origin when the session recorded its target; fail on mismatch, never invent.
+    const url = v.session.meta?.target?.url;
+    if (typeof url === 'string' && url) {
+      try { if (new URL(url).origin !== scope?.origin) return false; } catch { return false; }
+    }
+    return true;
+  }
+  async function getTrustedManifests({ scope, training, heldout } = {}) {
+    const idOf = (e) => (typeof e === 'string' ? e : e?.source?.sessionId ?? null);
+    const mint = (sessionId) => {
+      const v = verifySession(sessionId);
+      if (!v) throw coded('MANIFEST_SESSION_NOT_VERIFIED', { sessionId });
+      const seq = v.seqRange;
+      // Lineage from immutable content provenance only (digests + sequence range), never
+      // filenames, client ids or timestamps: same bytes => same lineage => reuse detected.
+      const lineage = sha256hex(JSON.stringify([v.rawDigest, v.domDigest, Array.isArray(seq) ? seq : null]));
+      return { id: sessionId, lineage,
+        scope: { siteId: scope?.siteId ?? null, origin: scope?.origin ?? null,
+          account: scope?.accountRef ?? null, surface: scope?.surface ?? null },
+        sourceDigest: v.rawDigest, coverage: 'complete', coreAccepted: true, sourceQualified: true };
+    };
+    if (!Array.isArray(training) || !Array.isArray(heldout)) throw coded('MANIFEST_SETS_REQUIRED');
+    // One manifest per distinct session (events of the same session share one source).
+    return { training: [...new Set(training.map(idOf))].map(mint), heldout: [...new Set(heldout.map(idOf))].map(mint) };
+  }
+  return { verifyCapture, getTrustedManifests, verifySession };
+}
+
+/** Full integrated learner. `propose` runs the guarded pipeline (manifest qualification ->
+ * intake verification -> Round 8 synthesis -> Round 9 holdout independence -> shadow evaluation);
+ * successful proposals are minted server-side into a digest ledger, which is the ONLY path to
+ * `promote`. The ledger is intentionally in-memory: a restarted process re-proposes from
+ * evidence instead of resurrecting authority. */
+export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {}) {
+  const provider = createTrustedManifestProvider({ sessionsDir });
+  const casStore = createCasVersionedStore({ store, lockDir });
+  // Two proposals doors into the SAME Round 8/9 machinery and the SAME CAS store:
+  //  - guarded: manifest qualification + drift gate FIRST (the only production door);
+  //  - raw: used ONLY for all-synthetic testOnly previews, which by design cannot pass
+  //    core-acceptance manifests and can never be promoted (PROMOTION_NOT_ELIGIBLE).
+  const rawLearner = createStudioAdapterLearner({ verifyCapture: provider.verifyCapture, store: casStore });
+  const pipeline = createGuardedStudioLearner({
+    verifyCapture: provider.verifyCapture, store: casStore, getTrustedManifests: provider.getTrustedManifests,
+  });
+  const ledger = new Map(); // proposalDigest -> { proposal, promoted }
+  const allSynthetic = (events) => Array.isArray(events) && events.length > 0 &&
+    events.every((e) => e?.source?.evidenceClass === 'SYNTHETIC_TEST');
+  return {
+    async propose(args = {}) {
+      const proposal = (args?.testOnly === true && allSynthetic(args.training) && allSynthetic(args.heldout))
+        ? await rawLearner.propose(args)
+        : await pipeline.propose(args);
+      if (proposal?.proposalDigest) ledger.set(proposal.proposalDigest, { proposal, promoted: false });
+      return proposal;
+    },
+    async promote(proposalDigest) {
+      const entry = typeof proposalDigest === 'string' ? ledger.get(proposalDigest) : null;
+      if (!entry) throw coded('PROPOSAL_NOT_SERVER_MINTED');
+      if (entry.promoted) throw coded('PROPOSAL_ALREADY_PROMOTED');
+      const out = await pipeline.promote(entry.proposal);
+      entry.promoted = true;
+      entry.result = out;
+      return out;
+    },
+    rollback: (scope, targetVersion, expectedVersion) => pipeline.rollback(scope, targetVersion, expectedVersion),
+    resolveRead: (scope, seed, opts) => pipeline.resolveRead(scope, seed, opts),
+    selectReadRule: (scope, feature, seedRule, opts) => pipeline.selectReadRule(scope, feature, seedRule, opts),
+    listProposals: () => [...ledger.entries()].map(([digest, e]) => ({
+      proposalDigest: digest, status: e.proposal.status, scopeKey: e.proposal.scopeKey,
+      evidenceClass: e.proposal.evidenceClass, baseVersion: e.proposal.baseVersion, promoted: e.promoted,
+    })),
+    getProposal: (digest) => (typeof digest === 'string' ? ledger.get(digest)?.proposal ?? null : null),
+  };
+}

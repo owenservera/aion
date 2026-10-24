@@ -5,6 +5,7 @@ import { problem } from './http.mjs';
 import { CONVERSATION_TOOLS, executeConversationTool, validateConversationTool } from './conversation-tools.mjs';
 import { withDispatchPreflight } from './harness-executor-preflight.mjs';
 import { reconcileUncertainStep } from './uncertain-step-reconciler.mjs';
+import { reconcileLifecycle } from './core-runtime-bridge.mjs';
 import { argsDigestOf } from '../capture/harness-runs.mjs';
 
 // Same-key retry after a PROVEN not-dispatched failure is allowed only for tools the registry
@@ -86,6 +87,12 @@ export function createHarnessApi({ runs, intentBindings = null, conversationRunt
     note: (id, body) => ({ run: runView(runs.note(id, body)) }),
     // Read-only uncertain-step reconciliation (Agent 14 Round 7): store snapshot + durable intent
     // binding + journal snapshot through the runtime's own read path. Never mutates anything.
+    // Four-lane C1 seam: the same verified snapshots additionally feed `reconcileLifecycle`,
+    // an independent six-stage projection (delivery / reply attribution / network terminal /
+    // capture / accepted evidence / goal). Provenance that the harness cannot yet prove
+    // (pre-send assistant baseline, recorder capture reference, accepted evidence, goal) is
+    // passed as null — the bridge then reports those stages as honestly unknown instead of
+    // inferring them. `dispatched:false` always; no stage of this projection sends anything.
     reconcileStep: (runId, stepKey) => {
       if (!intentBindings || !conversationRuntime) throw problem(501, 'Intent binding store or runtime journal unavailable', 'RECONCILE_UNAVAILABLE');
       const run = runs.get(runId);
@@ -94,7 +101,14 @@ export function createHarnessApi({ runs, intentBindings = null, conversationRunt
       if (run.conversationId) {
         try { journal = conversationRuntime.journalSnapshot(run.conversationId); } catch { journal = null; }
       }
-      return reconcileUncertainStep({ run, stepKey, journal, intentBinding: binding });
+      const reconciliation = reconcileUncertainStep({ run, stepKey, journal, intentBinding: binding });
+      const lifecycle = reconcileLifecycle({
+        run, stepKey, journal, binding,
+        reconcileUncertainStep,
+        baseline: null, attachment: null, capture: null, acceptance: null, goal: null,
+        origin: journal?.origin ?? null,
+      });
+      return { reconciliation, lifecycle };
     },
   };
 }
@@ -119,10 +133,11 @@ export function registerHarnessTools({ add, harnessApi }) {
     async ({ p, body }) => harnessApi.step(p.run, body),
     { body: stepBody, tool: 'harness_run_step', pathParameters: runParameter,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } });
-  add('POST', '/harness/runs/{run}/reconcile', 'Classify one unresolved harness step against the durable intent binding and the owning conversation journal (READ-ONLY: verdict + evidence only, never mutates, never authorizes a resend)',
+  add('POST', '/harness/runs/{run}/reconcile', 'Classify one unresolved harness step against the durable intent binding and the owning conversation journal (READ-ONLY: verdict + evidence + independent six-stage lifecycle projection, never mutates, never authorizes a resend)',
     ({ p, body }) => {
       if (typeof body.stepKey !== 'string' || !body.stepKey.length || body.stepKey.length > 200) throw problem(400, 'stepKey is required (1..200 chars)');
-      return { run: p.run, stepKey: body.stepKey, reconciliation: harnessApi.reconcileStep(p.run, body.stepKey) };
+      const out = harnessApi.reconcileStep(p.run, body.stepKey);
+      return { run: p.run, stepKey: body.stepKey, reconciliation: out.reconciliation, lifecycle: out.lifecycle };
     },
     { body: objectSchema({ stepKey: { ...str, minLength: 1, maxLength: 200 } }, ['stepKey']), tool: 'harness_reconcile_step',
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } });

@@ -5,6 +5,7 @@
 const API = '/api/v1';
 const SELECTED_KEY = 'capture-studio.chat.selected';
 
+
 /* ---------------- pure helpers (no DOM, no network) ---------------- */
 const CONVERSATION_STATES = {
   disconnected: ['Disconnected', 't-mute'], attaching: ['Connecting…', 't-live'], ready: ['Ready', 't-info'],
@@ -546,6 +547,9 @@ export function readFailure(err) {
 
 /* ---------------- browser app ---------------- */
 function boot() {
+  // Set once the U1 panel is mounted (bottom of boot); render() stays safe before that.
+  let universalRender = () => {};
+
   // `$` is for required controls: a missing one throws here, and the unit test fails first (every id looked up with `$` must exist in chat.html).
   const $ = (sel) => document.querySelector(sel);
   // `opt*` is for purely informational notes only: a missing one is skipped and logged once, never thrown.
@@ -1261,6 +1265,7 @@ function boot() {
     const snap = S.snap;
     renderChrome(); renderStage(snap); renderChips(snap); renderThread(snap); renderBanners(snap); renderTranscript(snap); renderRead(); renderComposer(); renderFinish(snap);
     renderDetails(snap); renderList(); renderConnect(); announce(snap);
+    universalRender(snap);
     if (S.focusMessage && snap?.state === 'ready' && !$('#prompt').disabled) { S.focusMessage = false; $('#prompt').focus(); }
   }
 
@@ -1290,6 +1295,34 @@ function boot() {
   const syncDetails = () => { if (wide?.matches) $('#detailsBox').open = true; };
   wide?.addEventListener?.('change', syncDetails); syncDetails();
   window.addEventListener('pagehide', stopPolling);
+
+  // U1 panel: one additive section under #detailsBody, loaded via a CSP-safe dynamic import
+  // ('self' only). chat.mjs stays statically import-free on purpose: the offline UI tests
+  // compile this file in a bare vm context where module imports are unavailable. If the
+  // module cannot load, the panel simply stays off; the rest of /chat is unaffected.
+  const renderUniversal = (snap) => {
+    if (!universal) return;
+    try { universal.show({ snapshot: snap, openTabs: S.targets?.targets ?? [] }); } catch (err) { console.warn('universal panel render skipped', err); }
+  };
+  let universal = null;
+  universalRender = renderUniversal;
+  // Only attempt the load in a real browser document (http/https origin). The offline test
+  // harness compiles this file in a vm context where module resolution cannot work; there
+  // the panel stays off without any warning or side effect.
+  const inBrowser = typeof location !== 'undefined' && /^https?:$/.test(location?.protocol ?? '');
+  if (inBrowser) try {
+    import('./universal-chat.mjs').then((mod) => {
+      const u1root = document.createElement('div');
+      u1root.id = 'universalIntelligence';
+      $('#detailsBody')?.appendChild(u1root);
+      universal = mod.mountUniversalChat({ document, root: u1root,
+        onInspect: ({ conversationId } = {}) => { if (conversationId && conversationId === S.snap?.id) reconcile('#reconcileError'); },
+        onEvidence: () => { /* no verified evidence explorer yet: never navigate on unproven SID/seq */ },
+        onReviewAdapter: () => { /* read-only adapter review has no verified producer yet */ },
+      });
+      renderUniversal(S.snap);
+    }).catch((err) => console.warn('universal intelligence panel unavailable', err));
+  } catch (err) { console.warn('universal intelligence panel unavailable', err); }
 
   render(); renderConnect();
   (async () => {
