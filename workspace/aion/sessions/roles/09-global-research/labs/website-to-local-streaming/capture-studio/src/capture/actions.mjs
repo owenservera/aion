@@ -1078,7 +1078,12 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
       result.openedTab = true;
     } else {
       target = targets.find((t) => hostMatches(adapter, t.url)) ?? null;
-      if (target) emit({ type: 'target', reused: true, id: target.id, url: target.url });
+      if (target) {
+        // Synthetic key input only reaches a VISIBLE tab (measured: hidden tabs accept
+        // Input.insertText but drop keystrokes), so a reused tab is brought to front first.
+        try { await page_bringToFront(port, target.id); } catch { /* best effort */ }
+        emit({ type: 'target', reused: true, id: target.id, url: target.url });
+      }
       else {
         const openUrl = adapter?.url ?? (adapter?.hosts?.[0] ? `https://${adapter.hosts[0]}/` : null);
         if (!openUrl) { errors.push('adapter has no url or hosts to open'); return; }

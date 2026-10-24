@@ -22,7 +22,7 @@ function adapterFromUrl(raw) {
 }
 
 define({
-  name: 'drive', section: 'Knowledge', usage: '<site|url> [--prompt TEXT] [--timeout S] [--no-record] [--json] [--dry-run]',
+  name: 'drive', section: 'Knowledge', usage: '<site|url> [--prompt TEXT] [--timeout S] [--no-record] [--reuse-tab] [--json] [--dry-run]',
   summary: 'Send a prompt to a live AI site, record it and read the reply back',
   description: 'Reuses the tab already open on that site (or opens one), refuses to type into a login wall, records the exchange unless --no-record, then waits until the reply stops changing and prints it. Works without a site adapter: the generic heuristics in src/capture/actions.mjs find the composer, the send control and the reply.',
   flags: {
@@ -30,6 +30,7 @@ define({
     timeout: { type: 'number', valueName: 'SECONDS', default: 120, desc: 'Give up waiting for the reply after this long' },
     record: { type: 'boolean', desc: 'Capture the exchange as a session (use --no-record to skip)' },
     'dry-run': { type: 'boolean', desc: 'Print the resolved adapter and target, then stop without typing' },
+    'reuse-tab': { type: 'boolean', desc: 'Drive the tab already open on that site (brought to front) instead of opening a fresh one; keeps an in-progress guest thread' },
   },
   examples: [
     'studio drive chatgpt',
@@ -80,7 +81,7 @@ define({
 
     const dataDir = ctx.paths.home ?? path.dirname(ctx.paths.sessions);
     const result = await driveSite({
-      adapter, prompt, port: ctx.port, dataDir, record, timeoutMs,
+      adapter, prompt, port: ctx.port, dataDir, record, timeoutMs, freshTab: !flags['reuse-tab'],
       onEvent: (ev) => {
         if (ev.type === 'target') out.info(`tab ${String(ev.id).slice(0, 8)} (${ev.reused ? 'existing' : 'new'}) ${ev.url ?? ''}`);
         else if (ev.type === 'tab' && ev.opening) out.info(`opening ${ev.opening}`);
