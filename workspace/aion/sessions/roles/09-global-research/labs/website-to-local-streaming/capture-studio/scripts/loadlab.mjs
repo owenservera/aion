@@ -754,6 +754,12 @@ async function runScenario({ mode, cfg }) {
 
   const wallMs = Number(process.hrtime.bigint() - t0) / 1e6;
   hist.disable();
+  // End-of-window queue-age sample: the probe only observes flush(), and the periodic flush
+  // timer (RawLog flushIntervalMs, default 50 ms) never fires inside a workload window shorter
+  // than one interval, which left fast/tiny runs with zero age samples and empty p50/p99 stats.
+  // One explicit flush while still armed records the ages of the records still waiting in the
+  // queue at window end; close()'s final drain stays uncounted, as before.
+  if (capture) session.raw.flush();
   queueAgeArmed = false;
 
   rssPeak = Math.max(rssPeak, process.memoryUsage().rss);
@@ -1373,6 +1379,9 @@ async function runChatScenario({ mode, cfg }) {
   probing = false;
   clearTimeout(probeTimer);
   hist.disable();
+  // Same end-of-window sample as runScenario: guarantee queue-age observations on runs shorter
+  // than one RawLog flush interval.
+  if (capture) session.raw.flush();
   queueAgeArmed = false;
   rssPeak = Math.max(rssPeak, process.memoryUsage().rss);
   clearInterval(statusTimer);

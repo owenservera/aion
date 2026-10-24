@@ -28,9 +28,28 @@ export class DomObserver {
       if (context.name === this.worldName && context.auxData?.frameId) this.contexts.set(context.auxData.frameId, context.id);
     });
     session.on('Runtime.executionContextsCleared', () => this.contexts.clear());
+    // A destroyed context must leave the map: a stale id evaluates into nothing and silently
+    // yields undefined (measured on reload with Chrome 143), which reads as "no agent".
+    session.on('Runtime.executionContextDestroyed', ({ executionContextId }) => {
+      for (const [frameId, ctxId] of this.contexts) if (ctxId === executionContextId) this.contexts.delete(frameId);
+    });
+    // Re-arm the agent after every main-frame navigation. The new-document script hook
+    // (Page.addScriptToEvaluateOnNewDocument) did not re-run the agent in its named world on
+    // reload (measured, Chrome 143), so an explicit restart after navigation is the reliable path.
+    session.on('Page.frameNavigated', ({ frame }) => {
+      if (!frame.parentId && frame.id && !frame.url?.startsWith('about:') && this.session) {
+        this.rearmTimer ??= setTimeout(() => {
+          this.rearmTimer = null;
+          if (this.session && !this.session.detached && this.mainFrameId) {
+            this.startInFrame(this.mainFrameId).catch(() => { /* page gone or not ready; _evalInMain retries */ });
+          }
+        }, 250);
+      }
+    });
     session.on('Runtime.bindingCalled', (p) => { if (p.name === this.binding) this._onMessage(p.payload); });
     await session.send('Runtime.enable');
     await session.send('Runtime.addBinding', { name: this.binding, executionContextName: this.worldName });
+    await session.send('Page.enable'); // frameNavigated drives the post-navigation agent re-arm
     // Future documents: the agent starts in our isolated world on every navigation.
     await session.send('Page.addScriptToEvaluateOnNewDocument', { source: this._script(), worldName: this.worldName, runImmediately: false });
     const { frameTree } = await session.send('Page.getFrameTree');
@@ -64,7 +83,16 @@ export class DomObserver {
   async _evalInMain(expression, returnByValue = true) {
     let ctx = this.contexts.get(this.mainFrameId);
     if (!ctx) { await this.startInFrame(this.mainFrameId); ctx = this.contexts.get(this.mainFrameId); }
-    const r = await this.session.send('Runtime.evaluate', { expression, contextId: ctx, returnByValue, awaitPromise: true });
+    let r;
+    try {
+      r = await this.session.send('Runtime.evaluate', { expression, contextId: ctx, returnByValue, awaitPromise: true });
+    } catch (e) {
+      // The cached context can die under us (navigation). Recreate the world once and retry.
+      if (this.contexts.get(this.mainFrameId) === ctx) this.contexts.delete(this.mainFrameId);
+      await this.startInFrame(this.mainFrameId);
+      ctx = this.contexts.get(this.mainFrameId);
+      r = await this.session.send('Runtime.evaluate', { expression, contextId: ctx, returnByValue, awaitPromise: true });
+    }
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
     return r.result;
   }

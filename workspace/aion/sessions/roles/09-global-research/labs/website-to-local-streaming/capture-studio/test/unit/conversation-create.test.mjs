@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createConversationRuntime } from '../../src/capture/conversation-runtime.mjs';
 import { createConversationBrowserAdapter } from '../../src/capture/conversation-browser-adapter.mjs';
+import { acquireDriveLease } from '../../src/capture/drive-lease.mjs';
 import { Recorder } from '../../src/capture/recorder.mjs';
 
 const OPEN = '11111111-1111-4111-8111-111111111111';
@@ -60,7 +61,7 @@ function harness(t, { tabs = [], storedRef = null } = {}) {
   const file = (id) => path.join(conversations, `${id}.conversation.json`);
   const connectFresh = () => runtime.connect({ site: 'chatgpt', freshTab: true });
   const submit = (c, body = {}) => runtime.submit(c.id, { key: 'one', prompt: 'synthetic create', confirm: true, expectedRevision: c.revision, ...body });
-  return { runtime, state, file, connectFresh, submit };
+  return { runtime, state, file, connectFresh, submit, leaseRoot: path.join(root, 'leases') };
 }
 
 test('fresh tab becomes unbound NEW_CHAT and does not treat /, query root, or a project URL as a thread', async (t) => {
@@ -158,4 +159,20 @@ test('a new /c UUID absent from the denylist pins and only then attributes the r
   assert.equal(ack.binding.thread.ref, `chatgpt-c:${FRESH}`); assert.equal(ack.identity.state, 'bound'); assert.equal(ack.turn.send.state, 'observed');
   for (let n = 0; n < 50 && f.state.replyReads < 1; n++) await tick();
   assert.equal(f.state.sends, 1); assert.ok(f.state.replyReads >= 1);
+});
+
+test('the driving lease covers only the fresh-tab creation window, not the idle tab between connect and send', async (t) => {
+  const f = harness(t, { tabs: [{ id: 'open', type: 'page', url: `https://chatgpt.com/c/${OPEN}` }] });
+  const c = await f.connectFresh();
+  assert.equal(c.identity.state, 'unbound'); assert.equal(c.writer.active, false);
+  acquireDriveLease({ root: f.leaseRoot, port: 19231 }).release(); // Free after the creation window closed.
+  f.state.afterSend = () => {
+    f.state.targetUrl = `https://chatgpt.com/c/${FRESH}`; f.state.pathname = `/c/${FRESH}`;
+    f.state.messages.push({ id: 'user-1', role: 'user', text: f.state.draft }, { id: 'reply-1', role: 'assistant', text: 'synthetic answer' });
+    f.state.draft = '';
+  };
+  const ack = await f.submit(c);
+  assert.equal(ack.turn.send.state, 'observed'); assert.equal(ack.binding.thread.ref, `chatgpt-c:${FRESH}`);
+  assert.equal((await f.runtime.get(c.id)).writer.active, false); // Released once the creation delivery is observed.
+  acquireDriveLease({ root: f.leaseRoot, port: 19231 }).release();
 });

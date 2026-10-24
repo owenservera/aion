@@ -362,11 +362,14 @@ OpenAPI document; none was added (no OpenAPI overhaul).
   UTC; reported by the M0 investigation to resolve to the default Chrome profile, not verified by this
   lane). A normal Chrome without a DevTools port cannot be attached. Login state is classified read-only
   first; manual sign-in is needed only if that classification says so.
-- **Foreground writer lease and capture lifetime are separate.** Today one drive lease is acquired at
-  connect and held for the whole capture (`src/capture/conversation-runtime.mjs:249`, released on
-  finish at `:118` and in `abortFailedConnect` `:127-145`). The target model is a short exclusive writer
-  lease held only while typing or sending, or while an unresolved unknown delivery exists, with
-  capture (read) continuing for its own lifetime. Not implemented.
+- **Foreground writer lease and capture lifetime are separate.** Implemented 2026-10-23 (source + offline tests only; nothing here is a live claim): the drive lease is no longer held for the whole
+  connection/capture. A fresh Studio-owned tab holds it only for the connect window (tab creation +
+  navigation) and an existing-tab attach takes none; typing/dispatching hold it inside a per-turn
+  writer window (`writerWindow` in `src/capture/conversation-runtime.mjs`) that stays open while an
+  unresolved unknown delivery or partial draft exists and closes on observed delivery, proven
+  pre-effect, or reconcile/finish resolution. Passive capture, Read, chat-index and reconcile are
+  lease-free. `close()` finalizes every live entry even when no lease is held. See the checkpoint
+  below for the exact offline evidence and the unchanged live gates.
 - **Live scope.** The first live binding is the user's own existing `/c/<id>` thread, opened by the
   user. Titles are never used for identity or role matching. A role binding is optional and local; the
   harness serves any real conversation, with the AION team as the first workload.
@@ -399,6 +402,213 @@ quote either as an accepted total.
 - **Research not completed:** donor UI first-pass pattern notes remain useful. `vivim-final` is owner-owned and eligible for reuse. Deeper UI/sync/slave-profile lanes were cancelled for Claude credit before completion; that is neither a completed assessment nor a ban on reuse. Third-party dependencies remain unaudited. No config was changed by this docs pass.
 - **Next, still outside this docs pass:** refresh only an ownership-checked Studio server and verify the loaded routes/manifest; human login; real zero-send exact-thread Read; useful SITREP and follow-up; then the remaining full-surface/navigation work. Parent validates, commits and pushes. The original five owner files stay excluded.
 
+### Short writer lease checkpoint — 2026-10-23, Z.ai sandbox, offline only
+
+- **Baseline repair (commit `0dd12c2c`):** `main` `521b9822` failed `test/unit/loadlab.test.mjs`
+  ("repeat mode runs every mode N times...") on this machine: the queue-age probe only observes
+  `RawLog.flush()`, whose periodic timer (50 ms default) never fires inside the tiny run's ~37 ms
+  window, so repeats' `queueAgeP50Ms`/`queueAgeP99Ms` summarised `n:0`. The lab now takes one
+  explicit end-of-window flush while still armed (both scenarios); `close()`'s final drain stays
+  uncounted. After the repair the parent suite reports **1,195 tests, 1,194 pass, 0 fail, 1 existing
+  TODO**. This supersedes the older "1,187/0/1" receipts for this environment; the earlier counts
+  were recorded on other machines/times and are not re-verified here.
+- **Short writer lease (commit `0a34e6dc`):** the target model above, implemented in
+  `conversation-runtime.mjs` (writerWindow, scoped connect lease, close() fix, `writer.active` in
+  conversation views) and `conversation-service.mjs` (window entry before browser-facing turn work,
+  resolution-point releases, ownership-guarded release so a pre-effect failure never releases a
+  window an earlier unresolved turn owns, reconcile-resolution release). `DRIVE_LEASE_BUSY` from a
+  window collision now leaves no journal residue (the window opens before reserve). Evidence label:
+  **Locally demonstrated on synthetic data (injected fake adapters)** — 4 new tests (idle connect
+  lease-free; two conversations attach freely and collide only inside the effect window with no
+  journal residue; unknown delivery holds the window until reconcile resolves it; fresh-tab creation
+  window end-to-end) plus the two rewritten whole-lifetime-lease tests. Full suite after the change:
+  **1,199 tests, 1,198 pass, 0 fail, 1 existing TODO** (`bun run test`, node --test).
+- **Not proved live, unchanged:** no loaded server, no real Chrome, no authenticated ChatGPT turn,
+  no `capture_accepted`. M0-M2 live gates (LIVE-TEST.md RT-0..RT-9) still require the owner's
+  Windows runtime. The lease change is a precondition cleanup for M2/M5, not live acceptance of
+  either.
+
+### Release accounting and restart semantics checkpoint — 2026-10-24, Z.ai sandbox, offline only
+
+Responds to the owner's integration review (INTEGRATION_REVIEW.md flags 1-3). Evidence label for
+everything in this section: **Locally demonstrated on synthetic data (injected fake adapters and a
+real drive-lease directory; child processes for dead-owner proofs)** — no live claim.
+
+- **Unproven-release accounting (flag 1, commit `6a3635ec`):** `writerWindow.release()` no longer
+  swallows a failed underlying release. A release that cannot be proven (ownership unreadable,
+  taken over, or deletion failed) records `leaseReleaseError { code, at, message }` on the entry;
+  `writer.active` stays **true** — the host may still be occupied — and `writer.releaseError`
+  carries the code until a later `enter()` proves a fresh window or a release succeeds.
+  `abortFailedConnect` uses the same accounting and attaches `leaseReleaseError` to the
+  failed-connect error. There is deliberately **no retry, no reclaim and no blind resend**: a
+  subsequent `enter()` that hits `DRIVE_LEASE_BUSY` surfaces the live holder honestly and leaves
+  no journal residue.
+- **Restart semantics (flag 2, corrected description + tests):** the earlier comment claimed a
+  restarted runtime "re-opens the window on the next submit"; that was inaccurate — a restarted
+  runtime admits **no new sends** into a loaded conversation (`CONVERSATION_NOT_WRITABLE`, a gate
+  that predates the lease work). The accurate semantics, now tested: a restarted runtime holds no
+  lease for loaded snapshots (`writer.active false`, `writer.releaseError null`); a refused submit
+  opens no window and leaves no journal residue; a **stale crashed-holder lease is reclaimed by
+  the next real window open anywhere on the host** (dead-pid proof in drive-lease, proven with a
+  child process that acquires and exits); and the durable thread journal keeps fencing the
+  unresolved crashed turn — a new live conversation on the same thread gets `THREAD_FENCED`, its
+  opened window stays held on the fenced thread until reconcile/finish resolves, and teardown
+  frees the host.
+- **Failure-case matrix additions (flag 3):** partial typing (`TYPING_INTERRUPTED`) keeps the
+  window held with `partial-draft-possible`, is **never promoted by a page observation** (the same
+  rule as a preparing crash — the journal turn stays `unknown`, the thread stays fenced), and only
+  teardown (`finish`) closes the window while keeping the uncertainty honest. Cross-runtime host
+  interlock is proven at runtime level: a second runtime instance sharing the lease root hits
+  `DRIVE_LEASE_BUSY` with the live `conversation-writer` holder and no journal residue.
+- Full suite after these changes: **1,204 tests, 1,203 pass, 0 fail, 1 existing TODO** at commit
+  `6a3635ec` (node --test, offline).
+- **Not proved live, unchanged:** all M0-M2 live gates still require the owner's Windows runtime.
+
+### Full-integration checkpoint — 2026-10-24, Z.ai sandbox (Core #68 freshness, streamed reply text, durable harness runs)
+
+Evidence labels: **offline suite** (node --test), **real-Chrome fixture** (`scripts/live-e2e.mjs`,
+Chrome for Testing 143), and **real-provider browser receipt** (guest Duck.ai dispatch; provider
+refused generation). No authenticated conversation, no paid API, no new harness/browser actor.
+
+- **Acceptance freshness, G1/G2 (Core #68, commit `7e19a0f0`):** the clean-data gate no longer
+  accepts a historical prompt/reply that merely matches. The drive now records a **pre-send
+  baseline cursor** — user/assistant turn counts sampled by the SAME page-agent full-DOM scan that
+  later produces `DOM_TURNS`, before anything is typed (`attempt.baseline`, exposed in the
+  conversation view; `driveSite` supplies `baselineTurns` to campaign contexts). With a baseline,
+  G1/G2 enforce post-send growth and match the FIRST new turn (a re-rendered historical
+  transcript cannot pass); without one, a text match alone is `unknown`, so the verdict is
+  `capture_incomplete` — `capture_accepted` is unreachable on historical text. Evaluator version
+  1.1.0 refuses to reuse accepted G1-G3 across the semantics change. New
+  `POST /api/sessions/{session}/acceptance` evaluates with validated caller-supplied context
+  (prompt, expectedReplyWords, completionRule, baseline) through the same reuse/receipt path as
+  derive. live-e2e now proves the API path flips the stored fixture label to `capture_accepted`
+  with "pre-send baseline enforced" recorded.
+- **Streamed reply text (commit `b4538f42`):** the conversation event stream gains an opt-in text
+  feed on the same EventFeed contract: default subscribers keep the exact metadata-only stream;
+  `GET /api/v1/conversations/{id}/events?include=text` additionally receives bounded
+  `conversation.reply_text` snapshots (source confidence network/page/differ, attribution
+  identity, durable revision, true char count, truncated flag at 16k chars). Snapshots make any
+  single event self-sufficient under bounded replay; prompts are still never included; events
+  still cannot cause a resend. The Studio chat UI subscribes with include=text while a
+  conversation is open — text merges monotonically, the poll loop remains the owner of state,
+  and `reset` still forces a GET re-read.
+- **Durable harness runs (commit `f3f9130b`):** run/task identity is now a durable file
+  (`<data-dir>/harness-runs/<id>.run.json`) with an append-only, idempotent step ledger, bound to
+  an optional conversation and resumable across processes. Steps execute the SAME nine
+  conversation tools through the SAME runtime owner (`executeConversationTool` is the single
+  shared path for the tool registry and the harness); steps record digests and bounded summaries,
+  never bodies. Caller-owned step keys: same key + same arguments replays the recorded outcome
+  without re-execution; a different digest is `IDEMPOTENCY_CONFLICT`; failed steps may be retried
+  with both attempts retained. Surfaces: `/api/v1/harness/runs*` (tool manifest
+  `harness_start_run` / `harness_run_step` / `harness_get_run` / `harness_list_runs` /
+  `harness_finish_run` / `harness_note_run`) and `studio run create|list|get|step|context|finish`.
+- **Suites at head `03dd5291`:** unit 1,241 tests / 1,240 pass / 0 fail / 1 pre-existing TODO;
+  live-e2e 14/14 on real Chrome (fixture capture, derive, kb search, outcome packet, export,
+  mirror, dedupe/detect/csv, integrity, studio API with acceptance-context flip and an idempotent
+  harness run).
+- **Real-provider receipt (2026-10-24, sandbox):** Duck.ai guest — the first dispatch LANDED
+  (user turn rendered, `?chatID=<uuid>` assigned; consent "Continue" gate observed once) and the
+  provider refused generation ("temporarily unavailable", anonymous code 02f8) for a datacenter
+  IP; the failure-path session was captured and derived through this build (baseline sampled
+  0/0 pre-send) and its acceptance honestly abstains (G1 unknown — the generic L3 role scan does
+  not recognize `data-testid="user-message"` turns, recorded in the duck-ai profile). Also
+  re-verified from this environment: z.ai renderer wedge (CDP evaluate timeout), Lumo
+  `ERR_HTTP2_PROTOCOL_ERROR` in Chrome, qwen bot-gated landing, HuggingFace composer found but
+  its send gate never enabled (real key events included), chatgpt/deepseek/arena 403,
+  minimax/kimi redirects. **No real model reply was obtainable; none is claimed.** The
+  authenticated two-turn live gate remains with the owner's Windows runtime.
+
+### Webapp-native harness checkpoint — 2026-10-24, Z.ai sandbox (observation projection, capability capsules, shape atlas)
+
+Implements the first concrete L02/L3 seam of the frozen architecture decision (one harness, one
+evidence engine, one browser authority, per-provider native shape systems, small common graph) as
+defined in `roles/14-webapp-native-harness/CONTRACTS.md` v0.1. Branch rebased onto the moved
+`main` (`bbf9d674`: the specialist's docs-only workspace) with all 15 prior commits intact.
+
+- **`aion.web-observation/1` (commit `d8d3a030`):** `src/shapes/observation.mjs` +
+  `GET /api/v1/sessions/{session}/observation` — a loss-aware projection over the EXISTING derive
+  outputs. Unknown native parts project as `unknown-native` with loss markers (never coerced to
+  text); conversation identity is surfaced ONLY through the source-supported durable parser
+  (ChatGPT `/c/<uuid>`) — guest `?chatID` ids and every other site stay `binding:'unverified'`,
+  `nativeRef:null`; the five completion facts are distinct fields (providerNetworkEnded /
+  pageStable / turnAttribution / captureFinalized / captureAccepted), each naming its evidence
+  class. Bench Tier-0 E00/E03 covered as negative tests.
+- **`aion.capability-capsule/1` (same commit):** `src/capture/conversation-capsule.mjs` +
+  `runtime.capsule(id)` + `GET /api/v1/conversations/{id}/capsule` — page-local
+  supported/unavailable/unverified operations with the runtime's own gate reasons; `stop_generation`
+  reports NOT_IMPLEMENTED_IN_RUNTIME rather than fabricating a capability; advisory only, every
+  gate re-checked at effect time. Bench E08 covered.
+- **`aion.shape-atlas/1` (commit `0b54d0b6`):** `scripts/shape-atlas.mjs` +
+  `docs/shape-atlas/{README,chatgpt,claude}.md` + committed `atlas.json` — the side-by-side
+  native-shape atlas with every claim labeled SOURCE/SYNTHETIC/REAL/PRODUCT/UNKNOWN: ChatGPT
+  identity grammar + path-ops stream (SOURCE+SYNTHETIC), Claude StreamTimeline Connect/protobuf
+  leads with field hypothesis 1.1.5.9 UNCONFIRMED and no durable binding claimed, sandbox live
+  receipts (duck.ai dispatch/refusal, z.ai, huggingface, claude.ai 302 login wall, chatgpt 403),
+  and five explicit gaps.
+- **Suites at head `0b54d0b6`:** unit 1,253 / 1,252 pass / 0 fail / 1 pre-existing TODO;
+  live-e2e 14/14 on real Chrome — step 13 now also asserts the observation envelope on the REAL
+  captured session (unverified identity for the non-parser fixture site, chat surface, five
+  completion facts, accepted verdict preserved, loss markers present).
+- **Still not claimed:** authenticated ChatGPT/Claude fresh observation (login walls recorded,
+  not bypassed), verified Claude reply reconstruction, artifact/task native parses (PRODUCT-only),
+  and the authenticated two-turn live gate (owner's Windows runtime).
+
+### Round 6 integration checkpoint — 2026-10-24, Z.ai sandbox (Agent 14 hardened harness-run store + dispatch preflight)
+
+Agent 14 published an executable package on GitHub main
+(`roles/14-webapp-native-harness/implementations/round6/`, 5 files, 18 focused tests, remote
+readback verified). This round integrated it into the product rather than rebuilding it, after
+reconciling the 18-commit sandbox branch onto the moved main (`91039694`).
+
+- **Hardened harness-run store (integrated verbatim):** `src/capture/harness-runs.mjs` is now
+  Agent 14's hardened drop-in. Upgrades over the Round 4 store: step identity is
+  `(runId, key, tool, canonical JSON args digest)` — order-independent canonical serialization
+  (the previous digest hashed JS insertion order; equivalent key orders now replay, real changes
+  conflict), with prototype-pollution and cycle rejection; an `in_flight` step is written to
+  durable JSON BEFORE the executor is invoked; every state transition runs under an exclusive
+  per-run `.run.json.lock` (busy locks are refused `RUN_BUSY`, never force-stolen); an executor
+  exception is an UNCERTAIN effect unless the executor proves `effectState:'not_dispatched'`
+  (only then is a `failed` step recorded); same-key retry after a proven not-dispatched failure
+  is restricted to `retryableTools`; `finish` refuses a run with `in_flight`/`uncertain` steps
+  (`RUN_HAS_UNRESOLVED_EFFECT`); concurrent notes are preserved by fresh re-read under the lock;
+  and `recoverAbandonedLock(id,{expectedPid})` releases a crash-left lock only after verifying
+  the owner process is dead — it never clears `in_flight`/`uncertain` effect fences.
+- **Dispatch preflight (new module, verbatim):** `src/studio/harness-executor-preflight.mjs`
+  wraps the single shared executor: `withDispatchPreflight(execute, validate)` runs the pure
+  `validateConversationTool` first and annotates only pre-dispatch validation failures with
+  `effectState:'not_dispatched'` — grounded because validation precedes execution. Errors after
+  that point stay unannotated, so the store fences them as uncertain. `harness-api.mjs`'s
+  `conversationToolExecutor` now routes through it; retry policy is DERIVED from the single tool
+  registry (`HARNESS_RETRYABLE_TOOLS` = tools whose own annotations mark them read-only), so a
+  future read-only tool is automatically covered and an effectful tool can never slip in.
+  `submit_conversation_turn` is never auto-retried here — the conversation journal owns re-dispatch.
+- **Superseded semantics (intentional, not restored):** the Round 4 behavior "any executor error
+  records a failed step, failed steps auto-retry under the same key" is replaced by
+  fail-closed fencing. Two original test assertions were superseded accordingly and are NOT
+  restored; the HTTP fixture's argument-validation failure remains `failed` (proven
+  not_dispatched by the pure preflight). Migration note: steps persisted by the Round 4 store
+  used order-dependent digests — replaying them across the upgrade is fail-closed
+  (`IDEMPOTENCY_CONFLICT`) rather than silently re-executing; per-run ledgers are local task
+  state, not captured evidence, so no evidence migration is implicated.
+- **Tests:** Agent 14's 15 adversarial store tests + 3 preflight tests installed at product
+  paths (`test/unit/harness-runs.test.mjs`, `test/unit/harness-executor-preflight.test.mjs`),
+  plus one preserved-original assertion block (identity validation, not-found and finished-run
+  fencing). Focused: 22/22. Full unit suite at the integration head: 1,263 tests / 1,262 pass /
+  0 fail / 1 pre-existing TODO (offline).
+- **Real crash/lock probe (new):** `scripts/harness-crash-probe.mjs` proves the store's
+  invariants with REAL child processes, no injected io faults — P1 cross-process same-key
+  contention (`STEP_UNCERTAIN` while the first process's executor runs; replay without
+  re-execution afterwards), P2 real SIGKILL mid-executor (step stays `in_flight` after restart,
+  same key refused `STEP_UNCERTAIN`, `finish` refused `RUN_HAS_UNRESOLVED_EFFECT`, executor ran
+  exactly once), P3 owner-verified stale-lock recovery (wrong pid `LOCK_OWNER_MISMATCH`, living
+  owner `LOCK_OWNER_STILL_ALIVE`, verified dead pid released, run usable afterwards).
+  14/14 invariants held in this sandbox (Linux); the SAME command is the standing Windows/NTFS
+  local test for the owner runbook. live-e2e: 14/14 on Chrome for Testing 143 — step 13 drives
+  the hardened store through the real HTTP API (idempotent replay, conflict, finish).
+- **Still not claimed:** authenticated two-turn live acceptance (owner runtime); uncertain-step
+  journal reconciliation remains a documented boundary (Agent 14's package does not implement
+  the journal-specific resolution action; uncertain steps stay fenced until reconciled).
+
 ## 7. Roadmap (intelligence-first order)
 
 > **Agent-harness path (2026-10-23):** the intelligence-first list below remains context. For the owner's
@@ -425,7 +635,83 @@ node bin/studio.mjs record --target chatgpt
 node bin/studio.mjs sessions ; node bin/studio.mjs receipt latest
 npm test                              # unit
 $env:CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe"; npm run test:e2e
+node bin/studio.mjs doctor
+node scripts/harness-crash-probe.mjs  # harness-run store crash/lock recovery proof (keep the receipt)
 node eval/run.mjs                     # intelligence evaluation (roadmap step 1)
 ```
+
+### Round 8 integration checkpoint — 2026-10-24, Z.ai sandbox (Agent 14 adaptive adapter factory + Round 7 uncertain-step reconciler)
+
+Agent 14 published two executable packages on GitHub main: `implementations/round8/` (generic
+adaptive webapp adapter factory: candidate synthesis, evidence-weighted ranking, drift detection,
+held-out shadow evaluation; 17 tests) and `implementations/round7/` (pure uncertain-step
+reconciler; 17 tests). Both are now installed in the product verbatim and wired to the existing
+Capture Studio systems — no second registry, no second browser actor, no send grant.
+
+- **Self-generating webapp adapters (Round 8).** The corrected architecture is now live in code:
+  handwritten `src/profiles/sites/*.mjs` adapters remain the seeds/fallbacks, while the factory
+  turns Capture Studio's own evidence into data-only learned adapters.
+  - Probe production (`src/studio/adapter-probes.mjs`): SAVED_REAL_CAPTURE probes from existing
+    derive outputs (DOM_TURNS attribute selectors, ASSEMBLED stream endpoints, DOM_INSPECT /
+    RECEIPT thread-URL route templates) and SANDBOX_REAL_BROWSER probes from a bounded READ-ONLY
+    in-page measurement through the existing DomObserver. Absence is only claimed by a complete
+    whole-document measurement; saved captures contribute presence votes only; thread routes are
+    only proposed when the page URL carries identity-shaped tokens (never titles/ordinals/text).
+  - Lifecycle (`src/studio/adapter-factory-service.mjs`): synthesize -> shadow-evaluate ->
+    promote -> rollback over a VersionedStore at `<root>/learned-adapters/`. Promotion RE-COMPUTES
+    the held-out shadow evaluation server-side; a client receipt alone never promotes;
+    `AUTHORITY_VIOLATION`, `SHADOW_MISMATCH` and `PROMOTION_NOT_EARNED` fail closed. A learned
+    adapter activates only held-out-confirmed READ features (user-turn, assistant-turn,
+    thread-route, stream-component; composer/send-control/stop-control can never appear).
+  - One registry, two views (`src/profiles/sites/index.mjs`): the execution path (`getAdapter`,
+    used by drive/send) is byte-identical to before and can never resolve a learned adapter;
+    `getReadAdapter`/`listReadAdapters` expose seeds + learned to observation surfaces. Defense
+    in depth: a learned adapter carries `send.strategy 'learned-readonly'` and
+    `sendMessage` refuses it before any CDP traffic (`src/capture/actions.mjs`).
+  - API/tools (`src/studio/integration-hub.mjs`): `/api/v1/adapters/learned/*` (synthesize with
+    optional live=1 measurement of the actively captured tab, shadow-evaluate, promote, list,
+    get, rollback, transcript with `live=1` through the serve process's own recorder) and
+    `/api/v1/adapters/read` (read view). Drift = synthesis with a prior: live absence of the
+    previous selectors yields `PREVIOUS_CANDIDATE_NEGATIVE_OBSERVATION`; a replacement candidate
+    yields `PROPOSED_REPLACEMENT_REQUIRES_SHADOW_VALIDATION`; versioned rollback is a pointer move.
+- **Uncertain-step reconciliation (Round 7).** `src/studio/uncertain-step-reconciler.mjs`
+  (verbatim) classifies unresolved submit steps against a durable pre-effect intent binding
+  (`src/studio/intent-bindings.mjs`, atomic tmp+rename, one record per run+step, digests and
+  identifiers only) recorded by the harness API BEFORE dispatch and completed from the OWNING
+  journal (the submit args' durable request key IS the journal turn key) in a `finally` block —
+  uncertain steps throw, and that is exactly the case the binding must survive. Read-only query:
+  `POST /api/v1/harness/runs/{run}/reconcile`. Missing/incomplete/mismatched bindings stay
+  `still_unknown`; `executed` is observed delivery, not acceptance; `not_executed` is never a
+  resend permit. Journal access is the service's own read-only snapshot (new `journalSnapshot()`
+  accessor; pure snapshot when the conversation is not open) — no competing parser. The step
+  args digest comes from the store's own canonicalization (now exported as `argsDigestOf`) so
+  binding and step identity can never diverge.
+- **Local-integrator flag:** `launchChrome` honors opt-in `CAPTURE_STUDIO_CHROME_ARGS` (owner
+  machines and synthetic-https fixtures); the CDP listener stays loopback-only.
+- **Unseen-webapp demonstration** (`scripts/adapter-factory-demo.mjs` + unregistered synthetic
+  https chat host `scripts/adapter-fixture-site.mjs`): zero handwritten adapters; four real
+  `studio drive` exchanges through generic heuristics; candidate synthesized from three captures
+  (probes=9, user-turn/assistant-turn/thread-route all shadow-ready); held-out shadow evaluation
+  3/3 positive -> `candidate-read-only-preview`; server-re-verified promotion to v1
+  (readFeatures=assistant-turn+thread-route+user-turn); saved-session transcript (2 turns,
+  thread binding honestly `unverified` — no supported parser for the host); LIVE transcript while
+  the serve process records; read view shows the learned adapter while a dry-run drive still
+  resolves generic heuristics; v2 UI mutation -> two more drives + live measurement -> both drift
+  reasons -> shadow 3/3 -> v2 promoted (`[data-msg-role="user"]`); rollback v2->v1->v2 verified.
+  All 15 steps PASS on Chrome for Testing 143.0.7499.4.
+- **Evidence labels:** everything above is OFFLINE-SUITE + SANDBOX-REAL-BROWSER against a local
+  synthetic host (SANDBOX-DEMO). No third-party provider, no authenticated surface, no
+  Windows-specific claim. `shadow-ready`/`candidate-read-only-preview` are ranking outcomes,
+  not acceptance, runtime send capability or permission.
+- **Tests:** +63 (Agent 14 packages 17+17 verbatim; probes 14; factory service 5; registry 4;
+  learned-readonly send fence 2; Round 7 reconciler integration 4 with a real journal fixture).
+  Full suite at the Round 8 head: 1326 tests / 1325 pass / 0 fail / 1 pre-existing todo.
+  live-e2e 14/14 unchanged on Chrome for Testing 143.
+- **Remaining gaps:** automatic extraction from provider-native encodings (Claude
+  Connect/protobuf) stays a specialist decoder path (atlas B03); scheduled drift sweeps not
+  built (drift fires on synthesis with a prior); learned-composer activation deliberately never
+  (read-only authority); Windows/NTFS conformance for the learned/binding stores remains the
+  owner handoff (same as the Round 6 store probe); read-only transcript identity stays
+  `unverified` for hosts without a source-supported parser (by design, anti-fabrication).
 
 Session data lives outside the repository, under `%LOCALAPPDATA%\AION\capture-studio`. Never commit captured data.

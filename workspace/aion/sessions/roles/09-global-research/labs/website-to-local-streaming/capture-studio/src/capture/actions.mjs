@@ -301,6 +301,9 @@ export async function sendMessage(page, adapter = null, deps = {}) {
   };
   const strategy = adapter?.send?.strategy ?? 'both';
   const notAttempted = (method, reason) => ({ ok: false, sent: false, method, dispatched: false, sendStatus: 'not-attempted', uncertain: false, reason });
+  // Learned (adapter-factory) adapters are data-only and read-only by construction; their
+  // strategy is an explicit refusal so they can never become a send path, even by accident.
+  if (strategy === 'learned-readonly') return notAttempted('preflight', 'learned data-only adapter does not grant send permission (adapter authority: sendPermission=false)');
 
   let before;
   try { before = await d.sendState(page, adapter); }
@@ -1078,7 +1081,12 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
       result.openedTab = true;
     } else {
       target = targets.find((t) => hostMatches(adapter, t.url)) ?? null;
-      if (target) emit({ type: 'target', reused: true, id: target.id, url: target.url });
+      if (target) {
+        // Synthetic key input only reaches a VISIBLE tab (measured: hidden tabs accept
+        // Input.insertText but drop keystrokes), so a reused tab is brought to front first.
+        try { await page_bringToFront(port, target.id); } catch { /* best effort */ }
+        emit({ type: 'target', reused: true, id: target.id, url: target.url });
+      }
       else {
         const openUrl = adapter?.url ?? (adapter?.hosts?.[0] ? `https://${adapter.hosts[0]}/` : null);
         if (!openUrl) { errors.push('adapter has no url or hosts to open'); return; }
@@ -1154,6 +1162,14 @@ export async function driveSite({ adapter, prompt, port = 9222, dataDir, record 
     const baseCount = pre.count ?? 0;
     result.baseline = baseline ? baseline.slice(0, 200) : '';
     result.baselineCount = baseCount;
+    // Pre-send acceptance-freshness cursor (G1/G2): user/assistant counts from the SAME page-agent
+    // full-DOM scan that produces DOM_TURNS at stop. null when unmeasurable — evaluation stays
+    // honest rather than guessing an empty page.
+    try {
+      const t0 = await recorder.domTurns();
+      result.baselineTurns = { userTurns: t0.filter((x) => x?.role === 'user').length,
+        assistantTurns: t0.filter((x) => x?.role === 'assistant').length, sampledAt: new Date().toISOString() };
+    } catch { result.baselineTurns = null; }
 
     const typed = await typeText(page, result.prompt, { human: humanPace });
     emit({ type: 'typed', ok: typed.ok, method: typed.method, chars: String(typed.typed ?? '').length, grewBy: typed.grewBy });
