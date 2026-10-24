@@ -48,7 +48,7 @@ test('full lifecycle: three training sessions, one held-out, promotion to read-o
     assert.equal(shadow.recommendation, 'candidate-read-only-preview');
     assert.ok(shadow.checked >= 3); // user-turn + assistant-turn + thread-route held-out positives
 
-    const rec = factory.promote({ candidate, sessions: heldout, clientShadow: shadow, note: 'demo v1' });
+    const rec = factory.promote({ candidate, sessions: heldout, clientShadow: shadow, note: 'demo v1', expectedVersion: null });
     assert.equal(rec.version, 1);
     assert.equal(rec.adapter.learned, true);
     assert.equal(rec.adapter.readOnly, true);
@@ -74,7 +74,7 @@ test('promotion is fail-closed: no held-out sessions, quarantine, authority viol
     const { candidate } = factory.synthesize({ siteId: 'fixture-chat', origin: ORIGIN, sessions: training });
 
     // No held-out sessions -> recomputed shadow is collect-more-evidence -> refused.
-    assert.throws(() => factory.promote({ candidate, sessions: [] }), (e) => e.code === 'PROMOTION_NOT_EARNED');
+    assert.throws(() => factory.promote({ candidate, sessions: [], expectedVersion: null }), (e) => e.code === 'PROMOTION_NOT_EARNED');
 
     // A quarantined candidate (held-out contradiction) never promotes.
     const badSession = fakeSession('bad');
@@ -82,12 +82,12 @@ test('promotion is fail-closed: no held-out sessions, quarantine, authority viol
     badTurns[0] = { ...badTurns[0], roleAttribute: 'data-other' }; // training selector absent in this capture
     // contradiction via a wrong claim cannot be built from saved probes (presence-only), so
     // quarantine is exercised at the unit level through a mismatched client receipt instead.
-    assert.throws(() => factory.promote({ candidate, sessions: [fakeSession('h1')], clientShadow: { recommendation: 'quarantine' } }), (e) => e.code === 'SHADOW_MISMATCH');
+    assert.throws(() => factory.promote({ candidate, sessions: [fakeSession('h1')], clientShadow: { recommendation: 'quarantine' }, expectedVersion: null }), (e) => e.code === 'SHADOW_MISMATCH');
 
     // Authority violation: a doctored candidate cannot promote.
     const doctored = JSON.parse(JSON.stringify(candidate));
     doctored.authority.sendPermission = true;
-    assert.throws(() => factory.promote({ candidate: doctored, sessions: [fakeSession('h1')] }), (e) => e.code === 'AUTHORITY_VIOLATION');
+    assert.throws(() => factory.promote({ candidate: doctored, sessions: [fakeSession('h1')], expectedVersion: null }), (e) => e.code === 'AUTHORITY_VIOLATION');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -111,7 +111,7 @@ test('drift: prior candidate measured absent on the new UI triggers both drift r
     const training = [fakeSession('t1'), fakeSession('t2'), fakeSession('t3')];
     const heldout = [fakeSession('h1')];
     const { candidate } = factory.synthesize({ siteId: 'fixture-chat', origin: ORIGIN, sessions: training });
-    factory.promote({ candidate, sessions: heldout });
+    factory.promote({ candidate, sessions: heldout, expectedVersion: null });
 
     // Site UI changed: role attribute renamed data-role -> data-msg-role. Live probes carry the
     // honest absence of the previous selector (SANDBOX_REAL_BROWSER, complete document) plus the
@@ -136,14 +136,17 @@ test('drift: prior candidate measured absent on the new UI triggers both drift r
     // v2 relearn to promotion
     const shadow2 = factory.shadowEvaluate({ candidate: withAbsence.candidate, sessions: [fakeSession('h2', { roleAttr: 'data-msg-role' })] });
     assert.equal(shadow2.recommendation, 'candidate-read-only-preview');
-    const rec2 = factory.promote({ candidate: withAbsence.candidate, sessions: [fakeSession('h2', { roleAttr: 'data-msg-role' })], note: 'relearn v2' });
+    const rec2 = factory.promote({ candidate: withAbsence.candidate, sessions: [fakeSession('h2', { roleAttr: 'data-msg-role' })], note: 'relearn v2', expectedVersion: 1 });
     assert.equal(rec2.version, 2);
     assert.equal(rec2.adapter.userTurn.selectors[0], '[data-msg-role="user"]');
 
-    // rollback to v1 restores the previous selectors (pointer move, no re-synthesis)
-    factory.rollback('fixture-chat', 1);
+    // rollback to v1 restores the previous selectors by APPENDING v3 (no re-synthesis, strict explicit expectation)
+    const rb1 = factory.rollback('fixture-chat', 1, { expectedVersion: 2 });
+    assert.equal(rb1.version, 3);
+    assert.equal(rb1.restoredFrom, 1);
     assert.equal(factory.loadLearned('fixture-chat').userTurn.selectors[0], '[data-role="user"]');
-    factory.rollback('fixture-chat', 2);
+    const rb2 = factory.rollback('fixture-chat', 2, { expectedVersion: 3 });
+    assert.equal(rb2.version, 4);
     assert.equal(factory.loadLearned('fixture-chat').userTurn.selectors[0], '[data-msg-role="user"]');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

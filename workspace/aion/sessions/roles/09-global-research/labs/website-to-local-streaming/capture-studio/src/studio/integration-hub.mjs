@@ -12,11 +12,12 @@ import { buildSiteContinuity, siteFromSession, originFromSession } from '../inte
 import { transcriptFromSession, transcriptFromLivePage, probesFromLivePage } from './adapter-probes.mjs';
 import { getReadAdapter, listReadAdapters } from '../profiles/sites/index.mjs';
 import { AdapterFactoryError } from './adapter-factory-service.mjs';
+import { validateExpectedVersion } from '../store/versioned.mjs';
 import { VERSION } from '../config.mjs';
 import { EventFeed, EVENT_TYPES } from './event-feed.mjs';
 import { Webhooks } from './webhooks.mjs';
 import { registerCapabilities, LIVE_EVENTS } from './capabilities.mjs';
-import { problem, json, integer, text, object, storageName, timestamp, page, datasetPage } from './http.mjs';
+import { problem, json, integer, text, object, storageName, timestamp, page, datasetPage, storeProblem, storeFields } from './http.mjs';
 import { registerConversationTools } from './conversation-tools.mjs';
 import { registerHarnessTools } from './harness-api.mjs';
 
@@ -89,12 +90,16 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
     const s = sessionOf(id); savedOnly(s);
     return s;
   });
+  // Persistence-owner errors (src/store/versioned.mjs) keep their stable codes and committed/conflict facts on the wire.
   const factoryCall = (fn) => (...args) => {
     if (!adapterFactory) throw problem(501, 'Adapter factory not wired in this process (learned-adapters store unavailable)', 'ADAPTER_FACTORY_UNAVAILABLE');
     try { return fn(...args); } catch (e) {
       if (e instanceof AdapterFactoryError) throw problem(400, e.message, e.code);
-      throw e;
+      throw storeProblem(e);
     }
+  };
+  const intelligenceCall = (fn) => async (...args) => {
+    try { return await fn(...args); } catch (e) { throw storeProblem(e); }
   };
   const candidateBody = { type: 'object', description: 'aion.adaptive-webapp-adapter/1 candidate as returned by synthesize' };
 
@@ -347,13 +352,14 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       tool: 'shadow_evaluate_webapp_adapter', annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     });
 
-  add('POST', '/adapters/learned/promote', 'Promote a candidate to a versioned READ-ONLY learned adapter after server-side re-verification against held-out sessions',
+  add('POST', '/adapters/learned/promote', 'Promote a candidate to a versioned READ-ONLY learned adapter after server-side re-verification against held-out sessions. expectedVersion is REQUIRED (null = first create, integer = current version); a missing or invalid value is refused with CAS_EXPECTED_VERSION_INVALID and nothing is inferred.',
     factoryCall(({ body }) => {
+      validateExpectedVersion(body.expectedVersion, { allowNull: true }); // required: null = first create, integer = current; missing is refused before any evidence work
       const sessions = resolveSessions(body.sessionIds);
-      const rec = adapterFactory.promote({ candidate: body.candidate, sessions, clientShadow: body.shadow ?? null, note: body.note ?? '' });
+      const rec = adapterFactory.promote({ candidate: body.candidate, sessions, clientShadow: body.shadow ?? null, note: body.note ?? '', expectedVersion: body.expectedVersion });
       return { ...rec, readFeatures: rec.adapter?.factory?.readFeatures ?? [], sendPermission: false, note2: 'Read-only activation only; never a send grant.' };
     }), {
-      body: objectSchema({ candidate: candidateBody, sessionIds: { type: 'array', items: str }, shadow: { type: 'object' }, note: str }, ['candidate', 'sessionIds']),
+      body: objectSchema({ candidate: candidateBody, sessionIds: { type: 'array', items: str }, shadow: { type: 'object' }, note: str, expectedVersion: { type: ['integer', 'null'], minimum: 1, description: 'REQUIRED. null = first create (must not exist); integer = must equal the current version.' } }, ['candidate', 'sessionIds', 'expectedVersion']),
       tool: 'promote_learned_adapter', annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     });
 
@@ -368,14 +374,15 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       return { ...entry, adapter };
     }), { tool: 'get_learned_adapter', annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } });
 
-  add('POST', '/adapters/learned/{name}/rollback', 'Point a learned adapter back at a historical version (pointer move; no re-synthesis)',
+  add('POST', '/adapters/learned/{name}/rollback', 'Restore a learned adapter to a historical version by APPENDING a new version with that content (CURRENT only moves forward; no re-synthesis). expectedVersion (the current version, integer >= 1) is REQUIRED; a missing or invalid value is refused with CAS_EXPECTED_VERSION_INVALID.',
     factoryCall(({ p, body }) => {
+      validateExpectedVersion(body.expectedVersion, { allowNull: false });
       if (body.confirm !== true) throw problem(400, 'confirm:true is required to roll back a learned adapter');
       const v = integer(body.version, 1, Number.MAX_SAFE_INTEGER);
       if (v === undefined) throw problem(400, 'version is required');
-      return adapterFactory.rollback(p.name, v);
+      return adapterFactory.rollback(p.name, v, { expectedVersion: body.expectedVersion }); // passed through unchanged: missing is refused, never inferred or ?? null
     }), {
-      body: objectSchema({ version: { type: 'integer', minimum: 1 }, confirm: { const: true } }, ['version', 'confirm']),
+      body: objectSchema({ version: { type: 'integer', minimum: 1 }, confirm: { const: true }, expectedVersion: { type: 'integer', minimum: 1 } }, ['version', 'confirm', 'expectedVersion']),
       tool: 'rollback_learned_adapter', annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     });
 
@@ -437,14 +444,14 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       }, { body: scopeBody, tool: 'propose_adapter_improvement',
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
     add('POST', '/adapters/intelligence/promote', 'Promote a SERVER-MINTED read-only proposal through the expected-version CAS store (versioned learned-read adapter; sendPermission stays false; the digest must come from propose in this process)',
-      async ({ body }) => {
+      intelligenceCall(async ({ body }) => {
         if (typeof body.proposalDigest !== 'string' || !body.proposalDigest) throw problem(400, 'proposalDigest is required', 'PROPOSAL_DIGEST_REQUIRED');
         return { promoted: await learningPipeline.promote(body.proposalDigest) };
-      }, { body: objectSchema({ proposalDigest: str }, ['proposalDigest']), tool: 'promote_read_only_adapter',
+      }), { body: objectSchema({ proposalDigest: str }, ['proposalDigest']), tool: 'promote_read_only_adapter',
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
-    add('POST', '/adapters/intelligence/rollback', 'Roll the learned read-adapter for one scope back to an explicit earlier version under expected-version CAS (pointer move only; immutable history preserved)',
-      async ({ body }) => ({ rolledBack: await learningPipeline.rollback(readScope(body), body.targetVersion, body.expectedVersion ?? null) }),
-      { body: objectSchema({ siteId: str, origin: str, surface: str, accountRef: str, targetVersion: { type: 'integer', minimum: 1 }, expectedVersion: { type: 'integer', minimum: 0 } }, ['siteId', 'origin', 'targetVersion']),
+    add('POST', '/adapters/intelligence/rollback', 'Restore the learned read-adapter for one scope to an explicit earlier version under strict expected-version CAS: APPENDS a new version with that content (immutable history preserved, CURRENT only moves forward). expectedVersion (the current version, integer >= 1) is REQUIRED; a missing or null value is refused with CAS_EXPECTED_VERSION_INVALID.',
+      intelligenceCall(async ({ body }) => ({ rolledBack: await learningPipeline.rollback(readScope(body), body.targetVersion, body.expectedVersion) })),
+      { body: objectSchema({ siteId: str, origin: str, surface: str, accountRef: str, targetVersion: { type: 'integer', minimum: 1 }, expectedVersion: { type: 'integer', minimum: 1 } }, ['siteId', 'origin', 'targetVersion', 'expectedVersion']),
         tool: 'rollback_read_only_adapter', annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } });
     add('GET', '/adapters/intelligence/proposals', 'List proposals minted in this process (digest, status, evidence class, promotion state)',
       () => ({ proposals: learningPipeline.listProposals() }),
@@ -521,7 +528,7 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       if (!res.headersSent) json(res, route.successStatus, data);
     } catch (e) {
       if (res.headersSent) res.destroy();
-      else json(res, e.status ?? 500, { error: e.message, code: e.code ?? 'INTERNAL_ERROR' });
+      else json(res, e.status ?? 500, { error: e.message, code: e.code ?? 'INTERNAL_ERROR', ...storeFields(e) }); // committed/committedVersion and CAS expected/actual reach the client
     }
     return true;
   }

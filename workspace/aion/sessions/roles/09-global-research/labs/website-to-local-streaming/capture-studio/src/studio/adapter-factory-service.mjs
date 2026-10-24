@@ -16,7 +16,7 @@
 //   - Promotion requires the shadow evaluation to be RE-COMPUTED server-side from held-out
 //     sessions; a client-supplied receipt alone never promotes anything.
 //   - No second registry, no second browser actor, no send grant, no auto-execution.
-import { VersionedStore } from '../store/versioned.mjs';
+import { VersionedStore, I1_NAMESPACE_RE, validateExpectedVersion } from '../store/versioned.mjs';
 import { synthesizeWebappAdapter, shadowEvaluateAdapter, FACTORY_SCHEMA } from './adaptive-adapter-factory.mjs';
 import { probesFromSession, scopeProbes } from './adapter-probes.mjs';
 
@@ -101,9 +101,24 @@ export function createAdapterFactory({ learnedStore } = {}) {
     }
   };
 
+  // The I1 learning pipeline owns names `i1-<40 hex>` in the SAME store; the factory never reads,
+  // lists or mutates them (and I1 never touches factory site ids). Both go through the one
+  // VersionedStore owner (shared lock + expected-version CAS); there is no direct save/rollback here.
+  const reserved = (name) => typeof name === 'string' && I1_NAMESPACE_RE.test(name);
+  const refuseReserved = (name) => {
+    if (reserved(name)) throw new AdapterFactoryError('RESERVED_NAMESPACE', `"${name}" belongs to the I1 learning pipeline namespace`);
+  };
+  // Read view: unreadable/corrupt/missing heads are "not available" (fail closed); an invalid
+  // name still throws STORE_NAME_INVALID so traversal attempts are rejected, not hidden.
   const loadCandidateRecord = (name) => {
-    if (!learnedStore.has(name)) return null;
-    return learnedStore.load(name);
+    if (reserved(name)) return null;
+    try {
+      if (!learnedStore.has(name)) return null;
+      return learnedStore.load(name);
+    } catch (e) {
+      if (['STORE_CURRENT_CORRUPT', 'STORE_RECORD_CORRUPT', 'STORE_NO_SUCH_VERSION', 'STORE_NO_SUCH_ITEM'].includes(e?.code)) return null;
+      throw e;
+    }
   };
 
   return {
@@ -143,8 +158,12 @@ export function createAdapterFactory({ learnedStore } = {}) {
      * only persists when the RECOMPUTED receipt earns a read-only preview. The client receipt
      * is stored for audit but is never trusted for the decision.
      */
-    promote({ candidate, sessions = [], clientShadow = null, note = '' }) {
+    promote({ candidate, sessions = [], clientShadow = null, note = '', expectedVersion } = {}) {
+      // Strict, explicit expectation FIRST (before any evidence work): null = first create, integer = must equal CURRENT.
+      // A missing/invalid value is refused; the factory never infers the current version.
+      validateExpectedVersion(expectedVersion, { allowNull: true });
       if (!candidate || candidate.schema !== FACTORY_SCHEMA) throw new AdapterFactoryError('INVALID_CANDIDATE', 'candidate must be an aion.adaptive-webapp-adapter/1 object');
+      refuseReserved(candidate.siteId);
       if (candidate.authority?.sendPermission !== false || candidate.authority?.autoExecution !== false) {
         throw new AdapterFactoryError('AUTHORITY_VIOLATION', 'candidate authority must forbid send and auto-execution');
       }
@@ -156,25 +175,33 @@ export function createAdapterFactory({ learnedStore } = {}) {
         throw new AdapterFactoryError('PROMOTION_NOT_EARNED', `shadow evaluation is "${recomputed.recommendation}"; only "candidate-read-only-preview" promotes`);
       }
       const adapter = learnedAdapterFromCandidate(candidate, recomputed);
-      const rec = learnedStore.save(candidate.siteId, {
+      const rec = learnedStore.compareAndSave(candidate.siteId, {
         schema: FACTORY_SCHEMA,
         candidate,
         adapter,
         shadow: recomputed,
         promotedAt: new Date().toISOString(),
-      }, note || `promoted from shadow receipt (${recomputed.checked} checks, ${recomputed.positive} positive)`);
+      }, {
+        expectedVersion,
+        changeNote: note || `promoted from shadow receipt (${recomputed.checked} checks, ${recomputed.positive} positive)`,
+      });
       return { name: rec.name, version: rec.version, savedAt: rec.savedAt, note: rec.changeNote, adapter };
     },
 
-    rollback(name, version) {
-      const rec = learnedStore.rollback(name, version);
-      return { name: rec.name, version: rec.version, savedAt: rec.savedAt, note: rec.changeNote };
+    /** Restores a historical version by APPENDING a new version with that content (CURRENT only moves
+     *  forward, so a stale expectedVersion can never become valid again). No re-synthesis. */
+    rollback(name, version, { expectedVersion } = {}) {
+      validateExpectedVersion(expectedVersion, { allowNull: false }); // integer CURRENT required; never inferred
+      refuseReserved(name);
+      const rec = learnedStore.compareAndRollback(name, version, { expectedVersion });
+      return { name: rec.name, version: rec.version, restoredFrom: rec.restoredFrom, savedAt: rec.savedAt, note: rec.changeNote };
     },
 
     list() {
-      return learnedStore.names().map((name) => {
-        const v = learnedStore.current(name);
-        const versions = learnedStore.versions(name);
+      return learnedStore.names().filter((name) => !reserved(name)).map((name) => {
+        let v = null;
+        let versions = [];
+        try { v = learnedStore.current(name); versions = learnedStore.versions(name); } catch { /* corrupt head: listed without a pointer */ }
         let summary = null;
         try {
           const rec = learnedStore.load(name);

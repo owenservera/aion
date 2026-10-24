@@ -7,13 +7,12 @@
 //                               immutable capture provenance (rawDigest|domDigest|seqRange), so
 //                               re-exports/remounts with new session ids cannot forge independence.
 //   - store                  -> expected-version CAS wrapper over the existing VersionedStore
-//                               (cross-process exclusive lock file; stale locks fail closed).
+//                               (thin adapter: the SHARED VersionedStore owns the per-name lock,
+//                               validation and strict compare-and-save; stale locks fail closed).
 // Promotion runs only from SERVER-MINTED proposals (in-memory ledger); an HTTP client can
 // submit a digest, never the proposal object. Synthetic evidence can only ever yield
 // `test-only-preview` — the pipeline refuses synthetic production promotion by construction.
 import { createHash } from 'node:crypto';
-import { mkdirSync, openSync, writeFileSync, fsyncSync, closeSync, unlinkSync } from 'node:fs';
-import path from 'node:path';
 import { Session } from '../store/session.mjs';
 import { readAcceptance, rawDigest, domDigest } from '../capture/acceptance.mjs';
 import { createGuardedStudioLearner } from './four-lane-gates.mjs';
@@ -22,76 +21,49 @@ import { createStudioAdapterLearner } from './adapter-studio-bridge.mjs';
 const sha256hex = (x) => createHash('sha256').update(x).digest('hex');
 const coded = (code, extra = {}) => Object.assign(new Error(code), { code, ...extra });
 
-/** Expected-version compare-and-save over the existing VersionedStore.
- * The base store appends versions without optimistic concurrency; this wrapper adds an
- * exclusive cross-process lock file plus a re-read of CURRENT before every mutation.
- * Locks are never auto-cleared: a crashed holder fails closed (CAS_LOCKED) until an
- * operator removes the lock file, mirroring the harness-run fencing policy. */
-export function createCasVersionedStore({ store, lockDir } = {}) {
-  if (!store || typeof store.save !== 'function' || typeof store.load !== 'function' ||
-      typeof store.current !== 'function' || typeof store.rollback !== 'function' || typeof store.versions !== 'function')
+/** Thin I1 adapter over the SHARED persistence owner (VersionedStore, issue #81 P0).
+ * All locking, name/version validation, atomic writes and expected-version compare-and-save
+ * live in src/store/versioned.mjs; this wrapper only maps an I1 scope key onto a store name
+ * (`i1-` + sha256(scopeKey)[0..40]) and enforces the read-only payload rule. It has no lock,
+ * no file descriptor and no second CAS implementation, so the factory and I1 cannot diverge.
+ *  - promote(name, payload, expectedVersion): null = first write (must not exist), integer =
+ *    must equal CURRENT; undefined/0/strings/NaN are rejected (CAS_EXPECTED_VERSION_INVALID).
+ *  - rollback(name, targetVersion, expectedVersion): integer expectedVersion only; APPENDS a
+ *    new version restoring the target (CURRENT only moves forward, so stale bases stay stale).
+ * Locks are never auto-cleared (CAS_LOCKED until an operator uses inspectLock/releaseStaleLock). */
+export function createCasVersionedStore({ store, lockDir } = {}) { // lockDir is accepted for compatibility and ignored
+  void lockDir;
+  if (!store || typeof store.compareAndSave !== 'function' || typeof store.compareAndRollback !== 'function' || typeof store.load !== 'function' ||
+      typeof store.current !== 'function' || typeof store.versions !== 'function')
     throw new TypeError('VERSIONED_STORE_REQUIRED');
-  if (typeof lockDir !== 'string' || !lockDir) throw new TypeError('CAS_LOCK_DIR_REQUIRED');
-  mkdirSync(lockDir, { recursive: true });
-  // Scope keys are JSON strings (pipeline contract); VersionedStore names must be filesystem-
-  // safe. The mapping is deterministic and injective in practice: sha256(scopeKey).
+  // Scope keys are JSON strings (pipeline contract); store names must be filesystem-safe.
+  // The mapping is deterministic and injective in practice: sha256(scopeKey).
   const storeName = (name) => 'i1-' + sha256hex(String(name)).slice(0, 40);
-  const currentVersion = (name) => {
-    const v = store.current(storeName(name));
-    return Number.isSafeInteger(v) ? v : 0;
-  };
-  const withLock = (name, fn) => {
-    const lock = path.join(lockDir, `.cas-${sha256hex(String(name))}.lock`);
-    let fd;
-    try {
-      fd = openSync(lock, 'wx', 0o600);
-      writeFileSync(fd, JSON.stringify({ pid: process.pid, at: new Date().toISOString(), name: String(name) }));
-      fsyncSync(fd);
-    } catch (e) {
-      if (e.code === 'EEXIST') throw coded('CAS_LOCKED', { name: String(name) });
-      throw e;
-    }
-    try {
-      return fn();
-    } finally {
-      try { unlinkSync(lock); } catch { throw coded('CAS_LOCK_RELEASE_UNVERIFIED', { name: String(name) }); }
-    }
-  };
   return {
     async current(name) {
-      const v = currentVersion(name);
-      if (!v) return null;
+      // Read view only: any unreadable/corrupt/unselectable head is "not selectable" (never guessed).
+      // Mutations do NOT use this: the store compares the raw CURRENT integer, so such a head can never look absent.
       try {
-        const rec = store.load(storeName(name), v);
+        const sn = storeName(name);
+        if (store.current(sn) === null) return null;
+        const rec = store.load(sn);
         if (rec?.sendPermission !== false || !rec?.adapter) return null; // only read-only records are selectable
         return { version: rec.version, adapter: rec.adapter, status: 'active',
           sendPermission: false, readFeatures: Array.isArray(rec.readFeatures) ? rec.readFeatures : [] };
-      } catch { return null; } // unreadable current: treat as absent, never guess
+      } catch { return null; }
     },
     async promote(name, payload, expectedVersion) {
       if (!payload || payload.sendPermission !== false) throw coded('CAS_PAYLOAD_MUST_BE_READ_ONLY');
-      return withLock(name, () => {
-        const v = currentVersion(name);
-        if (Number.isSafeInteger(expectedVersion) && v !== expectedVersion)
-          throw coded('CAS_VERSION_CONFLICT', { expected: expectedVersion, actual: v });
-        const rec = store.save(storeName(name), payload, payload.changeNote || 'I1 read-only adapter promotion');
-        return { version: rec.version, name: rec.name, schema: payload.schema, sendPermission: false };
-      });
+      const rec = store.compareAndSave(storeName(name), payload, { expectedVersion, changeNote: payload.changeNote || 'I1 read-only adapter promotion' });
+      return { version: rec.version, name: rec.name, schema: payload.schema, sendPermission: false };
     },
     async rollback(name, targetVersion, expectedVersion) {
       if (!Number.isSafeInteger(targetVersion) || targetVersion < 1) throw coded('INVALID_ROLLBACK_VERSION');
-      return withLock(name, () => {
-        const v = currentVersion(name);
-        if (Number.isSafeInteger(expectedVersion) && v !== expectedVersion)
-          throw coded('CAS_VERSION_CONFLICT', { expected: expectedVersion, actual: v });
-        store.load(storeName(name), targetVersion); // throws when the target version does not exist
-        store.rollback(storeName(name), targetVersion);
-        return { version: targetVersion, fromVersion: v, rolledBack: true };
-      });
+      const rec = store.compareAndRollback(storeName(name), targetVersion, { expectedVersion });
+      return { name: rec.name, version: rec.version, restoredFrom: rec.restoredFrom, fromVersion: expectedVersion, rolledBack: true };
     },
   };
 }
-
 /** Server-side evidence verifier + trusted manifest provider over the REAL session store. */
 export function createTrustedManifestProvider({ sessionsDir } = {}) {
   if (typeof sessionsDir !== 'string' || !sessionsDir) throw new TypeError('SESSIONS_DIR_REQUIRED');
@@ -175,7 +147,13 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
       const entry = typeof proposalDigest === 'string' ? ledger.get(proposalDigest) : null;
       if (!entry) throw coded('PROPOSAL_NOT_SERVER_MINTED');
       if (entry.promoted) throw coded('PROPOSAL_ALREADY_PROMOTED');
-      const out = await pipeline.promote(entry.proposal);
+      let out;
+      try { out = await pipeline.promote(entry.proposal); }
+      catch (e) {
+        // A durable commit whose lock release was unverified MUST NOT be retried as a new promotion.
+        if (e?.committed === true) { entry.promoted = true; entry.result = { committed: true, committedVersion: e.committedVersion ?? null }; }
+        throw e;
+      }
       entry.promoted = true;
       entry.result = out;
       return out;
