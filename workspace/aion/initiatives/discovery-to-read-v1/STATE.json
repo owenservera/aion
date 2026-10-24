@@ -1,0 +1,26 @@
+{
+  "schema": "aion.initiative-state/1",
+  "initiative": "discovery-to-read-v1",
+  "opened": "2026-10-24",
+  "repository": "owenservera/aion",
+  "branch": "initiative/discovery-to-read-v1-20261024",
+  "baseMainSha": "fa9cb7f5c20040377ebd8ff28678bb24c7cc7dc9",
+  "integrationPrerequisite": {
+    "pr": 77,
+    "branch": "integration/agent14-four-lane-20261024",
+    "status": "draft-not-merged-at-initial-review"
+  },
+  "phase": "P0-source-committed-offline-verification-pending",
+  "owner": "AION Discovery-to-Read",
+  "sourceAuthority": "GitHub initiative branch; Windows master for actual Studio deployment",
+  "testStatus": {
+    "node22": "not-run-by-github-author",
+    "syntheticFixtureOnly": true,
+    "liveBrowser": "not-run",
+    "g1g7": "not-run",
+    "profilePromotion": "not-performed"
+  },
+  "productionCodeChanged": false,
+  "promotionAuthorized": false,
+  "next": "Execute offline suite; wire original-source lookup and structural-read receipt after Z.ai integration"
+}
