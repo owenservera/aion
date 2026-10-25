@@ -1803,7 +1803,7 @@ function boot() {
       if (!stillOn(id) || seq !== S.readSeq) return;
       const view = readView(data?.transcript, S.snap);
       if (!view.ok) { setError('#readError', view.text); return; }
-      S.transcript = { convId: id, seq, view };
+      S.transcript = { convId: id, seq, view, threadRef: threadRef(S.snap?.binding) };
       $('#announce').textContent = view.announce;
     } catch (e) {
       if (!stillOn(id) || seq !== S.readSeq) return;
@@ -1859,7 +1859,7 @@ function boot() {
   // module cannot load, the panel simply stays off; the rest of /chat is unaffected.
   const renderUniversal = (snap) => {
     if (!universal) return;
-    try { universal.show({ snapshot: snap, openTabs: S.targets?.targets ?? [] }); } catch (err) { console.warn('universal panel render skipped', err); }
+    try { universal.show({ snapshot: snap, openTabs: S.targets?.targets ?? [], pageRead: S.transcript }); } catch (err) { console.warn('universal panel render skipped', err); }
   };
   let universal = null;
   universalRender = renderUniversal;
