@@ -1,35 +1,40 @@
 # Z.ai integration execution policy — VIVIM V1
-**Owner direction:** 2026-10-25. **Product authority:** AION Role 15 PRODUCT AGENT. **Engineering destination:** owenservera/vivim-harness.
+**Owner clarification:** 2026-10-25. **Product authority:** AION Role 15 PRODUCT AGENT. **Engineering destination:** owenservera/vivim-harness.
 
-## Correct boundary
-Z.ai is a substantial Linux engineering environment with capacity to **spawn subagents, run full interactive Chrome sessions, implement code and tests, and execute autonomous integration rounds**. Z.ai cannot authenticate to the owner's ChatGPT/Claude/etc. accounts; this is the specific boundary, **not** a generic ban on live browser testing.
+## Sequencing rule (supersedes earlier policy)
+**FIRST integrate VIVIM into one stable application. THEN add and validate interactive Chrome/browser operation.** Z.ai's Linux Chrome capabilities and subagents are available, but availability is not a reason to start browser integration prematurely. Do not allocate a Z.ai round to interactive Chrome before the product stabilization gate.
 
-## Z.ai responsibilities — do as much as possible
-1. Study selected existing implementations across public donors and any specifically authorized private repos.
-2. Use subagents for **nonoverlapping write surfaces**, integrating UX, data contracts, storage/projections, knowledge, package/deployment and test infrastructure in parallel where safe. One integration lead retains ownership of shared interfaces and merge.
-3. Implement reusable V1 capabilities in vivim-harness; inspect existing modules first and avoid unnecessary new engines.
-4. Run full static checks, Node tests, synthetic network streaming fixtures, offline reconstruction/provenance tests, and adversarial role/account/thread/restart/uncertain-effect tests.
-5. Run actual **interactive Chromium/Chrome on Linux** against local Harness app, disposable test pages, controlled mock providers, and fixture applications, including page layout, accessibility, interaction, responsive behavior and reconnect flows. Use existing CDP/Chrome APIs; **no Playwright/Puppeteer**.
-6. Drive simulated/sandbox provider flows via local test websites using the *real Harness browser control path*, with no unauthorized real-world mutations. Validate actual UI events and browser binding, not only unit mocks.
-7. Exercise CLI, local HTTP APIs, MCP facades and integration contracts through automated requests and real local processes. Measure resource usage / crashes where feasible.
-8. Commit tested changes with Git SHA, changed paths, test commands, observed outcomes, artifacts and concise blockers.
-9. Keep all product-only planning/selection/decisions **under this Role 15 self-governed folder**, and source/tests/implementation contracts in vivim-harness.
+### Phase 1 — Cohesive application integration (NOW)
+- Start from Z.ai Round 1 shell branch and existing Harness app; reconcile recent main before changes. Inspect and select actual high-value donors.
+- Integrate a consistent app shell, conversation/content projections, project/workspaces, local knowledge/memory, user-owned persistence, search and export/import foundations. Keep one source-of-truth and source/provenance boundaries; don't install a second backend or browser actor.
+- Subagents may work in parallel on **disjoint code surfaces**, using one integration lead and a shared typed contract. Merge running functionality, not disconnected scaffolds.
+- Test with unit, integration and deterministic fixture-based flows via Node/HTTP/native app render wherever feasible. Mock provider responses are for isolated contracts, not an interactive Chrome exercise.
+- Every round must deliver working implemented paths, tests, commits and proof of internal integration.
 
-## What remains for authenticated owner-controlled environment
-- Connecting/signing into personal ChatGPT/Claude/etc. accounts and any real authenticated account-level operation requiring credentials or explicit approval.
-- Provider-specific exact-thread live acceptance in those accounts, data fidelity against real personal streams, actual send/followup and policy/availability under the owner's subscription.
-- Windows-only installer/OS-specific smoke if Linux tests cannot prove it.
-These are narrow final environment gates, not reasons to stop upstream implementation or integration.
+### Phase 2 — Stability and integration gate (AFTER Phase 1)
+- Complete realistic end-to-end **in-process/local HTTP deterministic fixture** journeys: create/open conversation → render native content parts → save/reopen after process restart → attach to workspace → search → inspect provenance → export/import with identity preserved.
+- Validate schemas, migration/rollback, error states, storage integrity, missing/unknown content behavior, no silent loss, tests, package startup and relevant full suite.
+- Gate: a single coherent VIVIM app runs with stable interfaces and durable local state; integration gaps are closed; external browser connectivity is a replaceable adapter rather than an app-wide dependency.
+- Mark GATE BLOCKED honestly if features exist only as disconnected stubs, mock success messages or nonpersisted UI. No Chrome interaction to compensate for an unstable app.
 
-## Suggested Z.ai round pattern
-- **Round 1 (received):** unified V1 shell foundation, current reported source commit 034ced9; independent integration inspection remains necessary.
-- **Round 2:** integrate high-value UX + rich native content + local conversation/project/knowledge continuity into one end-to-end app path; subagents allowed with split ownership.
-- **Round 3:** portability/export, deterministic intent/Work, capability surfaces (CLI/MCP), packaging and deeper controlled-browser/system validation.
-Round boundaries are adjustable by highest acceleration, not artificial quotas.
+### Phase 3 — Interactive Chrome and external connectors (ONLY AFTER STABILITY)
+- Z.ai may then run full interactive Chrome/CDP Linux sessions against controlled sites and mock-provider webapps, using **the existing Harness browser-effects owner** and no Playwright/Puppeteer.
+- Drive real DOM/browser lifecycle, adapters, streaming, reconnect/restart, uncertain-effect recovery and identity-binding tests; integrate one provider connector at a time.
+- Authenticated ChatGPT/Claude/etc. owner accounts remain a separately labeled final owner-controlled validation; Linux interactive Chrome != authenticated provider acceptance.
+- Do not make Chrome tests into a parallel product UI or independent browser controller.
 
-## Guardrails
-- Harness is the sole browser-effects authority; no import of competing ChromeGovernor/fleet.
-- No Playwright/Puppeteer; full interactive Chrome testing is still allowed via CDP and existing native Harness mechanisms.
-- No unknown-action blind retry, no source/evidence laundering, no exposure of auth secrets or personal captures in public source.
-- Linux Chrome interactive test != authenticated owner-account test. Record both separately.
-- Do not hold all Z.ai work pending ChatGPT sign-in; perform every feasible mock/local/browser/contract test.
+## Z.ai collaboration and boundaries
+- Z.ai can spawn subagents immediately for independent internal integration tasks; orchestrator owns shared contract and result merge.
+- Existing Harness capture/CDP subsystem is preserved, not rewritten or prematurely expanded. Existing tests can be run for regression safety; **new browser functionality is deferred**.
+- No private source dumps, credentials, provider tokens, new control-plane service, speculative architecture, Playwright/Puppeteer or Slack.
+- Product planning, strategy and donor decisions stay under `workspace/aion/sessions/roles/15-product-to-market/`; engineering code/tests/interfaces belong in `owenservera/vivim-harness`.
+
+## Round instructions
+- **R1:** existing unified shell contribution (review/merge if safe; not automatically accepted).
+- **R2:** stable app data model + source-qualified rich content + persistence; tie these to R1 shell.
+- **R3:** workspaces/project/knowledge/search and user-owned export; full stable offline/local-HTTP journeys.
+- **R4:** stabilization, contract consolidation, negative tests, migration/restart and packaging-readiness; decide whether Phase 2 gate is met.
+- **R5+:** only after gate acceptance: interactive Chrome/CDP integrations and controlled external webapp validation.
+Round count is illustrative; advance based on verified integrated functionality, not a fixed artificial calendar.
+
+**Stop condition:** Do not start interactive browser implementation/testing until stable integrated VIVIM acceptance is demonstrated by deterministic application tests and owner-product decision. Existing basic regression tests of unmodified Harness code remain permitted.
