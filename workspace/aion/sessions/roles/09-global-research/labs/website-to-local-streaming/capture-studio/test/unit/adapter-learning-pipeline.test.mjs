@@ -341,3 +341,23 @@ test('autonomous evolution commits only a qualified read-only candidate',async()
   assert.ok(['no-improvement','duplicate-noop'].includes(repeat.reason));
  }finally{rmSync(root,{recursive:true,force:true});}
 });
+
+test('production hub session-id entrypoint is present and fails closed on missing Core role identity',async()=>{
+ const {root,pipeline}=rig();
+ try {
+  const sources=await Promise.all(Array.from({length:5},()=>verifiedSession(root+'/sessions')));
+  const input={scope:SCOPE,training:sources.slice(0,3).map(s=>s.id),heldout:sources.slice(3).map(s=>s.id)};
+  await assert.rejects(()=>pipeline.proposeFromSessions(input),e=>e.code==='NO_VERIFIED_READ_SIGNALS');
+  await assert.rejects(()=>pipeline.evolveFromSessions(input),e=>e.code==='NO_VERIFIED_READ_SIGNALS');
+  assert.equal(pipeline.listProposals().length,0);
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
+test('session-id route rejects a source whose trusted site differs from requested scope',async()=>{
+ const {root,pipeline}=rig();
+ try{
+  const s=await verifiedSession(root+'/sessions');
+  await assert.rejects(()=>pipeline.proposeFromSessions({
+   scope:{...SCOPE,siteId:'chatgpt'},training:[s.id],heldout:[s.id]
+  }),e=>e.code==='SESSION_SITE_MISMATCH');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});

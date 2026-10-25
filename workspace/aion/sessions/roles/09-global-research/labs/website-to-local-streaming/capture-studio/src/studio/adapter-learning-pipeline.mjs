@@ -154,6 +154,51 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
       if (proposal?.proposalDigest) ledger.set(proposal.proposalDigest, { proposal, promoted: false });
       return proposal;
   }
+  // The hub's /adapters/intelligence/propose accepts saved session IDs, not arbitrary
+  // probe objects. Convert through the SAME accepted-session reader; raw client IDs are
+  // never a manifest or identity attestation. Unsupported DOM shapes abstain.
+  function eventsFromSessions(ids,scope) {
+    if(!Array.isArray(ids)||ids.length<1||ids.length>2000||ids.some(x=>typeof x!=='string'||!x))
+      throw coded('SESSION_IDS_REQUIRED');
+    const acceptedAttributes=new Set(['data-testid','data-message-author-role','data-actor','data-role','aria-label']);
+    return ids.map(sessionId=>{
+      const v=provider.verifySession(sessionId);
+      if(!v)throw coded('MANIFEST_SESSION_NOT_VERIFIED',{sessionId});
+      if(v.session.meta?.site!==scope.siteId)throw coded('SESSION_SITE_MISMATCH',{sessionId});
+      let origin=null;
+      try{origin=new URL(v.session.meta?.target?.url).origin;}catch{}
+      if(origin!==scope.origin)throw coded('SESSION_ORIGIN_MISMATCH',{sessionId});
+      // The account source remains at the existing caller-scoped trust tier until
+      // Core emits accepted account provenance; never infer it from page content.
+      const evidenceRef=sessionId+':dom:'+v.domDigest.slice(0,12);
+      const turns=v.session.kv.get('DOM_TURNS')??[];
+      const observations=(Array.isArray(turns)?turns:[]).flatMap(turn=>{
+        if(!['user','assistant'].includes(turn?.role)||!acceptedAttributes.has(turn.roleAttribute)||
+          turn.roleMatch==='suffix'||turn.identityVerdict!=='verified'||
+          typeof turn.identityRef!=='string'||!turn.identityRef)return [];
+        return [{feature:turn.role==='user'?'user-turn':'assistant-turn',
+          attributes:{[turn.roleAttribute]:turn.roleValue??turn.role},outcome:'present',
+          identityRole:turn.role,identityVerdict:'verified',identityRef:turn.identityRef,evidenceRef}];
+      });
+      if(!observations.length)throw coded('NO_VERIFIED_READ_SIGNALS',{sessionId});
+      return {scope:{...scope},source:{captureId:sessionId,sessionId,
+        sequence:1,rawDigest:v.rawDigest,origin,accountRef:scope.accountRef,
+        carrier:'dom',coverage:'complete',evidenceClass:'SAVED_REAL_CAPTURE',evidenceRef},
+        observations};
+    });
+  }
+  async function proposeFromSessions(args={}) {
+    const scope=args.scope;
+    const training=eventsFromSessions(args.training,scope);
+    const heldout=eventsFromSessions(args.heldout,scope);
+    return propose({...args,training,heldout});
+  }
+  async function evolveFromSessions(args={}) {
+    if(args.testOnly===true)throw coded('AUTONOMOUS_PRODUCTION_ONLY');
+    const training=eventsFromSessions(args.training,args.scope);
+    const heldout=eventsFromSessions(args.heldout,args.scope);
+    return evolve({...args,training,heldout});
+  }
   async function promote(proposalDigest) {
       const entry = typeof proposalDigest === 'string' ? ledger.get(proposalDigest) : null;
       if (!entry) throw coded('PROPOSAL_NOT_SERVER_MINTED');
@@ -182,7 +227,7 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
       metrics:proposal.metrics,drift:proposal.drift,sendPermission:false};
   }
   return {
-    propose,promote,evolve,
+    propose,proposeFromSessions,promote,evolve,evolveFromSessions,
     rollback: (scope, targetVersion, expectedVersion) => pipeline.rollback(scope, targetVersion, expectedVersion),
     resolveRead: (scope, seed, opts) => pipeline.resolveRead(scope, seed, opts),
     selectReadRule: (scope, feature, seedRule, opts) => pipeline.selectReadRule(scope, feature, seedRule, opts),
