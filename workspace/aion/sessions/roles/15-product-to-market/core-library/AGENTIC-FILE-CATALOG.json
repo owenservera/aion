@@ -1,0 +1,841 @@
+{
+  "schema": "vivim.core.agentic-file-catalog/1",
+  "version": "0.1.0",
+  "as_of": "2026-10-25",
+  "lifecycle": "product-research-registry-not-runtime",
+  "owner": "AION Role 15 PRODUCT-TO-MARKET",
+  "counts": {
+    "families": 21,
+    "unique_filename_patterns": 133
+  },
+  "interpretation": "Candidates are NOT all vendor standards or observed repository files. Never auto-create all catalog items.",
+  "source_classes": {
+    "vendor_documented": "Name/pattern documented in a linked provider or open-format reference, not proof supported on owner's installed tool",
+    "prior_conversation_recalled": "Specific spelling recovered from September 5 and October 15 context; not independently proven a vendor standard",
+    "catalog_extension": "New synthesis/example of a project-local naming convention; should not be represented as an established standard"
+  },
+  "references": [
+    "https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/15-product-to-market/core-library/AGENTIC-FILE-LIBRARY.md",
+    "https://github.com/owenservera/BCP-dev/blob/main/AGENTS_CONTEXT/ARCHITECTURE_STEWARD/AGENT-SYSTEM-HARVEST.md",
+    "https://agents.md/",
+    "https://opencode.ai/v2/docs/instructions",
+    "https://docs.github.com/en/copilot/concepts/prompting-and-context/custom-instructions",
+    "https://cursor.com/docs/rules",
+    "https://geminicli.com/docs/cli/gemini-md/",
+    "https://github.com/agentskills/agentskills"
+  ],
+  "functional_families": [
+    {
+      "id": "01",
+      "family": "Agent entry & bootstrap",
+      "purpose": "Shared/project conventions plus launch steps",
+      "filenames": [
+        {
+          "pattern": "AGENTS.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "AGENT.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "BOOTSTRAP.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "START-HERE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "FIRST-RUN.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "INIT.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "02",
+      "family": "Provider-native instruction rules",
+      "purpose": "Actual support depends on provider/version",
+      "filenames": [
+        {
+          "pattern": "CLAUDE.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "GEMINI.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": ".github/copilot-instructions.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": ".github/instructions/*.instructions.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": ".cursor/rules/*.mdc",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": ".claude/rules/*.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": ".opencode/agents/*.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": ".claude/agents/*.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": true
+        }
+      ]
+    },
+    {
+      "id": "03",
+      "family": "Agent roles & identity",
+      "purpose": "Who/what the agent is and owns",
+      "filenames": [
+        {
+          "pattern": "ROLE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "PERSONA.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "CHARTER.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "MANDATE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "OWNERSHIP.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "RESPONSIBILITIES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "04",
+      "family": "Context & retrieval",
+      "purpose": "Scoped working understanding and pointers",
+      "filenames": [
+        {
+          "pattern": "CONTEXT.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "PROJECT-CONTEXT.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "CURRENT-CONTEXT.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "CONTEXT-INDEX.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "KNOWLEDGE-MAP.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "GLOSSARY.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "05",
+      "family": "Law, policy & guardrails",
+      "purpose": "Authority, policy, invariants, prohibited effects",
+      "filenames": [
+        {
+          "pattern": "SYSTEM.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "RULES.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "POLICY.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "POLICIES.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "GUARDRAILS.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "INVARIANTS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "AUTONOMY.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "06",
+      "family": "Goals & product intent",
+      "purpose": "What value to produce and acceptance intent",
+      "filenames": [
+        {
+          "pattern": "VISION.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "GOALS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "PRODUCT-ANCHOR.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "REQUIREMENTS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "SPEC.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "ACCEPTANCE-CRITERIA.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "07",
+      "family": "Architecture & interfaces",
+      "purpose": "Topology, typed interfaces, versioned contracts",
+      "filenames": [
+        {
+          "pattern": "ARCHITECTURE.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "DESIGN.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "INTERFACES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "CONTRACT.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "SCHEMA.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "DEPENDENCIES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "08",
+      "family": "Capabilities & discovery",
+      "purpose": "What tools can do and how they are exposed",
+      "filenames": [
+        {
+          "pattern": "CAPABILITIES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "CAPABILITY-MAP.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "TOOLS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "TOOL-REGISTRY.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "SERVICES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "INTEGRATIONS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "09",
+      "family": "Skills & reusable methods",
+      "purpose": "On-demand reusable domain or workflow knowledge",
+      "filenames": [
+        {
+          "pattern": "SKILL.md",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "REFERENCE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "EXAMPLES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "RECIPES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "PROCEDURES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "PLAYBOOK.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "family": "Tool configuration & hooks",
+      "purpose": "Machine-readable configuration and local wiring",
+      "filenames": [
+        {
+          "pattern": "agent.yaml",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "agent.json",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "opencode.json",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "opencode.jsonc",
+          "source_class": "vendor_documented",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "settings.json",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "hooks.json",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "plugin.json",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "family": "Memory & durable learning",
+      "purpose": "Retained knowledge with provenance and expiration",
+      "filenames": [
+        {
+          "pattern": "MEMORY.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "LESSONS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "LEARNINGS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "KNOWLEDGE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "FACTS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "PREFERENCES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "family": "State, status & telemetry",
+      "purpose": "What is true now, last checked, confidence",
+      "filenames": [
+        {
+          "pattern": "STATE.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "STATUS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "AGENT_STATUS.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "SITREP.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "HEALTH.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "METRICS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "PROGRESS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "family": "Session boundaries & recovery",
+      "purpose": "Restart context, checkpoints, resumability",
+      "filenames": [
+        {
+          "pattern": "SESSION.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "SESSION_HANDOFF.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "SESSION_HANDOFF",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "CHECKPOINT.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "RESUME.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "RECOVERY.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "CONTINUITY.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "family": "Work inventory & scheduling",
+      "purpose": "Pending and completed obligations",
+      "filenames": [
+        {
+          "pattern": "TASKS.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "TODO.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "BACKLOG.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "QUEUE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "MILESTONES.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "SCHEDULE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "family": "Planning & decomposition",
+      "purpose": "Action strategy, dependencies, what comes next",
+      "filenames": [
+        {
+          "pattern": "PLAN.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "ROADMAP.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "WORKPLAN.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "IMPLEMENTATION-PLAN.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "TASK-BRIEF.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "WORKSTREAMS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "family": "Execution & operations",
+      "purpose": "How actions run and operational history",
+      "filenames": [
+        {
+          "pattern": "RUNBOOK.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "COMMANDS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "OPERATIONS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "EXECUTION.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "WORKLOG.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "CHANGELOG.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "17",
+      "family": "Testing & validation",
+      "purpose": "How claims are falsified or established",
+      "filenames": [
+        {
+          "pattern": "TEST-PLAN.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "TESTS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "VERIFY.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "VERIFICATION.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "BENCHMARKS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "EVALUATION.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "18",
+      "family": "Proof, lineage & audit",
+      "purpose": "Evidence chain for claims and side effects",
+      "filenames": [
+        {
+          "pattern": "EVIDENCE.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "PROVENANCE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "RECEIPTS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "AUDIT.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "TRACE.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "MANIFEST.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "19",
+      "family": "Collaboration & handoffs",
+      "purpose": "Transfers, ownership routing, unblockers",
+      "filenames": [
+        {
+          "pattern": "HANDOFF.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "COMMUNICATIONS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "INBOX.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "OUTBOX.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "DECISIONS-NEEDED.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "ESCALATION.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "20",
+      "family": "Decision & governance record",
+      "purpose": "Dated outcomes, conflicts and authority",
+      "filenames": [
+        {
+          "pattern": "DECISIONS.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "DECISION_LOG.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "ADR.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "AUTHORITY-MAP.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "CONFLICT-REGISTER.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "CHANGE-REQUEST.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    },
+    {
+      "id": "21",
+      "family": "Closeout, release & retirement",
+      "purpose": "Completion receipts, delivery, recovery, retirement",
+      "filenames": [
+        {
+          "pattern": "CLOSEOUT_PROTOCOL.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "CLOSEOUT.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "RELEASE.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "ROLLBACK.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "MIGRATION.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        },
+        {
+          "pattern": "ARCHIVE.md",
+          "source_class": "prior_conversation_recalled",
+          "known_from_earlier_conversation": true
+        },
+        {
+          "pattern": "POSTMORTEM.md",
+          "source_class": "catalog_extension",
+          "known_from_earlier_conversation": false
+        }
+      ]
+    }
+  ]
+}
