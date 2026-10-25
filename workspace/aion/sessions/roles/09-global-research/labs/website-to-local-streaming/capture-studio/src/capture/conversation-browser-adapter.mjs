@@ -470,7 +470,13 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
           if (submissionStopped) throw Object.assign(problem('SUBMISSION_STOPPED'), { notDispatched: true });
           if (result.sendStatus === 'not-attempted' && result.uncertain === false) throw Object.assign(problem('SEND_NOT_DISPATCHED'), { notDispatched: true });
         }
-        const loc = await creationLocation();
+        // The CDP target URL and the page's own location move to /c/<id> at slightly different
+        // moments after the provider navigates. Read-only bounded wait for them to agree.
+        let loc = await creationLocation();
+        for (const deadline = Date.now() + 12000;
+          !(loc.targetThread && loc.pageThread && loc.targetThread.ref === loc.pageThread.ref) && Date.now() < deadline;) {
+          await d.sleep(250); loc = await creationLocation();
+        }
         return { creation: true, dispatched: true, targetThread: loc.targetThread, pageThread: loc.pageThread, binding: structuredClone(binding) };
       }
       const result = await d.sendMessage(recorder.page, siteAdapter, { canDispatch: () => !submissionStopped,

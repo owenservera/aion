@@ -32,7 +32,10 @@ const usableId = (v) => (typeof v === 'string' && v.length > 0) || Number.isFini
 // Leaves that describe a message rather than carry its content. Matched on the last path segment;
 // everything under /meta/ (the assembler's own bookkeeping) counts too.
 const META_LEAF = /^(?:id|type|role|model|status|object|created|created_at|updated_at|stop_reason|stop_sequence|finish_reason|content_type|messageId|_done|_incomplete)$|_id$/i;
-const isMetaTextPath = (p) => (p.startsWith('/meta/') || META_LEAF.test(p.slice(p.lastIndexOf('/') + 1))) ? 1 : 0;
+// A message's own /metadata/ subtree (for example ChatGPT's model_dil_v2 render code and
+// fallbackMarkdown) describes or re-renders the reply; the reply itself is under content/parts.
+const META_SUBTREE = /(?:^|\/)metadata\//;
+const isMetaTextPath = (p) => (p.startsWith('/meta/') || META_SUBTREE.test(p) || META_LEAF.test(p.slice(p.lastIndexOf('/') + 1))) ? 1 : 0;
 
 export function parsePointer(p) {
   if (p === '' || p === '/' || p === undefined || p === null) return [];
@@ -186,6 +189,10 @@ export class DeltaAssembler {
     if (json && typeof json === 'object' && !Array.isArray(json) && this.dialect === 'auto') {
       // Plain object: keep as the latest full snapshot only if nothing patch-like has been seen
       // or it clearly carries a document (heuristic: many keys).
+      // Once a patch dialect has built the document, a typed side-channel event (for example
+      // ChatGPT's trailing conversation_detail_metadata / title_generation / message_marker) is
+      // protocol chatter, not a replacement document: it must never overwrite the reply.
+      if (this.detected.has('path-ops') && typeof json.type === 'string') return this._fail('side_channel_event_ignored', json.type);
       if (!this.detected.size || Object.keys(json).length >= 3) {
         this.doc = structuredClone(json); this._note('document', ''); this.replacements++; this._idFromSnapshot(); return this._commit();
       }
@@ -255,6 +262,12 @@ export class DeltaAssembler {
 
   _pathOp(op) {
     if (op.o === 'patch' && Array.isArray(op.v)) { for (const sub of op.v) this._pathOp(sub); return; }
+    // ChatGPT delta encoding v1 continues a patch batch as a bare { v: [ {p,o,v}, ... ] }: an
+    // array of operation objects with neither a path nor an op is a batch, not a value to append.
+    if (op.o === undefined && op.p === undefined && Array.isArray(op.v) && op.v.length
+      && op.v.every((x) => x && typeof x === 'object' && !Array.isArray(x) && typeof x.p === 'string' && typeof x.o === 'string' && PATH_OPS.has(x.o))) {
+      for (const sub of op.v) this._pathOp(sub); return;
+    }
     const path = op.p !== undefined ? op.p : this.lastPath;
     if (path === null || path === undefined) { this._fail('path_op_without_path'); return; }
     this.lastPath = path;

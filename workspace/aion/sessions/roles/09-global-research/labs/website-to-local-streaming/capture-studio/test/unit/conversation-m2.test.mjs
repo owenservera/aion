@@ -189,7 +189,7 @@ test('M2 reconnect permits an unchanged attributable reply, but changed historic
 test('M2 real read-only page expression reports observed message IDs and positively present idle control, never positional identities', () => {
   const make = (id, text, order) => ({ innerText: text, disabled: false, getBoundingClientRect: () => ({ width: 20, height: 20 }),
     getAttribute: (name) => name === 'data-message-id' ? id : null, closest() { return id ? this : null; },
-    contains: () => false, compareDocumentPosition: (other) => order < other.order ? 4 : 2, order });
+    querySelector: () => null, contains: () => false, compareDocumentPosition: (other) => order < other.order ? 4 : 2, order });
   const user = make('observed-user-id', 'synthetic input', 0), assistant = make('observed-reply-id', 'synthetic reply', 1);
   const composer = make(null, '', 2), button = make(null, '', 3);
   let idlePresent = true;
@@ -201,7 +201,26 @@ test('M2 real read-only page expression reports observed message IDs and positiv
   assert.deepEqual(Array.from(measured.messages, (m) => m.id), ['observed-user-id', 'observed-reply-id']);
   assert.equal(measured.controls.state, 'idle'); assert.equal(measured.controls.idleControlPresent, true);
   idlePresent = false;
+  // ChatGPT renders no send button while the composer is empty: empty composer + no stop control is idle.
+  assert.equal(evaluate().controls.state, 'idle');
+  // A non-empty composer without a send button is still not positively idle.
+  composer.innerText = 'half-typed draft';
   assert.equal(evaluate().controls.state, 'unknown');
+  composer.innerText = '';
   assistant.closest = () => null;
   assert.equal(evaluate().messages[1].id, null);
+});
+
+test('M2 message ids come from the current ChatGPT DOM (search-message-ids unit attribute and selection ids), never positional', () => {
+  const make = (attrs, inner, order) => ({ innerText: 'text', disabled: false, getBoundingClientRect: () => ({ width: 20, height: 20 }),
+    getAttribute: (n) => attrs[n] ?? null, closest: () => null, querySelector: () => inner,
+    contains: () => false, compareDocumentPosition: (other) => order < other.order ? 4 : 2, order });
+  const user = make({ 'data-chatgpt-search-message-ids': 'user-msg-1' }, null, 0);
+  const innerSel = { getAttribute: (n) => n === 'data-chatgpt-selection-message-id' ? 'asst-msg-1' : null };
+  const assistant = make({ 'data-chatgpt-search-message-ids': '  ' }, innerSel, 1);
+  const composer = make({}, null, 2); composer.innerText = '';
+  const document = { querySelectorAll: (s) => s === '[data-message-author-role="user"]' ? [user]
+    : s === '[data-message-author-role="assistant"]' ? [assistant] : s === '#prompt-textarea' ? [composer] : [] };
+  const out = vm.runInNewContext(turnObservationExpression(site), { document, location: { origin: 'https://chatgpt.com', pathname: `/c/${ref}` } });
+  assert.deepEqual(Array.from(out.messages, (m) => m.id), ['user-msg-1', 'asst-msg-1']);
 });

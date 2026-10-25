@@ -91,7 +91,10 @@ async function replyText(session) {
     try {
       const t = await streamText(session, sid, { useLocator: false });
       const text = typeof t.assembledText === 'string' ? t.assembledText : '';
-      if (text.length && (!best || text.length > best.text.length)) best = { sid, text };
+      // Streams that were actually patched (more than one revision) outrank single-shot JSON
+      // documents (tokens, model lists), which can be far longer than the reply and are not it.
+      const streamed = (assembled[sid]?.revisions ?? 0) > 1;
+      if (text.length && (!best || (streamed && !best.streamed) || (streamed === best.streamed && text.length > best.text.length))) best = { sid, text, streamed };
     } catch (e) {
       errors.push({ sid, error: String(e?.message ?? e) });
     }

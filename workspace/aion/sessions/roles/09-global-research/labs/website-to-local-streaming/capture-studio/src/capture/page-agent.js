@@ -225,6 +225,8 @@
         if (SKIP_ATTR.has(a.name)) continue;
         const v = a.value.trim().toLowerCase();
         if (ROLE_WORDS.has(v)) { cands.push({ el, attr: a.name, role: v }); break; }
+        // Role-suffixed keys, e.g. data-content-search-unit-key="fallback-turn-0:2:assistant".
+        if (a.name.startsWith('data-')) { const m = v.match(/[:_]([a-z]+)$/); if (m && ROLE_WORDS.has(m[1])) { cands.push({ el, attr: a.name, role: m[1] }); break; } }
       }
     }
     // Keep the outermost element per attribute name.
