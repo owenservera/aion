@@ -14,21 +14,21 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 
 | Work ID | WHAT / Delivery slice | Stage | Effort | Status | Depends on |
 |---|---|---|---|---|---|
-| W00 | Baseline inventory and seam discovery | G0 | HIGH | OPEN | W01 |
-| W01 | Resolve local world and identity contract | G1 | MAX | OPEN | W02,W03,W04,W09 |
-| W02 | Build durable offline conversation reading | G1 | HIGH | OPEN | W01,W03,W04 |
-| W03 | Preserve mixed native content and fidelity | G1 | MED | OPEN | W01,W02 |
-| W04 | Source evidence and authority provenance bridge | G1-G3 | HIGH | OPEN | W01,W02,W03,W05 |
-| W05 | User-owned project and association overlay | G2 | HIGH | OPEN | W01,W02,W04,W06 |
-| W06 | Personal notes, edits and correction provenance | G2 | MED | OPEN | W05,W04 |
-| W07 | Local search, scoping and exact deep links | G3 | HIGH | OPEN | W02,W05,W06,W04 |
-| W08 | Knowledge presentation and qualified derived claims | G3 | MED | OPTIONAL_V1 | W04,W07 |
-| W09 | Selective portable export contract and preview | G4 | HIGH | OPEN | W01,W02,W05,W06,W04 |
-| W10 | Clean-profile import and safe identity reconciliation | G4 | HIGH | OPEN | W09,W01,W05 |
-| W11 | One cohesive UI and first-use honesty | G1-G4 | HIGH | OPEN | W02,W03,W05,W07,W09,W10 |
-| W12 | Vertical acceptance, durability and failure gates | G5 | HIGH | OPEN | W02,W03,W04,W05,W06,W07,W09,W10,W11 |
+| W00 | Baseline inventory and seam discovery | G0 | HIGH | OPEN | none |
+| W01 | Resolve local world and identity contract | G1 | MAX | OPEN | W00 |
+| W02 | Build durable offline conversation reading | G1 | HIGH | OPEN | W01 |
+| W03 | Preserve mixed native content and fidelity | G1 | MED | OPEN | W01 |
+| W04 | Source evidence and authority provenance bridge | G1-G3 | HIGH | OPEN | W01, W02 |
+| W05 | User-owned project and association overlay | G2 | HIGH | OPEN | W01, W02 |
+| W06 | Personal notes, edits and correction provenance | G2 | MED | OPEN | W05 |
+| W07 | Local search, scoping and exact deep links | G3 | HIGH | OPEN | W02, W04, W05, W06 |
+| W08 | Knowledge presentation and qualified derived claims | G3 | MED | OPTIONAL_V1 | W04, W07 |
+| W09 | Selective portable export contract and preview | G4 | HIGH | OPEN | W01, W02, W05, W06 |
+| W10 | Clean-profile import and safe identity reconciliation | G4 | HIGH | OPEN | W09 |
+| W11 | One cohesive UI and first-use honesty | G1-G4 | HIGH | OPEN | W02, W03, W05, W07, W09, W10 |
+| W12 | Vertical acceptance, durability and failure gates | G5 | HIGH | OPEN | W02, W03, W04, W05, W06, W07, W09, W10, W11 |
 | W13 | Governed browser/provider attachment | G6 | HIGH | DEFERRED | W12 |
-| W14 | Semantic commands, agentic files, canvas and sync discovery | post_core | MAX | DEFERRED | W12 |
+| W14 | Semantic commands, agentic files, canvas and sync discovery | post_core | MAX | DEFERRED | none |
 
 ## Canonical work-item contracts
 
@@ -39,7 +39,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Source-review available; local checkout unknown.
 - **WHAT outcome:** Define observed entrypoints, tests, absent routes and compatible core assumptions; don't halt integration for a PC-wide audit.
 - **Acceptance:** Route names, physical files, test entrypoints and actual gaps recorded by implementer.
-- **Dependencies:** W01. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** none. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W01 — Resolve local world and identity contract (MAX)
 
@@ -48,7 +48,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Scoped identities exist; local personal object IDs not proven.
 - **WHAT outcome:** Distinct local world/conversation/message IDs, source refs, known/unknown account-thread mappings, imports as foreign identity; no probabilistic auto-merge.
 - **Acceptance:** Colliding titles/accounts and unknown thread states cannot coalesce.
-- **Dependencies:** W02,W03,W04,W09. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W00. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W02 — Build durable offline conversation reading (HIGH)
 
@@ -57,7 +57,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Operational journal and capture storage exist; library unverified.
 - **WHAT outcome:** Saved or fixture conversation reopens without attached provider; preserve message ordering and local namespace.
 - **Acceptance:** Restart local service; same conversation/turns/source refs available.
-- **Dependencies:** W01,W03,W04. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W01. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W03 — Preserve mixed native content and fidelity (MED)
 
@@ -66,7 +66,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Existing rendering and capture projections; cross-restart fidelity unverified.
 - **WHAT outcome:** Read text/code/table/citation/artifact/unknown/partial parts through one product UI; missing assets explicitly labeled.
 - **Acceptance:** Opaque part survives persist/reopen, no silent content flattening.
-- **Dependencies:** W01,W02. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W01. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W04 — Source evidence and authority provenance bridge (HIGH)
 
@@ -75,7 +75,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Source and gap records exist; user item linkage unverified.
 - **WHAT outcome:** Trace derived and imported items to captured origin or mark unavailable; never overwrite evidence with user edits.
 - **Acceptance:** Evidence pointer/gap state visible from saved content; source unchanged after note edit.
-- **Dependencies:** W01,W02,W03,W05. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W01, W02. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W05 — User-owned project and association overlay (HIGH)
 
@@ -84,7 +84,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** No verified first-class workspace endpoints in scanned hub.
 - **WHAT outcome:** Create project; associate a conversation, part, artifact; link/unlink without destructive source writes; durable edits.
 - **Acceptance:** North Star project and links persist after restart; unlink preserves raw source.
-- **Dependencies:** W01,W02,W04,W06. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W01, W02. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W06 — Personal notes, edits and correction provenance (MED)
 
@@ -93,7 +93,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Versioned/CAS patterns exist; user annotation store unverified.
 - **WHAT outcome:** Create/edit note separate from provider observation; expose author/time/revision; fail explicitly on conflicts.
 - **Acceptance:** Edited note retained, conflicting updates controlled, original hash unchanged.
-- **Dependencies:** W05,W04. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W05. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W07 — Local search, scoping and exact deep links (HIGH)
 
@@ -102,7 +102,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** BM25 corpus index and /api/v1/search exist; user note index unverified.
 - **WHAT outcome:** Index selected saved conversations, project names, notes, available artifact metadata; query and link to exact local ID/part.
 - **Acceptance:** Same text in two records returns separately; scope and freshness stated.
-- **Dependencies:** W02,W05,W06,W04. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W02, W04, W05, W06. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W08 — Knowledge presentation and qualified derived claims (MED)
 
@@ -111,7 +111,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Existing intelligence; personal-world app wiring unverified.
 - **WHAT outcome:** Surface source-linked inference only when helpful to J3; no mandatory new autonomous memory engine.
 - **Acceptance:** Derived claims visibly distinct from observed and user-authored data.
-- **Dependencies:** W04,W07. **Status:** OPTIONAL_V1. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W04, W07. **Status:** OPTIONAL_V1. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W09 — Selective portable export contract and preview (HIGH)
 
@@ -120,7 +120,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Session export exists; personal-world selection unverified.
 - **WHAT outcome:** User chooses project and included items; versioned manifest, absent-source qualifiers, privacy exclusions and preview.
 - **Acceptance:** Bundle preview and manifest match chosen scope; no cookies/auth headers/browser profile.
-- **Dependencies:** W01,W02,W05,W06,W04. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W01, W02, W05, W06. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W10 — Clean-profile import and safe identity reconciliation (HIGH)
 
@@ -129,7 +129,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** No verified full personal-world import.
 - **WHAT outcome:** Restore selected bundle into clean isolated world; validate hashes/paths/schema, repeat import and conflicts; no remote account binding.
 - **Acceptance:** After import same user note/parts/links; duplicate import nondestructive.
-- **Dependencies:** W09,W01,W05. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W09. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W11 — One cohesive UI and first-use honesty (HIGH)
 
@@ -138,7 +138,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Existing Studio and chat surfaces; no integrated J1-J4 proof.
 - **WHAT outcome:** Expose Library, Projects, Find, Transfer in one coherent app, demo/empty/offline/unknown states, keyboard and truthful feedback.
 - **Acceptance:** User completes journey without CLI or switching independent apps.
-- **Dependencies:** W02,W03,W05,W07,W09,W10. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W02, W03, W05, W07, W09, W10. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W12 — Vertical acceptance, durability and failure gates (HIGH)
 
@@ -147,7 +147,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Test runner and inventory script confirmed; no accepted J1-J4 full run.
 - **WHAT outcome:** Run one integrated scenario, restart, partial write, missing source, conflicting import, secret exclusion, negative tests; report proof tier.
 - **Acceptance:** One disposable local profile passes full J1→J4, exact command+SHA+environment.
-- **Dependencies:** W02,W03,W04,W05,W06,W07,W09,W10,W11. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** W02, W03, W04, W05, W06, W07, W09, W10, W11. **Status:** OPEN. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ### W13 — Governed browser/provider attachment (HIGH)
 
@@ -165,7 +165,7 @@ Each row is a working contract, not an instruction on libraries, subagents, runt
 - **CURRENT source evidence:** Source/vision candidates, integration payoff unproven.
 - **WHAT outcome:** Retain WHAT/WHY/WHERE only, reopen after V1 shape and acceptance; no automatic harvesting.
 - **Acceptance:** Separate owner value decision before any code harvest.
-- **Dependencies:** W12. **Status:** DEFERRED. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
+- **Dependencies:** none. **Status:** DEFERRED. **Owner:** unassigned implementation; Product Agent coordinates mapping and MAX decisions.
 
 ## Critical path and concurrency
 
