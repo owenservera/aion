@@ -51,3 +51,7 @@ file-type catalog + provider adapter map + scoped context resolver
 - **Owning product index:** [V1-PRODUCT-INDEX.md](../V1-PRODUCT-INDEX.md).
 
 **Next product action:** bring these two interfaces into VIVIM's integrated product backlog only when ready for code/test acceptance. This product registry preserves the work now; it does not claim implementation or local deployment.
+
+## Original full-text research source package — 2026-10-25
+
+[Open the complete source archive](source-archive/README.md): **58 SHA-verified original source files (34 command, 24 agentic; 496,734 bytes)**, including VOMEGA parser/adapter/tests, AION semantic contracts, BCP command compiler research and full agentic document examples. [Machine-readable source manifest](source-archive/SOURCE-MANIFEST.json) · [external official standards](source-archive/EXTERNAL-STANDARDS.md) · [recovery history](source-archive/RECOVERY-PROVENANCE.md). These are **reference-only copies**, not active installed source. Eight auto-load-sensitive filenames have inert `.source.txt` archive suffixes.

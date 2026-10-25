@@ -100,3 +100,7 @@ For VIVIM core, provide a **read-only inventory** first with on-demand visual ma
 - [AION 2026-10-25 Product index](../V1-PRODUCT-INDEX.md) establishes Role 15 product-document custody.
 
 **Current maturity:** filename corpus reconstructed + external documented conventions checked; **no complete all-repository scan, executable resolver, provider compatibility test, or VIVIM production integration has been performed here**. Full verbatim September master file remains **unverified**. This library is now a durable, explicitly provenance-labeled home for the recovery.
+
+## Complete original agentic file examples
+
+Full native examples from the owner's AION, VOMEGA and BCP repositories are now preserved in the [source archive](source-archive/README.md), covering AGENTS/CLAUDE/SKILL, context, bootstrap, governance, tasks and state. Exact SHA/path provenance is in the [manifest](source-archive/SOURCE-MANIFEST.json). For third-party vendor format rules, use the [external standards bibliography](source-archive/EXTERNAL-STANDARDS.md); do not claim the 133 example patterns are independently approved standards. Archived auto-load files use inert suffixes.

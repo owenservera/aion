@@ -57,3 +57,7 @@ September 5 / October 15 historical inventory claims have been rechecked; the ol
 - [Z.ai WHAT/WHY/WHERE incremental intelligence](discovery/ZAI-INTEGRATION-INTELLIGENCE-R2.md), no mandatory technical implementation plan.
 
 This refines, rather than replaces, the original [Z.ai one-pager](ZAI-V1-WHAT-WHY-WHERE-ONE-PAGER.md). The PRODUCT AGENT owns discovery and MAX arbitrations; Z.ai is free to decide how to implement LOW/MED/HIGH work. V1 local world stabilization remains earlier than new interactive Chrome. No BUILD OR HARVEST workshop has yet selected code.
+
+### Full source files — core library (2026-10-25)
+
+The [Product Agent full-source research archive](core-library/source-archive/README.md) now includes **58 complete pinned source files** (34 command-system and 24 agentic-file examples), test sources/fixtures, historical research designs and full BCP Steward references. The [per-file SHA and original URL manifest](core-library/source-archive/SOURCE-MANIFEST.json) makes the package independently auditable; the [provider bibliography](core-library/source-archive/EXTERNAL-STANDARDS.md) references, without blindly copying, third-party specs. This is a preserved research package, not live Harness execution or local installation.

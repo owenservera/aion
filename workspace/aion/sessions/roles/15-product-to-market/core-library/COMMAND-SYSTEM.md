@@ -92,3 +92,7 @@ user text/symbols
 **This folder:** product interpretation, user journeys, accepted command contract and recovered-source links. **Role 13 Semantics:** versioned meaning/grammar/IR and compatibility claims. **`VOMEGA`:** original parser lineage, not automatically the new host. **`vivim-harness`:** any new production integration, tests and UI/API code after assessment; reuse existing effect/session owner. No more duplicate architecture stacks, parser forks, authorization stores or “autonomous” daemons.
 
 **Current maturity:** historical implementation exists; AION mapping exists; VIVIM installed/validated compatibility **not established**.
+
+## Complete original source archive
+
+Full upstream code and tests, not excerpts: [VOMEGA/AION/BCP command-system sources](source-archive/README.md), [every file with pinned revision and identical Git blob SHA](source-archive/SOURCE-MANIFEST.json). Archived implementation is not a working Harness build; production engineering remains in `owenservera/vivim-harness`.
