@@ -62,6 +62,21 @@ const NEAR_OTHER_CEILING = 0.8;
 
 // Role synonyms. Mirrors families/ai-chat.json entities.message.fields.role.normalize (human, ai,
 // model, bot) and its valueHints. Extras are common provider labels.
+// Explicit provenance fences joins by provider origin, account and native thread.
+// Two unscoped legacy inputs remain comparable, but are never source-qualified.
+export function sourcesCompatible(a, b) {
+  if (a == null && b == null) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  for (const key of ['origin', 'account', 'threadRef']) {
+    if (typeof a[key] !== 'string' || !a[key].trim() || a[key] !== b[key]) return false;
+  }
+  if (a.sessionId != null || b.sessionId != null) return !!a.sessionId && a.sessionId === b.sessionId;
+  return true;
+}
+const pairAllowed = (a, b) => sourcesCompatible(a.source, b.source)
+  && (a.nativeMessageId == null || b.nativeMessageId == null
+    || (typeof a.nativeMessageId === 'string' && a.nativeMessageId === b.nativeMessageId));
+
 const ROLE_SYNONYMS = {
   user: 'user', human: 'user', me: 'user', customer: 'user',
   assistant: 'assistant', ai: 'assistant', model: 'assistant', bot: 'assistant',
@@ -266,6 +281,7 @@ export function joinStreamToDom({ messages = [], turns = [] } = {}) {
     const x = m ?? {};
     return {
       pos, key: x.key ?? null, messageId: x.messageId ?? null, role: normalizeRole(x.role), nt: normalizeForJoin(x.text), final: x.final,
+      source: x.source ?? null, nativeMessageId: x.nativeMessageId ?? null,
       blocks: (Array.isArray(x.blocks) ? x.blocks : []).map((b, i) => { const y = b ?? {}; return { key: y.key ?? null, index: y.index ?? i, type: y.type ?? null, nt: normalizeForJoin(y.text) }; }),
     };
   });
@@ -273,6 +289,7 @@ export function joinStreamToDom({ messages = [], turns = [] } = {}) {
     const x = t ?? {};
     return {
       pos, index: x.index ?? pos, id: x.id ?? null, domId: x.domId ?? null, role: normalizeRole(x.role), nt: normalizeForJoin(x.text),
+      source: x.source ?? null, nativeMessageId: x.nativeMessageId ?? null,
       blocks: (Array.isArray(x.blocks) ? x.blocks : []).map((b) => { const y = b ?? {}; return { ord: y.ord ?? null, type: y.type ?? null, nt: normalizeForJoin(y.text) }; }),
     };
   });
@@ -295,9 +312,10 @@ export function joinStreamToDom({ messages = [], turns = [] } = {}) {
       const m = mL[i];
       if (!countsEqual || m.key === null) continue;
       const t = tL[i];
+      if (!pairAllowed(m, t)) { aligned = false; continue; }
       const rel = relate(m.nt, t.nt);
       const notes = ['ordering assumed from equal role counts'];
-      const fits = tL.filter((x) => fitsRel(relate(m.nt, x.nt)));
+      const fits = tL.filter((x) => pairAllowed(m, x) && fitsRel(relate(m.nt, x.nt)));
       const evidence = { rule: 'order+text', ordering: 'position', notes, candidates: [] };
       let status, turnPos = t.pos;
       if (fitsRel(rel) && fits.length > 1) {
@@ -331,10 +349,11 @@ export function joinStreamToDom({ messages = [], turns = [] } = {}) {
       if (res[m.pos]) continue;
       const notes = countNote ? [countNote] : [];
       if (m.key === null) notes.push('no message key: joined by text');
+      if (m.source != null) notes.push('only exact source-qualified candidates may match');
       const evidence = { rule: 'text-only', ordering: 'text', notes, candidates: [] };
-      const fits = tL.filter((x) => !claimed.has(x.pos) && fitsRel(relate(m.nt, x.nt)));
+      const fits = tL.filter((x) => !claimed.has(x.pos) && pairAllowed(m, x) && fitsRel(relate(m.nt, x.nt)));
       if (!fits.length) {
-        const near = nearText(m, tL.filter((x) => !claimed.has(x.pos)));
+        const near = nearText(m, tL.filter((x) => !claimed.has(x.pos) && pairAllowed(m, x)));
         if (near.turn) {
           notes.push(near.note);
           evidence.candidates = [near.turn.index];
@@ -368,7 +387,8 @@ export function joinStreamToDom({ messages = [], turns = [] } = {}) {
     links.push({
       messageKey: m.key, messageIndex: m.pos, messageId: m.messageId, role: m.role,
       turnIndex: t ? t.index : null, turnId: t ? t.id : null, domId: t ? t.domId : null,
-      status: r.status, textMatch: r.textMatch, blockLinks, evidence: r.evidence,
+      status: r.status, textMatch: r.textMatch, blockLinks,
+      evidence: { ...r.evidence, sourceQualified: !!t && m.source != null && sourcesCompatible(m.source, t.source) },
     });
   }
   for (const t of ts) {
@@ -389,6 +409,30 @@ export function joinStreamToDom({ messages = [], turns = [] } = {}) {
     if (l.evidence.rule) rules[l.evidence.rule]++;
     for (const b of l.blockLinks) blockStatus[b.status]++;
   }
-  const summary = { messages: ms.length, turns: ts.length, messageStatus, blockStatus, rules };
+  const summary = { messages: ms.length, turns: ts.length, messageStatus, blockStatus, rules,
+    sourceQualifiedLinks: links.filter((x) => x.messageIndex !== null && x.evidence.sourceQualified).length,
+    unqualifiedLinks: links.filter((x) => x.messageIndex !== null && x.turnIndex !== null && !x.evidence.sourceQualified).length };
   return { links, summary };
+}
+
+
+// Native content relationships from verified fully-qualified joins only.
+// They are NOT semantic facts, capture acceptance, or training authorization.
+export function verifiedContentRelations({ messages = [], links = [] } = {}) {
+  const out = [];
+  for (const link of links) {
+    if (link.status !== 'verified' || link.evidence?.sourceQualified !== true || link.messageIndex == null) continue;
+    const m = messages[link.messageIndex];
+    if (!m || m.final !== true || !m.sid || (!m.messageId && !m.key)) continue;
+    out.push({
+      kind: 'message_rendered_as', status: 'content_verified', captureAccepted: false,
+      from: { sid: m.sid, messageId: m.messageId ?? null, messageKey: m.key ?? null },
+      to: { turnIndex: link.turnIndex, turnId: link.turnId, domId: link.domId },
+      source: { origin: m.source.origin, account: m.source.account, threadRef: m.source.threadRef,
+        ...(m.source.sessionId ? { sessionId: m.source.sessionId } : {}) },
+      parts: (link.blockLinks ?? []).filter((b) => b.status === 'verified' && b.blockKey != null && b.ord != null)
+        .map((b) => ({ blockKey: b.blockKey, domOrd: b.ord })),
+    });
+  }
+  return out;
 }
