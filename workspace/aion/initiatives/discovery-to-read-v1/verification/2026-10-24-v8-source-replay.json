@@ -1,0 +1,44 @@
+{
+  "schema": "aion.discovery.verification-receipt/1",
+  "date": "2026-10-24",
+  "branch": "initiative/discovery-to-read-v1-20261024",
+  "kind": "development-source-smoke-not-CI",
+  "executionEnvironment": "GitHub source evaluated in isolated V8 with test, URL, path and filesystem stubs",
+  "tests": {
+    "contractAndNative": 21,
+    "studioSourceReader": 13,
+    "structuralSemanticVerdict": 9,
+    "discoveryIntake": 10,
+    "profileCasOwnerSimulatedFilesystem": 10,
+    "total": 63,
+    "passed": 63,
+    "failed": 0
+  },
+  "demo": {
+    "kind": "fictional-unknown-webapp-full-intake",
+    "status": "fixture-only-semantic-preview",
+    "independent": true,
+    "semanticCases": 4,
+    "productionActivated": false,
+    "sendAuthorized": false,
+    "shadowRecommendation": "collect-more-evidence",
+    "note": "Synthetic-only Round8 candidates intentionally remain provisional; this does not meet real production heldout eligibility."
+  },
+  "boundaries": {
+    "actualNode22Suite": "NOT RUN",
+    "actualNode22Demo": "NOT RUN",
+    "realFilesystemLocksAndFsync": "NOT TESTED",
+    "WindowsNTFSAndChrome": "NOT TESTED",
+    "originalSavedSessionReaderWithRealFiles": "NOT TESTED",
+    "actualIndependentProviderNativeTruth": "NOT PROVIDED",
+    "G1toG7": "NOT ACCEPTED",
+    "profilePromotion": "NOT PERFORMED"
+  },
+  "next": [
+    "Run npm test and npm run demo on Node22 checkout",
+    "Wire server-owned original identity/lineage resolution",
+    "Create independently verified real-source native truth",
+    "Audit every existing profile writer before using CAS owner",
+    "Retest genuine unknown site + simulated UI redesign with QA"
+  ]
+}
