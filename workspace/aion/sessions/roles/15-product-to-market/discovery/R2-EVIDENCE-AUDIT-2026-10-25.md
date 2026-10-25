@@ -6,17 +6,17 @@
 
 | Measure | Result | Interpretation |
 |---|---:|---|
-| Signal records | **115** | Distinct tagged observations, not necessarily distinct features |
-| Distinct repo/path locations | **81** | Repeated source references may contain genuinely different ideas |
+| Signal records | **116** | Distinct tagged observations, not necessarily distinct features |
+| Distinct repo/path locations | **82** | Repeated source references may contain genuinely different ideas |
 | Additional references to already-used source locations | **34** | Do not inflate BUILD/HARVEST candidate counts |
-| Source text read | **65** | Text inspection **may be README/docs**, not runnable proof |
+| Source text read | **66** | Text inspection **may be README/docs**, not runnable proof |
 | Source path located only | **17** | Code not fully analyzed |
 | README-level claims | **17** | Product statements, not tested behavior |
 | Earlier survey carry-over | **11** | Reverify before selecting for integration |
 | Repository-name-only leads | **5** | Unknown function and maturity |
-| Tagged essential | **36** | Value/guardrail interest, NOT V1 shipped or unanimously selected |
+| Tagged essential | **37** | Value/guardrail interest, NOT V1 shipped or unanimously selected |
 | Tagged interesting HOW | **31** | Technique possibilities; no automatic transplants |
-| MAX effort candidates | **0** | See individual `effort` fields; effort is a judgment, not a code-grade measurement |
+| MAX effort candidates | **25** | See individual `effort` fields; effort is a judgment, not a code-grade measurement |
 
 **Corrections made in R2 (commit `8bd4ebc`):** six directory links changed from `blob` to `tree`; `VD-0019`, `VD-0060`, `VD-0072` upgraded from merely located to file-inspected evidence; `VD-0095` reclassified from "mock-provider Chrome environment" to inspected **protocol/capability graph** concepts and mock-driver tests. Source: [actual engine](https://github.com/owenservera/vivim-webapp-emulator/blob/master/src/engine.ts), [discovery](https://github.com/owenservera/vivim-webapp-emulator/blob/master/src/discover.ts), [controlled round-trip test](https://github.com/owenservera/vivim-webapp-emulator/blob/master/tests/roundtrip.test.ts). This is **not** a verified interactive browser simulator.
 
