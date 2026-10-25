@@ -1,0 +1,122 @@
+{
+  "schema": "aion.bundle-sha256/1",
+  "sourceCommit": "86d941fb78c3d82b752ef3a08ff97424ff003f86",
+  "status": "verified GitHub UTF-8 file content readback",
+  "hashAlgorithm": "SHA-256",
+  "hashVerification": "Algorithm self-test SHA256(abc) passed, UI supplier's known 3 code digests matched independently",
+  "note": "28 files covered; generator sha256-manifest.mjs omitted by generator's own file list; manifest cannot include its own hash",
+  "records": [
+    {
+      "path": "lanes/core/HANDOFF.md",
+      "sha256": "d64cbfc7627978273c523f635551f53348b8fa9fa5a8622836128a4b357d9a62"
+    },
+    {
+      "path": "lanes/core/core-runtime-bridge.mjs",
+      "sha256": "e02517341759cac80d59d1748dca6747fffe2b3f9d0f763f288bf671eff4fc7e"
+    },
+    {
+      "path": "lanes/core/core-runtime-bridge.test.mjs",
+      "sha256": "802dbe95ce385c261b41973f3be556e237ea0bf92e705e308fd96107c54a9a9d"
+    },
+    {
+      "path": "lanes/core/offline-fixture.mjs",
+      "sha256": "b7e67ee9a53a63dd659251963781816e73980e5f83b5bfba48aba47c80f4c5c8"
+    },
+    {
+      "path": "lanes/ui/HANDOFF.md",
+      "sha256": "286d0265348297a020ac98af7aef5d9f5bc18cebcff5192e6bde364f24d56193"
+    },
+    {
+      "path": "lanes/ui/fixtures.mjs",
+      "sha256": "6823215abb030c12c881e8a6fc13e2b6f4ba2e685735bdca45529660f2ce705a"
+    },
+    {
+      "path": "lanes/ui/universal-chat.mjs",
+      "sha256": "f72f5bb2c831ed5ac864461980af9229dc66f214251d1258256d95da72a7f512"
+    },
+    {
+      "path": "lanes/ui/universal-chat.test.mjs",
+      "sha256": "444fce966f91e199cfbab220633d1ec6478af992f6f3dcc577d67d2fce1568b3"
+    },
+    {
+      "path": "lanes/intelligence/HANDOFF.md",
+      "sha256": "6a1cff6ce7a01e2b6a32d9df792e5d7986765668240bb215d73872606cccf9f8"
+    },
+    {
+      "path": "lanes/intelligence/PROPOSAL-EXAMPLE.json",
+      "sha256": "c37c886ea81156f22c49b6724e8eb78e98f39dae62ab5c79abec1855dbe1aff5"
+    },
+    {
+      "path": "lanes/intelligence/capture-to-signals.mjs",
+      "sha256": "76f8c474373a04bfda7af634156e10bd163e8a367bc9c481a76e9f8bd736f740"
+    },
+    {
+      "path": "lanes/intelligence/capture-to-signals.test.mjs",
+      "sha256": "4233677ae676ccb6ba1bb9f28bb522c5afee9212e5df181c0501647c1a8bbbc8"
+    },
+    {
+      "path": "lanes/intelligence/intake.mjs",
+      "sha256": "1a11039b66f7d9aba25d4fd314ce9f217dae57cb9f2211bfe124a93c598d987a"
+    },
+    {
+      "path": "lanes/intelligence/pipeline.mjs",
+      "sha256": "25bd5504ecb21834472a4fe4cdd4dcf7272e51f49e3e575bf497eadce982fa7b"
+    },
+    {
+      "path": "lanes/intelligence/studio-bridge.mjs",
+      "sha256": "da6b3f3b78bdd056389c1210396d67f188d06d5ee52da4ba58a1bfa1fa608248"
+    },
+    {
+      "path": "lanes/intelligence/supplier.test.mjs",
+      "sha256": "da321117743d940a5a2ab76efb96145dfb65829e832c984679b9bada9eff5453"
+    },
+    {
+      "path": "lanes/systems/HANDOFF.md",
+      "sha256": "f87e3a17c106ddbd2c7ff47bb1190f99697ddadcdb77df75b10f3c140085a98b"
+    },
+    {
+      "path": "lanes/systems/RESULTS.json",
+      "sha256": "7f98b1d7b03394b988add08899c47c017145658ae36243f2c0eb90e5bdd4662d"
+    },
+    {
+      "path": "lanes/systems/bench.mjs",
+      "sha256": "ce588f0ec18ddbd4676e037066d9047f91d1f80be7bb66da115e2d9d6304c0b3"
+    },
+    {
+      "path": "lanes/systems/fixtures.json",
+      "sha256": "c9c7cf0a32e84a8261b4a2948c80af958cbb01d7158b8b4759fb2acfe409806e"
+    },
+    {
+      "path": "lanes/systems/systems-probes.mjs",
+      "sha256": "7f53f56e7f5bca57c1a3f78e042bf0a42592965910db240d3798a58a38b5360a"
+    },
+    {
+      "path": "lanes/systems/systems-probes.test.mjs",
+      "sha256": "45303807dd41edce5ada3e9911cea9d5e811ac86c63bc68b364e64580fb52ebc"
+    },
+    {
+      "path": "README.md",
+      "sha256": "4daca122dfb21c9fa09571e47e6f8233151104ac9ee9e0ed46b5302dc8b282ff"
+    },
+    {
+      "path": "SOURCE-LEDGER.json",
+      "sha256": "5b7860fcb94f0c88e7fe2c13e951fa1b87de8a409713ad0148e99268d894fa56"
+    },
+    {
+      "path": "ZAI-INTEGRATION.md",
+      "sha256": "58fab4682314d43271fe767b27f8e72a900fb8342d14c0239a72de3006b6f540"
+    },
+    {
+      "path": "integration-gates.mjs",
+      "sha256": "49276a96e8a3d47ea28765af266ed964e109760e287d84d37afabb4dee0e49cb"
+    },
+    {
+      "path": "integration-gates.test.mjs",
+      "sha256": "184e869bd8bb8b3728e0dad7f657f193654389f8300d232ee578f1780ad3dd57"
+    },
+    {
+      "path": "package.json",
+      "sha256": "20572028b13adb0595f06a22e3bf9cf3398a2f194aaec38507830830765c1a76"
+    }
+  ]
+}

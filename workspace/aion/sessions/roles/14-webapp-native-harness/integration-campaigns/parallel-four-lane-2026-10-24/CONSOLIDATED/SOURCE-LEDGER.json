@@ -1,0 +1,223 @@
+{
+  "schema": "aion.four-lane-bundle/1",
+  "baseMain": "fa9cb7f5c20040377ebd8ff28678bb24c7cc7dc9",
+  "compiledBranch": "integration/agent14-four-lane-20261024",
+  "date": "2026-10-24",
+  "sourceHeads": [
+    {
+      "lane": "core",
+      "ref": "c1-core-webapp-harness-20261024",
+      "sha": "3bbe8d9b918dc53f13bb8905693cf900a9e4027d"
+    },
+    {
+      "lane": "ui",
+      "ref": "supplier/ui-u1-2026-10-24",
+      "sha": "d403e3502284f9b2c9dc1f5cff1349b84be3e7c0"
+    },
+    {
+      "lane": "intelligence",
+      "ref": "supplier/intelligence-i1-20261024",
+      "sha": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10"
+    },
+    {
+      "lane": "systems",
+      "ref": "systems/s1-2026-10-24-source-backed",
+      "sha": "0a6eccaffb4d38090b0f56bb53fe8fe56f3ce4a7"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "relative": "lanes/core/HANDOFF.md",
+      "sourcePath": "workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/HANDOFF.md",
+      "sourceBranch": "c1-core-webapp-harness-20261024",
+      "sourceHead": "3bbe8d9b918dc53f13bb8905693cf900a9e4027d",
+      "gitBlob": "3cc6573b5e5eca70e58b69f53e5405f0f267d65f",
+      "size": 11598
+    },
+    {
+      "relative": "lanes/core/core-runtime-bridge.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/core-runtime-bridge.mjs",
+      "sourceBranch": "c1-core-webapp-harness-20261024",
+      "sourceHead": "3bbe8d9b918dc53f13bb8905693cf900a9e4027d",
+      "gitBlob": "90967c465e1abe5c6e0fe9fe390850234c2a8603",
+      "size": 15124
+    },
+    {
+      "relative": "lanes/core/core-runtime-bridge.test.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/core-runtime-bridge.test.mjs",
+      "sourceBranch": "c1-core-webapp-harness-20261024",
+      "sourceHead": "3bbe8d9b918dc53f13bb8905693cf900a9e4027d",
+      "gitBlob": "5d3b38925c0bdc3cd9228c073a3d3071013cb13d",
+      "size": 13621
+    },
+    {
+      "relative": "lanes/core/offline-fixture.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/offline-fixture.mjs",
+      "sourceBranch": "c1-core-webapp-harness-20261024",
+      "sourceHead": "3bbe8d9b918dc53f13bb8905693cf900a9e4027d",
+      "gitBlob": "a0d236e57f6b0ae39ea9054253e0dd7dd50edf4e",
+      "size": 4648
+    },
+    {
+      "relative": "lanes/ui/HANDOFF.md",
+      "sourcePath": "workspace/aion/ops/capture-studio-ui/handoffs/parallel-2026-10-24/HANDOFF.md",
+      "sourceBranch": "supplier/ui-u1-2026-10-24",
+      "sourceHead": "d403e3502284f9b2c9dc1f5cff1349b84be3e7c0",
+      "gitBlob": "38526dd091f2a6c268a04a6fcb232518e2592475",
+      "size": 7667
+    },
+    {
+      "relative": "lanes/ui/fixtures.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-ui/handoffs/parallel-2026-10-24/fixtures.mjs",
+      "sourceBranch": "supplier/ui-u1-2026-10-24",
+      "sourceHead": "d403e3502284f9b2c9dc1f5cff1349b84be3e7c0",
+      "gitBlob": "0b437585ad038d922b19a6d5b98acd6d282d7b60",
+      "size": 2507
+    },
+    {
+      "relative": "lanes/ui/universal-chat.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-ui/handoffs/parallel-2026-10-24/universal-chat.mjs",
+      "sourceBranch": "supplier/ui-u1-2026-10-24",
+      "sourceHead": "d403e3502284f9b2c9dc1f5cff1349b84be3e7c0",
+      "gitBlob": "922fccf07d92a6c620e12d7bdec674358a872521",
+      "size": 20045
+    },
+    {
+      "relative": "lanes/ui/universal-chat.test.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-ui/handoffs/parallel-2026-10-24/universal-chat.test.mjs",
+      "sourceBranch": "supplier/ui-u1-2026-10-24",
+      "sourceHead": "d403e3502284f9b2c9dc1f5cff1349b84be3e7c0",
+      "gitBlob": "e9feb12d71de34e7da5586fede2051a76e88b1d9",
+      "size": 12196
+    },
+    {
+      "relative": "lanes/intelligence/HANDOFF.md",
+      "sourcePath": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/HANDOFF.md",
+      "sourceBranch": "supplier/intelligence-i1-20261024",
+      "sourceHead": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10",
+      "gitBlob": "5ce768531cb015c7e8fce5b2d3e70e9806dec289",
+      "size": 7893
+    },
+    {
+      "relative": "lanes/intelligence/PROPOSAL-EXAMPLE.json",
+      "sourcePath": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/PROPOSAL-EXAMPLE.json",
+      "sourceBranch": "supplier/intelligence-i1-20261024",
+      "sourceHead": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10",
+      "gitBlob": "bae50c8c1233f1e1041d5e7dd7942a5d4293cf72",
+      "size": 1683
+    },
+    {
+      "relative": "lanes/intelligence/capture-to-signals.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/capture-to-signals.mjs",
+      "sourceBranch": "supplier/intelligence-i1-20261024",
+      "sourceHead": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10",
+      "gitBlob": "e45390f7c114f14949b502108752c1f2b690a9c9",
+      "size": 3001
+    },
+    {
+      "relative": "lanes/intelligence/capture-to-signals.test.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/capture-to-signals.test.mjs",
+      "sourceBranch": "supplier/intelligence-i1-20261024",
+      "sourceHead": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10",
+      "gitBlob": "5af9805bc4cb7bdf6300ef5658235266c2ec941b",
+      "size": 2492
+    },
+    {
+      "relative": "lanes/intelligence/intake.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/intake.mjs",
+      "sourceBranch": "supplier/intelligence-i1-20261024",
+      "sourceHead": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10",
+      "gitBlob": "1745f8d2128102e271f64c3070479da0c6e1ac14",
+      "size": 5622
+    },
+    {
+      "relative": "lanes/intelligence/pipeline.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/pipeline.mjs",
+      "sourceBranch": "supplier/intelligence-i1-20261024",
+      "sourceHead": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10",
+      "gitBlob": "f8fd976bff03bab7ac048abe605c522aadc113b3",
+      "size": 11438
+    },
+    {
+      "relative": "lanes/intelligence/studio-bridge.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/studio-bridge.mjs",
+      "sourceBranch": "supplier/intelligence-i1-20261024",
+      "sourceHead": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10",
+      "gitBlob": "e31e5979c37ea1acc472ad02e444ba6c928be15b",
+      "size": 845
+    },
+    {
+      "relative": "lanes/intelligence/supplier.test.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/supplier.test.mjs",
+      "sourceBranch": "supplier/intelligence-i1-20261024",
+      "sourceHead": "661a4e7e2ec7c48fd23456b8d5ab6525f3998c10",
+      "gitBlob": "824bbbc7296b0189a40ebb68c2f62e5081f905bd",
+      "size": 8422
+    },
+    {
+      "relative": "lanes/systems/HANDOFF.md",
+      "sourcePath": "workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/HANDOFF.md",
+      "sourceBranch": "systems/s1-2026-10-24-source-backed",
+      "sourceHead": "0a6eccaffb4d38090b0f56bb53fe8fe56f3ce4a7",
+      "gitBlob": "7507594f766ac7f35add394a74a2c0ca000dcbd0",
+      "size": 15605
+    },
+    {
+      "relative": "lanes/systems/RESULTS.json",
+      "sourcePath": "workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/RESULTS.json",
+      "sourceBranch": "systems/s1-2026-10-24-source-backed",
+      "sourceHead": "0a6eccaffb4d38090b0f56bb53fe8fe56f3ce4a7",
+      "gitBlob": "7af83a4ce7cccf599a5e7b09c0ac1b4c57f1a58e",
+      "size": 2836
+    },
+    {
+      "relative": "lanes/systems/bench.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/bench.mjs",
+      "sourceBranch": "systems/s1-2026-10-24-source-backed",
+      "sourceHead": "0a6eccaffb4d38090b0f56bb53fe8fe56f3ce4a7",
+      "gitBlob": "e946099bb11f4ab86b7027421390b26c6aad74ed",
+      "size": 3463
+    },
+    {
+      "relative": "lanes/systems/fixtures.json",
+      "sourcePath": "workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/fixtures.json",
+      "sourceBranch": "systems/s1-2026-10-24-source-backed",
+      "sourceHead": "0a6eccaffb4d38090b0f56bb53fe8fe56f3ce4a7",
+      "gitBlob": "ceba9c5326ad10b4a22f7ad06ed3addab66d7a51",
+      "size": 5414
+    },
+    {
+      "relative": "lanes/systems/systems-probes.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/systems-probes.mjs",
+      "sourceBranch": "systems/s1-2026-10-24-source-backed",
+      "sourceHead": "0a6eccaffb4d38090b0f56bb53fe8fe56f3ce4a7",
+      "gitBlob": "076ca6b66b2ae93f58deb8b48356332ac88d55f1",
+      "size": 12020
+    },
+    {
+      "relative": "lanes/systems/systems-probes.test.mjs",
+      "sourcePath": "workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/systems-probes.test.mjs",
+      "sourceBranch": "systems/s1-2026-10-24-source-backed",
+      "sourceHead": "0a6eccaffb4d38090b0f56bb53fe8fe56f3ce4a7",
+      "gitBlob": "e4cfa4ce7621be596d615ef62de8af057825b50c",
+      "size": 7816
+    }
+  ],
+  "bundleBridgeModification": {
+    "path": "lanes/intelligence/studio-bridge.mjs",
+    "explanation": "Only adjust relative imports to Agent14 Round8/Round9 for relocated copy",
+    "originalGitBlob": "e31e5979c37ea1acc472ad02e444ba6c928be15b"
+  },
+  "evidence": {
+    "source": "Verified GitHub source blobs; supplier-reported offline Linux Node22 tests",
+    "supplierPasses": {
+      "core": 32,
+      "ui": 43,
+      "intelligence": 26,
+      "systems": 32
+    },
+    "compiledOfflineTests": "not executed",
+    "windowsProviderAcceptance": "not executed",
+    "zaipatches23": "not included or merged"
+  }
+}
