@@ -151,3 +151,17 @@ test('live transcript expression applies exactly the learned selectors', () => {
   assert.match(expr, /grab\("\[data-role=\\"user\\"\]", 'user'\)/);
   assert.doesNotMatch(expr, /dispatch|\.click\(|fetch\(|XMLHttpRequest/);
 });
+
+test('a role attribute matched by suffix yields a suffix selector, never an exact one that matches nothing (found live on ChatGPT)', () => {
+  const kv = new Map([['DOM_TURNS', [
+    { role: 'user', roleAttribute: 'data-content-search-unit-key', roleMatch: 'suffix', text: 'q' },
+    { role: 'assistant', roleAttribute: 'data-content-search-unit-key', roleMatch: 'suffix', text: 'a' },
+    { role: 'assistant', roleAttribute: 'data-message-author-role', roleMatch: 'exact', text: 'b' },
+  ]]]);
+  const probes = probesFromSession({ id: 's1', kv: { get: (k, d) => kv.get(k) ?? d } });
+  const sel = probes.filter((p) => p.type === 'selector').map((p) => p.candidate);
+  assert.ok(sel.includes('[data-content-search-unit-key$="assistant"]'));
+  assert.ok(sel.includes('[data-content-search-unit-key$="user"]'));
+  assert.ok(sel.includes('[data-message-author-role="assistant"]'));
+  assert.ok(!sel.includes('[data-content-search-unit-key="assistant"]'));
+});

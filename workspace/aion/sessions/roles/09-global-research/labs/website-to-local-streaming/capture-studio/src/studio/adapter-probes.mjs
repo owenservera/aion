@@ -101,7 +101,7 @@ export function probesFromSession(session, { evidenceClass = 'SAVED_REAL_CAPTURE
       if (!feature) continue;
       const attr = typeof t.roleAttribute === 'string' ? t.roleAttribute : null;
       if (attr) {
-        const p = probe({ feature, type: 'selector', candidate: `[${attr}="${t.role}"]`, carrier: 'dom', captureId, evidenceClass });
+        const p = probe({ feature, type: 'selector', candidate: t.roleMatch === 'suffix' ? `[${attr}$="${t.role}"]` : `[${attr}="${t.role}"]`, carrier: 'dom', captureId, evidenceClass });
         if (p) out.push(p);
       }
       // A specific per-turn selector is noisy by construction; at most one per role per capture

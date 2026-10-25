@@ -226,7 +226,7 @@
         const v = a.value.trim().toLowerCase();
         if (ROLE_WORDS.has(v)) { cands.push({ el, attr: a.name, role: v }); break; }
         // Role-suffixed keys, e.g. data-content-search-unit-key="fallback-turn-0:2:assistant".
-        if (a.name.startsWith('data-')) { const m = v.match(/[:_]([a-z]+)$/); if (m && ROLE_WORDS.has(m[1])) { cands.push({ el, attr: a.name, role: m[1] }); break; } }
+        if (a.name.startsWith('data-')) { const m = v.match(/[:_]([a-z]+)$/); if (m && ROLE_WORDS.has(m[1])) { cands.push({ el, attr: a.name, role: m[1], match: 'suffix' }); break; } }
       }
     }
     // Keep the outermost element per attribute name.
@@ -272,7 +272,7 @@
     return best.slice(0, 500).map((c, i) => {
       const idAttr = [...c.el.attributes].find((a) => /(^|-)(message|turn|item)?-?id$/.test(a.name) && a.name !== 'id');
       const text = (c.el.innerText || c.el.textContent || '').trim();
-      return { index: i, id: idAttr ? idAttr.value : idOf(c.el), domId: idOf(c.el), role: c.role, roleAttribute: c.attr, text: text.length > cfg.maxBlockTextBytes ? text.slice(0, cfg.maxBlockTextBytes) : text, truncated: text.length > cfg.maxBlockTextBytes ? text.length : undefined, blocks: blocks(c.el) };
+      return { index: i, id: idAttr ? idAttr.value : idOf(c.el), domId: idOf(c.el), role: c.role, roleAttribute: c.attr, roleMatch: c.match === 'suffix' ? 'suffix' : 'exact', text: text.length > cfg.maxBlockTextBytes ? text.slice(0, cfg.maxBlockTextBytes) : text, truncated: text.length > cfg.maxBlockTextBytes ? text.length : undefined, blocks: blocks(c.el) };
     });
   }
 
