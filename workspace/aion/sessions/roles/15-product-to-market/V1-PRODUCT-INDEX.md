@@ -34,3 +34,11 @@ The [full integrated V1 design](https://github.com/owenservera/vivim-harness/blo
 - [PRODUCT AGENT rules](README.md#product-response-publication-and-model-effort-policy--owner-directive-2026-10-25) — save each substantive agent response to this self-governed folder; Z.ai **LOW/MED/HIGH**; Product Agent or owner's local models **MAX**; decide WHAT without automatically importing legacy HOW.
 
 **Near-term decision:** Z.ai R1 supplied an attached patch/bundle but GitHub branch `zai/v1-pass1-shell` was not found in the remote branch search. Do not call it merged. Next product-facing milestone: minimum durable VIVIM conversation+native rich content+evidence view that survives process restart; no new Chrome integration before the coherent app stabilization gate.
+
+## VIVIM core toolkits (owner recovery directive 2026-10-25)
+The two foundational shared product capabilities are now preserved in the Product Agent's [core-library/](core-library/README.md), linked to original implementation sources and differentiated from installed runtime code.
+
+- **Toolkit 01 — Semantic Command System:** [recovered VOMEGA 17-symbol engine lineage + AION composition + VIVIM acceptance](core-library/COMMAND-SYSTEM.md). Disposition **ADOPT**, engineering validation/integration still required in canonical VIVIM runtime.
+- **Toolkit 02 — Agentic File & Naming Library:** [21-family taxonomy with provenance and provider compatibility](core-library/AGENTIC-FILE-LIBRARY.md), plus the [machine-readable registry](core-library/AGENTIC-FILE-CATALOG.json) (**133 candidate filename patterns**; vendor-documented vs prior-conversation recalled vs new extension). **ADOPT** discovery/classification/reuse capability, **not** mass Markdown generation.
+
+September 5 / October 15 historical inventory claims have been rechecked; the old complete verbatim file list and its claimed separate ZIP location are not independently located, and this gap is explicitly recorded rather than hidden.
