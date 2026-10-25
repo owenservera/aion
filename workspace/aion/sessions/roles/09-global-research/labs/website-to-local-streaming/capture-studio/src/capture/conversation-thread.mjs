@@ -15,7 +15,7 @@ export function parseThread(siteId, url) {
   if (siteId !== 'chatgpt') return null;
   let parsed;
   try { parsed = new URL(url); } catch { return null; }
-  if (parsed.protocol !== 'https:') return null;
+  if (parsed.protocol !== 'https:' || !['chatgpt.com', 'chat.openai.com'].includes(parsed.hostname)) return null;
   const match = CHATGPT_C.exec(parsed.pathname);
   if (!match) return null;
   const id = match[1].toLowerCase();
@@ -92,7 +92,7 @@ export function transcriptExpression({ userSelectors = TRANSCRIPT_SELECTORS.user
     const kept = tagged.filter((x) => { const nested = tagged.some((o) => o.el !== x.el && o.el.contains(x.el)); if (nested) nestedDropped++; return !nested; });
     kept.sort((a, b) => (a.el === b.el ? 0 : (a.el.compareDocumentPosition(b.el) & 4) ? -1 : 1));
     const total = kept.length, slice = kept.slice(-SCAN);
-    const messages = slice.map((x) => { const text = String(x.el.innerText ?? x.el.textContent ?? '').replace(/\\r\\n/g, '\\n'); return { role: x.role, text: text.length > CAP ? text.slice(0, CAP) : text, chars: text.length }; });
+    const messages = slice.map((x) => { const text = String(x.el.innerText ?? x.el.textContent ?? '').replace(/\\r\\n/g, '\\n'); const native = x.el.closest?.('[data-message-id]')?.getAttribute?.('data-message-id') || null; return { role: x.role, text: text.length > CAP ? text.slice(0, CAP) : text, chars: text.length, ...(native ? { id: native, idSource: 'data-message-id' } : {}) }; });
     let scroll = { found: false, topReached: null, bottomReached: null };
     if (slice.length) {
       for (let node = slice[0].el.parentElement; node; node = node.parentElement) {
@@ -124,12 +124,14 @@ export function boundTranscript(rawResult, { maxMessages = TRANSCRIPT_LIMITS.max
   const valid = []; let invalid = 0;
   source.forEach((m, i) => {
     const ok = m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && Number.isSafeInteger(m.chars) && m.chars >= m.text.length;
-    if (ok) valid.push({ index: offset + i, role: m.role, text: m.text, chars: m.chars }); else invalid++;
+    if (ok) valid.push({ index: offset + i, role: m.role, text: m.text, chars: m.chars,
+      id: m.idSource === 'data-message-id' && typeof m.id === 'string' && m.id.trim() && m.id.length <= 256 ? m.id : null }); else invalid++;
   });
   const kept = []; let budget = maxChars, tails = 0;
   for (let i = valid.length - 1; i >= 0 && kept.length < maxMessages && budget > 0; i--) {
     const m = valid[i], cap = Math.min(perMessageCap, budget), text = m.text.length > cap ? m.text.slice(0, cap) : m.text;
-    kept.push({ index: m.index, role: m.role, text, chars: m.chars, truncated: text.length < m.chars });
+    kept.push({ index: m.index, role: m.role, text, chars: m.chars, truncated: text.length < m.chars,
+      ...(m.id ? { id: m.id, idSource: 'data-message-id' } : {}) });
     budget -= text.length; tails += m.chars - text.length;
   }
   kept.reverse();
@@ -144,6 +146,7 @@ export function boundTranscript(rawResult, { maxMessages = TRANSCRIPT_LIMITS.max
     coverage: {
       scope: 'currently-rendered-messages', complete: false,
       renderedMessages: renderedTotal, returnedMessages: kept.length, omittedMessages: renderedTotal - kept.length, omittedChars,
+      unscannedRenderedMessages: offset, omittedCharsUnknown: offset > 0,
       truncatedMessages: kept.filter((m) => m.truncated).length, invalidMessages: invalid,
       hiddenSkipped: count(rawResult?.hiddenSkipped), nestedDropped: count(rawResult?.nestedDropped), ambiguousSkipped: count(rawResult?.ambiguousSkipped),
       olderHistory: scroll?.found !== true ? 'unknown' : scroll.topReached ? 'top-reached' : 'older-unrendered-likely',
