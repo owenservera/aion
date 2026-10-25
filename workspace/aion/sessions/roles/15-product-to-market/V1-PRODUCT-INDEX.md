@@ -26,3 +26,11 @@ The [full integrated V1 design](https://github.com/owenservera/vivim-harness/blo
 [Read product disposition](research/Poppy-V1-DECISION-2026-10-25.md): **WATCH / NOT A V1 integration dependency.** Research 09 confirms sourced draft 0.3 breaks 0.2 assumptions and no deployed compatible provider has been established. Next change requires a real company endpoint + compatible SDK/conformance + a task that beats existing UI/MCP/CDP.
 
 **No additional scheduler, service, secret-sharing pipeline, browser actor, or duplicate issue tracker.**
+
+## Current integration architecture, saved decisions and allocation (2026-10-25)
+- [Original V1 milestone map](V1-MILESTONE-MAP-2026-10-25.md) — preserved earlier M1–M5 analysis.
+- [Deep integration assessment](V1-INTEGRATION-DEEP-ASSESSMENT-2026-10-25.md) — R1 source review, already implemented Harness primitives, source/identity ownership, donor WHAT-vs-HOW, ranked risks, exit gates and precise Z.ai round packages.
+- [Z.ai execution policy](ZAI-EXECUTION-POLICY.md) — stable integrated VIVIM before introducing interactive Chrome.
+- [PRODUCT AGENT rules](README.md#product-response-publication-and-model-effort-policy--owner-directive-2026-10-25) — save each substantive agent response to this self-governed folder; Z.ai **LOW/MED/HIGH**; Product Agent or owner's local models **MAX**; decide WHAT without automatically importing legacy HOW.
+
+**Near-term decision:** Z.ai R1 supplied an attached patch/bundle but GitHub branch `zai/v1-pass1-shell` was not found in the remote branch search. Do not call it merged. Next product-facing milestone: minimum durable VIVIM conversation+native rich content+evidence view that survives process restart; no new Chrome integration before the coherent app stabilization gate.
