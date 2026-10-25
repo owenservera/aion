@@ -1,35 +1,33 @@
-# Launch focus — initial 2026-10-25 snapshot
+# Product-to-Market — current launch decision (2026-10-25)
 
-## Current choice: Capture Studio private-beta feasibility (PROVISIONAL)
-Why: already developed into an integrated user-facing experience, source-linked intelligence and adapter pipeline. Needs first-time visitor UX and trustworthy independent app acceptance before any beta claim.
+## First beta: VIVIM Final Windows alpha — conditional product choice
+**Status:** SELECTED FOR ACCEPTANCE INVESTIGATION, NOT READY TO INVITE FRIENDS.
+This supersedes the initial Capture Studio lead-audit hypothesis based on the [source investigation](P0-SOURCE-INVESTIGATION-2026-10-25.md). VIVIM Final has a documented Tauri Windows installer architecture, local backend and guided UI, plus a specific five-to-ten-tester alpha plan; **actual distributable installer and independently useful flow remain unverified**.
 
-### Verified from current repository reads
-- AION root AGENTS.md says the specific live goal is three genuinely fresh context-dependent turns in the same provider-native conversation, first ChatGPT, then Claude, then Gemini; its documented 2026-10-24 Windows test had zero actual provider sends.
-- AION root AGENTS.md identifies preflight/deferred capture and readiness as specific blockers; this is repository-reported and requires current code/runtime revalidation before treating it as today's blocker.
-- vivim-harness README says: 'Canonical standalone application for AION Capture Studio. Migration in progress.' No live independently accessible beta has been verified.
-- The project inventory at workspace/aion/ops/repos-inventory.md is dated 2026-10-16 and not proof of current repository health.
+### Top three next actions
+1. **Fix/recheck release artifact reliability:** [vivim-final issue #3](https://github.com/owenservera/vivim-final/issues/3). Confirm the actual asset, checksum and supported Windows build path. No release links sent to friends without real download/install verification.
+2. **Prove one first-user action on clean Windows:** own auth / Chrome profile if provider chat is used, real send and result or real knowledge import/recall, persistent restart, recoverable error. No simulated backend counted.
+3. **Once 1–2 pass**, privately onboard two technical friends; record completion, questions, errors and ability to return. Expand to five only after fixes.
 
-### Beta product hypothesis
-'A private, friendly workspace that helps you keep and reuse your conversations and outputs across AI web apps.' This is hypothesis, not confirmed functionality or positioning.
+### Capture Studio strategic track (do not duplicate work)
+AION / VIVIM Harness remains P0 for long-term differentiation: capture, native provenance, reconstruction and learning. Existing issues [#84](https://github.com/owenservera/aion/issues/84) and [#72](https://github.com/owenservera/aion/issues/72) own actual Windows ChatGPT acceptance; 2026-10-24 verified receipt records zero sends. The AION/Standalone Harness package and chat UI were byte-identical at GitHub reads (see full report). No new browser actor or registry.
 
-### Hard release gates
-1. **Independence:** external tester can run it with an authorized account of their own, not borrowing owner PC/profile/session.
-2. **Value:** tester can finish one useful real journey (capture → inspect → revisit/export/reuse); add send/reply only if verified.
-3. **Integrity:** correct provider/thread/account attribution and capture source provenance; no wrong-thread writes or private leaks.
-4. **Reliability:** errors surfaced; restart/recovery; basic safe rollback.
-5. **Distribution:** reachable installation/URL instructions; compatible with target OS/browser; privacy summary; feedback route.
+### Other product roles
+- vivim-platform: larger PWA + server + network + admin platform; assess independently, do not merge into first desktop beta.
+- vivim-live: marketing frontage and scripted interactive memory demo; not independently verified live memory service.
+- OpenScroll/knowledge, ZCode Pocket, VOMEGA, Product Hub: portfolio-wide investigations still in scope; do not drop them from future evaluations.
+- Forks with names ending `-VIVIM`: excluded from original-product count.
+- Portfolio candidate set 95 is **not** 95 proven original works; authorship/date verification remains open.
 
-### Initial candidate table (NOT a scored technical audit)
-| Candidate | User promise | Evidence grade | Decision |
-|---|---|---|---|
-| Capture Studio / VIVIM Harness | Capture, understand and reuse native AI conversation artifacts | Repository-confirmed active development; beta unknown | Lead audit |
-| OpenScroll / Vita | Knowledge ownership and visual workspace | Historical portfolio context only | Discovery |
-| ZCode Pocket / phone AI gateway | Mobile control of own AI environment | Historical portfolio context only | Discovery |
+### Release gates
+- **Installation:** real signed/hashed or explicitly known unsigned artifact with instructions, Windows no-admin install, fresh first boot and uninstall.
+- **Value:** one real user can independently complete a useful task. Count no simulated replies or static demonstrations.
+- **Privacy:** own accounts only; no owner credentials or raw transcripts shipped; local-only services not publicly exposed.
+- **Reliability:** restart preserves intended data; failure/rollback instructions tested.
+- **Feedback:** usable reporting channel and short onboarding script.
 
-### Immediate next actions
-1. Inspect actual VIVIM Harness entrypoints/installability and AION active send/capture issues; determine easiest honest 'friend can use it' route.
-2. Inventory other promising user-facing products for faster-to-beta alternatives.
-3. Produce one 7-day launch slice with exact launch gate, named owner, and evidence of success; do not set arbitrary timelines before technical feasibility.
+### Evidence and reality check
+Source inspected 2026-10-25; no build, live test, artifact retrieval, installer run or beta distribution performed by this agent. Next implementation needs local Windows master or supported GitHub runners; recording an issue does not run a computer.
 
-## Operating decision
-Do not consolidate all project code into one platform before releasing first user value. Build a product shell through proven reusable interfaces, and postpone speculative consolidation.
+## Permanent product policy
+Ship one useful narrow experience before platform consolidation. Products are defined by user journeys, not count of repositories/capabilities. Keep audits evidence-qualified and prioritize meaningful code and proof over processes.
