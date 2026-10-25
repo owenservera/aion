@@ -505,3 +505,35 @@ export function nativePartsFromSession(session, { maxParts = 256 } = {}) {
     // Absence, cross-carrier joins, semantic correctness and authorization are not asserted.
     completeness: 'presence-only' };
 }
+
+
+/**
+ * Compare source-qualified saved structures without treating a missing saved part as an
+ * absence vote. Each side remains traceable to its own capture and KV pointer.
+ * This is diagnostic drift evidence only; the adapter factory still owns promotion.
+ */
+export function compareNativePartEvidence(before, after) {
+  if (before?.schema !== NATIVE_PART_EVIDENCE_SCHEMA || after?.schema !== NATIVE_PART_EVIDENCE_SCHEMA)
+    throw new TypeError('INVALID_NATIVE_PART_EVIDENCE');
+  if (!isString(before.captureId, 128) || !isString(after.captureId, 128) ||
+      before.captureId === after.captureId) throw new TypeError('NATIVE_PART_SOURCE_NOT_INDEPENDENT');
+  const groups = (doc) => {
+    const out = new Map();
+    for (const p of doc.parts ?? []) {
+      if (!['dom', 'network'].includes(p.carrier) || !isString(p.nativeType, 64)) continue;
+      const key = JSON.stringify([p.carrier, p.role, p.nativeType]);
+      if (!out.has(key)) out.set(key, { carrier: p.carrier, role: p.role, nativeType: p.nativeType, sources: [] });
+      if (out.get(key).sources.length < 5 && isString(p.sourceRef, 200)) out.get(key).sources.push(p.sourceRef);
+    }
+    return out;
+  };
+  const old = groups(before), now = groups(after);
+  const added = [...now].filter(([key]) => !old.has(key)).map(([, v]) => v);
+  const notObserved = [...old].filter(([key]) => !now.has(key)).map(([, v]) => v);
+  return { schema: 'aion.native-structural-change/1',
+    baselineCaptureId: before.captureId, currentCaptureId: after.captureId,
+    added, notObserved, // notObserved is NEVER negative evidence from a saved capture
+    outcome: added.length ? 'new-structure-observed' : 'no-new-structure-observed',
+    coverage: 'presence-only',
+    adapterPromotionAuthorized: false };
+}
