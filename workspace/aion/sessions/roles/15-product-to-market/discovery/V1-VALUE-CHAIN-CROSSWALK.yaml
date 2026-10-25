@@ -1,0 +1,266 @@
+# Product Agent R2 normalization: capability clusters and candidate user journeys; HOW stays with Z.ai
+schema: "vivim.discovery.value-chain/1"
+date: "2026-10-25"
+owner: "AION PRODUCT Agent Role 15"
+source_atlas: "VIVIM-CAPABILITY-ATLAS.yaml revision 2"
+status: "candidate V1 shape, not approved implementation"
+rules:
+  - "Each cluster is a user outcome or integrity property, not an order to import code"
+  - "A cluster can link many atlas signal IDs; 116 signals are not 116 distinct proven components"
+  - "BUILD/HARVEST workshop waits for agreed V1 user journeys and verified capability gaps"
+  - "Z.ai owns LOW/MED/HIGH HOW and may choose high-quality dependencies; MAX architecture stays local/Product Agent"
+  - "New interactive Chrome/CDP work follows stable integrated VIVIM gate"
+  - "Never infer production functionality from a README, feature inventory, source presence, or green fixture tests"
+candidate_journeys:
+  - id: "J-01"
+    label: "Return to my previous AI work"
+    stage: "candidate_v1_core"
+    why: "One locally saved rich conversation opens after process restart with exact provider/source status; no account is needed to demonstrate internal continuity"
+    clusters: ["C-01","C-02","C-03","C-04","C-16"]
+    acceptance: "Fixture-backed rich conversation visible, restart app, reopen same local object and source links with unknowns preserved"
+    blockers: ["unowned_read_model","ambiguous_source_identity"]
+  - id: "J-02"
+    label: "Organize a personal project"
+    stage: "candidate_v1_core"
+    why: "Turn disconnected AI conversations and artifacts into a project the user can return to"
+    clusters: ["C-02","C-05","C-06","C-04"]
+    acceptance: "Create workspace, link saved conversation and chosen artifact, add/edit note, reopen after restart"
+    blockers: ["human_overlay_vs_evidence","relationship_persistence"]
+  - id: "J-03"
+    label: "Find and trust an answer"
+    stage: "candidate_v1_core"
+    why: "Search and jump back to exactly what was observed, rather than generic memory claims"
+    clusters: ["C-04","C-07","C-08","C-16"]
+    acceptance: "Search locally stored content, open exact source item, show observed/derived/user-edited distinction and coverage limitations"
+    blockers: ["index_scope_not_equal_universal_search","identity_uncertainty"]
+  - id: "J-04"
+    label: "Take my chosen work with me"
+    stage: "candidate_v1_core"
+    why: "Meaningful ownership includes selective portable exports and recoverable imports without credentials"
+    clusters: ["C-04","C-05","C-06","C-09"]
+    acceptance: "Export selected workspace+content+provenance, import into clean app, compare contents and safe exclusions"
+    blockers: ["existing_export_read_only","import_not_verified","sensitive_data_scope"]
+  - id: "J-05"
+    label: "Express a safe intention"
+    stage: "vision_core_release_window_open"
+    why: "Command system and agentic context library are strategically core but should never bypass authorization or block local reading utility"
+    clusters: ["C-10","C-11","C-12","C-04"]
+    acceptance: "Describe intent and preview scoped capability/uncertainty without external browser action; actual execution requires a later authorized runtime proof"
+    blockers: ["syntactic_ok_not_authorization","unverified_symbol_compatibility"]
+  - id: "J-06"
+    label: "Use connected provider webapps"
+    stage: "after_internal_stability"
+    why: "External providers are essential to product identity, but adding Chrome interactivity before a stable local world increases coupled failure modes"
+    clusters: ["C-12","C-13","C-02","C-03","C-04"]
+    acceptance: "After stable gate, controlled Chrome/CDP test uses existing actor and proven identity; authenticated owner accounts separate"
+    blockers: ["stability_gate","owner_auth_access"]
+  - id: "J-07"
+    label: "Explore knowledge visually and share across devices"
+    stage: "later_exploration"
+    why: "Spatial canvas and peer synchronization may be valuable, but their operational cost exceeds current minimal personal use case"
+    clusters: ["C-08","C-14","C-15"]
+    acceptance: "Small personal-use comparative pilot beats a list/table on the same data; sync only after local import/export integrity"
+    blockers: ["unproven_personal_cognitive_payoff","external_keys_and_network_scope"]
+normalized_capability_clusters:
+  - id: "C-01"
+    name: "Entry, navigation and honest states"
+    atlas: ["VD-0001","VD-0002","VD-0003","VD-0059","VD-0060"]
+    need: "Simple first entry, provider rail, locally saved conversation selection; never falsely connected"
+    current: "Harness existing chat and Studio UI; Z.ai R1 shell delivered as attachment but not proven merged"
+    primary: ["vivim-harness/src/studio/ui/chat.mjs","vivim-harness/src/studio/ui/index.html","vivim-final/frontend/src/features/guided-landing.tsx"]
+    risk: "two_app_shells_or_cosmetic_onboarding_before_real_data"
+    effort: "MED"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-02"
+    name: "Durable conversation identity and local reading"
+    atlas: ["VD-0017","VD-0018","VD-0019","VD-0029","VD-0032","VD-0033"]
+    need: "Same saved conversation after restart; provider thread, capture session and product conversation remain distinct"
+    current: "Harness runtime and conversation service track operations; capture session stores evidence, not a complete human library"
+    primary: ["vivim-harness/src/capture/conversation-service.mjs","vivim-harness/src/capture/conversation-runtime.mjs","vivim-harness/src/store/session.mjs"]
+    risk: "alias_collision_or_operational_journal_mistaken_for_user_library"
+    effort: "MAX_DECISION_HIGH_IMPLEMENTATION"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-03"
+    name: "Rich native content and loss-tolerant rendering"
+    atlas: ["VD-0012","VD-0013","VD-0014","VD-0015","VD-0016","VD-0023","VD-0027"]
+    need: "Text, code, sources, files, tools, artifacts, unknown formats render from stored evidence without invention"
+    current: "Harness universal-chat and chat renderer exist; donor Final offers a different ContentPart taxonomy"
+    primary: ["vivim-harness/src/studio/ui/universal-chat.mjs","vivim-final/src/schema/streaming.ts","vivim-final/frontend/src/render/registry.ts"]
+    risk: "duplicate_renderer_or_forced_donor_schema"
+    effort: "MED_HIGH"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-04"
+    name: "Source provenance and observed-vs-inferred truth"
+    atlas: ["VD-0028","VD-0030","VD-0031","VD-0038","VD-0041","VD-0044","VD-0045","VD-0093"]
+    need: "Inspect source, time, coverage and proof; user annotations never overwrite accepted evidence"
+    current: "Harness raw log, integrity, corpus and temporal truth primitives; not automatically product-facing"
+    primary: ["vivim-harness/src/store/session.mjs","vivim-harness/src/intel/corpus.mjs","vivim-harness/src/intel/continuity.mjs"]
+    risk: "knowledge_claim_laundered_as_source_or_confident_cross_account_join"
+    effort: "MAX_DECISION_MED_HIGH_IMPLEMENTATION"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-05"
+    name: "Saved artifacts and user-editable notes"
+    atlas: ["VD-0008","VD-0021","VD-0046","VD-0081"]
+    need: "Save useful AI-produced content plus personal notes separately and edit without losing originals"
+    current: "Rich captured parts and export exist; no independently proven shared user overlay"
+    primary: ["vivim-harness/src/studio/ui/chat.mjs","vivim-final/src/schema/streaming.ts","claude-export-hub-vivim/README.md"]
+    risk: "unbound_artifact_or_pseudomemory"
+    effort: "MED_HIGH"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-06"
+    name: "Workspaces, projects and relationships"
+    atlas: ["VD-0004","VD-0057","VD-0058","VD-0060","VD-0063"]
+    need: "Organize content into named projects with durable relationships"
+    current: "Studio sessions/knowledge separate surfaces; Final and Platform propose UX patterns but not accepted implementation"
+    primary: ["vivim-harness/src/studio/ui/index.html","vivim-final/frontend/src/app/page.tsx","vivim-platform/pwa/src/types/conversation.ts"]
+    risk: "second_frontend_or_graph_database_before_a_single_project_works"
+    effort: "HIGH"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-07"
+    name: "Local search and deep linking"
+    atlas: ["VD-0001","VD-0040","VD-0041","VD-0048","VD-0049"]
+    need: "Find saved content and return to exact conversation/source with honest coverage"
+    current: "Harness BM25-like index and corpus; R1 list search is not corpus-wide"
+    primary: ["vivim-harness/src/intel/search.mjs","vivim-harness/src/intel/corpus.mjs","vivim-pageindex/README.md"]
+    risk: "universal_search_claim_without_full_index"
+    effort: "MED_HIGH"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-08"
+    name: "Source-linked knowledge, memory and relationships"
+    atlas: ["VD-0042","VD-0043","VD-0045","VD-0046","VD-0050","VD-0052"]
+    need: "Retain reusable insights with qualified source, interpretation and time; avoid false learning"
+    current: "Harness search/continuity/graph already exists; donor memory and ACU schemas are optional"
+    primary: ["vivim-harness/src/intel/continuity.mjs","vivim-platform/acu/src/types.ts","vivim-final/src/engines/memory-engine.ts"]
+    risk: "memory_engine_duplicated_or_inference_promoted_to_fact"
+    effort: "HIGH_MAX_BOUNDARY"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-09"
+    name: "Selective export and actual import"
+    atlas: ["VD-0079","VD-0080","VD-0081","VD-0082"]
+    need: "Owner can carry portable data to another installation, without leaking raw session credentials"
+    current: "Harness exports many formats and bundles; full VIVIM user-world import is unverified"
+    primary: ["vivim-harness/src/export/export.mjs","claude-export-hub-vivim/README.md"]
+    risk: "export_exists_but_import_not_proven_or_sensitive_artifacts_included"
+    effort: "HIGH"
+    window: "internal_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-10"
+    name: "Semantic command system"
+    atlas: ["VD-0065","VD-0067","VD-0068","VD-0069","VD-0070"]
+    need: "Natural or symbolic requests resolve into explainable, scoped intent"
+    current: "Recovered Product Agent toolkit and VOMEGA 17 symbols, but not a live integrated VIVIM command system"
+    primary: ["aion/workspace/aion/sessions/roles/15-product-to-market/core-library/COMMAND-SYSTEM.md","VOMEGA/omega-baseline/plugins/vivim-nlcl-pure/src/symbols.ts"]
+    risk: "interpretation_mistaken_for_permission"
+    effort: "MAX_DECISION_HIGH_IMPLEMENTATION"
+    window: "vision_core_release_open"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-11"
+    name: "Agentic file and context library"
+    atlas: ["VD-0066","VD-0108"]
+    need: "Discover instruction, skill and memory files across providers with correct precedence rather than generate boilerplate"
+    current: "Product-owned core library recovered; no VIVIM runtime acceptance"
+    primary: ["aion/workspace/aion/sessions/roles/15-product-to-market/core-library/AGENTIC-FILE-LIBRARY.md"]
+    risk: "untrusted_repo_instruction_as_governing_policy"
+    effort: "MAX_DECISION_MED_HIGH_IMPLEMENTATION"
+    window: "vision_core_release_open"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-12"
+    name: "Truthful capabilities, consent and Work history"
+    atlas: ["VD-0014","VD-0017","VD-0069","VD-0071","VD-0072","VD-0078","VD-0091"]
+    need: "A user sees supported, unavailable, proposed and observed outcomes distinctly"
+    current: "Harness studio capability/runtime journal; Edge capability taxonomy is useful pattern not a second registry"
+    primary: ["vivim-harness/src/studio/capabilities.mjs","edge-pwa/backend/src/registry/capability_vault.rs"]
+    risk: "reported_capability_incorrectly_executable"
+    effort: "MAX_DECISION_HIGH_IMPLEMENTATION"
+    window: "crosscutting"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-13"
+    name: "External provider realization and controlled Chrome"
+    atlas: ["VD-0089","VD-0090","VD-0092","VD-0094","VD-0095","VD-0097"]
+    need: "Interact with actual webapp capabilities after stable local app exists"
+    current: "Harness sole CDP actor and adapters; emulator contains graph/mocks, not demonstrated full browser fixture"
+    primary: ["vivim-harness/src/cdp/","vivim-webapp-emulator/src/discover.ts","vivim-webapp-emulator/tests/roundtrip.test.ts"]
+    risk: "second_actor_or_premature_chrome"
+    effort: "HIGH_MAX_GATE"
+    window: "post_stability"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-14"
+    name: "Visual canvas and dependency exploration"
+    atlas: ["VD-0054","VD-0056","VD-0061","VD-0112"]
+    need: "Optional visual layout that reduces reasoning time over actual projects/knowledge"
+    current: "Existing external canvas product has rich claims and broad scope; personal usefulness not established"
+    primary: ["infinite-canvas-vivim/docs/content/docs/overview/features.mdx","aion/workspace/aion/sessions/roles/09-global-research/pilots/aion-prototype-dependencies.graphml"]
+    risk: "large_secondary_canvas_and_browser_api_key_custody"
+    effort: "HIGH"
+    window: "later"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-15"
+    name: "Cross-device sync and sharing"
+    atlas: ["VD-0083","VD-0084","VD-0085","VD-0086"]
+    need: "Optional share selected user-controlled context and move between devices"
+    current: "Network repo declares P2P CRDT and Prisma deps; source and functional readiness not independently tested"
+    primary: ["vivim-network/package.json","vivim-app/README.md"]
+    risk: "heavy_p2p_complexity_before_portable_local_data"
+    effort: "MAX_DECISION_HIGH_IMPLEMENTATION"
+    window: "later"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-16"
+    name: "Reliable state, replay and knowledge checkpointing"
+    atlas: ["VD-0030","VD-0031","VD-0052","VD-0077","VD-0104","VD-0109"]
+    need: "Recovery from interruption and measured confidence in claims"
+    current: "Harness store/integrity primitives and optional research-run checkpoint donor"
+    primary: ["vivim-harness/src/store/session.mjs","vivim-harness/scripts/architecture-inventory.mjs","vivim-deep-research-engine/README.md"]
+    risk: "fixtures_are_called_live_or_journal_unreconciled"
+    effort: "MED_HIGH"
+    window: "crosscutting"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-17"
+    name: "Evidence-led BUILD OR HARVEST operations"
+    atlas: ["VD-0035","VD-0036","VD-0076","VD-0101","VD-0102","VD-0106","VD-0110"]
+    need: "Collect useful build/harvest candidates without turning every curiosity into a delivery task"
+    current: "Product Hub reported low historical candidate usefulness; existing AION Harvest exchange is canonical for technical handoffs"
+    primary: ["Product_Hub/PROJECT_TRACKER.md","aion/workspace/aion/ops/chrome-relay/harvest/EXCHANGE.md"]
+    risk: "quantity_over_value_or_second_workshop_queue"
+    effort: "LOW_MED"
+    window: "discovery_now"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+  - id: "C-18"
+    name: "Mobile capture/intake experience"
+    atlas: ["VD-0100","VD-0081","VD-0083"]
+    need: "Later collect ideas, files, voice and links from phone to personal AI world"
+    current: "zcode-pocket repository discovered; no VIVIM V1 production intake verified in this pass"
+    primary: ["zcode-pocket/README.md"]
+    risk: "mobile_interface_before_local_object_model"
+    effort: "HIGH"
+    window: "later"
+    adoption: "undecided"
+    test_state: "not_independently_proven"
+workshop:
+  status: "deferred_until_v1_shape"
+  possible_outcomes: ["KEEP","BUILD","HARVEST","ADAPT","REFERENCE","DEFER","REJECT"]
+  evaluation_questions: ["What user-visible gap persists in current Harness?","What evidence shows donor behavior is real rather than a claim?","Does reuse beat a clean implementation on speed, quality, risk and maintenance?","What source/license/secret boundaries must be preserved?","Does one integrated user journey demonstrate the chosen result?"]
