@@ -19,8 +19,10 @@ export function turnCursor(messages, streamSequence) {
   const list = Array.isArray(messages) ? messages : [];
   const count = (role) => list.filter((m) => m?.role === role).length;
   return { messageCount: list.length, userCount: count('user'), assistantCount: count('assistant'),
-    idsDigest: digest(list.map((m) => `${m.role}:${m.id}`).join('\n')),
-    contentDigest: digest(list.map((m) => `${m.role}:${m.id}:${digest(String(m.text ?? ''))}`).join('\n')),
+    // JSON tuples delimit each field unambiguously; ids may contain colons/newlines.
+    // Null and missing ids remain distinct from an actual string "undefined".
+    idsDigest: digest(JSON.stringify(list.map((m) => [m?.role ?? null, m?.id ?? null]))),
+    contentDigest: digest(JSON.stringify(list.map((m) => [m?.role ?? null, m?.id ?? null, digest(String(m?.text ?? ''))]))),
     streamSequence };
 }
 
