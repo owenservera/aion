@@ -62,10 +62,14 @@ export async function intakeEvents(events,{verifyCapture}={}) {
       const type=o.feature==='thread-route'?'route':o.feature==='stream-component'?'stream-map':'selector';
       const probe={siteId:scope.siteId,origin:scope.origin,surface:scope.surface,
         feature:o.feature,type,candidate,outcome,coverage:source.coverage,
-        captureId:source.captureId,sequence:source.sequence,carrier:source.carrier,evidenceClass:source.evidenceClass};
+        captureId:source.captureId,sequence:source.sequence,carrier:source.carrier,evidenceClass:source.evidenceClass,
+        sessionId:source.sessionId,evidenceRef:source.evidenceRef,rawDigest:source.rawDigest,
+        domDigest:source.domDigest??null,sourceProducer:source.producer??null};
       probes.push(probe);
       receipts.push({scopeKey:key,accountRef:scope.accountRef,sessionId:source.sessionId,
         captureId:source.captureId,rawDigest:source.rawDigest,evidenceRef:source.evidenceRef,
+        domDigest:source.domDigest??null,sequence:source.sequence,carrier:source.carrier,
+        sourceProducer:source.producer??null,accountBinding:source.accountBinding??'unverified',
         feature:o.feature,candidate,outcome,identityVerified:identityOkay,
         evidenceClass:source.evidenceClass,coverage:source.coverage});
       sources.add(`${source.captureId}:${source.sequence}:${source.evidenceRef}`);

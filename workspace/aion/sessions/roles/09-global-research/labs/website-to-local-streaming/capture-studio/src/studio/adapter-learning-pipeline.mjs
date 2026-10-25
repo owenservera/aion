@@ -17,6 +17,7 @@ import { Session } from '../store/session.mjs';
 import { readAcceptance, rawDigest, domDigest } from '../capture/acceptance.mjs';
 import { createGuardedStudioLearner } from './four-lane-gates.mjs';
 import { createStudioAdapterLearner } from './adapter-studio-bridge.mjs';
+import { acceptedSessionToAdapterEvents, domEvidenceRef, ACCEPTED_SESSION_PRODUCER } from './adapter-accepted-session.mjs';
 
 const sha256hex = (x) => createHash('sha256').update(x).digest('hex');
 const coded = (code, extra = {}) => Object.assign(new Error(code), { code, ...extra });
@@ -88,6 +89,10 @@ export function createTrustedManifestProvider({ sessionsDir } = {}) {
     const v = verifySession(source.sessionId);
     if (!v) return false;
     if (v.rawDigest !== source.rawDigest) return false;
+    if (source.producer === ACCEPTED_SESSION_PRODUCER &&
+        (source.captureId !== v.session.id || source.domDigest !== v.domDigest ||
+         source.sequence !== v.seqRange?.[1] ||
+         source.evidenceRef !== domEvidenceRef(v.session.id, v.domDigest))) return false;
     // Corroborate origin when the session recorded its target; fail on mismatch, never invent.
     const url = v.session.meta?.target?.url;
     if (typeof url === 'string' && url) {
@@ -135,13 +140,29 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
   const ledger = new Map(); // proposalDigest -> { proposal, promoted }
   const allSynthetic = (events) => Array.isArray(events) && events.length > 0 &&
     events.every((e) => e?.source?.evidenceClass === 'SYNTHETIC_TEST');
-  return {
-    async propose(args = {}) {
+  const proposeCore = async (args = {}) => {
       const proposal = (args?.testOnly === true && allSynthetic(args.training) && allSynthetic(args.heldout))
         ? await rawLearner.propose(args)
         : await pipeline.propose(args);
       if (proposal?.proposalDigest) ledger.set(proposal.proposalDigest, { proposal, promoted: false });
       return proposal;
+  };
+  return {
+    propose: proposeCore,
+    async proposeFromSessions(args = {}) {
+      // HTTP accepts session IDs only. Neither observation bodies nor claimed
+      // source hashes may be supplied by the client through this entry point.
+      const hydrate = (ids) => {
+        if (!Array.isArray(ids) || ids.length === 0 || ids.length > 200 ||
+            ids.some(id => typeof id !== 'string' || id.length === 0 || id.length > 128))
+          throw coded('SESSION_IDS_REQUIRED');
+        return ids.flatMap(id => {
+          const verified = provider.verifySession(id);
+          if (!verified) throw coded('MANIFEST_SESSION_NOT_VERIFIED', { sessionId: id });
+          return acceptedSessionToAdapterEvents({ scope: args.scope, verified });
+        });
+      };
+      return proposeCore({ ...args, training: hydrate(args.training), heldout: hydrate(args.heldout) });
     },
     async promote(proposalDigest) {
       const entry = typeof proposalDigest === 'string' ? ledger.get(proposalDigest) : null;

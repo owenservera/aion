@@ -6,6 +6,11 @@ import { intakeEvents, scopeKey } from './adapter-evidence-intake.mjs';
 export const PIPELINE_SCHEMA = 'aion.adapter-improvement-proposal/1';
 const READ = ['user-turn','assistant-turn','thread-route','citation','artifact','task-progress','stream-component'];
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const sourceRefs = receipts => [...new Map(receipts.map(r => [r.evidenceRef, {
+  captureId:r.captureId,sessionId:r.sessionId,sequence:r.sequence,rawDigest:r.rawDigest,
+  domDigest:r.domDigest,evidenceRef:r.evidenceRef,carrier:r.carrier,
+  evidenceClass:r.evidenceClass,accountBinding:r.accountBinding,sourceProducer:r.sourceProducer,
+}])).values()];
 const err = code => { throw Object.assign(new Error(code),{code}); };
 function deepFreeze(value) { if(value && typeof value==='object' && !Object.isFrozen(value)){Object.freeze(value);for(const x of Object.values(value))deepFreeze(x);} return value; }
 const id = e => e.source.captureId;
@@ -108,7 +113,8 @@ export function createAdapterImprovementPipeline({synthesize,shadowEvaluate,asse
       b.probes.some(o=>o.feature===f && o.outcome==='present'));
     const drifted=(candidate.drift??[]).map(d=>({feature:d.feature,reason:d.reason}));
     const digest=hash([key,training.map(e=>[id(e),e.source.rawDigest,e.source.sequence]),
-      heldout.map(e=>[id(e),e.source.rawDigest,e.source.sequence]),active?.version??null]);
+      heldout.map(e=>[id(e),e.source.rawDigest,e.source.sequence]),active?.version??null,
+      hash(a.probes),hash(b.probes)]);
     const noGain=metrics.gain<=0 && !drifted.length;
     const quarantine=invalidDualRole(candidate)||learnedScore.FP>baseline.FP||
       shadow.contradicted>0 || eligible.length===0;
@@ -119,7 +125,8 @@ export function createAdapterImprovementPipeline({synthesize,shadowEvaluate,asse
       heldoutCount:sessions(heldout).length,evidenceClass:[...sourceClasses][0],
       baseVersion:active?.version??null,proposalDigest:digest,
       authority:{readOnly:true,sendPermission:false,browserEffectGrant:false,autoExecute:false},
-      evidence:{trainingRefs:a.summary,heldoutRefs:b.summary,accountRef:scope.accountRef}};
+      evidence:{trainingRefs:a.summary,heldoutRefs:b.summary,accountRef:scope.accountRef,
+        trainingSources:sourceRefs(a.receipts),heldoutSources:sourceRefs(b.receipts)}};
     if(observed.get(key)===digest) return {...proposal,status:'duplicate-noop',duplicateOf:status};
     observed.set(key,digest);
     deepFreeze(proposal); minted.add(proposal);

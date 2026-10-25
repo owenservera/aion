@@ -35,7 +35,8 @@ async function verifiedSession(sessionsDir, { reject = false, noAcceptance = fal
   s.raw.append({ kind: 'network', url: `${ORIGIN}/chat`, nonce: n });
   s.raw.append({ kind: 'network', url: `${ORIGIN}/reply`, nonce: n });
   await s.raw.close();
-  const turns = [{ role: 'user', text: `hello ${n}` }, { role: 'assistant', text: `hi ${n}` }];
+  const turns = [{ role: 'user', text: `hello ${n}`, roleAttribute: 'data-role', domId: 'div[data-role=user]' },
+    { role: 'assistant', text: `hi ${n}`, roleAttribute: 'data-role', domId: 'div[data-role=assistant]' }];
   await s.kv.set('DOM_TURNS', turns);
   const rd = rawDigest(s);
   const dd = domDigest(s);
@@ -308,5 +309,26 @@ test('a durable promotion whose lock release is unverified marks the proposal pr
     const info = fresh.inspectLock(name);
     assert.equal(info.present, true);
     assert.equal(fresh.releaseStaleLock(name, { token: info.token }).released, true);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('HTTP session-ID door mints actual accepted DOM evidence and refuses event object injection', async () => {
+  const { root, sessionsDir, pipeline } = rig();
+  try {
+    const training = await Promise.all([1,2,3].map(() => verifiedSession(sessionsDir)));
+    const heldout = await Promise.all([1,2].map(() => verifiedSession(sessionsDir)));
+    const args = { scope: SCOPE, trigger: 'new-evidence',
+      training: training.map(x => x.id), heldout: heldout.map(x => x.id) };
+    const p = await pipeline.proposeFromSessions(args);
+    assert.equal(p.authority.sendPermission, false);
+    assert.equal(p.evidence.trainingSources.length, 3);
+    assert.equal(p.evidence.heldoutSources.length, 2);
+    assert.ok(p.evidence.trainingSources.every(x => x.sourceProducer === 'accepted-session-dom-turns/1' &&
+      x.domDigest?.length === 64 && x.rawDigest?.length === 64 &&
+      x.accountBinding === 'caller-scoped-unverified'));
+    await assert.rejects(() => pipeline.proposeFromSessions({ ...args, training: [ {source:{}} ] }), /SESSION_IDS_REQUIRED/);
+    const bad = await verifiedSession(sessionsDir);
+    bad.session.kv.set('DOM_TURNS', [{role:'assistant',roleAttribute:'data-role',domId:'changed',text:'changed'}]);
+    await assert.rejects(() => pipeline.proposeFromSessions({ ...args, training: [bad.id,...args.training] }), /MANIFEST_SESSION_NOT_VERIFIED/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

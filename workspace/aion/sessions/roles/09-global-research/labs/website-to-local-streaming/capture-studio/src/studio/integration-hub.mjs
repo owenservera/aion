@@ -435,7 +435,7 @@ export function createIntegrationHub({ paths, profileStore, learner, recorder, c
       surface: body.surface ?? 'chat', accountRef: body.accountRef ?? 'unknown' });
     add('POST', '/adapters/intelligence/propose', 'Run the guarded adapter-improvement pipeline over saved sessions: server-verified manifests, independent train/held-out lineage, Round 8 synthesis, Round 9 holdout gate, shadow evaluation (pure: computes and mints a proposal, activates nothing)',
       async ({ body }) => {
-        const proposal = await learningPipeline.propose({
+        const proposal = await learningPipeline.proposeFromSessions({
           scope: readScope(body), training: body.training, heldout: body.heldout,
           seed: body.seed ?? null, testOnly: body.testOnly === true, trigger: body.trigger ?? 'new-evidence',
           incumbent: body.incumbent ?? null, newSelector: body.newSelector ?? null, driftEvidence: body.driftEvidence ?? null,
