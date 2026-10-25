@@ -17,6 +17,17 @@ import { Session } from '../store/session.mjs';
 import { readAcceptance, rawDigest, domDigest } from '../capture/acceptance.mjs';
 import { createGuardedStudioLearner } from './four-lane-gates.mjs';
 import { createStudioAdapterLearner } from './adapter-studio-bridge.mjs';
+import chatgptSeed from '../profiles/sites/chatgpt.mjs';
+import claudeSeed from '../profiles/sites/claude.mjs';
+import geminiSeed from '../profiles/sites/gemini.mjs';
+const KNOWN_SEEDS=Object.freeze({chatgpt:chatgptSeed,claude:claudeSeed,gemini:geminiSeed});
+// Canonical existing profiles only: never let a client supply a weak baseline for promotion.
+export function trustedReadSeed(scope) {
+  const seed=KNOWN_SEEDS[scope?.siteId];
+  if(!seed)return null;
+  let host;try{host=new URL(scope.origin).hostname;}catch{return null;}
+  return seed.hosts.includes(host)?seed:null;
+}
 
 const sha256hex = (x) => createHash('sha256').update(x).digest('hex');
 const coded = (code, extra = {}) => Object.assign(new Error(code), { code, ...extra });
@@ -135,15 +146,15 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
   const ledger = new Map(); // proposalDigest -> { proposal, promoted }
   const allSynthetic = (events) => Array.isArray(events) && events.length > 0 &&
     events.every((e) => e?.source?.evidenceClass === 'SYNTHETIC_TEST');
-  return {
-    async propose(args = {}) {
+  async function propose(args = {}) {
+      const qualifiedArgs={...args,seed:trustedReadSeed(args.scope)};
       const proposal = (args?.testOnly === true && allSynthetic(args.training) && allSynthetic(args.heldout))
-        ? await rawLearner.propose(args)
-        : await pipeline.propose(args);
+        ? await rawLearner.propose(qualifiedArgs)
+        : await pipeline.propose(qualifiedArgs);
       if (proposal?.proposalDigest) ledger.set(proposal.proposalDigest, { proposal, promoted: false });
       return proposal;
-    },
-    async promote(proposalDigest) {
+  }
+  async function promote(proposalDigest) {
       const entry = typeof proposalDigest === 'string' ? ledger.get(proposalDigest) : null;
       if (!entry) throw coded('PROPOSAL_NOT_SERVER_MINTED');
       if (entry.promoted) throw coded('PROPOSAL_ALREADY_PROMOTED');
@@ -157,7 +168,21 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
       entry.promoted = true;
       entry.result = out;
       return out;
-    },
+  }
+  // Called only for incoming Core-qualified evidence, never by polling. The existing
+  // independent-holdout gate, server-minted ledger and VersionedStore CAS own authority.
+  async function evolve(args = {}) {
+    if(args.testOnly===true)throw coded('AUTONOMOUS_PRODUCTION_ONLY');
+    const proposal=await propose({...args,testOnly:false});
+    if(proposal.status!=='ready-for-read-only-promotion')
+      return {status:'abstained',reason:proposal.status,proposalDigest:proposal.proposalDigest,
+        metrics:proposal.metrics,drift:proposal.drift,sendPermission:false};
+    const saved=await promote(proposal.proposalDigest);
+    return {status:'promoted',proposalDigest:proposal.proposalDigest,version:saved.version,
+      metrics:proposal.metrics,drift:proposal.drift,sendPermission:false};
+  }
+  return {
+    propose,promote,evolve,
     rollback: (scope, targetVersion, expectedVersion) => pipeline.rollback(scope, targetVersion, expectedVersion),
     resolveRead: (scope, seed, opts) => pipeline.resolveRead(scope, seed, opts),
     selectReadRule: (scope, feature, seedRule, opts) => pipeline.selectReadRule(scope, feature, seedRule, opts),

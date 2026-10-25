@@ -310,3 +310,34 @@ test('a durable promotion whose lock release is unverified marks the proposal pr
     assert.equal(fresh.releaseStaleLock(name, { token: info.token }).released, true);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+test('canonical ChatGPT Claude Gemini seed baselines are host bound',async()=>{
+ const {trustedReadSeed}=await import('../../src/studio/adapter-learning-pipeline.mjs');
+ for(const [siteId,origin] of [['chatgpt','https://chatgpt.com'],['claude','https://claude.ai'],['gemini','https://gemini.google.com']]){
+  const s=trustedReadSeed({siteId,origin});
+  assert.equal(s?.id,siteId);
+  assert.ok(s?.assistant?.containerSelectors?.length>0);
+  assert.equal(trustedReadSeed({siteId,origin:'https://attacker.example'}),null);
+ }
+});
+test('autonomous evolution rejects synthetic evidence and preview attempts',async()=>{
+ const {root,pipeline}=rig();
+ try{
+  await assert.rejects(()=>pipeline.evolve({scope:SCOPE,testOnly:true}),e=>e.code==='AUTONOMOUS_PRODUCTION_ONLY');
+  await assert.rejects(()=>pipeline.evolve({scope:SCOPE,training:[syntheticEvent(1),syntheticEvent(2),syntheticEvent(3)],
+   heldout:[syntheticEvent(4),syntheticEvent(5)]}),e=>e.code==='MANIFEST_SESSION_NOT_VERIFIED');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
+test('autonomous evolution commits only a qualified read-only candidate',async()=>{
+ const {root,pipeline}=rig();
+ try{
+  const sources=await Promise.all(Array.from({length:5},()=>verifiedSession(root+'/sessions')));
+  const args={scope:SCOPE,training:sources.slice(0,3).map(evidenceEvent),heldout:sources.slice(3).map(evidenceEvent)};
+  const result=await pipeline.evolve(args);
+  assert.equal(result.status,'promoted');
+  assert.equal(result.version,1);
+  assert.equal(result.sendPermission,false);
+  const repeat=await pipeline.evolve(args);
+  assert.equal(repeat.status,'abstained');
+  assert.ok(['no-improvement','duplicate-noop'].includes(repeat.reason));
+ }finally{rmSync(root,{recursive:true,force:true});}
+});

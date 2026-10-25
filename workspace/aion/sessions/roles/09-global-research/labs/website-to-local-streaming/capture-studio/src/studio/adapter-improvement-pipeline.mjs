@@ -31,6 +31,36 @@ function assertDistinct(training, heldout, scope) {
   if(new Set(training.map(id)).size<3 || new Set(heldout.map(id)).size<2) err('INSUFFICIENT_INDEPENDENT_SESSIONS');
 }
 function selected(candidate, feature) {return candidate?.features?.[feature]?.selected?.candidate??null;}
+// Compare against actual provider seed read rules, not an empty invented baseline.
+// Seed rules are score-only and can never become learned or browser authority.
+function readRules(adapter, feature) {
+  const rule=selected(adapter,feature);
+  if(rule)return [rule];
+  const legacy=feature==='assistant-turn'?adapter?.assistant?.containerSelectors
+    :feature==='user-turn'?adapter?.userTurn?.selectors
+    :feature==='thread-route'?(adapter?.threadRoute?.pattern?[adapter.threadRoute.pattern]:null)
+    :feature==='stream-component'?adapter?.streamHints?.urlPatterns:null;
+  return Array.isArray(legacy)?legacy.filter(x=>typeof x==='string'&&x.length>0):[];
+}
+function qualifiedReadFeatures(candidate, probes, receipts, testOnly=false) {
+  return READ.filter(feature=>{
+    const slot=candidate?.features?.[feature],rule=slot?.selected;
+    if(!rule||slot.inherited===true||(!testOnly&&rule.status!=='shadow-ready'))return false;
+    const byCapture=new Map();
+    for(let i=0;i<probes.length;i++){
+      const p=probes[i],r=receipts[i];
+      if(p.feature!==feature||r?.identityVerified!==true)continue;
+      const entry=byCapture.get(p.captureId)??{present:new Set(),absent:new Set()};
+      byCapture.set(p.captureId,entry);
+      if(p.outcome==='present')entry.present.add(p.candidate);
+      else if(p.outcome==='absent')entry.absent.add(p.candidate);
+    }
+    const records=[...byCapture.values()];
+    return records.filter(v=>v.present.size===1&&v.present.has(rule.candidate)&&!v.absent.has(rule.candidate)).length>=2
+      &&!records.some(v=>v.absent.has(rule.candidate)||v.present.size>1||
+        (v.present.size===1&&!v.present.has(rule.candidate)));
+  });
+}
 function quality(candidate, probes, receipts) {
   const byCapture=new Map();
   for(let i=0;i<probes.length;i++) {
@@ -44,7 +74,7 @@ function quality(candidate, probes, receipts) {
     observed:[],calibration:{bins:[],brier:null}};
   let sq=0, predictions=0;
   for(const rec of byCapture.values()) {
-    const rule=selected(candidate,rec.feature);
+    const rules=readRules(candidate,rec.feature);
     const valid=rec.observations.filter(({probe,receipt})=>probe.outcome!=='unknown' && receipt.identityVerified);
     if(!valid.length){result.unknown++;continue;}
     const present=valid.filter(x=>x.probe.outcome==='present');
@@ -52,17 +82,16 @@ function quality(candidate, probes, receipts) {
     const truths=new Set(present.map(x=>x.probe.candidate));
     if(truths.size>1){result.unknown++;continue;}
     const expected=[...truths][0]??null;
-    const prediction=rule??null;
-    // We score by independently observed expected target, NOT merely selector self-agreement.
-    if(expected && prediction===expected) result.TP++;
-    else if(expected && prediction!==expected){ result.FN++;if(prediction)result.FP++; }
-    else if(!expected && prediction) result.FP++;
+    const prediction=rules.length>0, matched=!!expected&&rules.includes(expected);
+    if(expected&&matched)result.TP++;
+    else if(expected){result.FN++;if(prediction)result.FP++;}
+    else if(prediction)result.FP++;
     else result.TN++;
-    if (prediction && rec.observations.some(x=>x.probe.candidate===prediction && x.probe.outcome==='absent')) result.identityRoleErrors++;
-    const probability=Number(candidate?.features?.[rec.feature]?.selected?.confidence??0);
-    if(prediction && probability>=0 && probability<=1){ sq+=(probability-(prediction===expected?1:0))**2;predictions++; }
+    if(rules.some(rule=>rec.observations.some(x=>x.probe.candidate===rule&&x.probe.outcome==='absent')))result.identityRoleErrors++;
+    const probability=candidate?.features?.[rec.feature]?.selected?.confidence;
+    if(prediction&&typeof probability==='number'&&probability>=0&&probability<=1){sq+=(probability-(matched?1:0))**2;predictions++;}
     result.total++;
-    result.observed.push({captureId:rec.captureId,feature:rec.feature,matched:expected===prediction,known:!!expected});
+    result.observed.push({captureId:rec.captureId,feature:rec.feature,matched,known:!!expected});
   }
   result.coverage=+(result.total/(result.total+result.unknown||1)).toFixed(4);
   result.calibration.brier=predictions?+(sq/predictions).toFixed(4):null;
@@ -103,15 +132,15 @@ export function createAdapterImprovementPipeline({synthesize,shadowEvaluate,asse
     const learnedScore=quality(candidate,b.probes,b.receipts);
     const baseline=quality(prior??seed,b.probes,b.receipts);
     const metrics=diff(baseline,learnedScore);
-    const eligible=READ.filter(f=>candidate.features[f]?.selected &&
-      (candidate.features[f].selected.status==='shadow-ready'||testOnly) &&
-      b.probes.some(o=>o.feature===f && o.outcome==='present'));
+    const eligible=qualifiedReadFeatures(candidate,b.probes,b.receipts,testOnly);
     const drifted=(candidate.drift??[]).map(d=>({feature:d.feature,reason:d.reason}));
     const digest=hash([key,training.map(e=>[id(e),e.source.rawDigest,e.source.sequence]),
       heldout.map(e=>[id(e),e.source.rawDigest,e.source.sequence]),active?.version??null]);
     const noGain=metrics.gain<=0 && !drifted.length;
-    const quarantine=invalidDualRole(candidate)||learnedScore.FP>baseline.FP||
-      shadow.contradicted>0 || eligible.length===0;
+    const regression=learnedScore.TP<baseline.TP||learnedScore.FP>baseline.FP||
+      learnedScore.identityRoleErrors>baseline.identityRoleErrors;
+    const quarantine=invalidDualRole(candidate)||regression||
+      shadow.contradicted>0||eligible.length===0;
     const status=quarantine?'quarantined':noGain?'no-improvement':testOnly?'test-only-preview':'ready-for-read-only-promotion';
     const proposal={schema:PIPELINE_SCHEMA,scope:{...scope},scopeKey:key,
       candidate,baseline:baseline,learned:learnedScore,metrics,shadow,independent,
