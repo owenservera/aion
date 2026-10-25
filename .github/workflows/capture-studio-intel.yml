@@ -1,0 +1,29 @@
+name: Capture Studio native intelligence
+on:
+  push:
+    paths:
+      - ".github/workflows/capture-studio-intel.yml"
+      - "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/adapter-*.mjs"
+      - "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/intel/**"
+      - "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/test/unit/adapter-*.test.mjs"
+  pull_request:
+    paths:
+      - ".github/workflows/capture-studio-intel.yml"
+      - "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/src/studio/adapter-*.mjs"
+      - "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/test/unit/adapter-*.test.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Accepted capture through existing intelligence regression
+        working-directory: workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio
+        run: |
+          node --test test/unit/adapter-capture-to-signals.test.mjs test/unit/adapter-accepted-session.test.mjs test/unit/adapter-learning-pipeline.test.mjs test/unit/adapter-improvement-pipeline.test.mjs test/unit/adapter-intelligence-hardening.test.mjs test/unit/profile-evidence.test.mjs

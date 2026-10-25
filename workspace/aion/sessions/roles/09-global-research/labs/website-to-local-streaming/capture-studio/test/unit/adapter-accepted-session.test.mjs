@@ -64,5 +64,6 @@ test('actual suffix-match role attribute flows through capture-to-signals and ex
   const out=await intakeEvents(events,{verifyCapture:async()=>true});
   assert.equal(out.probes[0].candidate,'[data-content-search-unit-key$="assistant"]');
   assert.equal(out.probes[0].outcome,'present');
-  assert.doesNotMatch(JSON.stringify(out),/PRIVATE_SUFFIX|div\\[role/);
+  assert.ok(!JSON.stringify(out).includes('PRIVATE_SUFFIX'));
+  assert.ok(!JSON.stringify(out).includes('div[role'));
 });
