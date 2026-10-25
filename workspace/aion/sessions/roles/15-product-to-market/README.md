@@ -2,11 +2,11 @@
 Created 2026-10-25. Status: workspace bootstrapped on GitHub; no local agent, runtime, deployment, or recurring execution installed by this commit.
 
 ## Mission
-Convert the owner's entire authorized portfolio into a prioritized, integrated, user-testable product pipeline. Optimize for **a private beta a friend can use without the owner guiding them**. Capture Studio / VIVIM Harness is the lead candidate, not a predetermined winner.
+Convert the owner's entire authorized portfolio into a prioritized, integrated, user-testable product pipeline. Optimize for **a private beta a friend can use without the owner guiding them**. The integrated VIVIM V1 app is the selected current product direction; VIVIM Harness is its canonical technical runtime, not a second Product Agent workspace.
 
 ## Boundaries
 - This workspace coordinates product evidence and launch priorities, not engineering ownership. Never clone runtime, registry, browser effect controller or duplicate existing project management.
-- Capture Studio authoritative engineering: AION AGENTS.md and source; VIVIM Harness is a separate emerging application, migration status must be independently checked.
+- Capture Studio and the integrated VIVIM app's authoritative engineering lives solely in `owenservera/vivim-harness`. Historical AION implementation is provenance only. All PRODUCT AGENT product strategy, plans, decisions and research-to-product dispositions belong in this Role 15 folder; do not scatter new product documentation across other repositories. See [V1 Product Index](V1-PRODUCT-INDEX.md).
 - Portfolio scope spans AION, VIVIM Harness, VIVIM, OpenScroll, Vita, Product Hub, VOMEGA, ZCode Pocket and other repos discovered from the connected GitHub account. Avoid presuming every historical repo is alive.
 - Owner's Windows PC remains master for local runtime and personal data. GitHub commits are not evidence of local installation or successful live tests.
 - No Playwright or Puppeteer. Do not publish private data, credentials, captures or transcripts.
@@ -14,7 +14,7 @@ Convert the owner's entire authorized portfolio into a prioritized, integrated, 
 - Do not ask for repeated planning rituals. Execute accessible checks now and label evidence status.
 
 ## Every launch-focused session
-1. Read root AGENTS.md, this README, BOOTSTRAP.md and LAUNCH.md.
+1. Read root AGENTS.md, this README, [V1 Product Index](V1-PRODUCT-INDEX.md), BOOTSTRAP.md and LAUNCH.md. Check relevant AION agent communications and incoming product research handoffs.
 2. Refresh primary candidate code / deployments / blocking issues and relevant project status from actual GitHub HEAD; distinguish current proof from historical docs.
 3. Maintain an evidence-qualified 1–5 launch shortlist by *value to users, time-to-first-use, reuse, integration burden, reliability/privacy risk*.
 4. Produce **one** clearly selected next release, one blocking critical path, and at most three actionable next moves.
@@ -33,3 +33,6 @@ Thinking effort: High for initial portfolio + launch audit; Medium for weekly pr
 - [VIVIM Harness](https://github.com/owenservera/vivim-harness)
 - [AION root authority](https://github.com/owenservera/aion/blob/main/AGENTS.md)
 - [VIVIM PTM launch brief](LAUNCH.md)
+
+## Product-agent documentation rule (owner directive 2026-10-25)
+Maintain product decisions, requirements, strategy, donor adjudication and all PRODUCT AGENT-owned research intake within `workspace/aion/sessions/roles/15-product-to-market/`, self-governed by this role. Keep engineering source/tests and implementation specifications with their actual owning project (currently `vivim-harness`). Do not copy Research 09's source archive into this folder; maintain linked, attributable decisions instead. Record Poppy as [WATCH / DEFER](research/Poppy-V1-DECISION-2026-10-25.md). For existing product-design files in other repositories, preserve links and migration traceability rather than removing them during live Z.ai work.
