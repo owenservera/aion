@@ -80,7 +80,7 @@ test('live measurement: complete document proves presence AND absence', () => {
     readyState: 'complete', url: `${ORIGIN}/chat?chatID=4a945005-1c2d-4e3f-8a9b-0c1d2e3f4a5b`,
     battery: { composer: [0, 2, 0, 0], 'send-control': [1, 0, 0], 'stop-control': [0, 0], 'assistant-turn': [0, 1, 0, 0], 'user-turn': [0, 3] },
     prior: { 'user-turn': [0] }, priorCandidates: { 'user-turn': ['[data-role="user"]'] },
-    roles: [{ attr: 'data-role', role: 'user' }, { attr: 'data-role', role: 'assistant' }],
+    roles: [{ attr: 'data-role', role: 'user', count: 3 }, { attr: 'data-role', role: 'assistant', count: 1 }],
   };
   const probes = probesFromLiveMeasurement({ measurement: m, origin: ORIGIN });
   const find = (f, c) => probes.find((p) => p.feature === f && p.candidate === c);
@@ -116,7 +116,7 @@ test('prior candidate absence is measurable when the role scan sees nothing', ()
 
 test('probesFromLivePage wraps the DomObserver read-only evaluate; no second actor', async () => {
   let expression = null;
-  const dom = { _evalInMain: async (expr) => { expression = expr; return { value: { readyState: 'complete', url: `${ORIGIN}/chat`, battery: { composer: [1, 0, 0, 0] }, prior: {}, roles: [{ attr: 'data-role', role: 'user' }] } }; } };
+  const dom = { _evalInMain: async (expr) => { expression = expr; return { value: { readyState: 'complete', url: `${ORIGIN}/chat`, battery: { composer: [1, 0, 0, 0] }, prior: {}, roles: [{ attr: 'data-role', role: 'user', count: 1 }] } }; } };
   const probes = await probesFromLivePage({ dom, origin: ORIGIN, captureId: 'live-1', priorSelectors: {} });
   assert.match(expression, /querySelectorAll/);
   assert.doesNotMatch(expression, /\bdispatchEvent\b|\bInput\.\w|\.click\(|\.submit\(|innerHTML\s*=/);
