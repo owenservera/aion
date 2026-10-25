@@ -450,9 +450,7 @@ export async function transcriptFromLivePage({ dom, candidate, scrub, cap = MAX_
   const thread = threadBinding(candidate.origin, m.url);
   return { schema: 'aion.learned-transcript/1', siteId: candidate.siteId, origin: candidate.origin, source: 'live-page', live: true, pageReady: m.readyState, items, thread, cap };
 }
- : '') + '="' + role + '"]' : null;
-      return { attr, role, match: x.roleMatch === 'suffix' ? 'suffix' : 'exact', count: sel ? q(sel) : -1 };
-    });
+
 // Read-only native response-part evidence from the EXISTING derived KV records. These are
 // structural observations, not adapter selectors or verified message/conversation identity.
 // No text, URLs, file names, account refs or content-derived identifiers are persisted here.
