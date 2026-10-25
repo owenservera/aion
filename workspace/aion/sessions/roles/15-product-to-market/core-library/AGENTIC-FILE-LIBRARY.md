@@ -8,14 +8,14 @@
 - **2026-10-15 (~21:17 Spain):** a prior recovery attempt located that early discussion and summarized **21 functional categories**, but explicitly did *not* recover a verbatim full filename inventory. It mentioned a `GPM-Cognitive-OS` starter/ZIP as storage; a fresh repository-name search on 2026-10-25 did **not verify that repository**. Do not treat that claim as location proof.
 - **2026-09-25 BCP-dev archival lineage:** [Steward AGENT-SYSTEM-HARVEST.md](https://github.com/owenservera/BCP-dev/blob/main/AGENTS_CONTEXT/ARCHITECTURE_STEWARD/AGENT-SYSTEM-HARVEST.md) records retirement of the old `docs/agent-system/` and retained authority/lineage design. It is **not** the lost 21-category master list.
 - **Original specific names recovered from remembered prior inventory:** `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CONTEXT.md`, `SYSTEM.md`, `RULES.md`, `POLICIES.md`, `GUARDRAILS.md`, `PLAN.md`, `TASKS.md`, `STATE.md`, `WORKLOG.md`, `HANDOFF.md`, `SESSION_HANDOFF`, `CLOSEOUT_PROTOCOL.md`, `DECISION_LOG.md`, `EVIDENCE.md`, `VERIFY.md`, `AGENT_STATUS.md`, `SKILL.md`, `MEMORY.md`, `POLICY.md`, `CHECKPOINT.md`, `ARCHITECTURE.md`, `RELEASE.md`, `ARCHIVE.md`, `agent.yaml`, `hooks.json`, `.claude/agents/*.md`, `.cursor/rules/*.mdc`, `.github/instructions/*.instructions.md`.
-- The **21 categories below** are a structured **reconstruction and expansion** around those recovered categories; the **130 unique filename examples** are a *catalog of possible conventions*, not 130 separately verified standards or proof they appeared verbatim in September's chat. Some are project-local or **VIVIM candidate names only**.
+- The **21 categories below** are a structured **reconstruction and expansion** around those recovered categories; the **133 unique filename examples** are a *catalog of possible conventions*, not 133 separately verified standards or proof they appeared verbatim in September's chat. Some are project-local or **VIVIM candidate names only**.
 
 ## A. Agentic file taxonomy — 21 families, 130 naming examples
 
 | # | Functional family | Candidate names / filename patterns | Primary purpose |
 | --- | --- | --- | --- |
 | 01 | **Agent entry & bootstrap** | `AGENTS.md`, `AGENT.md`, `BOOTSTRAP.md`, `START-HERE.md`, `FIRST-RUN.md`, `INIT.md` | Shared/project conventions plus launch steps |
-| 02 | **Provider-native instruction rules** | `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `.cursor/rules/*.mdc`, `.claude/rules/*.md`, `.opencode/agents/*.md` | Actual support depends on provider/version |
+| 02 | **Provider-native instruction rules** | `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `.cursor/rules/*.mdc`, `.claude/rules/*.md`, `.opencode/agents/*.md`, `.claude/agents/*.md` | Actual support depends on provider/version |
 | 03 | **Agent roles & identity** | `ROLE.md`, `PERSONA.md`, `CHARTER.md`, `MANDATE.md`, `OWNERSHIP.md`, `RESPONSIBILITIES.md` | Who/what the agent is and owns |
 | 04 | **Context & retrieval** | `CONTEXT.md`, `PROJECT-CONTEXT.md`, `CURRENT-CONTEXT.md`, `CONTEXT-INDEX.md`, `KNOWLEDGE-MAP.md`, `GLOSSARY.md` | Scoped working understanding and pointers |
 | 05 | **Law, policy & guardrails** | `SYSTEM.md`, `RULES.md`, `POLICY.md`, `POLICIES.md`, `GUARDRAILS.md`, `INVARIANTS.md`, `AUTONOMY.md` | Authority, policy, invariants, prohibited effects |
@@ -25,8 +25,8 @@
 | 09 | **Skills & reusable methods** | `SKILL.md`, `REFERENCE.md`, `EXAMPLES.md`, `RECIPES.md`, `PROCEDURES.md`, `PLAYBOOK.md` | On-demand reusable domain or workflow knowledge |
 | 10 | **Tool configuration & hooks** | `agent.yaml`, `agent.json`, `opencode.json`, `opencode.jsonc`, `settings.json`, `hooks.json`, `plugin.json` | Machine-readable configuration and local wiring |
 | 11 | **Memory & durable learning** | `MEMORY.md`, `LESSONS.md`, `LEARNINGS.md`, `KNOWLEDGE.md`, `FACTS.md`, `PREFERENCES.md` | Retained knowledge with provenance and expiration |
-| 12 | **State, status & telemetry** | `STATE.md`, `STATUS.md`, `SITREP.md`, `HEALTH.md`, `METRICS.md`, `PROGRESS.md` | What is true now, last checked, confidence |
-| 13 | **Session boundaries & recovery** | `SESSION.md`, `SESSION_HANDOFF.md`, `CHECKPOINT.md`, `RESUME.md`, `RECOVERY.md`, `CONTINUITY.md` | Restart context, checkpoints, resumability |
+| 12 | **State, status & telemetry** | `STATE.md`, `STATUS.md`, `AGENT_STATUS.md`, `SITREP.md`, `HEALTH.md`, `METRICS.md`, `PROGRESS.md` | What is true now, last checked, confidence |
+| 13 | **Session boundaries & recovery** | `SESSION.md`, `SESSION_HANDOFF.md`, `SESSION_HANDOFF`, `CHECKPOINT.md`, `RESUME.md`, `RECOVERY.md`, `CONTINUITY.md` | Restart context, checkpoints, resumability |
 | 14 | **Work inventory & scheduling** | `TASKS.md`, `TODO.md`, `BACKLOG.md`, `QUEUE.md`, `MILESTONES.md`, `SCHEDULE.md` | Pending and completed obligations |
 | 15 | **Planning & decomposition** | `PLAN.md`, `ROADMAP.md`, `WORKPLAN.md`, `IMPLEMENTATION-PLAN.md`, `TASK-BRIEF.md`, `WORKSTREAMS.md` | Action strategy, dependencies, what comes next |
 | 16 | **Execution & operations** | `RUNBOOK.md`, `COMMANDS.md`, `OPERATIONS.md`, `EXECUTION.md`, `WORKLOG.md`, `CHANGELOG.md` | How actions run and operational history |
@@ -90,7 +90,7 @@ For VIVIM core, provide a **read-only inventory** first with on-demand visual ma
 4. **Generate only when requested** a small role-appropriate kit or provider adapter from a single reconciled logical source; preserve source provenance and avoid redundant copies.
 5. **Trace** commands (Toolkit 01) to their relevant schemas/instructions and outcomes, without confusing a Markdown directive with an authorization or installed runtime.
 
-**Core MVP exemplar:** one root `AGENTS.md` (when supported), one chosen provider-native config only when actually necessary, and targeted `SKILL.md` assets. Add `HANDOFF.md`, `STATE.md` or `CLOSEOUT_PROTOCOL.md` only when actual continuity/proof needs warrant them. **Never mass-generate 130 files.**
+**Core MVP exemplar:** one root `AGENTS.md` (when supported), one chosen provider-native config only when actually necessary, and targeted `SKILL.md` assets. Add `HANDOFF.md`, `STATE.md` or `CLOSEOUT_PROTOCOL.md` only when actual continuity/proof needs warrant them. **Never mass-generate 133 files.**
 
 ## E. Verified repository examples (for later scanner fixtures)
 
