@@ -1,0 +1,272 @@
+# Canonical handoff register: evidence-grounded tasks, not claims of code completion
+schema: "vivim.product.integration-worklog/1"
+date: "2026-10-25"
+repo: "owenservera/vivim-harness"
+planning_authority: "AION PRODUCT AGENT Role 15"
+implementation_status: "not_started_by_P5"
+start_point: "Harness main; prior Z.ai deliveries excluded"
+working_principle: "WHAT WHY WHERE acceptance, engineers choose HOW"
+dependency_policy: "Dependencies mean prerequisite outcomes, not forced serialization; local discovery occurs within W00"
+work_items:
+  - id: "W00"
+    title: "Baseline inventory and seam discovery"
+    tier: "HIGH"
+    stage: "G0"
+    journeys: "J1-J4"
+    capability_refs: "X01-X10"
+    sources: ["src/studio/server.mjs","src/studio/integration-hub.mjs","src/studio/ui/chat.mjs","src/capture/conversation-service.mjs"]
+    source_evidence: "Source-review available; local checkout unknown"
+    outcome: "Define observed entrypoints, tests, absent routes and compatible core assumptions; don't halt integration for a PC-wide audit"
+    acceptance: "Route names, physical files, test entrypoints and actual gaps recorded by implementer"
+    requires: []
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W01"
+    title: "Resolve local world and identity contract"
+    tier: "MAX"
+    stage: "G1"
+    journeys: "J1-J4"
+    capability_refs: "X01,X03,X09,X10"
+    sources: ["src/capture/conversation-thread.mjs","src/capture/conversation-runtime.mjs","src/intel/identity.mjs","src/intel/continuity.mjs"]
+    source_evidence: "Scoped identities exist; local personal object IDs not proven"
+    outcome: "Distinct local world/conversation/message IDs, source refs, known/unknown account-thread mappings, imports as foreign identity; no probabilistic auto-merge"
+    acceptance: "Colliding titles/accounts and unknown thread states cannot coalesce"
+    requires: ["W00"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W02"
+    title: "Build durable offline conversation reading"
+    tier: "HIGH"
+    stage: "G1"
+    journeys: "J1"
+    capability_refs: "X01"
+    sources: ["src/capture/conversation-service.mjs","src/store/session.mjs","src/studio/conversation-api.mjs"]
+    source_evidence: "Operational journal and capture storage exist; library unverified"
+    outcome: "Saved or fixture conversation reopens without attached provider; preserve message ordering and local namespace"
+    acceptance: "Restart local service; same conversation/turns/source refs available"
+    requires: ["W01"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W03"
+    title: "Preserve mixed native content and fidelity"
+    tier: "MED"
+    stage: "G1"
+    journeys: "J1"
+    capability_refs: "X02,X03"
+    sources: ["src/studio/ui/universal-chat.mjs","src/studio/ui/chat.mjs","src/replay/","vivim-final/src/schema/streaming.ts"]
+    source_evidence: "Existing rendering and capture projections; cross-restart fidelity unverified"
+    outcome: "Read text/code/table/citation/artifact/unknown/partial parts through one product UI; missing assets explicitly labeled"
+    acceptance: "Opaque part survives persist/reopen, no silent content flattening"
+    requires: ["W01"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W04"
+    title: "Source evidence and authority provenance bridge"
+    tier: "HIGH"
+    stage: "G1-G3"
+    journeys: "J1,J2,J3"
+    capability_refs: "X03,X09"
+    sources: ["src/store/raw-log.mjs","src/store/session.mjs","src/intel/corpus.mjs","src/intel/continuity.mjs"]
+    source_evidence: "Source and gap records exist; user item linkage unverified"
+    outcome: "Trace derived and imported items to captured origin or mark unavailable; never overwrite evidence with user edits"
+    acceptance: "Evidence pointer/gap state visible from saved content; source unchanged after note edit"
+    requires: ["W01","W02"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W05"
+    title: "User-owned project and association overlay"
+    tier: "HIGH"
+    stage: "G2"
+    journeys: "J2"
+    capability_refs: "X04,X09"
+    sources: ["src/studio/ui/index.html","src/store/versioned.mjs","vivim-final/frontend/src/app/page.tsx"]
+    source_evidence: "No verified first-class workspace endpoints in scanned hub"
+    outcome: "Create project; associate a conversation, part, artifact; link/unlink without destructive source writes; durable edits"
+    acceptance: "North Star project and links persist after restart; unlink preserves raw source"
+    requires: ["W01","W02"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W06"
+    title: "Personal notes, edits and correction provenance"
+    tier: "MED"
+    stage: "G2"
+    journeys: "J2,J3"
+    capability_refs: "X04,X09"
+    sources: ["src/store/versioned.mjs","src/intel/continuity.mjs","P2 logical overlay contract"]
+    source_evidence: "Versioned/CAS patterns exist; user annotation store unverified"
+    outcome: "Create/edit note separate from provider observation; expose author/time/revision; fail explicitly on conflicts"
+    acceptance: "Edited note retained, conflicting updates controlled, original hash unchanged"
+    requires: ["W05"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W07"
+    title: "Local search, scoping and exact deep links"
+    tier: "HIGH"
+    stage: "G3"
+    journeys: "J3"
+    capability_refs: "X05"
+    sources: ["src/intel/search.mjs","src/intel/corpus.mjs","src/studio/integration-hub.mjs"]
+    source_evidence: "BM25 corpus index and /api/v1/search exist; user note index unverified"
+    outcome: "Index selected saved conversations, project names, notes, available artifact metadata; query and link to exact local ID/part"
+    acceptance: "Same text in two records returns separately; scope and freshness stated"
+    requires: ["W02","W04","W05","W06"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W08"
+    title: "Knowledge presentation and qualified derived claims"
+    tier: "MED"
+    stage: "G3"
+    journeys: "J3"
+    capability_refs: "X03,X05,X09"
+    sources: ["src/intel/graph.mjs","src/intel/continuity.mjs","src/intel/temporal-truth.mjs"]
+    source_evidence: "Existing intelligence; personal-world app wiring unverified"
+    outcome: "Surface source-linked inference only when helpful to J3; no mandatory new autonomous memory engine"
+    acceptance: "Derived claims visibly distinct from observed and user-authored data"
+    requires: ["W04","W07"]
+    status: "OPTIONAL_V1"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W09"
+    title: "Selective portable export contract and preview"
+    tier: "HIGH"
+    stage: "G4"
+    journeys: "J4"
+    capability_refs: "X06,X10"
+    sources: ["src/export/export.mjs","src/store/session.mjs","claude-export-hub-vivim/README.md"]
+    source_evidence: "Session export exists; personal-world selection unverified"
+    outcome: "User chooses project and included items; versioned manifest, absent-source qualifiers, privacy exclusions and preview"
+    acceptance: "Bundle preview and manifest match chosen scope; no cookies/auth headers/browser profile"
+    requires: ["W01","W02","W05","W06"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W10"
+    title: "Clean-profile import and safe identity reconciliation"
+    tier: "HIGH"
+    stage: "G4"
+    journeys: "J4"
+    capability_refs: "X06,X10"
+    sources: ["src/export/export.mjs","src/store/versioned.mjs","P2 import contract"]
+    source_evidence: "No verified full personal-world import"
+    outcome: "Restore selected bundle into clean isolated world; validate hashes/paths/schema, repeat import and conflicts; no remote account binding"
+    acceptance: "After import same user note/parts/links; duplicate import nondestructive"
+    requires: ["W09"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W11"
+    title: "One cohesive UI and first-use honesty"
+    tier: "HIGH"
+    stage: "G1-G4"
+    journeys: "J1-J4"
+    capability_refs: "X01-X08"
+    sources: ["src/studio/ui/index.html","src/studio/ui/chat.mjs","src/studio/ui/universal-chat.mjs"]
+    source_evidence: "Existing Studio and chat surfaces; no integrated J1-J4 proof"
+    outcome: "Expose Library, Projects, Find, Transfer in one coherent app, demo/empty/offline/unknown states, keyboard and truthful feedback"
+    acceptance: "User completes journey without CLI or switching independent apps"
+    requires: ["W02","W03","W05","W07","W09","W10"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W12"
+    title: "Vertical acceptance, durability and failure gates"
+    tier: "HIGH"
+    stage: "G5"
+    journeys: "J1-J4"
+    capability_refs: "X01-X10"
+    sources: ["test/unit/","test/e2e/","scripts/architecture-inventory.mjs"]
+    source_evidence: "Test runner and inventory script confirmed; no accepted J1-J4 full run"
+    outcome: "Run one integrated scenario, restart, partial write, missing source, conflicting import, secret exclusion, negative tests; report proof tier"
+    acceptance: "One disposable local profile passes full J1→J4, exact command+SHA+environment"
+    requires: ["W02","W03","W04","W05","W06","W07","W09","W10","W11"]
+    status: "OPEN"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W13"
+    title: "Governed browser/provider attachment"
+    tier: "HIGH"
+    stage: "G6"
+    journeys: "future"
+    capability_refs: "X07,X08"
+    sources: ["src/cdp/","src/capture/conversation-runtime.mjs","src/studio/conversation-api.mjs"]
+    source_evidence: "Existing actor; new Chrome functionality deferred"
+    outcome: "Only after G5, extend existing effect authority and verify controlled Chrome; owner-authenticated Windows proof separate"
+    acceptance: "Controlled CDP identity/consent test with no second actor"
+    requires: ["W12"]
+    status: "DEFERRED"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+  - id: "W14"
+    title: "Semantic commands, agentic files, canvas and sync discovery"
+    tier: "MAX"
+    stage: "post_core"
+    journeys: "future"
+    capability_refs: "C10,C11,C14,C15"
+    sources: ["aion/.../15-product-to-market/core-library/","vivim-final/","infinite-canvas-vivim/","vivim-network/"]
+    source_evidence: "Source/vision candidates, integration payoff unproven"
+    outcome: "Retain WHAT/WHY/WHERE only, reopen after V1 shape and acceptance; no automatic harvesting"
+    acceptance: "Separate owner value decision before any code harvest"
+    requires: []
+    status: "DEFERRED"
+    implementation_owner: "unassigned"
+    proof_tier: "source_only_or_planning"
+    verified_commit: null
+    actual_test_receipts: []
+    build_or_harvest: "undecided"
+proof_ladder: ["source_only","fixture_tested","saved_real_data_tested","controlled_chrome_tested","authenticated_windows_verified"]
+references:
+  - "P1-V1-PRODUCT-SHAPE-2026-10-25.md"
+  - "specialists/data-knowledge/P2-DATA-KNOWLEDGE-CONTRACT-2026-10-25.md"
+  - "specialists/experience-acceptance/P3-EXPERIENCE-AND-INTEGRATION-MAP-2026-10-25.md"
+  - "specialists/local-reality/P4-HARNESS-REALITY-AUDIT-2026-10-25.md"
+  - "P5-V1-INTEGRATION-MASTER-WORKLOG-2026-10-25.md"
