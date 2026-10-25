@@ -33,7 +33,7 @@ test('unbound shapes, guessed routes, and suffix-match selectors are not promote
   const v=verified();
   v.session.kv.get=key=>key==='DOM_TURNS'?
     [{role:'assistant',roleAttribute:'class',domId:'div',text:'SECRET'},
-     {role:'assistant',roleAttribute:'data-role',roleMatch:'suffix',domId:'div',text:'SECRET'}]:
+     {role:'assistant',roleAttribute:'data-role',roleMatch:'prefix',domId:'div',text:'SECRET'}]:
     {routes:[{verifiedNativeRef:true}],streamComponents:[{path:'$.secret'}]};
   assert.equal(acceptedSessionToAdapterEvents({scope,verified:v})[0].observations.length,0);
 });
@@ -53,4 +53,16 @@ test('duplicate roles collapse to one provenance-qualified vote and missing DOM 
   const obs=acceptedSessionToAdapterEvents({scope,verified:v})[0].observations;
   assert.equal(obs.length,1);
   assert.equal(obs[0].feature,'assistant-turn');
+});
+
+test('actual suffix-match role attribute flows through capture-to-signals and existing selectorForRole', async () => {
+  const v=verified();
+  v.session.kv.get=()=>[{role:'assistant',roleAttribute:'data-content-search-unit-key',
+    roleMatch:'suffix',domId:'div[role=assistant]',text:'PRIVATE_SUFFIX'}];
+  const events=acceptedSessionToAdapterEvents({scope,verified:v});
+  assert.equal(events[0].observations[0].roleMatch,'suffix');
+  const out=await intakeEvents(events,{verifyCapture:async()=>true});
+  assert.equal(out.probes[0].candidate,'[data-content-search-unit-key$="assistant"]');
+  assert.equal(out.probes[0].outcome,'present');
+  assert.doesNotMatch(JSON.stringify(out),/PRIVATE_SUFFIX|div\\[role/);
 });

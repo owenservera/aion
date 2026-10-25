@@ -7,7 +7,7 @@ import { scopeKey } from './adapter-evidence-intake.mjs';
 import { captureToAdapterEvents } from './adapter-capture-to-signals.mjs';
 
 export const ACCEPTED_SESSION_PRODUCER = 'accepted-session-dom-turns/1';
-const ROLE_ATTRIBUTES = new Set(['data-role', 'data-actor', 'data-message-author-role']);
+const ROLE_ATTRIBUTE = /^data-[a-zA-Z0-9-]{1,94}$/;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const bounded = (s, cap = 320) => typeof s === 'string' && s.length > 0 && s.length <= cap && !/[\x00-\x1f\x7f]/.test(s);
@@ -37,14 +37,15 @@ export function acceptedSessionToAdapterEvents({ scope, verified } = {}) {
   const ref = domEvidenceRef(session.id, verified.domDigest), dom = [], seen = new Set();
   for (let i = 0; i < turns.length; i++) {
     const t = turns[i], role = t?.role, attr = t?.roleAttribute;
-    // A suffix role match cannot prove an exact selector. Require a DOM handle to
-    // establish observation identity, but hash it rather than disclosing the handle.
-    if (!['user', 'assistant'].includes(role) || !ROLE_ATTRIBUTES.has(attr) ||
-        (t.roleMatch != null && t.roleMatch !== 'exact') || !bounded(t.domId)) continue;
-    const key = attr + ':' + role;
+    // Respect the observer's exact/suffix match contract (including ChatGPT's
+    // data-content-search-unit-key), without disclosing DOM handles or raw text.
+    if (!['user', 'assistant'].includes(role) || !ROLE_ATTRIBUTE.test(attr ?? '') ||
+        (t.roleMatch != null && !['exact', 'suffix'].includes(t.roleMatch)) || !bounded(t.domId)) continue;
+    const key = attr + ':' + role + ':' + (t.roleMatch === 'suffix' ? 'suffix' : 'exact');
     if (seen.has(key)) continue;
     seen.add(key);
-    dom.push({ attributes: { [attr]: role }, outcome: 'present',
+    dom.push({ attributes: { [attr]: role }, role, roleAttribute: attr,
+      roleMatch: t.roleMatch === 'suffix' ? 'suffix' : 'exact', outcome: 'present',
       identity: { verified: true, role, evidenceRef: ref,
         ref: 'bound-dom-turn:' + hash(JSON.stringify([verified.domDigest, i, t.domId])) } });
   }

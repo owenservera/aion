@@ -1,4 +1,5 @@
 // I1 Capture Studio evidence -> Round 8 source-qualified probes. No browser effects.
+import { selectorForRole } from './adapter-probes.mjs';
 // The verifier MUST be the Core session-bound acceptance reader, not a client boolean.
 export const INTAKE_SCHEMA = 'aion.adapter-evidence-intake/1';
 const FEATURES = new Set(['composer','send-control','user-turn','assistant-turn','stop-control','thread-route','citation','artifact','task-progress','stream-component']);
@@ -18,6 +19,14 @@ export function scopeKey(scope) {
 const attr = (name, value) => str(value,100) && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,99}$/.test(value)
   ? `[${name}="${value.replaceAll('\\','\\\\').replaceAll('"','\\"')}"]` : null;
 function deriveCandidate(o) {
+  // Preserve the existing factory's observed exact/suffix role-selector semantics.
+  // An unbound role name alone cannot mint semantic identity: intakeEvents below
+  // still requires the Core-qualified per-turn identity verdict.
+  if (o.feature==='user-turn' || o.feature==='assistant-turn') {
+    const role=o.feature==='user-turn'?'user':'assistant';
+    if (o.attributes?.[o.roleAttribute]===role && ['exact','suffix'].includes(o.roleMatch))
+      return selectorForRole(o.roleAttribute,role,o.roleMatch);
+  }
   if (o.feature==='thread-route') return o.routePattern && /^\/[a-zA-Z0-9/_:.-]{2,160}$/.test(o.routePattern) ? o.routePattern : null;
   if (o.feature==='stream-component') return o.streamPath && /^\$\.[a-zA-Z0-9_.\[\]*-]{2,160}$/.test(o.streamPath) ? o.streamPath : null;
   if (!obj(o.attributes)) return null;
