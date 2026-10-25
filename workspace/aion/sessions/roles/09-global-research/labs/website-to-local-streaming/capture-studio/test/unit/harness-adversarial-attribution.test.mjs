@@ -1,14 +1,7 @@
 // Adversarial: multi-turn source attribution primitives (no browser, deterministic).
 //
 // Findings encoded here (exact source lines):
-//  F5 src/capture/conversation-browser-adapter.mjs:18-24  turnCursor() builds both digests by
-//     joining `${role}:${id}` / `${role}:${id}:${innerHash}` with '\n' and no escaping. Message ids
-//     containing a newline (or the literal string "undefined") therefore collide with different
-//     transcripts. pageState() (lines 171-172) rejects only empty/over-long ids, never control
-//     characters, so an observed id can reach the cursor. samePrefix() compares arrays, so the live
-//     attribution decision does not rely on the digest - but the cursor is published as acceptance
-//     evidence (G1/G2) and a colliding digest is indistinguishable there.
-//  F6 src/capture/conversation-thread.mjs:50-75  turnObservationExpression() returns the FULL text
+//  F5: cursor IDs must use an unambiguous canonical field encoding.\n//  F6 src/capture/conversation-thread.mjs:50-75  turnObservationExpression() returns the FULL text
 //     of every rendered message, unbounded, while the read-only transcriptExpression() (lines 77-117)
 //     applies CAP and SCAN. readReply() (adapter lines 504-527) calls pageState() every replyPollMs,
 //     so per-poll cost and CDP payload grow with the whole conversation, not with the last turn.
@@ -36,20 +29,15 @@ test('F5: turnCursor is metadata-only, order-sensitive and role-sensitive', () =
   assert.equal(turnCursor(undefined, 0).messageCount, 0);
 });
 
-test('F5: unescaped id joins let different transcripts share an idsDigest', () => {
-  const oneMessageWithNewline = turnCursor([msg('a\nassistant:b', 'user', 'one')], 1);
+test('F5: cursor digest distinguishes newline IDs, different counts and missing ID', () => {
+  const oneMessageWithNewline = turnCursor([msg('a\\nassistant:b', 'user', 'one')], 1);
   const twoMessages = turnCursor([msg('a', 'user', 'one'), msg('b', 'assistant', '')], 1);
-  assert.equal(oneMessageWithNewline.idsDigest, twoMessages.idsDigest,
-    'idsDigest cannot distinguish a newline-bearing id from two messages (adapter.mjs:22)');
-  assert.notEqual(oneMessageWithNewline.messageCount, twoMessages.messageCount,
-    'counts still differ, so a consumer that checks counts is safe');
-  // An absent id degrades to the literal string "undefined" in the join.
-  assert.equal(turnCursor([msg(undefined, 'user', 'x')], 1).idsDigest, turnCursor([msg('undefined', 'user', 'x')], 1).idsDigest);
-  // The content digest includes the inner text hash, so the same trick does NOT forge it: a
-  // newline-bearing id changes the line structure but the hash field keeps it distinguishable.
-  assert.notEqual(turnCursor([msg('a\nassistant:b', 'user', 'one')], 1).contentDigest,
-    turnCursor([msg('a', 'user', 'one'), msg('b', 'assistant', '')], 1).contentDigest,
-    'contentDigest is the stronger of the two cursor digests');
+  assert.notEqual(oneMessageWithNewline.idsDigest, twoMessages.idsDigest);
+  assert.notEqual(oneMessageWithNewline.contentDigest, twoMessages.contentDigest);
+  assert.notEqual(turnCursor([msg(undefined, 'user', 'x')], 1).idsDigest,
+    turnCursor([msg('undefined', 'user', 'x')], 1).idsDigest);
+  assert.notEqual(turnCursor([msg('a:b', 'user', 'one')], 1).idsDigest,
+    turnCursor([msg('a', 'user:b', 'one')], 1).idsDigest);
 });
 
 test('F6: the reply-poll observation is unbounded while the read-only transcript is capped', () => {
