@@ -1,0 +1,1529 @@
+{
+  "schema": "aion-agent-file-census-v1",
+  "observed_date": "2026-10-25",
+  "basis": "authenticated recursive GitHub main trees; all untruncated; source does not prove running agents",
+  "repository_count": 7,
+  "total_tracked_files": 5982,
+  "aion_role_count": 15,
+  "aion_core_positions_present": 41,
+  "roles": [
+    {
+      "id": "01",
+      "name": "Dashboard & Tracking",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/01-dashboard-tracking",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/01-dashboard-tracking/skills/dashboard-evidence-gates/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/01-dashboard-tracking/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/01-dashboard-tracking/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/01-dashboard-tracking/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/01-dashboard-tracking/memory/Immediate/README.md"
+      ],
+      "tracked_files": 12
+    },
+    {
+      "id": "02",
+      "name": "Long-term Planning & Alignment",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/02-long-term-planning-alignment/skills/planning-critical-path/SKILL.md",
+        "workspace/aion/sessions/roles/02-long-term-planning-alignment/skills/planning-leverage-decision/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/02-long-term-planning-alignment/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/02-long-term-planning-alignment/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/02-long-term-planning-alignment/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/02-long-term-planning-alignment/memory/Immediate/README.md"
+      ],
+      "tracked_files": 20
+    },
+    {
+      "id": "03",
+      "name": "Chief of Staff / Operations",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/03-chief-of-staff-operations",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [],
+      "memory": [
+        "workspace/aion/sessions/roles/03-chief-of-staff-operations/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/03-chief-of-staff-operations/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/03-chief-of-staff-operations/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/03-chief-of-staff-operations/memory/Immediate/README.md"
+      ],
+      "tracked_files": 9
+    },
+    {
+      "id": "04",
+      "name": "OpenCode Output / Efficiency",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/04-opencode-output-efficiency",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [],
+      "memory": [
+        "workspace/aion/sessions/roles/04-opencode-output-efficiency/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/04-opencode-output-efficiency/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/04-opencode-output-efficiency/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/04-opencode-output-efficiency/memory/Immediate/README.md"
+      ],
+      "tracked_files": 12
+    },
+    {
+      "id": "05",
+      "name": "Chief of Chiefs",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/05-chief-of-chiefs",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/05-chief-of-chiefs/skills/chief-executive-sitrep/SKILL.md",
+        "workspace/aion/sessions/roles/05-chief-of-chiefs/skills/chief-proof-triage/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/05-chief-of-chiefs/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/05-chief-of-chiefs/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/05-chief-of-chiefs/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/05-chief-of-chiefs/memory/Immediate/README.md"
+      ],
+      "tracked_files": 13
+    },
+    {
+      "id": "06",
+      "name": "TOOLSMITH",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": true,
+        "tools": true
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/acp-interop/SKILL.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/chatgpt-bus-v1-v2/SKILL.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/chrome-acp-relay/SKILL.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/context7-harvest/SKILL.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/environment-bootstrap/SKILL.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/incident-recovery/SKILL.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/model-capability-routing/SKILL.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/tool-discovery/SKILL.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/verification-proof/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/06-tooling-integration-engineer/memory/Immediate/README.md"
+      ],
+      "tracked_files": 25
+    },
+    {
+      "id": "07",
+      "name": "INTAKE / Proposal Commons",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/07-proposal-intake-commons",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": true,
+        "tools": true
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/discovery-reuse/SKILL.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/first-pass-decompose/SKILL.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/provenance-dedupe/SKILL.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/publish-commons/SKILL.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/raw-capture/SKILL.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/reconcile-recover/SKILL.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/review-tabulation/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/07-proposal-intake-commons/memory/Immediate/README.md"
+      ],
+      "tracked_files": 20
+    },
+    {
+      "id": "08",
+      "name": "Z-FORGE",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": true,
+        "tools": true
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/aion-knowledge-transfer/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/chrome-extension-fixture/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/model-and-turn-economics/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/repo-input-output/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/sandbox-environment/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/subagent-orchestration/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/test-and-proof/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/turn-packet-design/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/turn-recovery/SKILL.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/zai-product-recon/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/08-zai-sandbox-strategist/memory/Immediate/README.md"
+      ],
+      "tracked_files": 21
+    },
+    {
+      "id": "09",
+      "name": "Global Research",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/09-global-research",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": true,
+        "tools": true
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/09-global-research/skills/01-source-intake/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/02-repo-discovery/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/03-evidence-assessment/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/04-docs-intelligence/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/05-media-intelligence/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/06-cross-project-transfer/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/07-notebooklm/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/08-delivery-loop/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/09-session-sitrep/SKILL.md",
+        "workspace/aion/sessions/roles/09-global-research/skills/research-evidence-check/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/09-global-research/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/09-global-research/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/09-global-research/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/09-global-research/memory/Immediate/README.md"
+      ],
+      "tracked_files": 425
+    },
+    {
+      "id": "10",
+      "name": "Development",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/ops/chrome-relay/workers/development",
+      "core": {
+        "agents": true,
+        "bootstrap": false,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [
+        "workspace/aion/ops/chrome-relay/workers/development/skills/aion-dev-build-drift/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/ops/chrome-relay/workers/development/memory/CANON/README.md",
+        "workspace/aion/ops/chrome-relay/workers/development/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/ops/chrome-relay/workers/development/memory/Curated/README.md",
+        "workspace/aion/ops/chrome-relay/workers/development/memory/Immediate/README.md"
+      ],
+      "tracked_files": 11
+    },
+    {
+      "id": "11",
+      "name": "Integration Manager",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager",
+      "core": {
+        "agents": true,
+        "bootstrap": false,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/skills/integration-seam-preflight/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/memory/CANON/README.md",
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/memory/Curated/README.md",
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/memory/Immediate/README.md"
+      ],
+      "tracked_files": 39
+    },
+    {
+      "id": "12",
+      "name": "Harvest / Acceleration",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/skills/ax-reuse-inspector/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/memory/CANON/README.md",
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/memory/Curated/README.md",
+        "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/memory/Immediate/README.md"
+      ],
+      "tracked_files": 14
+    },
+    {
+      "id": "13",
+      "name": "Semantic Engine",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/13-semantic-engine",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/13-semantic-engine/skills/semantic-command-audit/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/13-semantic-engine/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/13-semantic-engine/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/13-semantic-engine/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/13-semantic-engine/memory/Immediate/README.md"
+      ],
+      "tracked_files": 10
+    },
+    {
+      "id": "14",
+      "name": "Webapp Native Harness",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/14-webapp-native-harness",
+      "core": {
+        "agents": true,
+        "bootstrap": true,
+        "sitrep": true,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [
+        "workspace/aion/sessions/roles/14-webapp-native-harness/skills/webapp-shape-evidence/SKILL.md"
+      ],
+      "memory": [
+        "workspace/aion/sessions/roles/14-webapp-native-harness/memory/CANON/README.md",
+        "workspace/aion/sessions/roles/14-webapp-native-harness/memory/Curated/BEST-PRACTICES.md",
+        "workspace/aion/sessions/roles/14-webapp-native-harness/memory/Curated/README.md",
+        "workspace/aion/sessions/roles/14-webapp-native-harness/memory/Immediate/README.md"
+      ],
+      "tracked_files": 71
+    },
+    {
+      "id": "15",
+      "name": "Product-to-Market",
+      "parent": "owenservera/aion",
+      "path": "workspace/aion/sessions/roles/15-product-to-market",
+      "core": {
+        "agents": false,
+        "bootstrap": true,
+        "sitrep": false,
+        "workspace": false,
+        "tools": false
+      },
+      "skills": [],
+      "memory": [],
+      "tracked_files": 86
+    }
+  ],
+  "repositories": [
+    {
+      "full_name": "owenservera/aion",
+      "branch": "main",
+      "tree_sha": "32e07685b8832f9cf9a41bd92f059cd8fb0f2d50",
+      "truncated": false,
+      "tracked_files": 4146,
+      "agentic_files": [
+        {
+          "path": ".opencode/agents/aion-chief.md",
+          "blob_sha": "91fbedf6e6f8750a03e1fe97567d29c74feaffb8",
+          "kind": "source-file"
+        },
+        {
+          "path": ".opencode/skills/aion-skill-builder/SKILL.md",
+          "blob_sha": "aa6a9302a93f7fb6a91dd876839f749f7f634418",
+          "kind": "source-file"
+        },
+        {
+          "path": "AGENTS.md",
+          "blob_sha": "e1cfc546876a92835ad0b1ff6ec943d3c48111d0",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/bff/BOOTSTRAP.md",
+          "blob_sha": "58db31c086c8f1944aab509ba053682644421bc1",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/initiatives/discovery-to-read-v1/AGENTS.md",
+          "blob_sha": "2e93b856821b140e239a584ba0e6fdcdd7b932bf",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/initiatives/discovery-to-read-v1/HANDOFF.md",
+          "blob_sha": "79e4050237bd8587d6bc5e178d5f8a5cbbd66cb0",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/aion-mcp/skills/aion-bus/SKILL.md",
+          "blob_sha": "63d83f03fc3382f9133234fe2b6a98eec079469e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/aion-mcp/skills/aion-status/SKILL.md",
+          "blob_sha": "e904218e80ccaf56b5c574f29603cb1c0ebc1d57",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/capture-studio-core/handoffs/parallel-2026-10-24/HANDOFF.md",
+          "blob_sha": "3cc6573b5e5eca70e58b69f53e5405f0f267d65f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/capture-studio-knowledge-learning/SITREP.md",
+          "blob_sha": "89362b2367fffc031bf5fdc8cce28a199d79deba",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/capture-studio-knowledge-learning/handoffs/parallel-2026-10-24/HANDOFF.md",
+          "blob_sha": "5ce768531cb015c7e8fce5b2d3e70e9806dec289",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/capture-studio-systems/handoffs/parallel-2026-10-24/HANDOFF.md",
+          "blob_sha": "7507594f766ac7f35add394a74a2c0ca000dcbd0",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/capture-studio-ui/handoffs/parallel-2026-10-24/HANDOFF.md",
+          "blob_sha": "38526dd091f2a6c268a04a6fcb232518e2592475",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/capture-studio-value-oracle/AGENTS.md",
+          "blob_sha": "0b1dd4851958640f311ecc3f16975df4ac84fab1",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/capture-studio-value-oracle/BOOTSTRAP.md",
+          "blob_sha": "abc4dada9a61b1c9129129132288730c17c5bdca",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/cdpilot/AGENTS.md",
+          "blob_sha": "0de7d39e71cb5d8a5f9b3b965a5ca3abe75037ca",
+          "kind": "donor-snapshot"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/cdpilot/CLAUDE.md",
+          "blob_sha": "443e56aa25587975b66773aaa6d8c9a4331e237c",
+          "kind": "donor-snapshot"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/cdpilot/GEMINI.md",
+          "blob_sha": "0df443418eeb68b743aadc3b98c3c78947013fdd",
+          "kind": "donor-snapshot"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/cdpilot/plugins/cdpilot/skills/cdpilot/SKILL.md",
+          "blob_sha": "341fd0e7452d80d21c0f841665be6258f83fcede",
+          "kind": "donor-snapshot"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/chatall/AGENTS.md",
+          "blob_sha": "dd98acec205008bcb302da7c1d24660d2b5e81df",
+          "kind": "donor-snapshot"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/chatgpt-bridge/AGENT.MD",
+          "blob_sha": "1b2d5e915fbdfb1cd6a4f03df14adfa21f7cd568",
+          "kind": "donor-snapshot"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/chatgpt-bridge/CONTEXT.MD",
+          "blob_sha": "ff16eb830e6698335b8e458aecbd0e4430d44093",
+          "kind": "donor-snapshot"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/landing/donors/multi-ai-chat/HANDOFF.md",
+          "blob_sha": "1be5d64712ce63e47539a5e5fcc499f69c641228",
+          "kind": "donor-snapshot"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/AGENTS.md",
+          "blob_sha": "c71ad7fba17d11301543b3bc93f96c20bf4f19ba",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/SITREP.md",
+          "blob_sha": "7db146bd4df27567046ee03e72c7fface10b934e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/memory/CANON/README.md",
+          "blob_sha": "25e838e514d1b59e11246955edca17c06067e3b4",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "96b18ecf8e31a32435e07d993ce75f719a9964fb",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/memory/Curated/README.md",
+          "blob_sha": "e9419ce647491af8688583cac9f960fccea69d93",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/memory/Immediate/README.md",
+          "blob_sha": "9adfedf74d778ecd7411acee7249b422160d8f34",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/integration-manager/skills/integration-seam-preflight/SKILL.md",
+          "blob_sha": "e3dc6dd871258166e848437fac1f42fc0b664fd0",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/AGENTS.md",
+          "blob_sha": "7280c68e461f3b71e014609909e41cd55d49daff",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/BOOTSTRAP.md",
+          "blob_sha": "d10172aad1f64062b01259b0edef026365767553",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/SITREP.md",
+          "blob_sha": "326914037422f77d17ff557bc65ba82edbce522b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/memory/CANON/README.md",
+          "blob_sha": "4ead095da9fe8d99304f7a290a020fcaa04c0c01",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "e9b9eab91839ccc08e8e1e7e043d4c18206ec2c4",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/memory/Curated/README.md",
+          "blob_sha": "004a7868e2a215de7e95340d745dc94b677f73f1",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/memory/Immediate/README.md",
+          "blob_sha": "dd3c3f2c4885c92529d7f323bd00fe476ecfda38",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/harvest/external/workers/nine-repo/skills/ax-reuse-inspector/SKILL.md",
+          "blob_sha": "6be109256795f9ff8232d61e8e88d21ed81d9948",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/velocity/AGENTS.md",
+          "blob_sha": "69ab1a39459f8b0ab4f31685d1d0e1db1dc244ac",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/workers/development/AGENTS.md",
+          "blob_sha": "4af2147ea14a43128ea12b9321241b085e0995f0",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/workers/development/SITREP.md",
+          "blob_sha": "fc4c8942e4ae3a811dbc070e3c0f7ffdd431ef92",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/workers/development/memory/CANON/README.md",
+          "blob_sha": "bc5a72fcfbf38d8541e4501dbb2cb7f4d7408de1",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/workers/development/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "3808a3ab73b4eef548cb1fc3471cee77df36b8ba",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/workers/development/memory/Curated/README.md",
+          "blob_sha": "ae2319d084f8850f08de202bc148db066aae4c51",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/workers/development/memory/Immediate/README.md",
+          "blob_sha": "c392dd16aef5bd1eb34d2a5875f1fcab8c8c2023",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/chrome-relay/workers/development/skills/aion-dev-build-drift/SKILL.md",
+          "blob_sha": "afddd37524be99c0a22acbc56d81cd55fa511af1",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/ops/local-integration/windows-p0-issue81-20261024/HANDOFF.md",
+          "blob_sha": "3ae50bf51822c386356520a75f0094ca16143c9b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/01-escape-hatch/BOOTSTRAP.md",
+          "blob_sha": "af5db9883e842f2816c0957e420c6b59f132257d",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/01-escape-hatch/SITREP.md",
+          "blob_sha": "ca30e193d0089f35a8cd32f47691bc4d2e1df4b7",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/02-instant-pings/BOOTSTRAP.md",
+          "blob_sha": "04e972b05f605eca70559b239edfcff69f41313f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/02-instant-pings/SITREP.md",
+          "blob_sha": "c95596d1c73f4a97c32c2a1cfa1e3907f28c51c8",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/03-vercel-dashboard/BOOTSTRAP.md",
+          "blob_sha": "7cf3280cbc56b6db89cbdef15e2081973dfeea93",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/03-vercel-dashboard/SITREP.md",
+          "blob_sha": "812078892ad880823466670635f17ed02d6a6a3f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/01-dashboard-tracking/AGENTS.md",
+          "blob_sha": "3e0a880aa84cf5324d7fcf02a28720ed2ab6b025",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/01-dashboard-tracking/BOOTSTRAP.md",
+          "blob_sha": "967a7b944c6c7a9039ec397c13874da1b18ac453",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/01-dashboard-tracking/SITREP.md",
+          "blob_sha": "2af3050f0dbdda7bf2a549113fd1fef531be2ae4",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/01-dashboard-tracking/memory/CANON/README.md",
+          "blob_sha": "f3d1b024252c0aa10c2ef0c237a1f3073a4a95e6",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/01-dashboard-tracking/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "5f953612aa3a8311debda64f331e626210cc948a",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/01-dashboard-tracking/memory/Curated/README.md",
+          "blob_sha": "a672ef43700af2950409d8e26780e2362ed49c5b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/01-dashboard-tracking/memory/Immediate/README.md",
+          "blob_sha": "35061ef632fb06a348bf622e024dc2d9d5031d45",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/01-dashboard-tracking/skills/dashboard-evidence-gates/SKILL.md",
+          "blob_sha": "5c81ed807b42afd60ccf2d2c7d7c90a95c92a653",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/AGENTS.md",
+          "blob_sha": "e8c51557f4fafe65597b5d49c15086b8743325c3",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/BOOTSTRAP.md",
+          "blob_sha": "808ccc4df95d852e20f2ffdd68b38afa2169f938",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/SITREP.md",
+          "blob_sha": "5dcba870edbfbf4f91be2a4a7579343534717739",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/memory/CANON/README.md",
+          "blob_sha": "90d627a6e2b4896e4527762fa35be99a8e6f580d",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "c4ebcfbae48a412568caa5f29ed49b711f221704",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/memory/Curated/README.md",
+          "blob_sha": "01c0a81fb9962c371d5adf0056cabc6515671c0d",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/memory/Immediate/README.md",
+          "blob_sha": "d0d45becb868aa30af5279cb9ff7a8c12195732c",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/skills/planning-critical-path/SKILL.md",
+          "blob_sha": "a69d3e9269cb125b0337ba4f0bead1624affead9",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/02-long-term-planning-alignment/skills/planning-leverage-decision/SKILL.md",
+          "blob_sha": "8bec74bc3af82bedc20aa1a8538f136b909b41db",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/03-chief-of-staff-operations/AGENTS.md",
+          "blob_sha": "cbfee94c275a3a3691763e3aec6859ea369fd7aa",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/03-chief-of-staff-operations/BOOTSTRAP.md",
+          "blob_sha": "decd0c8e43f846af8f2b1a6a80d75ea830f6d18c",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/03-chief-of-staff-operations/SITREP.md",
+          "blob_sha": "d78124f8bfe1b7dc63a689d751c593dd8632ddda",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/03-chief-of-staff-operations/memory/CANON/README.md",
+          "blob_sha": "8d81d1b0c6f774b53127391a9e12951c2796df1c",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/03-chief-of-staff-operations/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "70fab891b99318711acd683fb2592797ba689d74",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/03-chief-of-staff-operations/memory/Curated/README.md",
+          "blob_sha": "b10bd8ab8647090acc8750a3af9e10fa91234a21",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/03-chief-of-staff-operations/memory/Immediate/README.md",
+          "blob_sha": "f642693dd2824d6233a56b9bd4908c547deeec9a",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/04-opencode-output-efficiency/AGENTS.md",
+          "blob_sha": "efe8c10012d10fef26adc46c616e4f7bc759ea2f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/04-opencode-output-efficiency/BOOTSTRAP.md",
+          "blob_sha": "e96486736c41c60e938a77bf30662780f7e4453a",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/04-opencode-output-efficiency/SITREP.md",
+          "blob_sha": "0fa068b9aae475823d80c8bf47273e96fae6ed51",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/04-opencode-output-efficiency/memory/CANON/README.md",
+          "blob_sha": "69de6099b471a5835ad4c8bc2493b4ddb9c29c52",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/04-opencode-output-efficiency/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "bc623ab346875f16f24619fcae6845c4d508293b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/04-opencode-output-efficiency/memory/Curated/README.md",
+          "blob_sha": "fb72cc5b8a101ae3c5df8aa85c45312cb584f605",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/04-opencode-output-efficiency/memory/Immediate/README.md",
+          "blob_sha": "4d2b4f15396cf987ad65898868dd1a603105e19f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/AGENTS.md",
+          "blob_sha": "bfca23749375d336d33f89303e050f1eda2edd34",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/BOOTSTRAP.md",
+          "blob_sha": "320a0e4882efefd56c1ed4c5a4f26363ad0cad2f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/SITREP.md",
+          "blob_sha": "ae533b7d7021bd5517f3e09be6dbedd6538ab12e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/memory/CANON/README.md",
+          "blob_sha": "267d718fe2073be891dae19bb290e3c6737a42f0",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "9ea707bf9f6ee0d8eb2dadc5f7b83b37b890c16b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/memory/Curated/README.md",
+          "blob_sha": "fc4572ef523b8a5b435a21beda71166869f050dd",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/memory/Immediate/README.md",
+          "blob_sha": "264fc480875eb96460d60ea148a4a59532b03baa",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/skills/chief-executive-sitrep/SKILL.md",
+          "blob_sha": "d9e305eaf0b55044830deeeef27b8fefe1c79828",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/05-chief-of-chiefs/skills/chief-proof-triage/SKILL.md",
+          "blob_sha": "057da8838172c1373f537d0e243e34deaeeb11bb",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/AGENTS.md",
+          "blob_sha": "034525e809c4cf046dfe96390314e4df251d89e4",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/BOOTSTRAP.md",
+          "blob_sha": "61b52a8fbff260ca9801f76b204c283343519164",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/SITREP.md",
+          "blob_sha": "900f6014510b0a16271ed247fc9bb0242349f842",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/TOOL-REGISTRY.json",
+          "blob_sha": "0b05a2dd78c70f7e749365f28fc960d14d8bc16b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/WORKSPACE.md",
+          "blob_sha": "a1e7744761991448d6cfc3ca7b82cd0e5652940c",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/memory/CANON/README.md",
+          "blob_sha": "c9bd2b8ac15f2b2bef3ff5e96d26b2455e6ee78a",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "59230f9cfd31300f729fdb12b9e60314f5368835",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/memory/Curated/README.md",
+          "blob_sha": "bd2dcf5a6f5b671c0ec21e38dcba8e48ced0cb79",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/memory/Immediate/README.md",
+          "blob_sha": "e2f9d61145fd192aa257f389685439d7c360a756",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/acp-interop/SKILL.md",
+          "blob_sha": "f2dff40c56da15ea93e287e15b98782305dd7fab",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/chatgpt-bus-v1-v2/SKILL.md",
+          "blob_sha": "147d63fcf9d742a3e892a84410cf7dd153297edf",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/chrome-acp-relay/SKILL.md",
+          "blob_sha": "c90dfbb94b18d052901f645f2e06247aeec993bb",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/context7-harvest/SKILL.md",
+          "blob_sha": "60f0b06836d684a24e91134793ed2753e82a4fed",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/environment-bootstrap/SKILL.md",
+          "blob_sha": "c01bfe241a103594812f8e60122d182b01bc6e7a",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/incident-recovery/SKILL.md",
+          "blob_sha": "d99d7ff3ab6cd832aa0c384708e0730629970021",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/model-capability-routing/SKILL.md",
+          "blob_sha": "e7f6557c3d5b8004342ec7be274ba86fc2d445f9",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/tool-discovery/SKILL.md",
+          "blob_sha": "c1b67d47280b910fe16d6ee1ff3127b7ee118daa",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/06-tooling-integration-engineer/skills/verification-proof/SKILL.md",
+          "blob_sha": "67f45f0f92d2b3d88a0cdd6ed56e33208cba7c9c",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/AGENTS.md",
+          "blob_sha": "c7599811049a3d065dbffa1af4efdbe93487046e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/BOOTSTRAP.md",
+          "blob_sha": "8c826e509cc4c4e44b88460a6f1f4c7a8b4dd12d",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/SITREP.md",
+          "blob_sha": "189575ad1e57432f796c937e46a5a3670f359966",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/TOOLS.json",
+          "blob_sha": "ade4fa56265ca1c7e7df5c8bc7e9a03751d71afb",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/WORKSPACE.md",
+          "blob_sha": "110c5e5844c544d3abb84a0e9bc43479aa5e2279",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/memory/CANON/README.md",
+          "blob_sha": "007862c6d026a9a73cb174cbec1731be2cd9bfaa",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "78cacf175cdf72fc4f0f547c373bb44f746bc528",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/memory/Curated/README.md",
+          "blob_sha": "bdf252cbcbb074f24ebc6b3d8b8e740eeb70022a",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/memory/Immediate/README.md",
+          "blob_sha": "f54b10df68b557d9d34ecdf2ad4c852da0415e56",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/discovery-reuse/SKILL.md",
+          "blob_sha": "232e85009698f94224bb63ff53cc65a7969eb24e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/first-pass-decompose/SKILL.md",
+          "blob_sha": "1a7f3f9a0768c0da9fb457bacfcde11c0a550278",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/provenance-dedupe/SKILL.md",
+          "blob_sha": "db55ce832fb3d6e46fe02ea7d9be42814b0ed055",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/publish-commons/SKILL.md",
+          "blob_sha": "38aa361c6d1ae1996671be5dd1954c4865ce3951",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/raw-capture/SKILL.md",
+          "blob_sha": "12476cb61c9aa17b48cc41165c021ce25dd8f166",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/reconcile-recover/SKILL.md",
+          "blob_sha": "c3d5b4ad635f2feee4f78dccf30e1fb568db8333",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/07-proposal-intake-commons/skills/review-tabulation/SKILL.md",
+          "blob_sha": "ab516ccde2ad396cd8cd403e49722b7f7135725c",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/AGENTS.md",
+          "blob_sha": "e09e83efe8aa568bb3445c418577ffeb08cf19a8",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/BOOTSTRAP.md",
+          "blob_sha": "3ed73119c01651f188bdc1d9be82161425dc9072",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/SITREP.md",
+          "blob_sha": "aa0fe3286092ae856ec1ed065d39c0de4962b67a",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/TOOLS.json",
+          "blob_sha": "04911e5401374b4abd3d7d084aec668a81291875",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/WORKSPACE.md",
+          "blob_sha": "cc1a7153d2e94d0835ceb34efa6184d5a75370ab",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/memory/CANON/README.md",
+          "blob_sha": "72251a0cdc360e2ad92f2de4e150bab5b2259231",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "693b7b2bf5d4cd913f296fc6115fc838bbaca007",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/memory/Curated/README.md",
+          "blob_sha": "3d58465fae5ac028ce8396476723f788177a8e9e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/memory/Immediate/README.md",
+          "blob_sha": "7a51a43f0e7359e4b9efad0807552e2e25f3777d",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/aion-knowledge-transfer/SKILL.md",
+          "blob_sha": "9ec1a437d53479662f528b15a5c8739f7074776f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/chrome-extension-fixture/SKILL.md",
+          "blob_sha": "63a738ad30f922a00fb1a773b840d11112cb190f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/model-and-turn-economics/SKILL.md",
+          "blob_sha": "e86e00534d4cac7964e9df727433f9b512fa885e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/repo-input-output/SKILL.md",
+          "blob_sha": "7d2235686ca8a71e6e4df94eeb019cade5259abd",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/sandbox-environment/SKILL.md",
+          "blob_sha": "c94c2fec1ea2514e93402ae6d3f2ce4dcf3eff77",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/subagent-orchestration/SKILL.md",
+          "blob_sha": "d81cea5c7f5e42428068144eff6aef8b6be20c4f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/test-and-proof/SKILL.md",
+          "blob_sha": "93d735c9bcaa0df9275f5f5c515d294334cacdea",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/turn-packet-design/SKILL.md",
+          "blob_sha": "9f1a2c356cfe7dbb1854d27d3bb0a91bd424791b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/turn-recovery/SKILL.md",
+          "blob_sha": "f0b2c9e549d528852e6d1f088627b4ba1879e84a",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/08-zai-sandbox-strategist/skills/zai-product-recon/SKILL.md",
+          "blob_sha": "7fedb7844c60c2222d675b63dff027cf4c4b2df7",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/AGENTS.md",
+          "blob_sha": "3ab5b2c88073eced8ea77f19b3f2020050072526",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/BOOTSTRAP.md",
+          "blob_sha": "88d2eee270d37328dbd00ce4dcb1bf9896035d71",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/SITREP.md",
+          "blob_sha": "51575c6463314e2ab29c81c118f4d90b79ebef72",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/TOOLS.json",
+          "blob_sha": "d99e713ccd5a1aaae582597cbd6d6dc6adca53d3",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/WORKSPACE.md",
+          "blob_sha": "301ddbd2ce68a21b029835f562b1856a91f141a1",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/docs/research/probe/claude.json",
+          "blob_sha": "6c305242052fe53df7600ce3b39cbb361184750b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/docs/research/probe/gemini.json",
+          "blob_sha": "9f5158f4564e9a9baf7f360889115f20ed6167c4",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/docs/shape-atlas/claude.md",
+          "blob_sha": "5f5c2428c0cd3a08e71c4ea0e1902ffcbaad5c3e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/profiles/claude.json",
+          "blob_sha": "0a99b95c80587f21228e3a6fc8bc86126a31bd1d",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/memory/CANON/README.md",
+          "blob_sha": "6b04ecac50d8742d51be8bc6f6d2ea45dc305b9f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "2630632427f2fda96140545eca06176b49b45e5e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/memory/Curated/README.md",
+          "blob_sha": "aa737ec1b83fa558cf128a2c61319b2242a4bb16",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/memory/Immediate/README.md",
+          "blob_sha": "d97efb133ff06da5e1a24d7a42c082ece8dc699e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/01-source-intake/SKILL.md",
+          "blob_sha": "e26d2dc1546a00749c67237cf1a9c39022eee7ea",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/02-repo-discovery/SKILL.md",
+          "blob_sha": "ae9fe7cbdde38a0bc33708ad04ff135c70d730ea",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/03-evidence-assessment/SKILL.md",
+          "blob_sha": "80c581776307692308970581e4468cb7e1f97c3e",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/04-docs-intelligence/SKILL.md",
+          "blob_sha": "9ee8cf9dd300733ec98ab7bc838be52eb00fae01",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/05-media-intelligence/SKILL.md",
+          "blob_sha": "959b44723e25f39373672ab3280a7fe1f1b5857b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/06-cross-project-transfer/SKILL.md",
+          "blob_sha": "dbd6f3ef378041cca8385a29add9976c87e6fe35",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/07-notebooklm/SKILL.md",
+          "blob_sha": "47e814aae6318f992be3ba6369461a6c3034eece",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/08-delivery-loop/SKILL.md",
+          "blob_sha": "cba1d60368f23270f428889e4433ed96581bf79f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/09-session-sitrep/SKILL.md",
+          "blob_sha": "6e6d6b05ac6c2c264b202aae55a25d8daa9b22d8",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/09-global-research/skills/research-evidence-check/SKILL.md",
+          "blob_sha": "b697f2883336ba2ee7f3189f63ee6172c6450a07",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/13-semantic-engine/AGENTS.md",
+          "blob_sha": "5928bf18177c8de2761847544b78f7fc513a8827",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/13-semantic-engine/BOOTSTRAP.md",
+          "blob_sha": "ad966a574a05f9fc72082c81c79725874a7f2f46",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/13-semantic-engine/SITREP.md",
+          "blob_sha": "30cac024e690b843e6d8a87361050f397f4cef6b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/13-semantic-engine/memory/CANON/README.md",
+          "blob_sha": "bff1fae19858c919635cc9e3d752ca90d4308658",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/13-semantic-engine/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "d458ba5f3294b49528325bc7d185101dfc17f656",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/13-semantic-engine/memory/Curated/README.md",
+          "blob_sha": "cd452e53f7a9a6195fcc1505a888ec30e00c5da0",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/13-semantic-engine/memory/Immediate/README.md",
+          "blob_sha": "23c7b033913e44fe453a3c23943c488e64c3d2be",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/13-semantic-engine/skills/semantic-command-audit/SKILL.md",
+          "blob_sha": "c109eb73d510a286b3d2fb312b02a0a19fd1d814",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/AGENTS.md",
+          "blob_sha": "0785e48442c7db17f8bd6e15f6c077d96c2b6ab2",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/BOOTSTRAP.md",
+          "blob_sha": "28e3dfc306ae152ef951f1c95d4d00d02f1c7ad1",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/SITREP.md",
+          "blob_sha": "b27ca9473548cfc63bf7799cb2857a1e91125504",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/benchmarks/intelligence-adversarial-2026-10-25/HANDOFF.md",
+          "blob_sha": "8b1a7de62fe9d430f17a940c8c8370b9c0ae3f8f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/integration-campaigns/parallel-four-lane-2026-10-24/CONSOLIDATED/lanes/core/HANDOFF.md",
+          "blob_sha": "3cc6573b5e5eca70e58b69f53e5405f0f267d65f",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/integration-campaigns/parallel-four-lane-2026-10-24/CONSOLIDATED/lanes/intelligence/HANDOFF.md",
+          "blob_sha": "5ce768531cb015c7e8fce5b2d3e70e9806dec289",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/integration-campaigns/parallel-four-lane-2026-10-24/CONSOLIDATED/lanes/systems/HANDOFF.md",
+          "blob_sha": "7507594f766ac7f35add394a74a2c0ca000dcbd0",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/integration-campaigns/parallel-four-lane-2026-10-24/CONSOLIDATED/lanes/ui/HANDOFF.md",
+          "blob_sha": "38526dd091f2a6c268a04a6fcb232518e2592475",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/memory/CANON/README.md",
+          "blob_sha": "5194145de3cb1b788c655a974622c2fc27f9b5c7",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "4b9ccc6cddb009bde20b176268c7e430b6b835c1",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/memory/Curated/README.md",
+          "blob_sha": "7eda282fa9c15adbed05f525e01c92e7e1efb155",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/memory/Immediate/README.md",
+          "blob_sha": "e0cb6ef4430ead0f22840712a87fea3dc52984d9",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/14-webapp-native-harness/skills/webapp-shape-evidence/SKILL.md",
+          "blob_sha": "70b8b5f0ef9b3f2a7fc9b704590a2fa7abae9ea2",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/15-product-to-market/BOOTSTRAP.md",
+          "blob_sha": "d2c33d619a0c4ebe38b46a6282b375a033a45b91",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/15-product-to-market/core-library/source-archive/agentic/BCP-dev/AGENTS_CONTEXT/ARCHITECTURE_STEWARD/AGENT.md",
+          "blob_sha": "acfb4f4b5ddc86cae0f47126c5e0a3b7bf89fe78",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/15-product-to-market/core-library/source-archive/agentic/aion/workspace/aion/sessions/roles/13-semantic-engine/BOOTSTRAP.md",
+          "blob_sha": "ad966a574a05f9fc72082c81c79725874a7f2f46",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/15-product-to-market/core-library/source-archive/agentic/aion/workspace/aion/sessions/roles/13-semantic-engine/SITREP.md",
+          "blob_sha": "30cac024e690b843e6d8a87361050f397f4cef6b",
+          "kind": "source-file"
+        },
+        {
+          "path": "workspace/aion/sessions/roles/15-product-to-market/core-library/source-archive/command/BCP-dev/AGENTS_CONTEXT/ARCHITECTURE_STEWARD/SUBAGENTS/SELF-KNOWLEDGE-COMMAND-COMPILER/AGENT.md",
+          "blob_sha": "73d00b2d8c1c8f117c31bae3722b843fa0e9cb05",
+          "kind": "source-file"
+        }
+      ]
+    },
+    {
+      "full_name": "owenservera/001.PROJECTS.PM",
+      "branch": "main",
+      "tree_sha": "9bd008256d4bc86a8862c206fcd3a301258e0a5a",
+      "truncated": false,
+      "tracked_files": 274,
+      "agentic_files": [
+        {
+          "path": "AGENTS.md",
+          "blob_sha": "4b8f183fc4508be2079cf2ea8366de622d2c915d",
+          "kind": "source-file"
+        }
+      ]
+    },
+    {
+      "full_name": "owenservera/SOFTWARE_HQ",
+      "branch": "main",
+      "tree_sha": "7c573ca2c1261a3d0eed48d8b8029e8071ad30c1",
+      "truncated": false,
+      "tracked_files": 194,
+      "agentic_files": [
+        {
+          "path": "AGENTS.md",
+          "blob_sha": "eb70a0e7f4d47cc0a1509a7e1aa93a5b87b1900f",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/AGENTS.md",
+          "blob_sha": "4513aeedc18a283db013b20101caf1253859f027",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/BOOTSTRAP.md",
+          "blob_sha": "4cc9b923247f32ca120512bea6edec54d59dc87c",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/SITREP.md",
+          "blob_sha": "3777f5c8365a6c90255e1422497f8a58da48a4c6",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/memory/CANON/README.md",
+          "blob_sha": "924aa581c38fec6bf7e9a638a7c01f3c2f34e211",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/memory/Curated/BEST-PRACTICES.md",
+          "blob_sha": "291fcbea74c79f1eecea2cc54f5a0ab31abf9b24",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/memory/Curated/README.md",
+          "blob_sha": "486db6c4c60284b17812af526f54ae2091997152",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/memory/Immediate/README.md",
+          "blob_sha": "4455894d7ce7800d40baae762747efbc10a11614",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/skills/harness-bakeoff/SKILL.md",
+          "blob_sha": "1fceca126b520d4cf69b36262aa7b1bb33b03e93",
+          "kind": "source-file"
+        },
+        {
+          "path": "agents/global-harness-agent/skills/harness-frontier-recon/SKILL.md",
+          "blob_sha": "6341722ddde98a65327a4454750b27cf447a32d9",
+          "kind": "source-file"
+        }
+      ]
+    },
+    {
+      "full_name": "owenservera/hq",
+      "branch": "main",
+      "tree_sha": "2e5d70dbde9f127c24c920ba0d09823726b31969",
+      "truncated": false,
+      "tracked_files": 33,
+      "agentic_files": [
+        {
+          "path": "research/infra/TOOLS.md",
+          "blob_sha": "96e681815fd62ef00df6800e876095739d057048",
+          "kind": "source-file"
+        }
+      ]
+    },
+    {
+      "full_name": "owenservera/vivim-harness",
+      "branch": "main",
+      "tree_sha": "030895e79480f23e8929e4a5de5e80d74aa8c490",
+      "truncated": false,
+      "tracked_files": 399,
+      "agentic_files": [
+        {
+          "path": ".opencode/agents/chatgpt-aion.md",
+          "blob_sha": "b5662321f5c79069e35eef627423f0e1a2cd6c9d",
+          "kind": "source-file"
+        },
+        {
+          "path": ".opencode/agents/local-opencode.md",
+          "blob_sha": "73f5461032775d795340558590c87ed6d04ab143",
+          "kind": "source-file"
+        },
+        {
+          "path": "AGENTS.md",
+          "blob_sha": "c946a6271cdca1408471f14812d20fe8fd5a789d",
+          "kind": "source-file"
+        },
+        {
+          "path": "docs/research/probe/claude.json",
+          "blob_sha": "6c305242052fe53df7600ce3b39cbb361184750b",
+          "kind": "source-file"
+        },
+        {
+          "path": "docs/research/probe/gemini.json",
+          "blob_sha": "9f5158f4564e9a9baf7f360889115f20ed6167c4",
+          "kind": "source-file"
+        },
+        {
+          "path": "docs/shape-atlas/claude.md",
+          "blob_sha": "5f5c2428c0cd3a08e71c4ea0e1902ffcbaad5c3e",
+          "kind": "source-file"
+        },
+        {
+          "path": "profiles/claude.json",
+          "blob_sha": "0a99b95c80587f21228e3a6fc8bc86126a31bd1d",
+          "kind": "source-file"
+        }
+      ]
+    },
+    {
+      "full_name": "owenservera/vivim-omega",
+      "branch": "main",
+      "tree_sha": "79ee558d6c7ea77c20f220db2341adaa57b11d44",
+      "truncated": false,
+      "tracked_files": 873,
+      "agentic_files": [
+        {
+          "path": "AGENTS.md",
+          "blob_sha": "ae924693fa5d65a507c91ed38be805429396feb7",
+          "kind": "source-file"
+        },
+        {
+          "path": "compositions/agent.json",
+          "blob_sha": "f44d442cd0f5130f41330f684482181a2a8414d7",
+          "kind": "source-file"
+        }
+      ]
+    },
+    {
+      "full_name": "owenservera/zcode-pocket",
+      "branch": "main",
+      "tree_sha": "13597a7ef9c5bf5db2a40a643429fc7c53fbf709",
+      "truncated": false,
+      "tracked_files": 63,
+      "agentic_files": [
+        {
+          "path": "product-design/AGENTS.md",
+          "blob_sha": "1f1498bb5e32ccdea3c303c91db8c082d7cbdba4",
+          "kind": "source-file"
+        }
+      ]
+    }
+  ]
+}
