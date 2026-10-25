@@ -1,3 +1,5 @@
+> Follow root `AGENTS.md`: prioritize direct execution of the requested work over coordination and extra process.
+
 # 05-chief-of-chiefs — Agent instructions
 
 Follow repository root `AGENTS.md`, existing `BOOTSTRAP.md`, the shared operating model and current owner instruction. Preserve this role's existing material as the source for identity and work.
