@@ -51,3 +51,21 @@ test('timer trigger cannot force polling',async()=>{await assert.rejects(()=>pro
 test('caller-forged proposal cannot be promoted',async()=>{const p=create(),q=await propose(p);await assert.rejects(()=>p.promote({...q,status:'ready-for-read-only-promotion',evidenceClass:'SAVED_REAL_CAPTURE'}),/PROMOTION_NOT_ELIGIBLE/)});
 test('read profile remains seed fallback without fresh current page proof',async()=>{const s={...scope,siteId:'claude'};const r=n=>e(n,{scope:s,evidenceClass:'SANDBOX_REAL_BROWSER'});const p=create();await p.promote(await p.propose({scope:s,training:[r(1),r(2),r(3)],heldout:[r(4),r(5)],seed}));assert.equal((await p.selectReadRule(s,'assistant-turn','old')).source,'seed-fallback');const good={origin:s.origin,accountRef:s.accountRef,feature:'assistant-turn',candidate:'[data-testid="assistant-turn-v2"]',outcome:'present',fresh:true,identityConfirmed:true,source:'observed-current-page'};assert.equal((await p.selectReadRule(s,'assistant-turn','old',{pageEvidence:good})).source,'learned-proven');assert.equal((await p.selectReadRule(s,'assistant-turn','old',{pageEvidence:{...good,accountRef:'b'}})).source,'seed-fallback')});
 test('optimistic concurrency rejects stale profile promotion',async()=>{const s=store(),p=create({store:s}),q=await p.propose({scope,training:[e(1,{evidenceClass:'SANDBOX_REAL_BROWSER'}),e(2,{evidenceClass:'SANDBOX_REAL_BROWSER'}),e(3,{evidenceClass:'SANDBOX_REAL_BROWSER'})],heldout:[e(4,{evidenceClass:'SANDBOX_REAL_BROWSER'}),e(5,{evidenceClass:'SANDBOX_REAL_BROWSER'})],seed});await s.promote(q.scopeKey,{adapter:seed},null);await assert.rejects(()=>p.promote(q),/STALE_VERSION/)});
+
+test('independent heldout eligibility refuses one inferred identity',async()=>{
+ const q=await propose(create(),{heldout:[e(4),e(5,{identityVerdict:'inferred'})]});
+ assert.equal(q.status,'quarantined');assert.deepEqual(q.eligibleFeatures,[]);
+});
+test('handwritten seed alternatives establish measured incumbent read baseline',async()=>{
+ const q=await propose(create(),{seed:{assistant:{containerSelectors:['[data-testid="assistant-turn-v2"]']},
+  userTurn:{selectors:['[data-testid="user-turn-v2"]']}}});
+ assert.equal(q.baseline.TP,4);assert.equal(q.metrics.gain,0);
+});
+test('unchanged learned adapter cannot be promoted a second time',async()=>{
+ const p=create({store:store()}),r=n=>e(n,{evidenceClass:'SANDBOX_REAL_BROWSER'});
+ const first=await p.propose({scope,training:[r(1),r(2),r(3)],heldout:[r(4),r(5)]});
+ await p.promote(first);
+ const next=await p.propose({scope,training:[r(1),r(2),r(3)],heldout:[r(6),r(7)]});
+ assert.equal(next.status,'no-improvement');
+ await assert.rejects(()=>p.promote(next),/PROMOTION_NOT_ELIGIBLE/);
+});

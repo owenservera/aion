@@ -1,0 +1,27 @@
+name: Capture Studio Native Discovery
+on:
+  pull_request:
+    paths:
+      - 'workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/**'
+      - '.github/workflows/native-discovery-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Adversarial discovery tests
+        run: node --test test/unit/adapter-probes.test.mjs test/unit/stream-map-induce.test.mjs test/unit/native-discovery-evidence.test.mjs
+      - name: Complete Capture Studio unit suite
+        run: npm test

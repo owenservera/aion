@@ -332,3 +332,30 @@ test('HTTP session-ID door mints actual accepted DOM evidence and refuses event 
     await assert.rejects(() => pipeline.proposeFromSessions({ ...args, training: [bad.id,...args.training] }), /MANIFEST_SESSION_NOT_VERIFIED/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('production seed baseline for ChatGPT, Claude and Gemini is host-bound',async()=>{
+ const {trustedReadSeed}=await import('../../src/studio/adapter-learning-pipeline.mjs');
+ for(const [siteId,origin] of [['chatgpt','https://chatgpt.com'],['claude','https://claude.ai'],['gemini','https://gemini.google.com']]){
+  const s=trustedReadSeed({siteId,origin});
+  assert.equal(s?.id,siteId);assert.ok(s?.assistant?.containerSelectors?.length>0);
+  assert.equal(trustedReadSeed({siteId,origin:'https://attacker.example'}),null);
+ }
+});
+test('unattended evolution abstains on caller-scoped account despite Core-accepted data',async()=>{
+ const {root,sessionsDir,pipeline}=rig();
+ try{
+  const captures=await Promise.all(Array.from({length:5},()=>verifiedSession(sessionsDir)));
+  const decision=await pipeline.evolveFromSessions({scope:SCOPE,training:captures.slice(0,3).map(x=>x.id),
+    heldout:captures.slice(3).map(x=>x.id)});
+  assert.equal(decision.status,'abstained');assert.equal(decision.reason,'ACCOUNT_BINDING_NOT_CORE_VERIFIED');
+  assert.equal(decision.sendPermission,false);
+  assert.equal((await pipeline.resolveRead(SCOPE,null)).source,'seed');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
+test('test-only fixtures cannot use unattended production entrypoints',async()=>{
+ const {root,pipeline}=rig();
+ try{
+  await assert.rejects(()=>pipeline.evolve({scope:SCOPE,testOnly:true}),e=>e.code==='AUTONOMOUS_PRODUCTION_ONLY');
+  await assert.rejects(()=>pipeline.evolveFromSessions({scope:SCOPE,testOnly:true}),e=>e.code==='AUTONOMOUS_PRODUCTION_ONLY');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});

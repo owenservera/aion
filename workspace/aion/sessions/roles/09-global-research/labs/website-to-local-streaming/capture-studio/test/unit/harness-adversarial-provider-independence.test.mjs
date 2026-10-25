@@ -2,11 +2,9 @@
 // Read-only unit diagnostics for the multi-turn lane. No browser, no network, no credentials.
 //
 // Findings encoded here (exact source lines):
-//  F1 src/capture/conversation-thread.mjs:14-23  parseThread() validates siteId, protocol and PATH
-//     ONLY. Hostname, port, query and fragment are ignored, so two different origins produce the
-//     SAME `chatgpt-c:<uuid>` ref. `sameThread` (line 25) compares refs, so a ref is not an origin
-//     check. Callers that compare refs across origins must ALSO compare origin (journal does via
-//     canonicalThreadKey; adapter does via binding.origin checks).
+//  F1 src/capture/conversation-thread.mjs parseThread() allowlists chatgpt.com and chat.openai.com.
+//     Lookalike hosts, ports and foreign origins do not mint a thread. `sameThread` still compares
+//     refs only, so two allowlisted hosts can share a ref; durable journal keys remain origin-scoped.
 //  F2 src/capture/thread-identity.mjs:15-28 chatgptConversationClaim() mints a `verified` claim on
 //     ANY https host whose path is /c/<uuid> (no hostname allowlist). Downstream scoping relies on
 //     claim.origin === page.origin only.
@@ -33,18 +31,23 @@ const page = (overrides = {}) => ({
 const adapter = (overrides = {}) => ({ providerId: 'openai', siteId: 'chatgpt', surface: 'chat', origin: 'https://chatgpt.com', kind: 'seed', version: 'seed', ...overrides });
 const claimAt = (origin) => chatgptConversationClaim({ url: `${origin}/c/${UUID}`, captureRef: 'capture-1', sequence: 7 });
 
-test('F1: a thread ref is not an origin check - distinct hosts/ports mint the identical ref', () => {
+test('F1: thread parse is host-allowlisted; sameThread still is not an origin check', () => {
   const real = parseThread('chatgpt', `https://chatgpt.com/c/${UUID}`);
-  for (const url of [`https://evil.example/c/${UUID}`, `https://chatgpt.com:8443/c/${UUID}`,
-    `https://chatgpt.com.evil.test/c/${UUID}`, `https://sub.chatgpt.com/c/${UUID}`]) {
-    const parsed = parseThread('chatgpt', url);
-    assert.deepEqual(parsed, real, `expected host-agnostic parse for ${url}`);
-    assert.equal(sameThread(parsed, real), true, `sameThread must be true across origins for ${url}`);
+  const legacy = parseThread('chatgpt', `https://chat.openai.com/c/${UUID}`);
+  assert.equal(real?.ref, REF);
+  assert.deepEqual(legacy, real);
+  assert.equal(sameThread(real, legacy), true, 'allowlisted hosts can share a ref');
+  // URL.hostname drops the port, so a non-default port still parses. Durable keys stay origin-scoped.
+  assert.equal(parseThread('chatgpt', `https://chatgpt.com:8443/c/${UUID}`)?.ref, REF);
+  for (const url of [`https://evil.example/c/${UUID}`, `https://chatgpt.com.evil.test/c/${UUID}`, `https://sub.chatgpt.com/c/${UUID}`]) {
+    assert.equal(parseThread('chatgpt', url), null, url);
   }
-  // Journal durability IS origin-scoped, so the ref collision cannot merge durable turns.
   assert.notEqual(
     canonicalThreadKey({ namespace: 'ns', origin: 'https://chatgpt.com', thread: real }),
-    canonicalThreadKey({ namespace: 'ns', origin: 'https://evil.example', thread: real }));
+    canonicalThreadKey({ namespace: 'ns', origin: 'https://chat.openai.com', thread: real }));
+  assert.notEqual(
+    canonicalThreadKey({ namespace: 'ns', origin: 'https://chatgpt.com', thread: real }),
+    canonicalThreadKey({ namespace: 'ns', origin: 'https://chatgpt.com:8443', thread: real }));
 });
 
 test('F1: query/fragment/case variants collapse to one ref; malformed routes stay unverified', () => {
@@ -78,11 +81,10 @@ test('F2: only ChatGPT is a supported multi-turn thread; every other provider st
   assert.equal(parseThread('chatgpt', others.claude), null);
   assert.equal(parseThread('chatgpt', others.gemini), null);
   assert.equal(parseThread('chatgpt', others.deepseek), null);
-  // ...but qwen/zai use the same /c/<uuid> shape, so a foreign URL parses as a ChatGPT thread when
-  // the caller passes siteId 'chatgpt'. Provider independence here depends on the caller always
-  // passing the SELECTED adapters id, never a hard-coded 'chatgpt' (cf. src/studio/adapter-probes.mjs:332,384).
-  assert.equal(parseThread('chatgpt', others.qwen)?.ref, REF);
-  assert.equal(parseThread('chatgpt', others.zai)?.ref, REF);
+  // qwen/zai share the /c/<uuid> path, but the host allowlist still refuses them even when
+  // the caller passes siteId 'chatgpt'.
+  assert.equal(parseThread('chatgpt', others.qwen), null);
+  assert.equal(parseThread('chatgpt', others.zai), null);
   assert.equal(parseThread('qwen', others.qwen), null, 'the selected site gate still refuses it');
 });
 

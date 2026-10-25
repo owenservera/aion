@@ -15,7 +15,7 @@ function verified() {
   return {session,acceptance,rawDigest:raw,domDigest:digest};
 }
 test('accepted DOM projection retains cryptographic source provenance without text or DOM handles', async () => {
-  const events = acceptedSessionToAdapterEvents({scope,verified()});
+  const events = acceptedSessionToAdapterEvents({scope, verified: verified()});
   const x=events[0];
   assert.equal(x.observations.length,2);
   assert.equal(x.observations[1].feature,'assistant-turn');

@@ -122,9 +122,15 @@ test('suffix role keys keep one selector form across saved probes, live probes a
 
   // The in-page expression must carry roleMatch out of the page agent.
   assert.match(liveMeasurementExpression(), /roleMatch === 'suffix'/);
+  const roles = [{ attr: 'data-content-search-unit-key', role: 'assistant', match: 'suffix' }, { attr: 'data-message-author-role', role: 'user', match: 'exact' }];
+  const uncounted = probesFromLiveMeasurement({
+    measurement: { readyState: 'complete', url: 'https://chatgpt.com/', startUrl: 'https://chatgpt.com/', battery: {}, prior: {}, roles },
+    origin: 'https://chatgpt.com', captureId: 'live-uncounted',
+  });
+  assert.deepEqual(uncounted.filter((p) => p.feature === 'assistant-turn' || p.feature === 'user-turn'), [], 'a role label without a measured selector count is not presence');
   const live = probesFromLiveMeasurement({
-    measurement: { readyState: 'complete', url: 'https://chatgpt.com/', battery: {}, prior: {},
-      roles: [{ attr: 'data-content-search-unit-key', role: 'assistant', match: 'suffix' }, { attr: 'data-message-author-role', role: 'user', match: 'exact' }] },
+    measurement: { readyState: 'complete', url: 'https://chatgpt.com/', startUrl: 'https://chatgpt.com/', battery: {}, prior: {},
+      roles: roles.map((r) => ({ ...r, count: 1 })) },
     origin: 'https://chatgpt.com', captureId: 'live-x',
   });
   const cands = live.filter((p) => p.feature === 'assistant-turn' || p.feature === 'user-turn').map((p) => `${p.feature} ${p.candidate} ${p.outcome}`);
