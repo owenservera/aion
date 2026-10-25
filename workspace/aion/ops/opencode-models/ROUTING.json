@@ -1,7 +1,7 @@
 {
   "schema": "aion.opencode.models.routing.v1",
   "scope": "OWNER_WINDOWS_MASTER / global OpenCode sessions",
-  "updated_at": "2026-10-25T11:15:36.8006340Z",
+  "updated_at": "2026-10-25T11:19:10.2925291Z",
   "opencode_version_observed": "v2.0.32",
   "precedence": [
     "1. in-session model switch (POST /api/session/{id}/model; affects subsequent turns of that session only)",
@@ -15,7 +15,7 @@
       "lane": "orchestrator",
       "task": "planning, task briefs, synthesis, review triage",
       "model": "opencode/deepseek-v4.1-flash-free",
-      "variant": "high",
+      "variant": "max",
       "tier": "free",
       "smoke": "agent-verified: live preset routing answerable lanes 2026-10-19",
       "availability": "catalog-present-runtime-not-reverified"
@@ -23,12 +23,12 @@
     {
       "lane": "implement",
       "task": "agentic implementation, multi-file fixer lanes",
-      "model": "opencode/minimax-m3.1-flash-free",
+      "model": "opencode/deepseek-v4.1-flash-free",
       "variant": "high",
       "tier": "free",
-      "smoke": "FAILED: fixer dispatch returned Model unavailable on 2026-10-25; session ses_e8d3b6ac6ffecui13AbaI5k27A",
-      "catalog_note": "Absent from complete live free-model catalog (19 entries). Do not route here; no replacement has passed an exact fixer-agent smoke.",
-      "availability": "unavailable-observed"
+      "smoke": "FREE_FIXER_OK via exact fixer-agent dispatch on 2026-10-25; session ses_e8d37f899ffenHPxBS2Hu22QRy; high variant",
+      "catalog_note": "Replacement for observed-unavailable MiniMax route; max not inference-smoked.",
+      "availability": "fixer-high-dispatch-verified"
     },
     {
       "lane": "mechanical",
@@ -43,7 +43,7 @@
       "lane": "explore_readonly",
       "task": "explorer/research/local-librarian read-only search lanes",
       "model": "opencode/deepseek-v4.1-flash-free",
-      "variant": "low",
+      "variant": "high",
       "tier": "free",
       "smoke": "agent-verified: live preset routing 2026-10-19",
       "availability": "catalog-present-runtime-not-reverified"
@@ -61,7 +61,7 @@
       "lane": "council",
       "task": "council seats alpha/beta/gamma/delta + council synthesis",
       "model": "opencode/deepseek-v4.1-flash-free",
-      "variant": "high",
+      "variant": "max",
       "tier": "free",
       "smoke": "KNOWN HAZARD: council synthesis agent returned 403 FreeTierError on 2026-10-19 with a catalogued free model; always smoke the council synthesis agent before routing a long lane",
       "availability": "catalog-present-runtime-not-reverified"
@@ -106,7 +106,7 @@
     "activation_gate": "host contract validation evidence per model-failover/COMPATIBILITY.md; keep inactive until then"
   },
   "catalog_snapshot": {
-    "observed_at": "2026-10-25T11:15:36.8006340Z",
+    "observed_at": "2026-10-25T11:15:36.800634Z",
     "source": "tools.opencode.models({query:'free',limit:100})",
     "total_free_entries": 19,
     "next": null,

@@ -22,3 +22,10 @@ Append-only observed-at receipts for the global model routing system. Every row 
 - Catalog lists no variants for openrouter/cohere/north-mini-code:free (previously none/thinking).
 - No replacement inference verified; no live model configuration, authentication, providers, or presets changed. Previous snapshot retained in ROUTING.json for provenance.
 
+
+## 2026-10-25T11:19:10.2925291Z — owner-authorized free routing repair and reasoning tiers
+- Global zen-free preset: all 10 unavailable MiniMax references replaced with opencode/deepseek-v4.1-flash-free; verified backup before changes.
+- Owner tier request: max for orchestrator/oracle/council and all council seats; high for fixer/designer/explorer/librarian. Catalog offers low/high/max only; xtrhigh/xhigh unsupported and not written.
+- Exact fixer-agent override smoke at high returned FREE_FIXER_OK (ses_e8d37f899ffenHPxBS2Hu22QRy). No max smoke or live default-agent reload claimed.
+- Preserved permissions, skills, MCPs, prompts and concurrency. No restart; existing sessions may retain old routing. Staged inactive supervisor left unchanged.
+
