@@ -46,7 +46,7 @@ function harness(t, { tabs = [], storedRef = null } = {}) {
           findComposer: async () => ({ found: true }), focusComposer: async () => ({ ok: true }),
           sendState: async () => ({ evalOk: true, draftChars: state.draft.length }),
           detectAuthWall: async () => ({ blocked: false }), detectSiteFailure: async () => ({ failed: false }),
-          sleep: async () => {}, readinessTimeoutMs: 300, readinessPollMs: 1, fetchTimeoutMs: 300, connectGraceMs: 50, replyPollMs: 1, replyTimeoutMs: 200,
+          sleep: async () => {}, readinessTimeoutMs: 300, readinessPollMs: 1, fetchTimeoutMs: 300, connectGraceMs: 50, replyPollMs: 1, replyTimeoutMs: 200, replySettleMs: 0,
           fetch: async () => ({ ok: true, json: async () => ({ id: 'created' }) }),
           typeText: async (_page, prompt, opts) => { await opts.beforeInsert?.(); state.insertions++; state.draft = prompt; return { ok: true, typed: prompt }; },
           sendMessage: async (_page, _adapter, hooks) => { await hooks.beforeDispatch?.(); state.sends++; state.afterSend?.(); return { dispatched: true, uncertain: true }; },

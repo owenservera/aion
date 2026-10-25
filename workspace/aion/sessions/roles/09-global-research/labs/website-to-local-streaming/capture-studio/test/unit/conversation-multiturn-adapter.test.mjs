@@ -31,7 +31,7 @@ function fixture({ startAt = 10, overrides = {} } = {}) {
   const binding = { targetId: 'selected', origin: 'https://chatgpt.com', ownedByStudio: false, thread: THREAD };
   const adapter = createConversationBrowserAdapter({ paths: { sessions: 'unused' }, profileStore: { load: () => ({}) }, port: 19222,
     siteAdapter: { id: 'chatgpt', url: 'https://chatgpt.com/' }, targetId: 'selected', freshTab: false, conversationId: 'conv', ownerToken: 'owner',
-    dependencies: { Recorder: FakeRecorder, listSessions: () => [], replyPollMs: 1, replyTimeoutMs: 40, checkAgainTimeoutMs: 5, readinessPollMs: 1, sleep: async () => {},
+    dependencies: { Recorder: FakeRecorder, listSessions: () => [], replyPollMs: 1, replyTimeoutMs: 40, replySettleMs: 0, checkAgainTimeoutMs: 5, readinessPollMs: 1, sleep: async () => {},
       listTargets: async () => [{ id: 'selected', url: `https://chatgpt.com${pathname}` }],
       evaluate: async (_, expression) => expression === 'location.pathname' ? pathname : 'https://chatgpt.com',
       findComposer: async () => ({ found: composer }), focusComposer: async () => ({ ok: true }), tracePage: (m) => calls.push([m]),
@@ -206,5 +206,70 @@ test('read-only readiness check with no armed capture constructs no recorder and
   f.setComposer(true); f.setPathname('/c/22222222-2222-4222-8222-222222222222');
   assert.equal((await f.adapter.preflight(undefined, { readOnly: true })).reason, 'BINDING_CHANGED');
   assert.equal(f.calls.slice(before).some(([n]) => ['recorder', 'type', 'send', 'own-session', 'Page.bringToFront'].includes(n)), false);
+  await f.adapter.stop();
+});
+
+// Regression for the measured 49-char premature completion: ChatGPT renders a table header,
+// reports an idle send control between chunks, then adds the rows later. Two fast identical
+// samples must not be enough.
+const HEADER = 'ChatGPT said:\nInput Output\nBound Applied';
+const RICH = `${HEADER}\n\n| Bound | Applied |\n| --- | --- |\n| 10 | yes |\n| 20 | yes |\n| 30 | yes |\nThe rows above show three bound values.`;
+const BUSY = { observed: true, state: 'busy', idleControlPresent: false, stopPresent: true, composerEnabled: false };
+
+function replyFixture(t, { rowsAt = 5, controls = () => IDLE, settleMs = 1600 } = {}) {
+  const clock = { t: 0 };
+  const script = { polls: 0, messages: [msg('u0', 'user', 'first prompt'), msg('a0', 'assistant', 'first answer')],
+    showReply: false, rowsAt, controls, draft: '', phase: 'send' };
+  const f = fixture({ overrides: {
+    readTurnPage: async () => { script.polls++;
+      const messages = structuredClone(script.messages);
+      if (script.showReply) messages.push(msg('a1', 'assistant', script.polls >= script.rowsAt ? RICH : HEADER));
+      return { origin: 'https://chatgpt.com', pathname: `/c/${THREAD_ID}`, messages,
+        draft: { text: script.draft, chars: script.draft.length }, controls: structuredClone(script.controls()) }; },
+    typeText: async (_, prompt, options) => { await options.beforeInsert(); script.draft = prompt; return { ok: true, typed: prompt }; },
+    sendState: async () => ({ evalOk: true, draftChars: script.draft.length }),
+    sendMessage: async () => { script.draft = ''; return { dispatched: true }; },
+    sleep: async () => { clock.t += 400; }, now: () => clock.t,
+    replySettleMs: settleMs, replyTimeoutMs: 60000, replyPollMs: 1,
+  } });
+  return { f, script, clock };
+}
+
+test('delayed table rows after an early idle header are never published as ready (real quiet window)', async (t) => {
+  const { f, script } = replyFixture(t, { rowsAt: 5 });
+  await f.connectAndArm();
+  const prompt = 'table prompt';
+  await f.sendTurn('turn-table', prompt);
+  script.messages = [...script.messages, msg('u1', 'user', prompt)];
+  await f.adapter.reconcile(f.args('turn-table', prompt));
+  script.polls = 0; script.showReply = true; script.phase = 'reply';
+  const updates = [];
+  const result = await f.adapter.readReply((u) => updates.push(u), { turnId: 'turn-table', payloadDigest: f.digestOf(prompt), threadKey: 'k' });
+  assert.equal(result.state, 'ready');
+  assert.equal(result.text, RICH, 'rows and the explanatory sentence are kept');
+  assert.equal(result.evidence.chars, RICH.length);
+  assert.ok(updates.some((u) => u.state === 'streaming' && u.text === HEADER), 'the early header was observed but not finalized');
+  assert.equal(updates.filter((u) => u.state === 'ready').length, 1);
+  assert.equal(updates.find((u) => u.state === 'ready').text, RICH);
+  assert.equal(updates.some((u) => u.state === 'ready' && u.text === HEADER), false, 'no ready checkpoint on the header');
+  await f.adapter.stop();
+});
+
+test('idle control transition after stable content still has to complete the quiet window', async (t) => {
+  const { f, script } = replyFixture(t, { rowsAt: 1, controls: () => (script.phase !== 'reply' || script.polls >= 6 ? IDLE : BUSY) });
+  await f.connectAndArm();
+  const prompt = 'late idle prompt';
+  await f.sendTurn('turn-idle', prompt);
+  script.messages = [...script.messages, msg('u1', 'user', prompt)];
+  await f.adapter.reconcile(f.args('turn-idle', prompt));
+  script.showReply = true; script.polls = 0; script.phase = 'reply';
+  const updates = [];
+  const result = await f.adapter.readReply((u) => updates.push(u), { turnId: 'turn-idle', payloadDigest: f.digestOf(prompt), threadKey: 'k' });
+  assert.equal(result.state, 'ready'); assert.equal(result.text, RICH);
+  const ready = updates.filter((u) => u.state === 'ready');
+  assert.equal(ready.length, 1); assert.equal(ready[0].text, RICH);
+  assert.equal(ready[0].readiness.controls.state, 'idle');
+  assert.equal(updates.some((u) => u.state === 'ready' && u.readiness.controls.state !== 'idle'), false);
+  assert.ok(updates.filter((u) => u.state === 'streaming').length >= 4, 'busy controls kept the reply streaming, not ready');
   await f.adapter.stop();
 });

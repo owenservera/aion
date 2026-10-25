@@ -39,9 +39,13 @@ export async function readUserTurns(page) {
 
 export function createConversationBrowserAdapter({ paths, profileStore, familyStore, port, siteAdapter, targetId,
   freshTab, conversationId, ownerToken, maxBytes = 0, dependencies = {} } = {}) {
+  // replySettleMs/replySettlePolls: interactive-ready needs the SAME reply content observed across
+  // a real quiet window with positively idle controls. Two fast identical samples are not enough:
+  // a table/code block can render its header first, look idle between chunks, then add rows several
+  // hundred ms later. This only lengthens OBSERVATION; it never sends, retries or grants acceptance.
   const d = { listTargets, listSessions, Recorder, CdpConnection, browserWsUrl, fetch: globalThis.fetch, evaluate, findComposer, focusComposer,
     typeText, sendMessage, sendState, readTranscript, waitForCompletion, readUserTurns, detectAuthWall, detectSiteFailure,
-    readTurnPage, sleep, replyPollMs: 250, replyTimeoutMs: 120000,
+    readTurnPage, sleep, now: () => Date.now(), replyPollMs: 250, replyTimeoutMs: 120000, replySettleMs: 2000, replySettlePolls: 2,
     readinessTimeoutMs: 20000, readinessPollMs: 200, checkAgainTimeoutMs: 3000, fetchTimeoutMs: 10000, connectGraceMs: 2000, ...dependencies };
   let recorder, binding, pending, stopResult, tap, idlePage, idleConn, connectHooks;
   const attempts = new Map();
@@ -494,6 +498,9 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
       const saved = attempts.get(args.turnId);
       if (!saved?.outgoing || saved.payloadDigest !== args.payloadDigest) throw problem('ATTRIBUTABLE_DELIVERY_REQUIRED');
       const end = Date.now() + d.replyTimeoutMs;
+      // Interactive-ready requires content stability over wall-clock time, not merely two adjacent
+      // polls: a late table body or code block must not be cut off by an early idle control.
+      saved.stable = null;
       while (!waiting.signal.aborted && Date.now() < end) {
         const page = await pageState(), index = page.messages.findIndex((m) => m.id === saved.outgoing.identity && m.role === 'user');
         // The turn's own user message must sit directly after the pre-send baseline, and everything before it must be
@@ -502,7 +509,13 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
         const candidate = index < 0 ? null : page.messages[index + 1];
         if (candidate?.role === 'assistant' && !saved.baseline.some((m) => m.id === candidate.id)) {
           const update = sampleReply(saved, candidate, page.controls);
-          if (saved.samples.length === 2 && idleControls(page.controls) && candidate.text.length > 0) {
+          const stamp = d.now(), contentDigest = update.evidence.contentDigest;
+          if (saved.stable?.digest !== contentDigest) saved.stable = { digest: contentDigest, since: stamp, polls: 1 };
+          else saved.stable.polls++;
+          const quietFor = stamp - saved.stable.since;
+          const settled = saved.samples.length >= 2 && saved.stable.polls >= d.replySettlePolls
+            && quietFor >= d.replySettleMs;
+          if (settled && idleControls(page.controls) && candidate.text.length > 0) {
             update.state = 'ready';
             update.readiness = { ...update.evidence, kind: 'interactive-ready', source: 'adapter', rule: 'chatgpt-controls-idle', ruleVersion: 1,
               threadKey: args.threadKey, boundarySequence: saved.boundary.sequence, samples: structuredClone(saved.samples), controls: page.controls };

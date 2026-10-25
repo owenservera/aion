@@ -58,7 +58,7 @@ function fixture(t) {
       findComposer: async () => ({ found: true }), focusComposer: async () => ({ ok: true }),
       sendState: async () => ({ evalOk: true, draftChars: state.draft.length }),
       detectAuthWall: async () => ({ blocked: false }), detectSiteFailure: async () => ({ failed: false }),
-      sleep: tick, replyPollMs: 1, replyTimeoutMs: 500,
+      sleep: tick, replyPollMs: 1, replyTimeoutMs: 500, replySettleMs: 0,
       sendMessage: async (_, __, hooks) => {
         if (state.mode === 'nav-submit') state.pathname = '/';
         await hooks.beforeDispatch();

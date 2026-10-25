@@ -10,6 +10,7 @@ import { createConversationBrowserAdapter } from './conversation-browser-adapter
 import { acquireDriveLease } from './drive-lease.mjs';
 import { parseThread, threadSupported, TRANSCRIPT_LIMITS } from './conversation-thread.mjs';
 import { buildCapabilityCapsule } from './conversation-capsule.mjs';
+import { captureConversationEvidence } from './conversation-evidence.mjs';
 import { readChatIndex } from './chatgpt-chat-index-reader.mjs';
 
 const fail = (status, code) => Object.assign(new Error(code), { status, code });
@@ -24,7 +25,8 @@ const leaseFailure = (e) => ({ code: /^[A-Z][A-Z0-9_]{0,79}$/.test(e?.code ?? ''
 
 export function createConversationRuntime({ paths, profileStore, familyStore, port = 9222, dependencies = {} } = {}) {
   const d = { listTargets, getAdapter, createAdapter: createConversationBrowserAdapter, acquireLease: acquireDriveLease,
-    listSessions, readChatIndex, ownerIsAlive: (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code !== 'ESRCH'; } },
+    listSessions, readChatIndex, captureEvidence: captureConversationEvidence,
+    ownerIsAlive: (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code !== 'ESRCH'; } },
     maxDurationMs: 15 * 60 * 1000, maxBytes: 256 * 1024 * 1024, ...dependencies };
   const directory = path.join(paths.root, 'conversations');
   mkdirSync(directory, { recursive: true });
@@ -82,6 +84,35 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
     const pid = header?.owner?.pid;
     return { service, adapter: {}, recovered: false, readOnly: true, pure: true, ownerAlive: Number.isInteger(pid) && pid > 0 && d.ownerIsAlive(pid) };
   }
+  // Bounded local evidence telemetry. These are OBSERVATIONS only: no browser effect, no snapshot
+  // write, no journal mutation, no acceptance. A failed evidence write is reported on the entry so
+  // the view can say so; it can never stop capture, resend, or make an unfinished capture complete.
+  function noteEvidence(entry, event, data = {}) {
+    entry.evidenceTimeline ??= [];
+    entry.evidenceTimeline.push({ at: new Date().toISOString(), event, ...data });
+    if (entry.evidenceTimeline.length > 200) entry.evidenceTimeline.splice(0, entry.evidenceTimeline.length - 200);
+  }
+  function preserveEvidence(entry, trigger) {
+    const run = async () => {
+      const at = new Date().toISOString();
+      try {
+        const snapshot = entry.service.read();
+        let journal = null, journalError = null;
+        try { journal = entry.service.journalSnapshot(); }
+        catch (e) { journalError = { code: e?.code ?? 'JOURNAL_UNAVAILABLE', message: String(e?.message ?? e).slice(0, 300) }; }
+        const out = await d.captureEvidence({ directory, id: entry.service.id, view: snapshot, journal, journalError,
+          trigger, paths, timeline: entry.evidenceTimeline ?? [] });
+        entry.evidence = { state: 'preserved', revision: out.revision, at: out.preservedAt ?? at, trigger,
+          file: out.file, skipped: out.skipped === true, turns: out.turns, sessions: out.sessions,
+          gaps: out.gaps ?? [], failures: out.failures ?? 0 };
+      } catch (e) {
+        entry.evidence = { state: 'failed', code: /^[A-Z][A-Z0-9_]{0,79}$/.test(e?.code ?? '') ? e.code : 'EVIDENCE_WRITE_FAILED',
+          message: String(e?.message ?? e).slice(0, 300), at, trigger };
+      }
+    };
+    entry.evidenceWork = (entry.evidenceWork ?? Promise.resolve()).then(run, run);
+    return entry.evidenceWork;
+  }
   function view(entry, summary = false, selectedTurn) {
     const s = entry.service.read(), a = selectedTurn ?? s.attempts.at(-1);
     const pending = !!entry.pure && !s.finish.requested && s.state !== 'disconnected' && !entry.ownerAlive;
@@ -108,6 +139,9 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
       // proves a fresh window or a later release succeeds.
       writer: { active: !!(entry.lease || entry.leaseReleaseError), releaseError: entry.leaseReleaseError ?? null },
       diagnostic: { finishPhase: s.finish.phase, finishError: s.finish.error ?? null, uncertainty: s.uncertainty },
+      // Additive local evidence summary. null means no checkpoint was attempted yet; failed means the
+      // last best-effort write did not land (the capture lifecycle itself is unaffected).
+      evidence: entry.evidence ?? null,
       reply, capture, limitations: [...s.limitations, ...(entry.recovered ? ['Recovered snapshot only; interrupted capture ownership requires reconciliation, never automatic replay'] : []),
         ...(pending ? ['Stored snapshot read without recovery; the owning process is gone, so its state is stale until an explicit reconcile, finish or recover'] : [])] };
   }
@@ -126,8 +160,14 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
             // Only a confirmed stop makes capture idle (a next turn may then arm a fresh one); a failed stop
             // is recorded as incomplete and blocks the next turn instead of pretending it was finalized.
             let stopped = true;
+            noteEvidence(entry, 'reply-terminal', { turnId: attempt.id, state: update.state,
+              chars: typeof update.text === 'string' ? update.text.length : null,
+              sequence: update.evidence?.sequence ?? null, identity: update.evidence?.identity ?? null,
+              readiness: update.readiness?.rule ?? null });
             await entry.adapter.stopTurnCapture?.().catch(() => { stopped = false; });
             await entry.service.recordCapture({ state: stopped ? 'idle' : 'incomplete' }).catch(() => {});
+            noteEvidence(entry, 'turn-capture-stopped', { turnId: attempt.id, state: stopped ? 'idle' : 'incomplete' });
+            await preserveEvidence(entry, 'turn');
           }
           return saved;
         }); return writes;
@@ -162,6 +202,10 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
         bytesWritten: entry.adapter.bytesWritten ?? 0, limitReason: entry.adapter.limitReason ?? entry.service.read().capture.limitReason });
       // A failed stop leaves resources/lease owned. Do not pretend a later close/restart fixed it.
       if (entry.service.read().finish.captureStopped || entry.service.read().finish.phase === 'done') entry.writer?.release();
+      noteEvidence(entry, 'finish', { phase: entry.service.read().finish.phase, requested: entry.service.read().finish.requested });
+      // Preserve the finalized local evidence AFTER capture/finish are recorded, and never let this
+      // write affect the returned lifecycle truth.
+      await preserveEvidence(entry, 'finish');
       return view(entry);
     })();
     return entry.finishing;
@@ -420,9 +464,15 @@ export function createConversationRuntime({ paths, profileStore, familyStore, po
           // Reply attribution starts only after a bound, observed delivery. A creation send that
           // never pinned does not reach send.state observed, so it does not read a reply.
           try {
+            if (attempt.send.state === 'observed') noteEvidence(entry, 'turn-observed', { turnId: attempt.id,
+              sessionId: attempt.send.evidence?.sessionId ?? null, sequence: attempt.send.evidence?.sequence ?? null,
+              source: attempt.send.evidence?.kind ?? null });
             if (attempt.send.state === 'observed' && !entry.finishing && entry.service.read().attempts.some((a) => a.id === attempt.id)) await observeReply(entry, attempt);
           } finally {
-            if (!entry.finishing) await entry.adapter.stopTurnCapture?.().catch(() => {});
+            if (!entry.finishing) {
+              await entry.adapter.stopTurnCapture?.().catch(() => {});
+              await preserveEvidence(entry, 'turn');
+            }
           }
         }).catch(async (e) => {
           await entry.adapter.stopTurnCapture?.().catch(() => {});

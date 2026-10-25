@@ -466,7 +466,7 @@ function browserFixture({ freshTab = false, readinessDependencies = {} } = {}) {
       readTranscript: async () => ({ last: 'old answer', count: 1 }),
       typeText: async (page, prompt, options) => { await options.beforeInsert(); calls.push(['type', prompt]); draft = prompt; draftChars = prompt.length; return { ok: true, typed: prompt }; },
       sendMessage: async () => { calls.push(['send']); return { uncertain: true }; },
-      waitForCompletion: async () => ({ done: true, text: 'page answer' }),
+      waitForCompletion: async () => ({ done: true, text: 'page answer' }), replySettleMs: 0,
       detectAuthWall: async () => ({ blocked: false }), detectSiteFailure: async () => ({ failed: false }),
       ...readinessDependencies,
     } });
