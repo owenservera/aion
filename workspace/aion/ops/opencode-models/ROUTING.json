@@ -1,7 +1,7 @@
 {
   "schema": "aion.opencode.models.routing.v1",
   "scope": "OWNER_WINDOWS_MASTER / global OpenCode sessions",
-  "updated_at": "2026-10-19T13:05:00Z",
+  "updated_at": "2026-10-25T11:15:36.8006340Z",
   "opencode_version_observed": "v2.0.32",
   "precedence": [
     "1. in-session model switch (POST /api/session/{id}/model; affects subsequent turns of that session only)",
@@ -17,7 +17,8 @@
       "model": "opencode/deepseek-v4.1-flash-free",
       "variant": "high",
       "tier": "free",
-      "smoke": "agent-verified: live preset routing answerable lanes 2026-10-19"
+      "smoke": "agent-verified: live preset routing answerable lanes 2026-10-19",
+      "availability": "catalog-present-runtime-not-reverified"
     },
     {
       "lane": "implement",
@@ -25,8 +26,9 @@
       "model": "opencode/minimax-m3.1-flash-free",
       "variant": "high",
       "tier": "free",
-      "smoke": "CLI smoke OPENCODE_OK exit 0 at 2026-10-19T12:52:38Z",
-      "catalog_note": "ABSENT from catalog at 2026-10-19T13:01Z and 13:09Z probes (possible replacement: opencode/minimax-m3, no variants). Do not retarget without a fresh snapshot AND an agent-type smoke; catalog≠access also means an unlisted-but-smoked ID needs re-verification."
+      "smoke": "FAILED: fixer dispatch returned Model unavailable on 2026-10-25; session ses_e8d3b6ac6ffecui13AbaI5k27A",
+      "catalog_note": "Absent from complete live free-model catalog (19 entries). Do not route here; no replacement has passed an exact fixer-agent smoke.",
+      "availability": "unavailable-observed"
     },
     {
       "lane": "mechanical",
@@ -34,7 +36,8 @@
       "model": "opencode/mimo-v2.6-flash-free",
       "variant": null,
       "tier": "free",
-      "smoke": "not smoked this day; no variants exist"
+      "smoke": "not smoked this day; no variants exist",
+      "availability": "catalog-present-runtime-not-reverified"
     },
     {
       "lane": "explore_readonly",
@@ -42,7 +45,8 @@
       "model": "opencode/deepseek-v4.1-flash-free",
       "variant": "low",
       "tier": "free",
-      "smoke": "agent-verified: live preset routing 2026-10-19"
+      "smoke": "agent-verified: live preset routing 2026-10-19",
+      "availability": "catalog-present-runtime-not-reverified"
     },
     {
       "lane": "designer",
@@ -50,7 +54,8 @@
       "model": "opencode/deepseek-v4.1-flash-free",
       "variant": "high",
       "tier": "free",
-      "smoke": "agent-verified: live preset routing 2026-10-19"
+      "smoke": "agent-verified: live preset routing 2026-10-19",
+      "availability": "catalog-present-runtime-not-reverified"
     },
     {
       "lane": "council",
@@ -58,7 +63,8 @@
       "model": "opencode/deepseek-v4.1-flash-free",
       "variant": "high",
       "tier": "free",
-      "smoke": "KNOWN HAZARD: council synthesis agent returned 403 FreeTierError on 2026-10-19 with a catalogued free model; always smoke the council synthesis agent before routing a long lane"
+      "smoke": "KNOWN HAZARD: council synthesis agent returned 403 FreeTierError on 2026-10-19 with a catalogued free model; always smoke the council synthesis agent before routing a long lane",
+      "availability": "catalog-present-runtime-not-reverified"
     },
     {
       "lane": "acceptance_high_stakes",
@@ -74,7 +80,8 @@
       "model": "opencode/glm-5.3-flash-free",
       "variant": "high",
       "tier": "free",
-      "smoke": "not smoked this day"
+      "smoke": "not smoked this day",
+      "availability": "catalog-present-runtime-not-reverified"
     }
   ],
   "variant_exemptions": [
@@ -99,6 +106,165 @@
     "activation_gate": "host contract validation evidence per model-failover/COMPATIBILITY.md; keep inactive until then"
   },
   "catalog_snapshot": {
+    "observed_at": "2026-10-25T11:15:36.8006340Z",
+    "source": "tools.opencode.models({query:'free',limit:100})",
+    "total_free_entries": 19,
+    "next": null,
+    "providers": {
+      "opencode": [
+        {
+          "id": "opencode/flint-40b-free",
+          "variants": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/nemotron-3.5-super-vl-free",
+          "variants": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/beam-free",
+          "variants": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/mimo-v2.6-flash-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "opencode/deepseek-v4.1-flash-free",
+          "variants": [
+            "low",
+            "high",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/glm-5.3-flash-free",
+          "variants": [
+            "low",
+            "high",
+            "max"
+          ],
+          "status": "active"
+        }
+      ],
+      "free": [
+        {
+          "id": "free/free/deepseek-v4-flash-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/big-pickle",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/minimax-m2.5-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/nemotron-3-super-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/qwen3.6-plus-free",
+          "variants": [],
+          "status": "active"
+        }
+      ],
+      "openrouter": [
+        {
+          "id": "openrouter/recursive/flint-v1.0:free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/nvidia/nemotron-3.5-super-vl:free",
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/liquid/lfm-2.5-2.6b:free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/thinkingmachines/inkling-small:free",
+          "variants": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/cohere/north-mini-code:free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/google/gemma-4-31b-it:free",
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/openrouter/free",
+          "variants": [],
+          "status": "active"
+        }
+      ]
+    },
+    "note": "Catalog presence and zero catalog price are not proof of inference access. Free-provider entries have no pricing metadata. No new inference smoke performed."
+  },
+  "catalog_hazards": [
+    "catalog churn is bidirectional: space-bunny-free returned 0 results at 2026-10-19T12:29Z and reappeared active at 2026-10-19T13:01Z same day",
+    "exact provider-prefixed IDs only; a bare minimax-m3.1-flash-free is not a model reference",
+    "free-tier access is entrypoint-dependent: smoke the exact agent type, not just the model",
+    "variant sets differ per model: mimo has none, minimax reaches xhigh, deepseek stops at max"
+  ],
+  "previous_catalog_snapshot": {
     "observed_at": "2026-10-19T13:01:29Z",
     "source": "tools.opencode.models({query:'free',limit:60})",
     "total_free_entries": 22,
@@ -106,52 +272,257 @@
       "observed_at": "2026-10-19T13:09:26Z",
       "source": "tools.opencode.models({query:'minimax',limit:60}); tools.opencode.models({query:'gpt-6.1-sol',limit:60})",
       "models": [
-        { "id": "opencode/minimax-m3", "variants": [], "status": "active" },
-        { "id": "free/free/minimax-m2.5-free", "variants": [], "status": "active" },
-        { "id": "huggingface/MiniMaxAI/MiniMax-M3", "variants": [], "status": "active" },
-        { "id": "openrouter/minimax/minimax-m3", "variants": ["none", "thinking"], "status": "active" },
-        { "id": "the-grid-ai/minimax-latest", "variants": ["low", "medium", "high"], "status": "active" },
-        { "id": "openai/gpt-6.1-sol", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
-        { "id": "opencode/gpt-6.1-sol", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
-        { "id": "openrouter/openai/gpt-6.1-sol", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
-        { "id": "openrouter/openai/gpt-6.1-sol-pro", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" }
+        {
+          "id": "opencode/minimax-m3",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/minimax-m2.5-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "huggingface/MiniMaxAI/MiniMax-M3",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/minimax/minimax-m3",
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "the-grid-ai/minimax-latest",
+          "variants": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "openai/gpt-6.1-sol",
+          "variants": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/gpt-6.1-sol",
+          "variants": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/openai/gpt-6.1-sol",
+          "variants": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "openrouter/openai/gpt-6.1-sol-pro",
+          "variants": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "status": "active"
+        }
       ],
       "note": "supplements verify lane-targeted models beyond the free-only snapshot; absence of opencode/minimax-m3.1-flash-free in both the snapshot and the targeted minimax probe is a confirmed catalog exit"
-    },    "providers": {
+    },
+    "providers": {
       "opencode": [
-        { "id": "opencode/nemotron-3.5-super-vl-free", "variants": ["none", "minimal", "low", "medium", "high", "xhigh"], "status": "active" },
-        { "id": "opencode/beam-free", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
-        { "id": "opencode/longcat-2.5-preview-free", "variants": [], "status": "active" },
-        { "id": "opencode/space-bunny-free", "variants": ["low", "medium", "high", "xhigh", "max"], "status": "active" },
-        { "id": "opencode/mimo-v2.6-flash-free", "variants": [], "status": "active" },
-        { "id": "opencode/deepseek-v4.1-flash-free", "variants": ["low", "high", "max"], "status": "active" },
-        { "id": "opencode/glm-5.3-flash-free", "variants": ["low", "high", "max"], "status": "active" }
+        {
+          "id": "opencode/nemotron-3.5-super-vl-free",
+          "variants": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/beam-free",
+          "variants": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/longcat-2.5-preview-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "opencode/space-bunny-free",
+          "variants": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/mimo-v2.6-flash-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "opencode/deepseek-v4.1-flash-free",
+          "variants": [
+            "low",
+            "high",
+            "max"
+          ],
+          "status": "active"
+        },
+        {
+          "id": "opencode/glm-5.3-flash-free",
+          "variants": [
+            "low",
+            "high",
+            "max"
+          ],
+          "status": "active"
+        }
       ],
       "free": [
-        { "id": "free/free/deepseek-v4-flash-free", "variants": [], "status": "active" },
-        { "id": "free/free/big-pickle", "variants": [], "status": "active" },
-        { "id": "free/free/minimax-m2.5-free", "variants": [], "status": "active" },
-        { "id": "free/free/nemotron-3-super-free", "variants": [], "status": "active" },
-        { "id": "free/free/qwen3.6-plus-free", "variants": [], "status": "active" }
+        {
+          "id": "free/free/deepseek-v4-flash-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/big-pickle",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/minimax-m2.5-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/nemotron-3-super-free",
+          "variants": [],
+          "status": "active"
+        },
+        {
+          "id": "free/free/qwen3.6-plus-free",
+          "variants": [],
+          "status": "active"
+        }
       ],
       "openrouter": [
-        { "variants": ["none", "thinking"], "id": "openrouter/xingchen-agi/xing4.0-29b-a4b:free", "status": "active" },
-        { "variants": ["none", "thinking"], "id": "openrouter/nvidia/nemotron-3.5-super-vl:free", "status": "active" },
-        { "variants": ["none", "thinking"], "id": "openrouter/dots-studio/dots-3-note-preview:free", "status": "active" },
-        { "variants": [], "id": "openrouter/liquid/lfm-2.5-2.6b:free", "status": "active" },
-        { "variants": ["none", "minimal", "low", "medium", "high", "max"], "id": "openrouter/thinkingmachines/inkling-small:free", "status": "active" },
-        { "variants": ["none", "thinking"], "id": "openrouter/poolside/laguna-s-2.1:free", "status": "active" },
-        { "variants": ["none", "thinking"], "id": "openrouter/poolside/laguna-xs-2.1:free", "status": "active" },
-        { "variants": ["none", "thinking"], "id": "openrouter/cohere/north-mini-code:free", "status": "active" },
-        { "variants": ["none", "thinking"], "id": "openrouter/google/gemma-4-26b-a4b-it:free", "status": "active" },
-        { "variants": [], "id": "openrouter/openrouter/free", "status": "active" }
+        {
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "id": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+          "status": "active"
+        },
+        {
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "id": "openrouter/nvidia/nemotron-3.5-super-vl:free",
+          "status": "active"
+        },
+        {
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "id": "openrouter/dots-studio/dots-3-note-preview:free",
+          "status": "active"
+        },
+        {
+          "variants": [],
+          "id": "openrouter/liquid/lfm-2.5-2.6b:free",
+          "status": "active"
+        },
+        {
+          "variants": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "max"
+          ],
+          "id": "openrouter/thinkingmachines/inkling-small:free",
+          "status": "active"
+        },
+        {
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "id": "openrouter/poolside/laguna-s-2.1:free",
+          "status": "active"
+        },
+        {
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "id": "openrouter/poolside/laguna-xs-2.1:free",
+          "status": "active"
+        },
+        {
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "id": "openrouter/cohere/north-mini-code:free",
+          "status": "active"
+        },
+        {
+          "variants": [
+            "none",
+            "thinking"
+          ],
+          "id": "openrouter/google/gemma-4-26b-a4b-it:free",
+          "status": "active"
+        },
+        {
+          "variants": [],
+          "id": "openrouter/openrouter/free",
+          "status": "active"
+        }
       ]
     }
-  },
-  "catalog_hazards": [
-    "catalog churn is bidirectional: space-bunny-free returned 0 results at 2026-10-19T12:29Z and reappeared active at 2026-10-19T13:01Z same day",
-    "exact provider-prefixed IDs only; a bare minimax-m3.1-flash-free is not a model reference",
-    "free-tier access is entrypoint-dependent: smoke the exact agent type, not just the model",
-    "variant sets differ per model: mimo has none, minimax reaches xhigh, deepseek stops at max"
-  ]
+  }
 }
