@@ -1,0 +1,45 @@
+{
+  "name": "@datalayer/personal-agent-protocol",
+  "version": "0.26.0",
+  "description": "TypeScript SDK for Personal Agent Protocol draft 0.2 (2026-10-18) and its Operations extension v1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/datalayer/personal-agent-protocol.git"
+  },
+  "type": "module",
+  "license": "BSD-3-Clause",
+  "sideEffects": false,
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
+    },
+    "./server": {
+      "types": "./lib/server.d.ts",
+      "import": "./lib/server.js"
+    }
+  },
+  "files": ["lib", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && esbuild src/index.ts src/server.ts src/demo/manzanita.ts --bundle --splitting --platform=neutral --format=esm --sourcemap --outdir=lib --outbase=src --external:node:*",
+    "build:lib": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test src/__tests__/*.test.mjs",
+    "watch:lib": "tsc -w -p tsconfig.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@datalayer/reactor": "^1.0.5",
+    "jose": "^6.2.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.3"
+  }
+}
