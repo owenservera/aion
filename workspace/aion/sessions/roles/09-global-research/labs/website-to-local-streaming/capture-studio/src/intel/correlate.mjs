@@ -8,6 +8,7 @@
 // Each hypothesis carries features, score and a status: likely | ambiguous | conflict | weak.
 import { shingles, containment } from './identity.mjs';
 import { normalizeText } from './similarity.mjs';
+import { sourcesCompatible } from './join.mjs';
 
 const sigmoid = (x) => 1 / (1 + Math.exp(-x));
 const STREAMING = new Set(['HTTP_SSE', 'HTTP_NDJSON', 'HTTP_STREAMED', 'EVENT_SOURCE', 'WEBSOCKET']);
@@ -67,7 +68,7 @@ export function correlateRendered(subjects, elements, { minScore = 0.35 } = {}) 
     const sSh = shingles(vals.filter((v) => v.length > 20).join(' '));
     const totalW = [...sTok].reduce((a, t) => a + idf(t), 0) || 1;
     const candidates = new Set(); for (const token of sTok) for (const i of postings.get(token) ?? []) candidates.add(i);
-    const scored = [...candidates].map((i) => {
+    const scored = [...candidates].filter((i) => sourcesCompatible(s.source ?? null, elements[i].source ?? null)).map((i) => {
       const e = elements[i];
       let w = 0; for (const t of sTok) if (elTok[i].has(t)) w += idf(t);
       const tfidf = w / totalW;
