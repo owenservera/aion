@@ -40,3 +40,6 @@ G0 current-Harness reality and open design choices; G1 rich local read; G2 save/
 
 ## Effort allocation
 LOW: contained edits and UX refinements → Z.ai. MED: local feature wiring and focused tests → Z.ai. HIGH: Z.ai implementation plus ChatGPT deep analysis separately. MAX: owner-local models and PRODUCT Agent for architecture, identity/security/irreversible trade-offs. ChatGPT work prompts should use **High thinking effort** for P1–P3 and P5; **High** for local review briefs.
+
+## Budget clarification (owner, 2026-10-25)
+The screenshot at chatgpt.com/settings/usage displays the owner's shared **local Work/Codex/Workspace Agents/Excel** five-hour and weekly percentage allowance. **Do not allocate or ration this PRODUCT AGENT's chat reasoning against those numbers.** API billed usage is also a separate budget, not evidenced by the screenshot. Route heavyweight product discovery/architecture synthesis to this ChatGPT conversation where available; preserve the owner's constrained local model/Work quota for tasks requiring local machine/runtime access, engineering execution and validation. Other local providers and Z.ai have their own distinct budgets. Only P1 ran by owner request; this budget note does not authorize P2–P6.
