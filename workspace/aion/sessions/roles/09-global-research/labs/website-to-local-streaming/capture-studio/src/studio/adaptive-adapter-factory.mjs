@@ -1,7 +1,20 @@
 // Agent 14 — generic, pure, evidence-weighted adapter candidate compiler.
 // Does not run CDP, execute DOM selectors, invoke a sender, or modify the current profile.
 // Existing Capture Studio capture/intelligence components produce the observations.
+import { createHash } from 'node:crypto';
 export const FACTORY_SCHEMA = 'aion.adaptive-webapp-adapter/1';
+
+// Canonical (sorted-key) JSON so a JSON round-trip through a client cannot change the digest.
+const canonical = (v) => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
+  : v && typeof v === 'object' ? `{${Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`
+  : JSON.stringify(v ?? null);
+// Content digest of a candidate: everything the factory derived from evidence. Server-side
+// stamps added after synthesis (`digest` itself, `basis`) are excluded.
+export function candidateDigest(candidate) {
+  if (!candidate || typeof candidate !== 'object') throw new TypeError('INVALID_CANDIDATE');
+  const { digest: _d, basis: _b, ...content } = candidate;
+  return createHash('sha256').update(canonical(content)).digest('hex');
+}
 
 const FEATURES = Object.freeze([
   'composer', 'send-control', 'user-turn', 'assistant-turn', 'stop-control',
@@ -102,25 +115,37 @@ export function synthesizeWebappAdapter({ siteId, origin, surface = 'chat', obse
         || (a.provenance.contradicted - b.provenance.contradicted)
         || (b.confidence - a.confidence) || compare(a.candidate, b.candidate));
     const best = ranked.find(x => x.status === 'shadow-ready') ?? ranked.find(x => x.provenance.positive > 0) ?? null;
-    const selected = best ?? (prior?.features?.[feature]?.selected ?? null);
     const previousPresent = old && ranked.find(x => x.candidate === old);
-    if (old && previousPresent && previousPresent.provenance.contradicted > 0)
+    const previousContradicted = !!(previousPresent && previousPresent.provenance.contradicted > 0);
+    // Fail closed on drift: a prior rule that fresh evidence contradicts is never carried forward
+    // with its old (possibly shadow-ready) status. Without a supported replacement the feature
+    // becomes unselected and the retired rule is recorded instead of silently inherited.
+    const inheritable = !best && !previousContradicted && !!prior?.features?.[feature]?.selected;
+    const selected = best ?? (inheritable ? prior.features[feature].selected : null);
+    if (previousContradicted)
       drift.push({ feature, previousCandidate: old, reason: 'PREVIOUS_CANDIDATE_NEGATIVE_OBSERVATION', evidence: previousPresent.provenance.refs });
     if (old && best && best.candidate !== old)
       drift.push({ feature, previousCandidate: old, proposedCandidate: best.candidate, reason: 'PROPOSED_REPLACEMENT_REQUIRES_SHADOW_VALIDATION' });
-    features[feature] = { selected, proposals: ranked.slice(0, 8),
-      inherited: !best && !!prior?.features?.[feature]?.selected };
+    if (previousContradicted && !best)
+      drift.push({ feature, previousCandidate: old, reason: 'PREVIOUS_CANDIDATE_RETIRED_NO_REPLACEMENT' });
+    features[feature] = { selected, proposals: ranked.slice(0, 8), inherited: inheritable,
+      ...(previousContradicted && !best ? { retired: { candidate: old, reason: 'CONTRADICTED_BY_FRESH_EVIDENCE' } } : {}) };
   }
   const covers = Object.fromEntries(Object.entries(features).map(([k,v]) => [k, v.selected?.status ?? 'unverified']));
   const uniqueCaptures = [...new Set(observations.map(o => o.captureId))].sort(compare);
-  return {
+  const candidate = {
     schema: FACTORY_SCHEMA, siteId, origin, surface, kind: 'data-only-adapter-candidate',
     evidence: { observations: observations.length, captures: uniqueCaptures.length, captureRefs: uniqueCaptures.slice(0, 80),
       capturesTruncated: uniqueCaptures.length > 80 },
     features, coverage: covers, drift,
+    // Version lineage: which exact prior content this candidate was learned on top of.
+    // Recomputed from the prior's content, never taken from its own (claimable) digest field.
+    lineage: { priorDigest: prior ? candidateDigest(prior) : null },
     // Preserve the single Studio actor and require its journal/lease/effect-policy.
     authority: { browser: 'existing-capture-studio-only', sendPermission: false, autoExecution: false },
   };
+  candidate.digest = candidateDigest(candidate);
+  return candidate;
 }
 
 // Evaluate on held-out source-qualified probes, not the training observations.

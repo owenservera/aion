@@ -153,6 +153,64 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
   .msg.you, .rd.user { margin-left: 0; }
   .composer button, .finish button, .read-actions button { width: 100%; }
 }
+
+/* formatted reply: built from DOM nodes only; code, tables, quotes, links, sources and artifacts */
+button.mini { padding: 2px 10px; font-size: 12.5px; }
+.reply-tools { gap: 6px 8px; margin: 0 0 8px; }
+.rich > * { margin: 0 0 10px; }
+.rich > *:last-child { margin-bottom: 0; }
+.rich p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 10px; }
+.rich > p { margin-bottom: 10px; }
+.rich ul, .rich ol { margin: 0 0 10px; padding-left: 24px; }
+.rich li { margin: 2px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.rich li > ul, .rich li > ol { margin: 2px 0 0; }
+.rich li.task { list-style: none; margin-left: -18px; }
+.rich hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+.rich blockquote { margin: 0 0 10px; padding: 2px 0 2px 12px; border-left: 3px solid var(--l1); color: var(--muted); }
+.rich blockquote > *:last-child { margin-bottom: 0; }
+.rh { font-weight: 650; letter-spacing: -.01em; margin: 14px 0 6px; line-height: 1.3; }
+.rich > .rh:first-child { margin-top: 0; }
+.rh1 { font-size: 17px; } .rh2 { font-size: 15.5px; } .rh3 { font-size: 14.5px; } .rh4, .rh5, .rh6 { font-size: 14px; }
+.rh5, .rh6 { color: var(--muted); }
+code.ic { background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; overflow-wrap: anywhere; }
+.rich a, .sources a { overflow-wrap: anywhere; }
+.deadlink { text-decoration: underline dotted; }
+sup.cite { font-size: .72em; line-height: 0; margin-left: 1px; font-variant-numeric: tabular-nums; }
+sup.cite a { text-decoration: none; padding: 0 1px; }
+sup.cite a:hover { text-decoration: underline; }
+
+.codeblk { margin: 0 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); overflow: hidden; min-width: 0; }
+.codeblk-head { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 10px; padding: 0 6px 0 12px; border-bottom: 1px solid var(--line); background: var(--panel); font-size: 12px; }
+.codeblk-lang { font-weight: 650; color: var(--ink); font-family: var(--mono); }
+.codeblk-meta { color: var(--muted); }
+.codeblk-actions { margin-left: auto; display: inline-flex; gap: 4px; align-items: center; }
+.codeblk pre { margin: 0; padding: 10px 12px; overflow: auto; max-height: 30rem; tab-size: 2; }
+.codeblk pre code { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; white-space: pre; background: none; border: 0; padding: 0; }
+.codeblk.artifact { border-color: var(--l2); border-left-width: 4px; }
+.codeblk.artifact .codeblk-head { background: color-mix(in srgb, var(--l2) 10%, var(--panel)); }
+.codeblk-note { margin: 0; padding: 4px 12px 6px; border-top: 1px solid var(--line); }
+.artifacts { margin-top: 12px; }
+
+.tablebox { margin: 0 0 10px; }
+.tablewrap { overflow: auto; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+.tablewrap table { border-collapse: collapse; min-width: 100%; font-size: 13px; }
+.tablewrap th, .tablewrap td { padding: 6px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.tablewrap th { background: var(--paper); font-weight: 650; white-space: nowrap; }
+.tablewrap tr:last-child td { border-bottom: 0; }
+.tablewrap .al-r { text-align: right; } .tablewrap .al-c { text-align: center; }
+.tablebar { display: flex; justify-content: flex-end; margin-top: 2px; }
+
+.sources { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+.sources .rh { margin: 0 0 2px; }
+.sourcelist li { display: block; }
+.source-n { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.source-host { color: var(--muted); font-size: 12.5px; }
+.sourcelist p.note { margin: 2px 0 0 26px; }
+
+ul.convs button { align-items: baseline; }
+.conv-title { font-weight: 600; overflow-wrap: anywhere; flex: 1 1 10rem; }
+.conv-meta { flex-basis: 100%; }
+@media (prefers-reduced-motion: no-preference) { .codeblk, .tablewrap { transition: border-color .15s; } .codeblk:focus-within { border-color: var(--l1); } }
 </style>
 </head>
 <body>
@@ -167,7 +225,7 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
 <div class="wrap" id="chatApp">
   <main>
     <h2>Chat</h2>
-    <p class="lede">Connect to a website you’re logged in to, send one message, and read the reply while Studio records it. Connecting only watches. Nothing is sent until you press Send.</p>
+    <p class="lede">Connect to a website you’re logged in to, send a message, and read the reply while Studio records it. You can follow up in the same chat, one turn at a time. Connecting only watches. Nothing is sent until you press Send.</p>
 
     <details class="panel" id="connectBox" open>
       <summary id="connectSummary">Connection</summary>
@@ -239,6 +297,7 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
       </div>
 
       <div class="banner bad" id="problem" role="status" hidden></div>
+      <div class="row" style="margin-top:8px"><button type="button" id="btnRetry" hidden>Retry now</button></div>
 
       <div class="panel" id="transcript" role="log" aria-live="off" aria-label="Conversation" tabindex="0">
         <p class="empty" id="emptyState">No conversation yet. Connect to a site above.</p>
@@ -252,7 +311,18 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
         <div class="chips" id="phaseLine" style="margin:0 0 12px" hidden></div>
         <article class="msg" id="replyMsg" hidden>
           <h3 id="replyHead">Reply</h3>
+          <div class="row reply-tools">
+            <button type="button" id="btnCopyReply" class="mini" disabled>Copy reply</button>
+            <button type="button" id="btnRawToggle" class="mini" aria-describedby="rawHelp">Show plain text</button>
+            <span class="note" id="rawHelp">Code, tables and links are shown formatted. Plain text is exactly what was received.</span>
+          </div>
           <div id="replyBlocks"></div>
+          <div class="artifacts" id="replyArtifacts" hidden></div>
+          <section class="sources" id="replySources" aria-labelledby="sourcesHead" hidden>
+            <h4 class="rh" id="sourcesHead">Sources</h4>
+            <p class="note" id="sourcesNote"></p>
+            <ol class="plain sourcelist" id="sourcesList"></ol>
+          </section>
           <div class="chips srcline" id="replyChips"></div>
           <p class="note" id="replyCount"></p>
           <p id="replyPartial" hidden></p>
@@ -329,8 +399,12 @@ ul.convs button[aria-current="true"] { background: var(--hover); font-weight: 60
     <details class="panel" id="listBox" style="margin-top:14px">
       <summary>Earlier conversations</summary>
       <div class="pad">
-        <div class="note" id="listState" role="status">Loading…</div>
+        <div class="row" style="justify-content:space-between">
+          <div class="note" id="listState" role="status">Loading…</div>
+          <button type="button" id="btnListRefresh" class="mini">Refresh list</button>
+        </div>
         <ul class="plain convs" id="convList"></ul>
+        <button type="button" id="btnListMore" class="mini" hidden>Show all</button>
       </div>
     </details>
   </aside>

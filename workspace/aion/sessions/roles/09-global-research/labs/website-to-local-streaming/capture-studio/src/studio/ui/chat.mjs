@@ -4,6 +4,7 @@
 
 const API = '/api/v1';
 const SELECTED_KEY = 'capture-studio.chat.selected';
+const RAW_KEY = 'capture-studio.chat.plain-reply';
 
 
 /* ---------------- pure helpers (no DOM, no network) ---------------- */
@@ -182,6 +183,17 @@ export function turnRows(snap, prompts = {}) {
   });
 }
 
+// One row of "Earlier conversations": the tab title when the service has one, how many turns went through and whether it
+// needs a look. Everything comes from the service's own list fields; nothing is guessed.
+export function historyRow(c) {
+  const n = turnCount(c), cs = c?.capture?.state, site = siteName(c?.site);
+  const title = (typeof c?.binding?.title === 'string' && c.binding.title.trim()) || site || c?.id || 'Conversation';
+  const meta = [site && title !== site ? site : null, n ? n + (n === 1 ? ' turn' : ' turns') : turnsOf(c).length ? 'Nothing sent' : null, cs ? captureChip(cs)[0] : null, threadRef(c?.binding) ? 'Chat thread saved' : null].filter(Boolean).join(' · ');
+  return { id: c?.id ?? '', title: title.slice(0, 80), meta, chip: conversationChip(c?.state), attention: c?.state === 'needs-reconciliation' || hasUncertainTurn(c) };
+}
+export const HISTORY_PAGE = 20;
+export const historyShown = (list, all) => (all ? list : list.slice(0, HISTORY_PAGE));
+
 export function draftInfo(snap) {
   const d = snap?.readiness?.draft ?? snap?.draft ?? snap?.binding?.draft ?? null;
   if (d === true) return { present: true, unknown: false, chars: null };
@@ -342,6 +354,402 @@ export function mergeReplyText(reply, r) {
   if (text === cur && r.state === reply.state && r.source === reply.source && r.completion === reply.completion) return null;
   return { ...reply, text, chars: Math.max(curChars, evChars), state: r.state ?? reply.state,
     source: r.source ?? reply.source, completion: r.completion ?? reply.completion };
+}
+
+/* ---------------- rich reply text: structure as DOM nodes (pure parser + a DOM builder factory) ---------------- */
+// What a site sends is data. The parser only reads structure (headings, lists, tables, code, quotes, links, source
+// markers). The builder makes DOM nodes with textContent; it never builds markup from strings. Links are limited to
+// http, https and mailto; remote images are shown as links and never fetched; nothing in a reply is run or previewed.
+const PRIVATE_USE = /[\uE000-\uF8FF]/g;
+export function safeHref(u) {
+  try { const x = new URL(String(u ?? '').trim()); return ['http:', 'https:', 'mailto:'].includes(x.protocol) ? x.href : null; } catch { return null; }
+}
+export function hostOf(u) { try { const x = new URL(u); return x.protocol === 'mailto:' ? x.pathname : x.host; } catch { return ''; } }
+
+const ESCAPABLE = '\\`*_{}[]()#+-.!|~>';
+function matchClose(s, open, a, b) {
+  let depth = 0;
+  for (let k = open; k < s.length && k < open + 600; k++) {
+    if (s[k] === '\\') { k++; continue; }
+    if (s[k] === a) depth++; else if (s[k] === b && --depth === 0) return k;
+  }
+  return -1;
+}
+// Inline structure of one run of text. Unclosed markers stay plain text, so half-streamed text never breaks the page.
+export function parseInline(src, depth = 0) {
+  const s = String(src ?? ''), out = [];
+  let buf = '', i = 0;
+  const flush = () => { if (buf) { out.push({ t: 'text', s: buf.replace(PRIVATE_USE, '') }); buf = ''; } };
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === '\\' && i + 1 < s.length && ESCAPABLE.includes(s[i + 1])) { buf += s[i + 1]; i += 2; continue; }
+    if (ch === '\uE200') { // the site's own source marker: cite, then one or more reference ids
+      const m = /^\uE200cite((?:\uE202[^\uE200-\uE2FF]*)+)\uE201/.exec(s.slice(i, i + 400));
+      if (m) { flush(); out.push({ t: 'cite', refs: m[1].split('\uE202').filter(Boolean) }); i += m[0].length; continue; }
+    }
+    if (ch === '`') {
+      let n = 1; while (s[i + n] === '`') n++;
+      const fence = '`'.repeat(n), end = s.indexOf(fence, i + n);
+      if (end > i + n) {
+        flush(); let code = s.slice(i + n, end);
+        if (code.length > 2 && code.startsWith(' ') && code.endsWith(' ') && code.trim()) code = code.slice(1, -1);
+        out.push({ t: 'code', s: code }); i = end + n; continue;
+      }
+      buf += fence; i += n; continue;
+    }
+    if (depth < 4) {
+      const two = s.substr(i, 2);
+      if (two === '**' || two === '~~') {
+        const end = s.indexOf(two, i + 2);
+        if (end > i + 2 && !/\s/.test(s[i + 2]) && !/\s/.test(s[end - 1])) {
+          flush(); out.push({ t: two === '**' ? 'strong' : 'del', c: parseInline(s.slice(i + 2, end), depth + 1) }); i = end + 2; continue;
+        }
+      }
+      if ((ch === '*' && s[i + 1] !== '*' || ch === '_') && s[i + 1] && !/\s/.test(s[i + 1]) && (ch === '*' || i === 0 || /[\s([{>"'*]/.test(s[i - 1]))) {
+        let end = s.indexOf(ch, i + 1);
+        const bad = (e) => /\s/.test(s[e - 1]) || s[e + 1] === ch || s[e - 1] === ch || (ch === '_' && /[A-Za-z0-9]/.test(s[e + 1] ?? ''));
+        while (end !== -1 && bad(end)) end = s.indexOf(ch, end + 1);
+        if (end > i + 1) { flush(); out.push({ t: 'em', c: parseInline(s.slice(i + 1, end), depth + 1) }); i = end + 1; continue; }
+      }
+      if (ch === '[' || (ch === '!' && s[i + 1] === '[')) {
+        const image = ch === '!', open = image ? i + 1 : i, close = matchClose(s, open, '[', ']');
+        if (close > 0) {
+          const label = s.slice(open + 1, close);
+          if (s[close + 1] === '(') {
+            const p = matchClose(s, close + 1, '(', ')');
+            if (p > 0) {
+              const um = /^<([^>]*)>|^(\S+)/.exec(s.slice(close + 2, p).trim()), url = um ? (um[1] ?? um[2]) : '';
+              flush(); out.push({ t: 'link', image, url, href: safeHref(url), c: parseInline(label || url, 4) }); i = p + 1; continue;
+            }
+          }
+          const num = /^\^?(\d{1,3})$/.exec(label);
+          if (!image && num) { flush(); out.push({ t: 'cite', n: Number(num[1]), raw: s.slice(i, close + 1) }); i = close + 1; continue; }
+        }
+      }
+      if (ch === 'h' && /^https?:\/\//i.test(s.substr(i, 8)) && (i === 0 || !/[\w/]/.test(s[i - 1]))) {
+        let url = /^https?:\/\/[^\s<>\u0000]+/i.exec(s.slice(i))[0];
+        const count = (c) => url.split(c).length - 1;
+        while (/[.,;:!?'"*\])]$/.test(url) && !(url.endsWith(')') && count('(') >= count(')'))) url = url.slice(0, -1);
+        if (url.length > 8) { flush(); out.push({ t: 'link', image: false, url, href: safeHref(url), auto: true, c: [{ t: 'text', s: url }] }); i += url.length; continue; }
+      }
+    }
+    buf += ch; i++;
+  }
+  flush();
+  return out;
+}
+
+const FENCE = /^\s*(`{3,}|~{3,})\s*([^\s`]*)[^`]*$/;
+const HEADING = /^ {0,3}(#{1,6})[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$/;
+const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+const LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])[ \t]+(.*)$/;
+const QUOTE = /^ {0,3}>[ \t]?(.*)$/;
+const LINK_DEF = /^ {0,3}\[\^?([^\]\s][^\]]{0,60})\]:[ \t]*<?(\S+?)>?(?:[ \t]+["'(].*["')])?[ \t]*$/;
+const TABLE_DELIM = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
+const splitRow = (line) => {
+  const t = line.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '');
+  return t.split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
+};
+const indentOf = (s) => s.replace(/\t/g, '    ').length;
+const isTableStart = (lines, k) => k + 1 < lines.length && lines[k].includes('|') && lines[k + 1].includes('|') && TABLE_DELIM.test(lines[k + 1])
+  && splitRow(lines[k]).length === splitRow(lines[k + 1]).length;
+const startsBlock = (lines, k) => FENCE.test(lines[k]) || HEADING.test(lines[k]) || RULE.test(lines[k]) || QUOTE.test(lines[k]) || LIST_ITEM.test(lines[k]) || isTableStart(lines, k);
+
+export function parseBlocks(text, depth = 0) {
+  const lines = String(text ?? '').replace(/\r\n?/g, '\n').split('\n'), out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { i++; continue; }
+    let m;
+    if ((m = FENCE.exec(line))) {
+      const mark = m[1], body = []; let closed = false; i++;
+      while (i < lines.length) {
+        const t = lines[i].trim();
+        if (t.length >= mark.length && t === mark[0].repeat(t.length)) { closed = true; i++; break; }
+        body.push(lines[i]); i++;
+      }
+      out.push({ type: 'code', lang: (m[2] || '').toLowerCase(), text: body.join('\n'), closed, artifact: null });
+      continue;
+    }
+    if ((m = HEADING.exec(line))) { out.push({ type: 'heading', level: m[1].length, text: m[2] }); i++; continue; }
+    if (RULE.test(line)) { out.push({ type: 'rule' }); i++; continue; }
+    if ((m = LINK_DEF.exec(line))) { out.push({ type: 'linkdef', label: m[1], url: m[2] }); i++; continue; }
+    if (QUOTE.test(line)) {
+      const inner = [];
+      while (i < lines.length && QUOTE.test(lines[i])) { inner.push(QUOTE.exec(lines[i])[1]); i++; }
+      out.push({ type: 'quote', children: depth < 3 ? parseBlocks(inner.join('\n'), depth + 1) : [{ type: 'paragraph', text: inner.join('\n') }] });
+      continue;
+    }
+    if (isTableStart(lines, i)) {
+      const head = splitRow(line), align = splitRow(lines[i + 1]).map((c) => (c.startsWith(':') && c.endsWith(':') ? 'center' : c.endsWith(':') ? 'right' : c.startsWith(':') ? 'left' : null));
+      const rows = []; i += 2;
+      while (i < lines.length && lines[i].trim() && lines[i].includes('|') && !FENCE.test(lines[i])) {
+        const cells = splitRow(lines[i]); while (cells.length < head.length) cells.push('');
+        rows.push(cells.slice(0, head.length)); i++;
+      }
+      out.push({ type: 'table', head, align, rows });
+      continue;
+    }
+    if ((m = LIST_ITEM.exec(line))) {
+      const items = [], stack = [], base = indentOf(m[1]), topOrdered = /\d/.test(m[2]);
+      // At the list's own level a change between bullets and numbers starts a new list; nested items may differ.
+      const sameList = (x) => indentOf(x[1]) > base || /\d/.test(x[2]) === topOrdered;
+      const depthFor = (ind) => { while (stack.length && stack.at(-1) > ind) stack.pop(); if (!stack.length || stack.at(-1) < ind) stack.push(ind); return Math.min(stack.length - 1, 4); };
+      while (i < lines.length) {
+        const l = lines[i];
+        if (!l.trim()) {
+          let k = i; while (k < lines.length && !lines[k].trim()) k++;
+          const nm = k < lines.length ? LIST_ITEM.exec(lines[k]) : null;
+          if (nm && indentOf(nm[1]) >= base && !RULE.test(lines[k]) && sameList(nm)) { i = k; continue; }
+          if (k < lines.length && /^\s{2,}\S/.test(lines[k]) && !FENCE.test(lines[k]) && items.length) { i = k; continue; }
+          break;
+        }
+        const im = LIST_ITEM.exec(l);
+        if (im && !RULE.test(l)) {
+          const ind = indentOf(im[1]); if (ind < base || !sameList(im)) break;
+          let t = im[3], task = null; const tm = /^\[([ xX])\][ \t]+(.*)$/.exec(t); if (tm) { task = tm[1] !== ' '; t = tm[2]; }
+          items.push({ depth: depthFor(ind), ordered: /\d/.test(im[2]), start: /\d/.test(im[2]) ? parseInt(im[2], 10) : 1, text: t, task }); i++; continue;
+        }
+        if (/^\s+\S/.test(l) && items.length && !FENCE.test(l)) { items.at(-1).text += '\n' + l.trim(); i++; continue; }
+        break;
+      }
+      out.push({ type: 'list', items });
+      continue;
+    }
+    const para = [line.trimEnd()]; i++;
+    while (i < lines.length && lines[i].trim() && !startsBlock(lines, i)) { para.push(lines[i].trimEnd()); i++; }
+    out.push({ type: 'paragraph', text: para.join('\n') });
+  }
+  return out;
+}
+
+// Code that stands alone as a document (a page, a diagram, a long file) is called an artifact: it gets a download.
+const FILE_EXT = { html: 'html', svg: 'svg', xml: 'xml', mermaid: 'mmd', markdown: 'md', md: 'md', tex: 'tex', latex: 'tex', csv: 'csv', javascript: 'js', js: 'js', jsx: 'jsx', typescript: 'ts',
+  ts: 'ts', tsx: 'tsx', python: 'py', py: 'py', json: 'json', css: 'css', bash: 'sh', sh: 'sh', shell: 'sh', powershell: 'ps1', rust: 'rs', go: 'go', java: 'java', c: 'c', cpp: 'cpp', sql: 'sql', yaml: 'yaml', yml: 'yml' };
+const DOCUMENT_LANGS = new Set(['html', 'svg', 'xml', 'mermaid', 'markdown', 'md', 'tex', 'latex', 'csv']);
+export function artifactInfo(block) {
+  if (block?.type !== 'code' || !block.closed) return null;
+  const lines = block.text.split('\n').length;
+  if (!((DOCUMENT_LANGS.has(block.lang) && lines >= 3) || lines >= 30)) return null;
+  return { ext: FILE_EXT[block.lang] ?? 'txt', lines, chars: block.text.length };
+}
+export function parseRich(text) {
+  const blocks = parseBlocks(text);
+  let n = 0;
+  for (const b of blocks) { const a = artifactInfo(b); if (a) b.artifact = { ...a, n: ++n }; }
+  return { blocks };
+}
+
+function eachInline(blocks, fn) {
+  for (const b of blocks) {
+    if (b.type === 'paragraph' || b.type === 'heading') fn(parseInline(b.text));
+    else if (b.type === 'list') b.items.forEach((it) => fn(parseInline(it.text)));
+    else if (b.type === 'table') { b.head.forEach((c) => fn(parseInline(c))); b.rows.forEach((r) => r.forEach((c) => fn(parseInline(c)))); }
+    else if (b.type === 'quote') eachInline(b.children, fn);
+  }
+}
+function eachBlock(blocks, fn) { for (const b of blocks) { fn(b); if (b.type === 'quote') eachBlock(b.children, fn); } }
+function walkLinks(nodes, fn) { for (const n of nodes) { if (n.t === 'link') fn(n); else if (n.c) walkLinks(n.c, fn); } }
+
+// Sources for one reply, in order of trust: what the site reported with the reply, reference lines written in the text,
+// then plain links in the text. The origin travels with each source so the page can say where it came from.
+export function replySources(reply, blocks = []) {
+  const out = [], seen = new Set(), numbers = new Set();
+  const add = (url, title, extra) => {
+    const href = safeHref(url); if (!href || seen.has(href)) return;
+    seen.add(href);
+    // Each source has its own number: the one the site/text gave when free, otherwise the lowest unused one.
+    let n = Number.isFinite(extra.n) && extra.n > 0 ? extra.n : 1;
+    while (numbers.has(n)) n++;
+    numbers.add(n);
+    out.push({ n, key: extra.key ?? null, title: String(title || '').trim() || hostOf(href) || href, url: href, host: hostOf(href), snippet: extra.snippet ?? '', origin: extra.origin });
+  };
+  const reported = [];
+  for (const k of ['citations', 'sources']) if (Array.isArray(reply?.[k])) reported.push(...reply[k]);
+  for (const b of Array.isArray(reply?.blocks) ? reply.blocks : []) {
+    if (!/^citations?$/.test(b?.kind ?? '')) continue;
+    const items = b.items ?? b.payload?.items ?? b.payload?.citations; if (Array.isArray(items)) reported.push(...items);
+  }
+  reported.forEach((c) => {
+    if (typeof c === 'string') add(c, '', { origin: 'site' });
+    else if (c && typeof c === 'object') add(c.url ?? c.href ?? c.link, c.title ?? c.name, { origin: 'site', n: Number(c.n), snippet: typeof c.snippet === 'string' ? c.snippet.slice(0, 240) : '' });
+  });
+  eachBlock(blocks, (b) => { if (b.type === 'linkdef') add(b.url, '', { origin: 'text', key: b.label.toLowerCase(), n: /^\d+$/.test(b.label) ? Number(b.label) : NaN }); });
+  if (!out.length) eachInline(blocks, (nodes) => walkLinks(nodes, (l) => { if (!l.image && l.href && /^https?:/.test(l.href)) add(l.href, l.auto ? '' : inlineText(l.c), { origin: 'links' }); }));
+  return out;
+}
+const inlineText = (nodes) => (nodes ?? []).map((n) => n.s ?? inlineText(n.c)).join('');
+export const sourcesSig = (sources) => sources.map((s) => s.n + ':' + s.url).join('|');
+export function sourcesNote(sources) {
+  if (!sources.length) return '';
+  if (sources.every((s) => s.origin === 'site')) return 'Reported by the site with this reply.';
+  if (sources.some((s) => s.origin === 'site')) return 'Some were reported by the site; the rest come from the reply text. Studio can’t tell whether the site checked them.';
+  if (sources.some((s) => s.origin === 'text')) return 'Taken from reference lines in the reply text. Studio can’t tell whether the site checked them.';
+  return 'Links found in the reply text. The site didn’t report a separate source list.';
+}
+// Artifacts the site itself reported next to the reply. Only text or a safe address is kept; the rest is ignored.
+export function replyArtifacts(reply) {
+  const raw = Array.isArray(reply?.artifacts) ? reply.artifacts : [];
+  return raw.map((a, idx) => {
+    if (!a || typeof a !== 'object') return null;
+    const text = typeof a.text === 'string' ? a.text : typeof a.content === 'string' ? a.content : null, href = safeHref(a.url ?? a.href);
+    if (text == null && !href) return null;
+    const lang = String(a.language ?? a.lang ?? a.kind ?? '').toLowerCase().replace(/^.*\//, '');
+    return { n: idx + 1, title: String(a.title ?? a.name ?? 'Artifact ' + (idx + 1)).slice(0, 120), lang, text, href, ext: FILE_EXT[lang] ?? 'txt' };
+  }).filter(Boolean);
+}
+export function artifactFileName(n, ext, title = '') {
+  const base = String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return (base || 'reply-artifact-' + n) + '.' + (ext || 'txt');
+}
+export function tableToTsv(head, rows) {
+  const cell = (c) => String(c).replace(/[\t\r\n]+/g, ' ');
+  return [head, ...rows].map((r) => r.map(cell).join('\t')).join('\n');
+}
+
+// DOM side. `doc` is the page document (or a stand-in in tests). Copy and download are injected so tests need no clipboard.
+export function createRichRenderer(doc, { copy = async () => false, download = () => false, notice = () => {} } = {}) {
+  const t = (s) => doc.createTextNode(s);
+  const h = (tag, props = {}, kids = []) => {
+    const n = doc.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (v === false || v == null) continue;
+      if (k === 'class') n.className = v; else if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (const kid of [].concat(kids)) if (kid != null) n.append(typeof kid === 'string' ? t(kid) : kid);
+    return n;
+  };
+  const flash = (btn, base, ok) => {
+    btn.textContent = ok ? 'Copied' : 'Couldn’t copy. Select the text instead';
+    notice(ok ? 'Copied.' : 'Couldn’t copy. Select the text instead.');
+    const timer = setTimeout(() => { btn.textContent = base; }, 1800); timer?.unref?.();
+  };
+  const copyButton = (label, getText, aria) => {
+    const btn = h('button', { type: 'button', class: 'mini', text: label, 'aria-label': aria });
+    btn.addEventListener('click', async () => { let ok = false; try { ok = (await copy(getText())) === true; } catch { ok = false; } flash(btn, label, ok); });
+    return btn;
+  };
+  const sup = (n, title, link) => h('sup', { class: 'cite', title }, link ? [h('a', { href: link, target: '_blank', rel: 'noopener noreferrer' }, ['[' + n + ']', h('span', { class: 'sr', text: ' (opens in a new tab)' })])] : ['[' + n + ']']);
+
+  function inline(nodes, ctx) {
+    return nodes.map((n) => {
+      if (n.t === 'text') return t(n.s);
+      if (n.t === 'code') return h('code', { class: 'ic', text: n.s });
+      if (n.t === 'strong' || n.t === 'em' || n.t === 'del') return h(n.t, {}, inline(n.c, ctx));
+      if (n.t === 'link') {
+        const label = inline(n.c, ctx);
+        if (!n.href) return h('span', { class: 'deadlink', title: 'This address type isn’t allowed, so Studio shows it as text.' }, label);
+        return h('a', { href: n.href, target: '_blank', rel: 'noopener noreferrer nofollow', title: hostOf(n.href) || null },
+          [...(n.image ? [t('Image: ')] : []), ...label, h('span', { class: 'sr', text: ' (opens in a new tab)' })]);
+      }
+      if (n.t === 'cite') {
+        if (n.refs) {
+          const nums = n.refs.map((r) => { if (!ctx.refs.has(r)) ctx.refs.set(r, ctx.refs.size + 1); return ctx.refs.get(r); });
+          return h('span', {}, nums.map((num, k) => sup(num, 'Source marker from the site (' + n.refs[k] + '). Its details weren’t captured.', null)));
+        }
+        const src = ctx.sources.find((s) => s.n === n.n);
+        return src ? sup(n.n, src.title + (src.host ? ' · ' + src.host : ''), src.url) : t(n.raw ?? '[' + n.n + ']');
+      }
+      return t('');
+    });
+  }
+  const align = (a) => (a === 'right' ? 'al-r' : a === 'center' ? 'al-c' : null);
+
+  function codeBlock(blk, ctx) {
+    const art = blk.artifact;
+    const textNode = t(blk.text), code = h('code', {}, [textNode]), pre = h('pre', { tabindex: 0, 'aria-label': (art ? 'Artifact ' + art.n + ' ' : 'Code ') + (blk.lang || 'text') }, [code]);
+    const meta = h('span', { class: 'codeblk-meta' });
+    let cur = blk, now = ctx;
+    const describe = () => {
+      const lines = cur.text ? cur.text.split('\n').length : 0;
+      meta.textContent = lines + (lines === 1 ? ' line' : ' lines') + (cur.closed ? '' : now.streaming ? ' so far' : ' · block not closed in the reply');
+    };
+    describe();
+    const buttons = [copyButton('Copy', () => cur.text, (art ? 'Copy artifact ' + art.n : 'Copy code') + (cur.lang ? ' (' + cur.lang + ')' : ''))];
+    if (art) {
+      const dl = h('button', { type: 'button', class: 'mini', text: 'Download', 'aria-label': 'Download artifact ' + art.n });
+      dl.addEventListener('click', () => { const ok = download(cur.text, artifactFileName(art.n, art.ext)); notice(ok ? 'Download started.' : 'Couldn’t start the download. Copy the text instead.'); });
+      buttons.push(dl);
+    }
+    const head = h('div', { class: 'codeblk-head' }, [h('span', { class: 'codeblk-lang', text: (art ? 'Artifact ' + art.n + ' · ' : '') + (blk.lang || 'text') }), meta, h('span', { class: 'codeblk-actions' }, buttons)]);
+    const root = h('figure', { class: 'codeblk' + (art ? ' artifact' : ''), role: 'group' }, [head, pre]);
+    if (art) root.append(h('p', { class: 'note codeblk-note', text: 'Shown as text only. Studio never runs or previews it.' }));
+    return { node: root, type: 'code', lang: blk.lang, artifact: !!art, update(next, nextCtx) { cur = next; now = nextCtx; describe(); if (textNode.data !== next.text) { if (next.text.startsWith(textNode.data)) textNode.appendData(next.text.slice(textNode.data.length)); else textNode.data = next.text; } } };
+  }
+  function tableBlock(blk, ctx) {
+    const cells = (tag, row) => row.map((c, i) => h(tag, { class: align(blk.align[i]), scope: tag === 'th' ? 'col' : null }, inline(parseInline(c), ctx)));
+    const table = h('table', {}, [h('thead', {}, [h('tr', {}, cells('th', blk.head))]), h('tbody', {}, blk.rows.map((r) => h('tr', {}, cells('td', r))))]);
+    const label = 'Table, ' + blk.rows.length + (blk.rows.length === 1 ? ' row, ' : ' rows, ') + blk.head.length + (blk.head.length === 1 ? ' column' : ' columns') + '. Scroll sideways if it is wide.';
+    const wrap = h('div', { class: 'tablewrap', role: 'region', tabindex: 0, 'aria-label': label }, [table]);
+    return { node: h('div', { class: 'tablebox' }, [wrap, h('div', { class: 'tablebar' }, [copyButton('Copy table', () => tableToTsv(blk.head, blk.rows), 'Copy table as tab-separated text')])]), type: 'table' };
+  }
+  function listBlock(blk, ctx) {
+    const root = h(blk.items[0]?.ordered ? 'ol' : 'ul', { start: blk.items[0]?.ordered && blk.items[0].start !== 1 ? blk.items[0].start : null });
+    const levels = [{ list: root, li: null }];
+    for (const it of blk.items) {
+      while (levels.length - 1 > it.depth) levels.pop();
+      while (levels.length - 1 < it.depth) {
+        const top = levels.at(-1);
+        if (!top.li) { top.li = h('li'); top.list.append(top.li); } // a nested item whose parent line is missing
+        const sub = h(it.ordered ? 'ol' : 'ul'); top.li.append(sub);
+        levels.push({ list: sub, li: null });
+      }
+      const body = inline(parseInline(it.text), ctx);
+      const li = h('li', { class: it.task == null ? null : 'task' }, [...(it.task == null ? [] : [h('span', { class: 'taskbox', text: it.task ? '☑ ' : '☐ ', 'aria-label': it.task ? 'Done: ' : 'Not done: ' })]), ...body]);
+      levels.at(-1).list.append(li); levels.at(-1).li = li;
+    }
+    return { node: root, type: 'list' };
+  }
+  function build(blk, ctx) {
+    if (blk.type === 'code') return codeBlock(blk, ctx);
+    if (blk.type === 'table') return tableBlock(blk, ctx);
+    if (blk.type === 'list') return listBlock(blk, ctx);
+    if (blk.type === 'heading') return { node: h('h' + Math.min(6, blk.level + 3), { class: 'rh rh' + blk.level }, inline(parseInline(blk.text), ctx)), type: 'heading' };
+    if (blk.type === 'rule') return { node: h('hr'), type: 'rule' };
+    if (blk.type === 'quote') return { node: h('blockquote', {}, blk.children.map((c) => build(c, ctx).node)), type: 'quote' };
+    if (blk.type === 'linkdef') return { node: null, type: 'linkdef' };
+    return { node: h('p', {}, inline(parseInline(blk.text), ctx)), type: 'paragraph' };
+  }
+  // Incremental sync for a streaming reply: a block whose content did not change keeps its DOM node (so a text selection
+  // survives each update) and an open code block grows in place.
+  function sync(root, state, parsed, ctx) {
+    state.refs ??= new Map(); state.items ??= [];
+    const full = { sources: ctx.sources ?? [], streaming: !!ctx.streaming, refs: state.refs };
+    const base = sourcesSig(full.sources);
+    parsed.forEach((blk, i) => {
+      const sig = base + (blk.type === 'code' ? (full.streaming ? '~' : '=') : '') + JSON.stringify(blk), cur = state.items[i];
+      if (cur && cur.sig === sig) return;
+      if (cur && cur.update && blk.type === 'code' && cur.type === 'code' && cur.lang === blk.lang && cur.artifact === !!blk.artifact) { cur.update(blk, full); cur.sig = sig; return; }
+      state.items[i] = { ...build(blk, full), sig };
+    });
+    state.items.length = parsed.length;
+    const want = state.items.map((x) => x.node).filter(Boolean), have = Array.from(root.children);
+    if (want.length !== have.length || want.some((n, k) => n !== have[k])) root.replaceChildren(...want);
+  }
+  function sourceRow(src) {
+    return h('li', { class: 'source' }, [
+      h('span', { class: 'source-n', text: '[' + src.n + ']' }), ' ',
+      h('a', { href: src.url, target: '_blank', rel: 'noopener noreferrer nofollow' }, [src.title, h('span', { class: 'sr', text: ' (opens in a new tab)' })]),
+      src.host && src.host !== src.title ? h('span', { class: 'source-host', text: ' · ' + src.host }) : null,
+      src.snippet ? h('p', { class: 'note', text: src.snippet }) : null,
+    ]);
+  }
+  function artifactCard(a) {
+    const kids = [h('div', { class: 'codeblk-head' }, [h('span', { class: 'codeblk-lang', text: 'Artifact · ' + a.title + (a.lang ? ' · ' + a.lang : '') }),
+      h('span', { class: 'codeblk-actions' }, [
+        ...(a.text != null ? [copyButton('Copy', () => a.text, 'Copy artifact ' + a.title)] : []),
+        ...(a.text != null ? [(() => { const b = h('button', { type: 'button', class: 'mini', text: 'Download', 'aria-label': 'Download artifact ' + a.title }); b.addEventListener('click', () => { const ok = download(a.text, artifactFileName(a.n, a.ext, a.title)); notice(ok ? 'Download started.' : 'Couldn’t start the download. Copy the text instead.'); }); return b; })()] : []),
+        ...(a.href ? [h('a', { class: 'hit', href: a.href, target: '_blank', rel: 'noopener noreferrer nofollow' }, ['Open', h('span', { class: 'sr', text: ' ' + a.title + ' (new tab)' })])] : []),
+      ])])];
+    if (a.text != null) kids.push(h('pre', { tabindex: 0, 'aria-label': 'Artifact ' + a.title }, [h('code', { text: a.text })]));
+    return h('figure', { class: 'codeblk artifact', role: 'group' }, kids);
+  }
+  // One-shot build for static content such as the reply to an earlier turn.
+  function renderStatic(root, text, ctx = {}) { const state = {}; sync(root, state, parseRich(text).blocks, ctx); return state; }
+  return { sync, build, inline, renderStatic, sourceRow, artifactCard };
 }
 
 // Reply chips. Unknown network completion is a visible warning chip, never a quiet footnote.
@@ -630,8 +1038,26 @@ function boot() {
     del(area, k) { try { globalThis[area].removeItem(k); } catch { /* storage unavailable */ } },
   };
 
+  async function copyText(text) {
+    const clip = globalThis.navigator?.clipboard;
+    try { if (!clip?.writeText) return false; await clip.writeText(String(text)); return true; } catch { return false; }
+  }
+  // Saves text the user asked for as a local file. Nothing is uploaded and the text is never run.
+  function downloadText(text, name) {
+    try {
+      const url = URL.createObjectURL(new Blob([String(text)], { type: 'text/plain;charset=utf-8' }));
+      const a = document.createElement('a'); a.href = url; a.download = name; a.rel = 'noopener';
+      document.body.append(a); a.click(); a.remove();
+      const timer = setTimeout(() => URL.revokeObjectURL(url), 4000); timer?.unref?.();
+      return true;
+    } catch { return false; }
+  }
+  const rich = createRichRenderer(document, { copy: copyText, download: downloadText, notice: (m) => { $('#announce').textContent = m; } });
+
   const S = {
-    targets: { sites: [], targets: [] }, targetsState: 'loading', targetsError: '', list: [], listState: 'loading',
+    targets: { sites: [], targets: [] }, targetsState: 'loading', targetsError: '', list: [], listState: 'loading', listAll: false,
+    // Reply view: formatted (default) or the exact plain text. The choice is remembered in this browser only.
+    rawView: store.get('localStorage', RAW_KEY) === '1',
     snap: null, mode: 'new', site: '', targetId: '', connecting: false, submitting: false, working: false,
     openSeq: 0,
     pending: null, timer: null, failures: 0, announced: '', bannerFocus: '',
@@ -704,7 +1130,9 @@ function boot() {
       clearPending(); S.unknownDetail = '';
     }
     const i = S.list.findIndex((c) => c.id === S.snap.id);
-    const summary = { id: S.snap.id, site: S.snap.site, state: S.snap.state, revision: S.snap.revision };
+    // Same fields the service's list returns (without reply text), so the history row stays accurate after each refresh.
+    const summary = { id: S.snap.id, site: S.snap.site, state: S.snap.state, revision: S.snap.revision, binding: S.snap.binding, capture: S.snap.capture,
+      turns: turnsOf(S.snap).map((t) => ({ ...t, reply: { ...t.reply, text: undefined } })) };
     if (i >= 0) S.list[i] = { ...S.list[i], ...summary }; else S.list.unshift(summary);
     render(); schedulePoll();
   }
@@ -742,6 +1170,7 @@ function boot() {
       }
       S.failures++;
       showProblem('Lost contact with the Studio (' + describe(e) + '). Retrying. What you see may be out of date.');
+      $('#btnRetry').hidden = false;
       schedulePoll();
     }
   }
@@ -1049,7 +1478,8 @@ function boot() {
     if (prev === next) return;
     if (next.startsWith(prev)) textNode.appendData(next.slice(prev.length)); else textNode.data = next;
   }
-  function makeBlock(b) {
+  function makeBlock(b, formatted = false) {
+    if (formatted) return { root: el('div', { class: 'rich' }), state: {} };
     const textNode = document.createTextNode('');
     const body = el('p', { class: 'body' }, [textNode]);
     if (b.kind === 'answer') return { root: el('div', {}, [body]), textNode };
@@ -1066,29 +1496,72 @@ function boot() {
       setText(ph.root, reply.state === 'waiting' || reply.state === 'streaming' ? 'Waiting for the reply…' : 'No reply text yet.');
       want.push(ph.root);
     }
+    // The answer is shown formatted (code, tables, lists, links) unless the reader chose plain text. Reasoning and tool
+    // activity from the site always stay plain text. Both views are built from the same text, never from markup.
+    const parsed = new Map(blocks.filter((b) => b.kind === 'answer' && typeof b.text === 'string').map((b) => [b.key, parseRich(b.text).blocks]));
+    const formatted = S.rawView ? new Map() : parsed; // sources are listed in both views
+    const sources = replySources(reply, [...parsed.values()].flat()), live = ['waiting', 'streaming'].includes(reply.state);
+    const keep = new Set();
     for (const b of blocks) {
-      let rec = textBlocks.get(b.key);
-      if (!rec) { rec = makeBlock(b); textBlocks.set(b.key, rec); }
-      setNodeText(rec.textNode, b.text ?? 'This content is stored in the saved session. Open the session to read it.');
-      want.push(rec.root);
+      const isRich = formatted.has(b.key), rk = b.key + (isRich ? '~formatted' : '');
+      let rec = textBlocks.get(rk);
+      if (!rec) { rec = makeBlock(b, isRich); textBlocks.set(rk, rec); }
+      if (isRich) rich.sync(rec.root, rec.state, formatted.get(b.key), { sources, streaming: live });
+      else setNodeText(rec.textNode, b.text ?? 'This content is stored in the saved session. Open the session to read it.');
+      keep.add(rk); want.push(rec.root);
     }
-    for (const k of [...textBlocks.keys()]) if (k !== 'placeholder' ? !blocks.some((b) => b.key === k) : blocks.length) textBlocks.delete(k);
+    for (const k of [...textBlocks.keys()]) if (k !== 'placeholder' ? !keep.has(k) : blocks.length) textBlocks.delete(k);
     const have = Array.from(holder.children);
     if (have.length !== want.length || want.some((n, i) => n !== have[i])) holder.replaceChildren(...want);
+    renderSources(sources, replyArtifacts(reply));
+    const answerText = blocks.filter((b) => b.kind === 'answer' && typeof b.text === 'string').map((b) => b.text).join('\n\n');
+    $('#btnCopyReply').disabled = !answerText;
+    setText($('#btnRawToggle'), S.rawView ? 'Show formatted' : 'Show plain text');
+  }
+  // Sources and artifacts the site reported, or links the reply text itself contains. Rebuilt only when they change.
+  function renderSources(sources, artifacts) {
+    const box = $('#replySources'), sig = sourcesSig(sources);
+    box.hidden = !sources.length;
+    setText($('#sourcesHead'), 'Sources (' + sources.length + ')'); setText($('#sourcesNote'), sourcesNote(sources));
+    const list = $('#sourcesList');
+    if (list.dataset.sig !== sig) { list.dataset.sig = sig; list.replaceChildren(...sources.map(rich.sourceRow)); }
+    const abox = $('#replyArtifacts'), asig = artifacts.map((a) => a.n + ':' + a.title + ':' + (a.text?.length ?? a.href)).join('|');
+    abox.hidden = !artifacts.length;
+    if (abox.dataset.sig !== asig) { abox.dataset.sig = asig; abox.replaceChildren(el('h4', { class: 'rh', text: 'Artifacts reported by the site (' + artifacts.length + ')' }), ...artifacts.map(rich.artifactCard)); }
+  }
+  async function copyReply() {
+    const reply = S.snap?.reply, text = replyBlocks(reply).filter((b) => b.kind === 'answer' && typeof b.text === 'string').map((b) => b.text).join('\n\n');
+    if (!text) return;
+    const ok = await copyText(text);
+    setText($('#btnCopyReply'), ok ? 'Reply copied' : 'Couldn’t copy. Select the text instead');
+    $('#announce').textContent = ok ? 'Reply copied.' : 'Couldn’t copy the reply.';
+    const timer = setTimeout(() => setText($('#btnCopyReply'), 'Copy reply'), 1800); timer?.unref?.();
+  }
+  function toggleRaw() {
+    S.rawView = !S.rawView; store.set('localStorage', RAW_KEY, S.rawView ? '1' : '0');
+    $('#turnList').dataset.sig = ''; // earlier-turn replies follow the same view
+    render();
   }
   // One row per turn (Turn 1, 2, 3 ...), each with its own send/reply state, never merged into one blob. The latest
   // started turn is shown in full below the list; earlier turns keep their own message and reply here.
   function renderTurns(snap) {
     const list = $('#turnList'), rows = snap ? turnRows(snap, S.prompts) : [];
     list.hidden = rows.length < 2;
-    const sig = JSON.stringify(rows.map((r) => [r.n, r.id, r.current, r.blocked, r.chips, r.reason, r.sessionId, r.prompt, r.current ? '' : r.reply]));
+    const sig = JSON.stringify([S.rawView, rows.map((r) => [r.n, r.id, r.current, r.blocked, r.chips, r.reason, r.sessionId, r.prompt, r.current ? '' : r.reply])]);
     if (list.dataset.sig === sig) return;
     list.dataset.sig = sig;
+    // An earlier reply keeps its own formatting (code, tables, links), or the plain text when the reader chose that.
+    const earlierReply = (text) => {
+      if (S.rawView) return el('p', { class: 'body', text });
+      const holder = el('div', { class: 'rich' });
+      rich.renderStatic(holder, text, { sources: replySources(null, parseRich(text).blocks) });
+      return holder;
+    };
     list.replaceChildren(...rows.map((r) => el('li', { class: 'turn' }, [
       el('p', { class: 'note' }, [el('b', { text: 'Turn ' + r.n + (r.current ? ' (shown in full below)' : '') }), ' ', ...r.chips.map(chip)]),
       r.reason ? el('p', { class: 'note', text: reasonText(r.reason) }) : null,
       !r.current && r.prompt ? el('p', { class: 'body', text: 'You: ' + r.prompt }) : null,
-      !r.current && r.reply ? el('details', { class: 'blk' }, [el('summary', { text: 'Reply to turn ' + r.n }), el('p', { class: 'body', text: r.reply })]) : null,
+      !r.current && r.reply ? el('details', { class: 'blk' }, [el('summary', { text: 'Reply to turn ' + r.n }), earlierReply(r.reply)]) : null,
     ])));
   }
   function renderTranscript(snap) {
@@ -1254,10 +1727,15 @@ function boot() {
     const ul = $('#convList'), state = $('#listState');
     if (S.listState === 'loading') { state.textContent = 'Loading…'; ul.replaceChildren(); return; }
     if (S.listState.startsWith('error:')) { state.textContent = 'Could not load conversations: ' + S.listState.slice(6); ul.replaceChildren(); return; }
-    state.textContent = S.list.length ? '' : 'No conversations yet.';
-    ul.replaceChildren(...S.list.slice(0, 20).map((c) => {
-      const [label, tone] = conversationChip(c.state);
-      const b = el('button', { type: 'button', onclick: () => openConversation(c.id) }, [el('span', { text: siteName(c.site) || c.id }), el('span', { class: 'pill ' + tone, text: label })]);
+    const shown = historyShown(S.list, S.listAll), hidden = S.list.length - shown.length;
+    state.textContent = S.list.length ? (hidden > 0 ? 'Showing ' + shown.length + ' of ' + S.list.length + '.' : '') : 'No conversations yet.';
+    $('#btnListMore').hidden = !(hidden > 0 || (S.listAll && S.list.length > HISTORY_PAGE));
+    setText($('#btnListMore'), S.listAll ? 'Show fewer' : 'Show all ' + S.list.length);
+    ul.replaceChildren(...shown.map((c) => {
+      const row = historyRow(c), [label, tone] = row.chip;
+      const b = el('button', { type: 'button', onclick: () => openConversation(c.id) }, [
+        el('span', { class: 'conv-title', text: row.title }), el('span', { class: 'pill ' + (row.attention ? 't-warn' : tone), text: row.attention && label !== 'Needs checking' ? label + ' · needs checking' : label }),
+        row.meta ? el('span', { class: 'note conv-meta', text: row.meta }) : null]);
       if (S.snap?.id === c.id) b.setAttribute('aria-current', 'true');
       return el('li', {}, [b]);
     }));
@@ -1337,6 +1815,7 @@ function boot() {
     const snap = S.snap;
     renderChrome(); renderStage(snap); renderChips(snap); renderThread(snap); renderBanners(snap); renderTranscript(snap); renderRead(); renderComposer(); renderFinish(snap);
     renderDetails(snap); renderList(); renderConnect(); announce(snap);
+    $('#btnRetry').hidden = !(snap && S.failures > 0);
     universalRender(snap);
     if (S.focusMessage && snap?.state === 'ready' && !$('#prompt').disabled) { S.focusMessage = false; $('#prompt').focus(); }
   }
@@ -1362,6 +1841,12 @@ function boot() {
   $('#btnCheck').addEventListener('click', () => reconcile('#readyError'));
   $('#btnFinish').addEventListener('click', finish);
   $('#btnNew').addEventListener('click', newConversation);
+  $('#btnCopyReply').addEventListener('click', copyReply);
+  $('#btnRawToggle').addEventListener('click', toggleRaw);
+  $('#btnListRefresh').addEventListener('click', loadList);
+  $('#btnListMore').addEventListener('click', () => { S.listAll = !S.listAll; renderList(); });
+  // Manual retry after the Studio stopped answering. It only re-reads the conversation; it never sends or re-posts anything.
+  $('#btnRetry').addEventListener('click', async () => { const btn = $('#btnRetry'); btn.disabled = true; try { await refresh(); } finally { btn.disabled = false; render(); } });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) schedulePoll(); });
   const wide = window.matchMedia?.('(min-width: 1100px)');
   const syncDetails = () => { if (wide?.matches) $('#detailsBox').open = true; };

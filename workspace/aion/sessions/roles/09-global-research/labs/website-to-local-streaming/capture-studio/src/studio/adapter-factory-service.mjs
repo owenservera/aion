@@ -17,7 +17,7 @@
 //     sessions; a client-supplied receipt alone never promotes anything.
 //   - No second registry, no second browser actor, no send grant, no auto-execution.
 import { VersionedStore, I1_NAMESPACE_RE, validateExpectedVersion } from '../store/versioned.mjs';
-import { synthesizeWebappAdapter, shadowEvaluateAdapter, FACTORY_SCHEMA } from './adaptive-adapter-factory.mjs';
+import { synthesizeWebappAdapter, shadowEvaluateAdapter, candidateDigest, FACTORY_SCHEMA } from './adaptive-adapter-factory.mjs';
 import { probesFromSession, scopeProbes } from './adapter-probes.mjs';
 
 const bareHost = (value) => {
@@ -125,15 +125,21 @@ export function createAdapterFactory({ learnedStore } = {}) {
     /** Pure synthesis from saved sessions (+ optional server-produced live probes). Nothing is persisted or activated. */
     synthesize({ siteId, origin, surface = 'chat', sessions = [], priorName = null, liveProbes = [] }) {
       let prior = null;
+      let basis = null;
       if (priorName != null) {
-        prior = loadCandidateRecord(priorName)?.candidate ?? null;
+        const priorRecord = loadCandidateRecord(priorName);
+        prior = priorRecord?.candidate ?? null;
         if (!prior) throw new AdapterFactoryError('PRIOR_NOT_FOUND', `No learned adapter "${priorName}"`);
+        basis = { name: priorRecord.name ?? priorName, version: priorRecord.version, priorDigest: candidateDigest(prior) };
       }
       const observations = collectProbes(sessions, { siteId, origin, surface });
       // Live probes are produced server-side (read-only DomObserver measurement) and are already
       // evidence-class-stamped by the producer; only the scope fields are stamped here.
       for (const p of liveProbes) observations.push({ ...p, siteId, origin, surface });
       const candidate = synthesizeWebappAdapter({ siteId, origin, surface, observations, prior });
+      // The version this candidate was learned on top of. Promotion over the same name must
+      // target exactly this version, so a newer version's learning is never silently discarded.
+      if (basis) candidate.basis = basis;
       return {
         candidate,
         evidence: {
@@ -167,6 +173,18 @@ export function createAdapterFactory({ learnedStore } = {}) {
       if (candidate.authority?.sendPermission !== false || candidate.authority?.autoExecution !== false) {
         throw new AdapterFactoryError('AUTHORITY_VIOLATION', 'candidate authority must forbid send and auto-execution');
       }
+      // Stale-basis guard: a candidate learned on top of version N of this same name may only
+      // replace version N. (CAS alone only proves the caller knows CURRENT, not that the
+      // candidate was derived from it.) Candidates synthesized without a prior carry no basis.
+      const basis = candidate.basis ?? null;
+      if (basis != null) {
+        if (typeof basis !== 'object' || typeof basis.name !== 'string' || !Number.isSafeInteger(basis.version)) {
+          throw new AdapterFactoryError('BASIS_INVALID', 'candidate.basis must be { name, version } as stamped by synthesize');
+        }
+        if (basis.name === candidate.siteId && basis.version !== expectedVersion) {
+          throw new AdapterFactoryError('STALE_BASIS', `candidate was learned on ${basis.name} v${basis.version}, but promotion targets expectedVersion ${expectedVersion}; re-synthesize with priorName`);
+        }
+      }
       const recomputed = this.shadowEvaluate({ candidate, sessions });
       if (clientShadow && clientShadow.recommendation && clientShadow.recommendation !== recomputed.recommendation) {
         throw new AdapterFactoryError('SHADOW_MISMATCH', `client receipt said ${clientShadow.recommendation}, server recomputed ${recomputed.recommendation}`);
@@ -175,9 +193,17 @@ export function createAdapterFactory({ learnedStore } = {}) {
         throw new AdapterFactoryError('PROMOTION_NOT_EARNED', `shadow evaluation is "${recomputed.recommendation}"; only "candidate-read-only-preview" promotes`);
       }
       const adapter = learnedAdapterFromCandidate(candidate, recomputed);
+      // The stored digest is recomputed server-side from the content actually saved; a client-held
+      // `digest` field is never trusted (it is integrity metadata, not authority).
+      const digest = candidateDigest(candidate);
+      const claimedDigest = typeof candidate.digest === 'string' ? candidate.digest : null;
       const rec = learnedStore.compareAndSave(candidate.siteId, {
         schema: FACTORY_SCHEMA,
-        candidate,
+        candidate: { ...candidate, digest },
+        candidateDigest: digest,
+        digestMatchedClaim: claimedDigest === null ? null : claimedDigest === digest,
+        basis,
+        lineage: { priorDigest: candidate.lineage?.priorDigest ?? null },
         adapter,
         shadow: recomputed,
         promotedAt: new Date().toISOString(),
@@ -185,7 +211,7 @@ export function createAdapterFactory({ learnedStore } = {}) {
         expectedVersion,
         changeNote: note || `promoted from shadow receipt (${recomputed.checked} checks, ${recomputed.positive} positive)`,
       });
-      return { name: rec.name, version: rec.version, savedAt: rec.savedAt, note: rec.changeNote, adapter };
+      return { name: rec.name, version: rec.version, savedAt: rec.savedAt, note: rec.changeNote, adapter, candidateDigest: digest, basis };
     },
 
     /** Restores a historical version by APPENDING a new version with that content (CURRENT only moves
@@ -227,7 +253,8 @@ export function createAdapterFactory({ learnedStore } = {}) {
     /** The full stored record (candidate + shadow receipt + version) for the CURRENT pointer, or null. */
     loadRecord(name) {
       const rec = loadCandidateRecord(name);
-      return rec ? { name: rec.name, version: rec.version, savedAt: rec.savedAt, candidate: rec.candidate, shadow: rec.shadow, adapter: rec.adapter } : null;
+      return rec ? { name: rec.name, version: rec.version, savedAt: rec.savedAt, candidate: rec.candidate, shadow: rec.shadow, adapter: rec.adapter,
+        candidateDigest: rec.candidateDigest ?? null, basis: rec.basis ?? null, lineage: rec.lineage ?? null } : null;
     },
 
     /** Read-only registry provider: resolves by learned name or by host. NEVER used by the send/drive path.

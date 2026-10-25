@@ -256,7 +256,7 @@ test('delayed table rows after an early idle header are never published as ready
 });
 
 test('idle control transition after stable content still has to complete the quiet window', async (t) => {
-  const { f, script } = replyFixture(t, { rowsAt: 1, controls: () => (script.phase !== 'reply' || script.polls >= 6 ? IDLE : BUSY) });
+  const { f, script, clock } = replyFixture(t, { rowsAt: 1, controls: () => (script.phase !== 'reply' || script.polls >= 6 ? IDLE : BUSY) });
   await f.connectAndArm();
   const prompt = 'late idle prompt';
   await f.sendTurn('turn-idle', prompt);
@@ -271,5 +271,20 @@ test('idle control transition after stable content still has to complete the qui
   assert.equal(ready[0].readiness.controls.state, 'idle');
   assert.equal(updates.some((u) => u.state === 'ready' && u.readiness.controls.state !== 'idle'), false);
   assert.ok(updates.filter((u) => u.state === 'streaming').length >= 4, 'busy controls kept the reply streaming, not ready');
+  assert.ok(clock.t >= 3600, 'the 1600ms quiet window starts when idle is first observed at 2000ms, not during generation');
+  await f.adapter.stop();
+});
+
+test('a busy control between idle samples restarts the entire reply quiet window', async (t) => {
+  const { f, script, clock } = replyFixture(t, { rowsAt: 1, controls: () => script.phase === 'reply' && script.polls === 3 ? BUSY : IDLE });
+  await f.connectAndArm();
+  const prompt = 'interrupted idle prompt';
+  await f.sendTurn('turn-interrupted-idle', prompt);
+  script.messages = [...script.messages, msg('u1', 'user', prompt)];
+  await f.adapter.reconcile(f.args('turn-interrupted-idle', prompt));
+  script.showReply = true; script.polls = 0; script.phase = 'reply';
+  const result = await f.adapter.readReply(() => {}, { turnId: 'turn-interrupted-idle', payloadDigest: f.digestOf(prompt), threadKey: 'k' });
+  assert.equal(result.state, 'ready'); assert.equal(result.text, RICH);
+  assert.ok(clock.t >= 2800, 'busy at 800ms breaks continuity; idle resumes at 1200ms and must remain quiet for 1600ms');
   await f.adapter.stop();
 });

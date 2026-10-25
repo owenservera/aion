@@ -15,6 +15,7 @@
 //   - Every probe keeps its capture reference (captureId:sequence) so the raw evidence stays
 //     authoritative and auditable.
 import { parseThread, threadSupported } from '../capture/conversation-thread.mjs';
+import chatgptSeed from '../profiles/sites/chatgpt.mjs';
 
 export const PROBE_SCHEMA = 'aion.adapter-probe/1';
 export const TEXT_PREVIEW_CAP = 240;
@@ -30,9 +31,32 @@ const FEATURE_BY_ROLE = { user: 'user-turn', assistant: 'assistant-turn' };
 
 const isString = (s, n) => typeof s === 'string' && !!s.length && s.length <= n;
 
+const ATTR_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_:.-]{0,99}$/;
+const ROLE_VALUE_RE = /^[a-z]{1,40}$/;
+// The one selector form for a recorded role attribute, shared by saved and live probes and by
+// transcript matching. `match` is the page agent's roleMatch ('suffix' | 'exact').
+export function selectorForRole(attr, role, match = 'exact') {
+  if (!ATTR_NAME_RE.test(String(attr ?? '')) || !ROLE_VALUE_RE.test(String(role ?? ''))) return null;
+  return match === 'suffix' ? `[${attr}$="${role}"]` : `[${attr}="${role}"]`;
+}
+
 function classifySegment(seg) {
   if (UUID_RE.test(seg)) return ':uuid';
   if (DIGITS_RE.test(seg) || IDENTITY_TOKEN_RE.test(seg)) return ':id';
+  return null;
+}
+
+// Long opaque segments that carry digits (project/custom-assistant ids with a user-chosen slug,
+// e.g. `g-p-67e1a2b3c4d5-my-private-project`, base62 share keys) are generalized to `:token`.
+// They are NOT identity evidence (only uuid/:id count), but a learned, persisted route template
+// must never retain account-specific or user-named path content. Percent-encoded segments are
+// treated the same way.
+function opaqueSegment(seg) {
+  if (seg.includes('%')) return ':token';
+  if (seg.length >= 12 && /\d/.test(seg) && /[a-z]/i.test(seg) && /^[A-Za-z0-9_.~-]+$/.test(seg)) return ':token';
+  // Provider route words are short (`c`, `chat`, `app`, `backend-api`); multi-hyphen or long
+  // literal segments are slugs (often user-named) and are generalized too.
+  if (seg.length > 24 || (seg.match(/-/g)?.length ?? 0) >= 2) return ':token';
   return null;
 }
 
@@ -53,7 +77,7 @@ export function routeCandidateFromUrl(urlStr) {
   try { u = new URL(urlStr); } catch { return null; }
   if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
 
-  const path = u.pathname.split('/').map((seg) => seg ? (classifySegment(seg) ?? seg) : seg).join('/');
+  const path = u.pathname.split('/').map((seg) => seg ? (classifySegment(seg) ?? opaqueSegment(seg) ?? seg) : seg).join('/');
   const query = [];
   let identityHits = 0;
   for (const [k, v] of u.searchParams.entries()) {
@@ -100,8 +124,9 @@ export function probesFromSession(session, { evidenceClass = 'SAVED_REAL_CAPTURE
       const feature = FEATURE_BY_ROLE[t?.role];
       if (!feature) continue;
       const attr = typeof t.roleAttribute === 'string' ? t.roleAttribute : null;
-      if (attr) {
-        const p = probe({ feature, type: 'selector', candidate: t.roleMatch === 'suffix' ? `[${attr}$="${t.role}"]` : `[${attr}="${t.role}"]`, carrier: 'dom', captureId, evidenceClass });
+      const roleSelector = attr ? selectorForRole(attr, t.role, t.roleMatch) : null;
+      if (roleSelector) {
+        const p = probe({ feature, type: 'selector', candidate: roleSelector, carrier: 'dom', captureId, evidenceClass });
         if (p) out.push(p);
       }
       // A specific per-turn selector is noisy by construction; at most one per role per capture
@@ -197,7 +222,7 @@ export function liveMeasurementExpression({ priorSelectors = {} } = {}) {
   try {
     const t = globalThis.__aionCapture && typeof globalThis.__aionCapture.turns === 'function' ? globalThis.__aionCapture.turns() : null;
     out.injected = !!t;
-    if (Array.isArray(t)) out.roles = t.slice(0, 40).map((x) => ({ attr: x.roleAttribute ?? null, role: x.role ?? null }));
+    if (Array.isArray(t)) out.roles = t.slice(0, 40).map((x) => ({ attr: x.roleAttribute ?? null, role: x.role ?? null, match: x.roleMatch === 'suffix' ? 'suffix' : 'exact' }));
   } catch { out.roles = null; }
   return out;
 })()`;
@@ -238,8 +263,11 @@ export function probesFromLiveMeasurement({ measurement, origin, url, captureId,
       if (!r?.attr || !r?.role) continue;
       const feature = FEATURE_BY_ROLE[r.role];
       if (!feature) continue;
-      const candidate = `[${r.attr}="${r.role}"]`;
-      if (seen.has(candidate)) continue;
+      // Same selector form as saved captures (probesFromSession): a suffix-matched role key
+      // (e.g. data-content-search-unit-key="turn-0:2:assistant") must never be reported present
+      // as an exact `[attr="assistant"]` selector that matches nothing on the page.
+      const candidate = selectorForRole(r.attr, r.role, r.match);
+      if (!candidate || seen.has(candidate)) continue;
       seen.add(candidate);
       presentCandidates.add(`${feature}:${candidate}`);
       // Presence from the live role scan is complete for the current document.
@@ -292,15 +320,37 @@ const previewOf = (text) => {
  * evidence (attribute-selector matching against the recorded roleAttribute/role pair), and
  * reports thread identity ONLY through the source-supported parser (never fabricated).
  */
-const ATTR_SELECTOR_RE = /^\[([^\]\"=]+)="([^\"]*)"\]$/;
-
-// A saved turn matches an attribute selector only when BOTH the attribute name and the role
-// value recorded for that turn are the selector's — a [data-msg-author="user"] candidate must
-// never claim turns that were recorded under a different attribute.
+// A saved turn matches an attribute selector only when the attribute name, role value AND
+// match form recorded for that turn reproduce the selector exactly — a [data-msg-author="user"]
+// candidate must never claim turns recorded under a different attribute, and a suffix
+// candidate only claims suffix-recorded turns (and vice versa).
 function turnMatchesSelector(t, selector) {
-  const m = ATTR_SELECTOR_RE.exec(String(selector ?? ''));
-  if (!m) return false;
-  return t.roleAttribute === m[1] && t.role === m[2];
+  if (typeof selector !== 'string' || !selector) return false;
+  return selectorForRole(t.roleAttribute, t.role, t.roleMatch) === selector;
+}
+
+// Thread identity is provider-native: only the provider whose parser owns this origin may bind
+// it. The parser itself is path-only, so it must never be applied to another site's URL.
+// Hosts come from the handwritten seed adapters (the one site registry), not a second list.
+const THREAD_PROVIDER_HOSTS = Object.freeze({ chatgpt: Object.freeze([...(chatgptSeed?.hosts ?? [])].map((h) => String(h).toLowerCase())) });
+export function threadProviderForOrigin(origin) {
+  let host;
+  try { const u = new URL(String(origin)); if (u.protocol !== 'https:' || u.port) return null; host = u.hostname.toLowerCase(); } catch { return null; }
+  for (const [provider, hosts] of Object.entries(THREAD_PROVIDER_HOSTS)) {
+    if (hosts.includes(host) && threadSupported(provider)) return provider;
+  }
+  return null;
+}
+function threadBinding(candidateOrigin, url) {
+  const unverified = { binding: 'unverified', nativeRef: null, url: typeof url === 'string' ? url : null };
+  if (typeof url !== 'string' || !url) return unverified;
+  let pageOrigin;
+  try { pageOrigin = new URL(url).origin; } catch { return unverified; }
+  if (pageOrigin !== candidateOrigin) return unverified;
+  const provider = threadProviderForOrigin(candidateOrigin);
+  if (!provider) return unverified;
+  const parsed = parseThread(provider, url);
+  return parsed?.id ? { binding: 'verified', provider, nativeRef: parsed.ref ?? parsed.id, url } : unverified;
 }
 
 export function transcriptFromSession(session, candidate, { cap = MAX_LIVE_TURNS } = {}) {
@@ -327,11 +377,7 @@ export function transcriptFromSession(session, candidate, { cap = MAX_LIVE_TURNS
     }
   }
   const url = session.kv?.get?.('RECEIPT')?.pageUrl ?? session.meta?.target?.url ?? null;
-  let thread = { binding: 'unverified', nativeRef: null, url: typeof url === 'string' ? url : null };
-  if (url && threadSupported('chatgpt', url)) {
-    const parsed = parseThread('chatgpt', url);
-    if (parsed?.id) thread = { binding: 'verified', nativeRef: parsed.ref ?? parsed.id, url };
-  }
+  const thread = threadBinding(candidate.origin, url);
   return { schema: 'aion.learned-transcript/1', siteId: candidate.siteId, origin: candidate.origin, source: 'saved-session', sessionId: session.id, items, thread, cap };
 }
 
@@ -379,10 +425,6 @@ export async function transcriptFromLivePage({ dom, candidate, scrub, cap = MAX_
       evidence: { selector: x?.role === 'user' ? userSelector : assistantSelector, source: 'live-page' },
     };
   });
-  let thread = { binding: 'unverified', nativeRef: null, url: typeof m.url === 'string' ? m.url : null };
-  if (m.url && threadSupported('chatgpt', m.url)) {
-    const parsed = parseThread('chatgpt', m.url);
-    if (parsed?.id) thread = { binding: 'verified', nativeRef: parsed.ref ?? parsed.id, url: m.url };
-  }
+  const thread = threadBinding(candidate.origin, m.url);
   return { schema: 'aion.learned-transcript/1', siteId: candidate.siteId, origin: candidate.origin, source: 'live-page', live: true, pageReady: m.readyState, items, thread, cap };
 }

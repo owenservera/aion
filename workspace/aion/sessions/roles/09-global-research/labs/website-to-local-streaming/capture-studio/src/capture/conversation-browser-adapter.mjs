@@ -510,19 +510,21 @@ export function createConversationBrowserAdapter({ paths, profileStore, familySt
         if (candidate?.role === 'assistant' && !saved.baseline.some((m) => m.id === candidate.id)) {
           const update = sampleReply(saved, candidate, page.controls);
           const stamp = d.now(), contentDigest = update.evidence.contentDigest;
-          if (saved.stable?.digest !== contentDigest) saved.stable = { digest: contentDigest, since: stamp, polls: 1 };
+          const idle = idleControls(page.controls);
+          if (!idle) saved.stable = null;
+          else if (saved.stable?.digest !== contentDigest) saved.stable = { digest: contentDigest, since: stamp, polls: 1 };
           else saved.stable.polls++;
-          const quietFor = stamp - saved.stable.since;
-          const settled = saved.samples.length >= 2 && saved.stable.polls >= d.replySettlePolls
+          const quietFor = saved.stable ? stamp - saved.stable.since : 0;
+          const settled = saved.samples.length >= 2 && saved.stable?.polls >= d.replySettlePolls
             && quietFor >= d.replySettleMs;
-          if (settled && idleControls(page.controls) && candidate.text.length > 0) {
+          if (settled && idle && candidate.text.length > 0) {
             update.state = 'ready';
             update.readiness = { ...update.evidence, kind: 'interactive-ready', source: 'adapter', rule: 'chatgpt-controls-idle', ruleVersion: 1,
               threadKey: args.threadKey, boundarySequence: saved.boundary.sequence, samples: structuredClone(saved.samples), controls: page.controls };
           }
           await onUpdate?.(update);
           if (update.state === 'ready') return update;
-        }
+        } else saved.stable = null;
         await d.sleep(d.replyPollMs);
       }
       return { turnId: saved.turnId, state: waiting.signal.aborted ? 'interrupted' : 'unknown', text: saved.reply?.text ?? '' };
