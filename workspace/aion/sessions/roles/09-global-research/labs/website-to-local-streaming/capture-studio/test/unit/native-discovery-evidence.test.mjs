@@ -42,10 +42,10 @@ test('saved DOM blocks report rich parts, nested structure and citations without
 
 test('unmapped stream is not promoted; mapped but omitted or partial stream stays incomplete', () => {
   const s = session('session-two', { streams: [
-    { sid: 'a', mapId: null, components: [a('code')] },
-    { sid: 'b', mapId: 'existing-map', eventsOmitted: 2, components: [a('table', { opened: true, closed: true })] },
+    { sid: 'a', mapId: null, components: [{ component: 'code' }] },
+    { sid: 'b', mapId: 'existing-map', eventsOmitted: 2, components: [{ component: 'table', opened: true, closed: true }] },
     { sid: 'c', mapId: 'existing-map', eventsOmitted: 0, unmappedCount: 0,
-      components: [a('paragraph', { opened: true, closed: false })] },
+      components: [{ component: 'paragraph', opened: true, closed: false }] },
   ] });
   const parts = nativePartsFromSession(s).parts.filter((p) => p.carrier === 'network');
   assert.equal(parts.length, 2);
