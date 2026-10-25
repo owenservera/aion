@@ -42,3 +42,9 @@ The two foundational shared product capabilities are now preserved in the Produc
 - **Toolkit 02 — Agentic File & Naming Library:** [21-family taxonomy with provenance and provider compatibility](core-library/AGENTIC-FILE-LIBRARY.md), plus the [machine-readable registry](core-library/AGENTIC-FILE-CATALOG.json) (**133 candidate filename patterns**; vendor-documented vs prior-conversation recalled vs new extension). **ADOPT** discovery/classification/reuse capability, **not** mass Markdown generation.
 
 September 5 / October 15 historical inventory claims have been rechecked; the old complete verbatim file list and its claimed separate ZIP location are not independently located, and this gap is explicitly recorded rather than hidden.
+
+## Discovery & BUILD OR HARVEST atlas (2026-10-25)
+- [Capability Atlas — 116 tagged observations (YAML)](discovery/VIVIM-CAPABILITY-ATLAS.yaml), 9 categories across 103 catalogued repositories; 196 accessible GitHub repos discovered but private metadata exposure limited.
+- [Tagging rules and future BUILD OR HARVEST workshop](discovery/README.md). The workshop is **not yet started**; V1 user journeys/shape and honest gap analysis come first.
+- Interest tags: essential / looks useful / interesting HOW / interesting idea / risky / unknown. Every item records WHAT / WHY / WHERE, evidence strength, phase, effort and an undecided outcome.
+- PRODUCT AGENT owns WHAT / WHY / WHERE / MAX arbitration; Z.ai owns LOW/MED/HIGH integration HOW. Dependency-free is **not** a mandate; optimize better/faster/less garbage.
