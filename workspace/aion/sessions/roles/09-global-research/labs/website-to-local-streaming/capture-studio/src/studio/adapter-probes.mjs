@@ -93,12 +93,12 @@ export function routeCandidateFromUrl(urlStr) {
 }
 
 let seqCounter = 0;
-function probe({ feature, type, candidate, outcome = 'present', coverage = 'complete', carrier, captureId, evidenceClass }) {
+function probe({ feature, type, candidate, outcome = 'present', coverage = 'complete', carrier, captureId, evidenceClass, evidenceRef = null }) {
   if (!isString(candidate, 320)) return null;
   return {
     schema: PROBE_SCHEMA,
     feature, type, candidate, outcome, coverage, carrier,
-    captureId, sequence: seqCounter++, evidenceClass,
+    captureId, sequence: seqCounter++, evidenceClass, evidenceRef,
   };
 }
 
@@ -120,13 +120,13 @@ export function probesFromSession(session, { evidenceClass = 'SAVED_REAL_CAPTURE
   const turns = session.kv?.get?.('DOM_TURNS') ?? [];
   if (Array.isArray(turns)) {
     const domIdSeen = new Set();
-    for (const t of turns) {
+    for (const [turnIndex, t] of turns.entries()) {
       const feature = FEATURE_BY_ROLE[t?.role];
       if (!feature) continue;
       const attr = typeof t.roleAttribute === 'string' ? t.roleAttribute : null;
       const roleSelector = attr ? selectorForRole(attr, t.role, t.roleMatch) : null;
       if (roleSelector) {
-        const p = probe({ feature, type: 'selector', candidate: roleSelector, carrier: 'dom', captureId, evidenceClass });
+        const p = probe({ feature, type: 'selector', candidate: roleSelector, carrier: 'dom', captureId, evidenceClass, evidenceRef: `KV:DOM_TURNS[${turnIndex}]` });
         if (p) out.push(p);
       }
       // A specific per-turn selector is noisy by construction; at most one per role per capture
@@ -134,7 +134,7 @@ export function probesFromSession(session, { evidenceClass = 'SAVED_REAL_CAPTURE
       // ranked selection (the stable attribute selector always has equal-or-better support).
       if (isString(t.domId, 320) && !domIdSeen.has(feature)) {
         domIdSeen.add(feature);
-        const p = probe({ feature, type: 'selector', candidate: t.domId, carrier: 'dom', captureId, evidenceClass });
+        const p = probe({ feature, type: 'selector', candidate: t.domId, carrier: 'dom', captureId, evidenceClass, evidenceRef: `KV:DOM_TURNS[${turnIndex}].domId` });
         if (p) out.push(p);
       }
     }
@@ -143,14 +143,14 @@ export function probesFromSession(session, { evidenceClass = 'SAVED_REAL_CAPTURE
   const assembled = session.kv?.get?.('ASSEMBLED') ?? {};
   if (assembled && typeof assembled === 'object') {
     const seen = new Set();
-    for (const a of Object.values(assembled)) {
+    for (const [streamIndex, a] of Object.values(assembled).entries()) {
       const endpoint = typeof a?.endpoint === 'string' ? a.endpoint : null;
       if (!endpoint || seen.has(endpoint)) continue;
       seen.add(endpoint);
       if (seen.size > maxStreamEndpoints) break;
       // endpoint shape is `METHOD /path`; the path is the stream-map candidate.
       const path = endpoint.includes(' ') ? endpoint.slice(endpoint.indexOf(' ') + 1) : endpoint;
-      const p = probe({ feature: 'stream-component', type: 'stream-map', candidate: path, carrier: 'network', captureId, evidenceClass });
+      const p = probe({ feature: 'stream-component', type: 'stream-map', candidate: path, carrier: 'network', captureId, evidenceClass, evidenceRef: `KV:ASSEMBLED[${streamIndex}].endpoint` });
       if (p) out.push(p);
     }
   }
@@ -161,7 +161,7 @@ export function probesFromSession(session, { evidenceClass = 'SAVED_REAL_CAPTURE
     ?? session.meta?.target?.url ?? null;
   const route = routeCandidateFromUrl(url);
   if (route) {
-    const p = probe({ feature: 'thread-route', type: 'route', candidate: route, carrier: 'dom', captureId, evidenceClass });
+    const p = probe({ feature: 'thread-route', type: 'route', candidate: route, carrier: 'dom', captureId, evidenceClass, evidenceRef: session.kv?.get?.('RECEIPT')?.pageUrl ? 'KV:RECEIPT.pageUrl' : session.kv?.get?.('DOM_INSPECT')?.url ? 'KV:DOM_INSPECT.url' : 'META:target.url' });
     if (p) out.push(p);
   }
 
@@ -179,6 +179,11 @@ export function scopeProbes(probes, { siteId, origin, surface = 'chat', sessionO
     if (!probeOrigin) throw new TypeError(`PROBE_ORIGIN_UNKNOWN: ${p.captureId}`);
     if (probeOrigin !== origin) {
       throw new TypeError(`PROBE_ORIGIN_MISMATCH: session ${p.captureId} is ${probeOrigin}, not ${origin}`);
+    }
+    if (p.feature === 'thread-route') {
+      let routeOrigin;
+      try { routeOrigin = new URL(p.candidate).origin; } catch { throw new TypeError('PROBE_ROUTE_INVALID'); }
+      if (routeOrigin !== origin) throw new TypeError('PROBE_ROUTE_ORIGIN_MISMATCH');
     }
     p.siteId = siteId; p.origin = origin; p.surface = surface;
   }
@@ -208,7 +213,7 @@ export function liveMeasurementExpression({ priorSelectors = {} } = {}) {
   const batteryJson = JSON.stringify(LIVE_BATTERY);
   const priorJson = JSON.stringify(Object.fromEntries(Object.entries(priorSelectors).slice(0, 8).map(([k, v]) => [k, Array.isArray(v) ? v.slice(0, 8).map(String) : []])));
   return `(async () => {
-  const out = { readyState: document.readyState, url: location.href, battery: {}, prior: {}, roles: null, injected: false };
+  const out = { readyState: document.readyState, startUrl: location.href, url: location.href, battery: {}, prior: {}, roles: null, injected: false };
   const q = (sel) => { try { const n = document.querySelectorAll(sel).length; return n > 255 ? 255 : n; } catch { return -1; } };
   const battery = ${batteryJson};
   for (const f of Object.keys(battery)) out.battery[f] = battery[f].map(q);
@@ -222,7 +227,230 @@ export function liveMeasurementExpression({ priorSelectors = {} } = {}) {
   try {
     const t = globalThis.__aionCapture && typeof globalThis.__aionCapture.turns === 'function' ? globalThis.__aionCapture.turns() : null;
     out.injected = !!t;
-    if (Array.isArray(t)) out.roles = t.slice(0, 40).map((x) => ({ attr: x.roleAttribute ?? null, role: x.role ?? null, match: x.roleMatch === 'suffix' ? 'suffix' : 'exact' }));
+    if (Array.isArray(t)) out.roles = t.slice(0, 40).map((x) => {
+      const attr = String(x.roleAttribute ?? ''), role = String(x.role ?? '');
+      const sel = /^[a-zA-Z_][a-zA-Z0-9_:.-]{0,99}$/.test(attr) && /^[a-z]{1,40}$/.test(role)
+        ? '[' + attr + (x.roleMatch === 'suffix' ? '
+  } catch { out.roles = null; }
+  out.readyState = document.readyState;
+  out.url = location.href;
+  return out;
+})()`;
+}
+
+/**
+ * Map a live measurement into probes. Evidence class: SANDBOX_REAL_BROWSER.
+ * A live whole-document querySelectorAll IS a complete bounded probe, so absence is provable —
+ * but only when the document was actually loaded; otherwise everything is reported unknown.
+ */
+export function probesFromLiveMeasurement({ measurement, origin, url, captureId, evidenceClass = 'SANDBOX_REAL_BROWSER' }) {
+  if (!measurement || typeof measurement !== 'object') throw new TypeError('INVALID_MEASUREMENT');
+  const out = [];
+  seqCounter = 0;
+  const pageUrl = measurement.url ?? url;
+  if (pageUrl) {
+    let measuredOrigin;
+    try { measuredOrigin = new URL(pageUrl).origin; } catch { throw new TypeError('LIVE_URL_INVALID'); }
+    if (measuredOrigin !== origin) throw new TypeError('LIVE_ORIGIN_MISMATCH');
+  }
+  // A navigation between the first battery read and the role scan cannot prove absence.
+  const sameDocument = !measurement.startUrl || measurement.startUrl === measurement.url;
+  const complete = measurement.readyState === 'complete' && sameDocument;
+  const coverage = complete ? 'complete' : 'partial';
+  const outcomeFor = (count) => !complete ? 'unknown' : count > 0 ? 'present' : count === 0 ? 'absent' : 'unknown';
+
+  for (const [feature, counts] of Object.entries(measurement.battery ?? {})) {
+    if (!BATTERY_FEATURES.includes(feature)) continue;
+    counts.forEach((n, i) => {
+      const candidate = LIVE_BATTERY[feature]?.[i];
+      if (!candidate) return;
+      const p = probe({ feature, type: 'selector', candidate, outcome: outcomeFor(n), coverage, carrier: 'dom', captureId, evidenceClass });
+      if (p && (p.outcome !== 'absent' || complete)) out.push(p);
+    });
+  }
+
+  // The live role scan is the freshest site-specific evidence; when it already produced a
+  // presence probe for a candidate, a raw prior-absence measurement of the SAME selector is
+  // a self-contradiction inside one capture and is never emitted (the factory counts
+  // within-capture contradictions as unknown, which would poison the vote).
+  const presentCandidates = new Set();
+
+  if (Array.isArray(measurement.roles)) {
+    const seen = new Set();
+    for (const r of measurement.roles) {
+      if (!r?.attr || !r?.role) continue;
+      const feature = FEATURE_BY_ROLE[r.role];
+      if (!feature) continue;
+      // Same selector form as saved captures (probesFromSession): a suffix-matched role key
+      // (e.g. data-content-search-unit-key="turn-0:2:assistant") must never be reported present
+      // as an exact `[attr="assistant"]` selector that matches nothing on the page.
+      const candidate = selectorForRole(r.attr, r.role, r.match);
+      // The capture agent's role label is a *proposal*, not proof that its selector still matches.
+      // Only the separate bounded querySelectorAll count qualifies a presence observation.
+      if (!candidate || seen.has(candidate) || !Number.isInteger(r.count) || r.count <= 0) continue;
+      seen.add(candidate);
+      presentCandidates.add(`${feature}:${candidate}`);
+      // Presence from the live role scan is complete for the current document.
+      const p = probe({ feature, type: 'selector', candidate, outcome: complete ? 'present' : 'unknown', coverage, carrier: 'dom', captureId, evidenceClass });
+      if (p) out.push(p);
+    }
+  }
+
+  for (const [feature, counts] of Object.entries(measurement.prior ?? {})) {
+    counts.forEach((n, i) => {
+      const candidate = measurement.priorCandidates?.[feature]?.[i];
+      if (!isString(candidate, 320)) return;
+      if (presentCandidates.has(`${feature}:${candidate}`)) return;
+      const p = probe({ feature, type: feature === 'thread-route' ? 'route' : 'selector', candidate, outcome: outcomeFor(n), coverage, carrier: 'dom', captureId, evidenceClass });
+      if (p && (p.outcome !== 'absent' || complete)) out.push(p);
+    });
+  }
+
+  const route = routeCandidateFromUrl(measurement.url ?? url);
+  if (route) {
+    const p = probe({ feature: 'thread-route', type: 'route', candidate: route, outcome: complete ? 'present' : 'unknown', coverage, carrier: 'dom', captureId, evidenceClass });
+    if (p) out.push(p);
+  }
+
+  for (const p of out) { p.siteId = null; p.origin = origin; p.surface = 'chat'; }
+  return out;
+}
+
+/**
+ * Run the live measurement through the EXISTING DomObserver (the same in-page agent capture
+ * uses — no second browser actor, no direct CDP session). Returns probes.
+ */
+export async function probesFromLivePage({ dom, origin, captureId, priorSelectors = {} }) {
+  if (!dom || typeof dom._evalInMain !== 'function') throw new TypeError('INVALID_DOM_OBSERVER');
+  const r = await dom._evalInMain(liveMeasurementExpression({ priorSelectors }));
+  const measurement = r?.value ?? r;
+  if (!measurement || typeof measurement !== 'object') throw new TypeError('LIVE_MEASUREMENT_UNAVAILABLE');
+  measurement.priorCandidates = Object.fromEntries(Object.entries(priorSelectors).map(([k, v]) => [k, Array.isArray(v) ? v : []]));
+  return probesFromLiveMeasurement({ measurement, origin, captureId });
+}
+
+const previewOf = (text) => {
+  const full = typeof text === 'string' ? text : '';
+  return { text: full.slice(0, TEXT_PREVIEW_CAP), truncated: full.length > TEXT_PREVIEW_CAP, length: full.length };
+};
+
+/**
+ * Read-only transcript of a saved session under a learned adapter candidate.
+ * Applies the candidate's user-turn/assistant-turn selectors to the session's own DOM_TURNS
+ * evidence (attribute-selector matching against the recorded roleAttribute/role pair), and
+ * reports thread identity ONLY through the source-supported parser (never fabricated).
+ */
+// A saved turn matches an attribute selector only when the attribute name, role value AND
+// match form recorded for that turn reproduce the selector exactly — a [data-msg-author="user"]
+// candidate must never claim turns recorded under a different attribute, and a suffix
+// candidate only claims suffix-recorded turns (and vice versa).
+function turnMatchesSelector(t, selector) {
+  if (typeof selector !== 'string' || !selector) return false;
+  return selectorForRole(t.roleAttribute, t.role, t.roleMatch) === selector;
+}
+
+// Thread identity is provider-native: only the provider whose parser owns this origin may bind
+// it. The parser itself is path-only, so it must never be applied to another site's URL.
+// Hosts come from the handwritten seed adapters (the one site registry), not a second list.
+const THREAD_PROVIDER_HOSTS = Object.freeze({ chatgpt: Object.freeze([...(chatgptSeed?.hosts ?? [])].map((h) => String(h).toLowerCase())) });
+export function threadProviderForOrigin(origin) {
+  let host;
+  try { const u = new URL(String(origin)); if (u.protocol !== 'https:' || u.port) return null; host = u.hostname.toLowerCase(); } catch { return null; }
+  for (const [provider, hosts] of Object.entries(THREAD_PROVIDER_HOSTS)) {
+    if (hosts.includes(host) && threadSupported(provider)) return provider;
+  }
+  return null;
+}
+function threadBinding(candidateOrigin, url) {
+  const unverified = { binding: 'unverified', nativeRef: null, url: typeof url === 'string' ? url : null };
+  if (typeof url !== 'string' || !url) return unverified;
+  let pageOrigin;
+  try { pageOrigin = new URL(url).origin; } catch { return unverified; }
+  if (pageOrigin !== candidateOrigin) return unverified;
+  const provider = threadProviderForOrigin(candidateOrigin);
+  if (!provider) return unverified;
+  const parsed = parseThread(provider, url);
+  return parsed?.id ? { binding: 'verified', provider, nativeRef: parsed.ref ?? parsed.id, url } : unverified;
+}
+
+export function transcriptFromSession(session, candidate, { cap = MAX_LIVE_TURNS } = {}) {
+  if (!session || typeof session !== 'object' || !isString(session.id, 128)) throw new TypeError('INVALID_SESSION');
+  if (!candidate || candidate.schema !== 'aion.adaptive-webapp-adapter/1') throw new TypeError('INVALID_CANDIDATE');
+  const selectors = {
+    'user-turn': candidate.features?.['user-turn']?.selected?.candidate ?? null,
+    'assistant-turn': candidate.features?.['assistant-turn']?.selected?.candidate ?? null,
+  };
+  const turns = session.kv?.get?.('DOM_TURNS') ?? [];
+  const items = [];
+  if (Array.isArray(turns)) {
+    for (const t of turns) {
+      const feature = FEATURE_BY_ROLE[t?.role];
+      if (!feature || !selectors[feature]) continue;
+      if (!turnMatchesSelector(t, selectors[feature])) continue;
+      const pv = previewOf(t.text);
+      items.push({
+        ord: items.length, role: t.role, feature,
+        text: pv.text, truncated: pv.truncated, textLength: pv.length,
+        evidence: { session: session.id, turnIndex: t.index ?? items.length, domId: t.domId ?? null, selector: selectors[feature] },
+      });
+      if (items.length >= cap) break;
+    }
+  }
+  const url = session.kv?.get?.('RECEIPT')?.pageUrl ?? session.meta?.target?.url ?? null;
+  const thread = threadBinding(candidate.origin, url);
+  return { schema: 'aion.learned-transcript/1', siteId: candidate.siteId, origin: candidate.origin, source: 'saved-session', sessionId: session.id, items, thread, cap };
+}
+
+/**
+ * Live read-only transcript through the existing DomObserver: applies the candidate's selectors
+ * with querySelectorAll, reads bounded innerText, orders by document position. No typing, no
+ * dispatch, no network. `scrub` (optional) is the capture privacy text scrubber.
+ */
+export function liveTranscriptExpression({ userSelector, assistantSelector, cap = MAX_LIVE_TURNS, textCap = TEXT_PREVIEW_CAP }) {
+  return `(() => {
+  const cap = ${Number(cap)}, textCap = ${Number(textCap)};
+  const grab = (sel, role) => {
+    if (!sel) return [];
+    try { return [...document.querySelectorAll(sel)].slice(0, cap).map((el) => ({ el, role })); } catch { return []; }
+  };
+  const items = [...grab(${JSON.stringify(userSelector)}, 'user'), ...grab(${JSON.stringify(assistantSelector)}, 'assistant')];
+  items.sort((a, b) => (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
+  return {
+    readyState: document.readyState, url: location.href,
+    items: items.slice(0, cap).map((x, i) => ({
+      ord: i, role: x.role,
+      text: String(x.el.innerText ?? x.el.textContent ?? '').slice(0, textCap),
+      sig: (x.el.tagName || '').toLowerCase() + (x.el.getAttribute('role') ? '[role=' + x.el.getAttribute('role') + ']' : ''),
+    })),
+  };
+})()`;
+}
+
+export async function transcriptFromLivePage({ dom, candidate, scrub, cap = MAX_LIVE_TURNS }) {
+  if (!dom || typeof dom._evalInMain !== 'function') throw new TypeError('INVALID_DOM_OBSERVER');
+  if (!candidate || candidate.schema !== 'aion.adaptive-webapp-adapter/1') throw new TypeError('INVALID_CANDIDATE');
+  const userSelector = candidate.features?.['user-turn']?.selected?.candidate ?? null;
+  const assistantSelector = candidate.features?.['assistant-turn']?.selected?.candidate ?? null;
+  if (!userSelector && !assistantSelector) throw new TypeError('CANDIDATE_HAS_NO_READ_FEATURES');
+  const r = await dom._evalInMain(liveTranscriptExpression({ userSelector, assistantSelector, cap }));
+  const m = r?.value ?? r;
+  if (!m || typeof m !== 'object') throw new TypeError('LIVE_TRANSCRIPT_UNAVAILABLE');
+  const items = (Array.isArray(m.items) ? m.items : []).slice(0, cap).map((x, i) => {
+    const raw = typeof x?.text === 'string' ? x.text : '';
+    const scrubbed = typeof scrub === 'function' ? scrub(raw) : { text: raw, redactions: [] };
+    return {
+      ord: i, role: x?.role === 'user' ? 'user' : 'assistant',
+      text: scrubbed.text, redactions: scrubbed.redactions?.length ?? 0,
+      sig: typeof x?.sig === 'string' ? x.sig : null,
+      evidence: { selector: x?.role === 'user' ? userSelector : assistantSelector, source: 'live-page' },
+    };
+  });
+  const thread = threadBinding(candidate.origin, m.url);
+  return { schema: 'aion.learned-transcript/1', siteId: candidate.siteId, origin: candidate.origin, source: 'live-page', live: true, pageReady: m.readyState, items, thread, cap };
+}
+ : '') + '="' + role + '"]' : null;
+      return { attr, role, match: x.roleMatch === 'suffix' ? 'suffix' : 'exact', count: sel ? q(sel) : -1 };
+    });
   } catch { out.roles = null; }
   return out;
 })()`;
@@ -427,4 +655,60 @@ export async function transcriptFromLivePage({ dom, candidate, scrub, cap = MAX_
   });
   const thread = threadBinding(candidate.origin, m.url);
   return { schema: 'aion.learned-transcript/1', siteId: candidate.siteId, origin: candidate.origin, source: 'live-page', live: true, pageReady: m.readyState, items, thread, cap };
+}
+
+
+// Read-only native response-part evidence from the EXISTING derived KV records. These are
+// structural observations, not adapter selectors or verified message/conversation identity.
+// No text, URLs, file names, account refs or content-derived identifiers are persisted here.
+// A missing part in a saved snapshot does NOT establish absence or drift.
+export const NATIVE_PART_EVIDENCE_SCHEMA = 'aion.native-part-evidence/1';
+export function nativePartsFromSession(session, { maxParts = 256 } = {}) {
+  if (!session || typeof session !== 'object' || !isString(session.id, 128)) throw new TypeError('INVALID_SESSION');
+  const limit = Number.isSafeInteger(maxParts) ? Math.max(0, Math.min(256, maxParts)) : 256;
+  const parts = [];
+  const add = (part) => { if (parts.length < limit) parts.push(part); };
+  const safeType = (v) => typeof v === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(v) ? v : 'unknown-native';
+  const walk = (blocks, ref, turnOrd, role, depth = 0) => {
+    if (!Array.isArray(blocks) || depth > 8 || parts.length >= limit) return;
+    for (const [i, b] of blocks.entries()) {
+      if (!b || typeof b !== 'object' || parts.length >= limit) continue;
+      const pointer = `${ref}[${i}]`;
+      add({ captureId: session.id, carrier: 'dom', sourceRef: pointer,
+        turnOrd, role, nativeType: safeType(b.type), state: 'observed' });
+      if (Array.isArray(b.inline)) for (const [j, inline] of b.inline.entries()) {
+        if (parts.length >= limit) break;
+        if (inline?.t === 'citation') add({ captureId: session.id, carrier: 'dom',
+          sourceRef: `${pointer}.inline[${j}]`, turnOrd, role, nativeType: 'citation', state: 'observed' });
+      }
+      walk(b.blocks, `${pointer}.blocks`, turnOrd, role, depth + 1);
+      if (Array.isArray(b.items)) for (const [j, item] of b.items.entries())
+        walk(item?.blocks, `${pointer}.items[${j}].blocks`, turnOrd, role, depth + 1);
+    }
+  };
+  const turns = session.kv?.get?.('DOM_TURNS');
+  if (Array.isArray(turns)) turns.slice(0, 500).forEach((t, i) => {
+    if (t?.role === 'user' || t?.role === 'assistant')
+      walk(t.blocks, `KV:DOM_TURNS[${i}].blocks`, i, t.role);
+  });
+  const doc = session.kv?.get?.('STREAM_COMPONENTS');
+  if (doc?.schema === 'capture-studio.stream-components/1' && Array.isArray(doc.streams)) {
+    for (const [i, stream] of doc.streams.slice(0, 200).entries()) {
+      if (!isString(stream?.mapId, 128) || !Array.isArray(stream.components)) continue;
+      for (const [j, component] of stream.components.entries()) {
+        if (parts.length >= limit) break;
+        if (!component || typeof component !== 'object') continue;
+        add({ captureId: session.id, carrier: 'network',
+          sourceRef: `KV:STREAM_COMPONENTS.streams[${i}].components[${j}]`,
+          turnOrd: null, role: 'unverified', nativeType: safeType(component.component),
+          state: (stream.eventsOmitted ?? 0) > 0 || (stream.unmappedCount ?? 0) > 0
+            ? 'incomplete' : component.opened === true && component.closed === false ? 'streaming' : 'observed',
+          mapId: stream.mapId });
+      }
+    }
+  }
+  return { schema: NATIVE_PART_EVIDENCE_SCHEMA, captureId: session.id,
+    parts, truncated: parts.length >= limit && limit > 0,
+    // Absence, cross-carrier joins, semantic correctness and authorization are not asserted.
+    completeness: 'presence-only' };
 }
