@@ -26,4 +26,4 @@ jobs:
       - name: Accepted capture through existing intelligence regression
         working-directory: workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio
         run: |
-          node --test test/unit/adapter-capture-to-signals.test.mjs test/unit/adapter-accepted-session.test.mjs test/unit/adapter-learning-pipeline.test.mjs test/unit/adapter-improvement-pipeline.test.mjs test/unit/adapter-intelligence-hardening.test.mjs test/unit/profile-evidence.test.mjs
+          node --test test/unit/adapter-capture-to-signals.test.mjs test/unit/adapter-accepted-session.test.mjs test/unit/adapter-learning-pipeline.test.mjs test/unit/adapter-improvement-pipeline.test.mjs test/unit/adapter-intelligence-hardening.test.mjs test/unit/adapter-intelligence-bench.test.mjs test/unit/profile-evidence.test.mjs
