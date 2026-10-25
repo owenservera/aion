@@ -14,13 +14,15 @@
 - Prefer direct changes in the existing authoritative source and `main` when safe. Short-lived isolation is for real concurrent edits or risky work, not default bureaucracy. Preserve user-local changes, avoid blind merges, resets and force pushes; commit/push verified changes without seeking extra authorization.
 - Report **only** what was actually changed, run, proved and still broken. Be concise. Never describe planned or dispatched work as done.
 
-## Current product priority: real Capture Studio multi-turn
+## Current product ownership: VIVIM Harness
 
-The live product is the existing Capture Studio app at `workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio`. **Make three genuinely fresh, context-dependent turns work via AION's own harness and UI in the same provider-native conversation.** Start with real ChatGPT; then Claude; then Gemini. **One proven provider at a time.**
+**Canonical VIVIM Harness source code, tests, benchmarks, CI, scripts and implementation assets belong in [owenservera/vivim-harness](https://github.com/owenservera/vivim-harness), not in this AION repository.** AION coordinates work, captures migration/rollback receipts, and tracks remaining Windows cutover evidence. Do not start new Harness implementation changes under AION's historical `workspace/aion/sessions/roles/09-global-research/labs/website-to-local-streaming/capture-studio/` checkout or resurrect supplier-local browser controllers.
 
-Use the full existing loop: attach → identity/readiness → AION send → observed fresh reply and stream → capture/derive → UI → persistent conversation and recovery → useful outcome/learning as applicable. When blocked, change code and rerun the failed actual journey rather than creating more plans. Do not call two separate captures or manual provider-site sends a successful AION multi-turn test.
+**Safe cutover boundary:** the original AION source and historical Agent 14/supplier deliveries are retained as immutable reference/rollback evidence while GitHub CI and the Windows local-master runtime cutover are unverified. Do not delete the legacy source, disable local launchers, switch Chrome/CDP ownership, touch private evidence, or run two always-on supervisors. The active Windows install is not assumed to have followed GitHub.
 
-**Known live blocker to fix, not study indefinitely:** deferred first-turn capture plus stale readiness: `src/capture/conversation-service.mjs` skips preflight when `sessionId` is absent; `src/studio/ui/chat.mjs` rejects the deferred initial send unless capture is already recording. Also confirm the real `BINDING_CHANGED` cause rather than assuming it. Then remove the genuine one-message-per-Studio-conversation restriction by implementing safe successive turns, not by bypassing the harness. The 2026-10-24 Windows test produced **zero actual provider sends**; a startup or HTTP 200 is not acceptance. See the existing Windows receipt under `workspace/aion/agents/windows-master/CAPTURE-STUDIO-FIRST-TURN-2026-10-24.md`.
+The product goal remains three genuinely fresh, context-dependent turns through **VIVIM Harness's** existing capture/drive/UI flow in one provider-native thread, first ChatGPT, then Claude, then Gemini. Work in the canonical VIVIM modules: `src/capture`, `src/studio`, `src/intel`, `src/profiles`, `test`. Preserve exact effect/journal/identity invariants. A startup or HTTP 200 is never live acceptance.
+
+Migration provenance and outstanding Windows gates: [VIVIM Harness extraction receipt](https://github.com/owenservera/vivim-harness/blob/main/docs/MIGRATION.md). Current implementation migration review: [centralization PR #1](https://github.com/owenservera/vivim-harness/pull/1). Do not mistake an open PR, commit or GitHub issue for verified tests or local execution.
 
 ## Non-negotiable operational correctness
 
