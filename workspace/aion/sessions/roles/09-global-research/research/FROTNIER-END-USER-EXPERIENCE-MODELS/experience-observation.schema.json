@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Frontier End User Experience Observation v0.1",
+  "description": "For concrete individual observational UX comparisons, not LLM benchmark scores.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "observed_at",
+    "product",
+    "task_id",
+    "evidence_level",
+    "observations",
+    "limitations"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 3
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "product": {
+      "type": "string",
+      "minLength": 2
+    },
+    "product_surface": {
+      "type": "string",
+      "description": "Web, Android, desktop, embedded etc"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "device": {
+      "type": "string"
+    },
+    "account_tier": {
+      "type": "string"
+    },
+    "visible_model_label": {
+      "type": "string"
+    },
+    "underlying_model_verified": {
+      "type": "boolean"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "input_fixture_ref": {
+      "type": "string"
+    },
+    "evidence_level": {
+      "enum": [
+        "VENDOR_DOCUMENTED",
+        "USER_OBSERVED",
+        "RESEARCHER_OBSERVED",
+        "COMPARATIVELY_TESTED",
+        "HYPOTHESIS",
+        "UNKNOWN"
+      ]
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "axis",
+          "description"
+        ],
+        "properties": {
+          "axis": {
+            "enum": [
+              "X01",
+              "X02",
+              "X03",
+              "X04",
+              "X05",
+              "X06",
+              "X07",
+              "X08",
+              "X09",
+              "X10",
+              "X11",
+              "X12",
+              "X13",
+              "X14",
+              "X15",
+              "X16"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "source_ref": {
+            "type": "string"
+          },
+          "measured_value": {
+            "type": [
+              "number",
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "user_interventions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "time_to_useful_result_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "output_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "editable": {
+      "type": "boolean"
+    },
+    "exportable": {
+      "type": "boolean"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "privacy_notes": {
+      "type": "string"
+    },
+    "comparison_partner_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposed_personal_ux_pattern": {
+      "type": "string"
+    }
+  }
+}
