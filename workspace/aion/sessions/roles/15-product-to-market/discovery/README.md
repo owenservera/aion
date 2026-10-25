@@ -39,3 +39,13 @@ The parallel facets are `category`, `source_evidence` (source-read / located / R
 - Existing Research 09 and AION Harvest records remain source authorities; this YAML is the **product curiosity/need index**, not another implementation inventory or research queue.
 
 **Next map expansion:** concrete first-user journeys and their candidate entries, then deeper file-level inspections of high-interest unreviewed repositories (especially local memory, canvas, prior Scroll, agentic files, export/import) before workshop disposition. Don't interrupt Z.ai's current integration round.
+
+## Second-pass reinforcement (2026-10-25)
+
+- **[Revised capability atlas](VIVIM-CAPABILITY-ATLAS.yaml), revision 2:** 116 source-linked **interest signals**, not 116 working features. Six directory links corrected; one incorrectly classified `vivim-webapp-emulator` candidate reclassified as protocol/graph mock-driver methodology.
+- **[Normalized product value chain](V1-VALUE-CHAIN-CROSSWALK.yaml):** 18 outcome clusters and seven **candidate** first-user journeys; links back to atlas IDs. Do not confuse this candidate V1 shape with final approved release scope.
+- **[R2 evidence/quality audit](R2-EVIDENCE-AUDIT-2026-10-25.md):** 116 signals from 82 distinct repo/path locations; README/feature-inventory statements and observed source code are not runtime proof.
+- **[35 inspected-source fingerprints](R2-INSPECTED-SOURCE-RECEIPTS.yaml):** exact file blob SHAs, original paths and relevance facets. Blob SHA is not a Git commit or acceptance test.
+- **[Optional Z.ai integration-intelligence delta](ZAI-INTEGRATION-INTELLIGENCE-R2.md):** WHAT / WHY / WHERE only, with cautionary evidence. This does not interrupt or redirect the Z.ai round already in progress.
+
+**Important quality distinction:** `source_read` means text from a source file was inspected and can include a README or a documentation claim; only explicit executable receipts can verify behavior. Multiple signals can reference the same file. The downstream BUILD OR HARVEST workshop is still **not started**.
