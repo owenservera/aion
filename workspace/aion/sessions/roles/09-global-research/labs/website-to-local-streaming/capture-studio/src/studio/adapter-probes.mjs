@@ -230,7 +230,9 @@ export function liveMeasurementExpression({ priorSelectors = {} } = {}) {
     if (Array.isArray(t)) out.roles = t.slice(0, 40).map((x) => {
       const attr = String(x.roleAttribute ?? ''), role = String(x.role ?? '');
       const sel = /^[a-zA-Z_][a-zA-Z0-9_:.-]{0,99}$/.test(attr) && /^[a-z]{1,40}$/.test(role)
-        ? '[' + attr + (x.roleMatch === 'suffix' ? '
+        ? '[' + attr + (x.roleMatch === 'suffix' ? '$' : '') + '="' + role + '"]' : null;
+      return { attr, role, match: x.roleMatch === 'suffix' ? 'suffix' : 'exact', count: sel ? q(sel) : -1 };
+    });
   } catch { out.roles = null; }
   out.readyState = document.readyState;
   out.url = location.href;
