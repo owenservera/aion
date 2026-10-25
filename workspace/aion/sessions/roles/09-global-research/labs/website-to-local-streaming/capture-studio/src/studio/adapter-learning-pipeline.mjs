@@ -19,6 +19,18 @@ import { createGuardedStudioLearner } from './four-lane-gates.mjs';
 import { createStudioAdapterLearner } from './adapter-studio-bridge.mjs';
 import { acceptedSessionToAdapterEvents, domEvidenceRef, ACCEPTED_SESSION_PRODUCER } from './adapter-accepted-session.mjs';
 
+import chatgptSeed from '../profiles/sites/chatgpt.mjs';
+import claudeSeed from '../profiles/sites/claude.mjs';
+import geminiSeed from '../profiles/sites/gemini.mjs';
+const KNOWN_SEEDS=Object.freeze({chatgpt:chatgptSeed,claude:claudeSeed,gemini:geminiSeed});
+// Canonical existing profiles only: never let a client supply a weak baseline for promotion.
+export function trustedReadSeed(scope) {
+  const seed=KNOWN_SEEDS[scope?.siteId];
+  if(!seed)return null;
+  let host;try{host=new URL(scope.origin).hostname;}catch{return null;}
+  return seed.hosts.includes(host)?seed:null;
+}
+
 const sha256hex = (x) => createHash('sha256').update(x).digest('hex');
 const coded = (code, extra = {}) => Object.assign(new Error(code), { code, ...extra });
 
@@ -141,13 +153,15 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
   const allSynthetic = (events) => Array.isArray(events) && events.length > 0 &&
     events.every((e) => e?.source?.evidenceClass === 'SYNTHETIC_TEST');
   const proposeCore = async (args = {}) => {
+      // Caller-provided seeds cannot manipulate production promotion thresholds.
+      const qualifiedArgs={...args,seed:trustedReadSeed(args.scope)};
       const proposal = (args?.testOnly === true && allSynthetic(args.training) && allSynthetic(args.heldout))
-        ? await rawLearner.propose(args)
-        : await pipeline.propose(args);
+        ? await rawLearner.propose(qualifiedArgs)
+        : await pipeline.propose(qualifiedArgs);
       if (proposal?.proposalDigest) ledger.set(proposal.proposalDigest, { proposal, promoted: false });
       return proposal;
   };
-  return {
+  const api = {
     propose: proposeCore,
     async proposeFromSessions(args = {}) {
       // HTTP accepts session IDs only. Neither observation bodies nor claimed
@@ -179,6 +193,33 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
       entry.result = out;
       return out;
     },
+    // Event-driven only: never starts polling, recapture, or a second browser actor.
+    // Safe unattended promotion additionally requires Core-verified account binding.
+    async evolve(args={}) {
+      if(args.testOnly===true)throw coded('AUTONOMOUS_PRODUCTION_ONLY');
+      const proposal=await proposeCore({...args,testOnly:false});
+      if(proposal.status!=='ready-for-read-only-promotion')
+        return {status:'abstained',reason:proposal.status,proposalDigest:proposal.proposalDigest,
+          metrics:proposal.metrics,sendPermission:false};
+      return api.promoteQualified(proposal);
+    },
+    async evolveFromSessions(args={}) {
+      if(args.testOnly===true)throw coded('AUTONOMOUS_PRODUCTION_ONLY');
+      const proposal=await api.proposeFromSessions({...args,testOnly:false});
+      if(proposal.status!=='ready-for-read-only-promotion')
+        return {status:'abstained',reason:proposal.status,proposalDigest:proposal.proposalDigest,
+          metrics:proposal.metrics,sendPermission:false};
+      return api.promoteQualified(proposal);
+    },
+    async promoteQualified(proposal) {
+      const sources=[...(proposal.evidence.trainingSources??[]),...(proposal.evidence.heldoutSources??[])];
+      if(!sources.length||sources.some(r=>r.accountBinding!=='core-verified'))
+        return {status:'abstained',reason:'ACCOUNT_BINDING_NOT_CORE_VERIFIED',
+          proposalDigest:proposal.proposalDigest,metrics:proposal.metrics,sendPermission:false};
+      const saved=await api.promote(proposal.proposalDigest);
+      return {status:'promoted',version:saved.version,proposalDigest:proposal.proposalDigest,
+        metrics:proposal.metrics,sendPermission:false};
+    },
     rollback: (scope, targetVersion, expectedVersion) => pipeline.rollback(scope, targetVersion, expectedVersion),
     resolveRead: (scope, seed, opts) => pipeline.resolveRead(scope, seed, opts),
     selectReadRule: (scope, feature, seedRule, opts) => pipeline.selectReadRule(scope, feature, seedRule, opts),
@@ -188,4 +229,5 @@ export function createStudioLearningPipeline({ sessionsDir, store, lockDir } = {
     })),
     getProposal: (digest) => (typeof digest === 'string' ? ledger.get(digest)?.proposal ?? null : null),
   };
+  return api;
 }
