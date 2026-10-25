@@ -73,6 +73,18 @@ export function generatePacket(input, sourceFile = 'saved-session.json') {
       entries[category].push(record);
     }
   }
+  // Conversation content, verbatim: each assistant reply with the user prompt that preceded it.
+  // No interpretation; the locator (pointer + SHA-256 of the whole source text) is independently checkable.
+  const replies = [];
+  let lastUser = null;
+  for (const o of observations) {
+    if (o.role === 'user') { lastUser = o; continue; }
+    if (o.role !== 'assistant' || !o.text.trim() || secret.test(o.text)) continue;
+    replies.push({ turn: replies.length + 1, evidence_class: 'directly-observed-verbatim', source_role: 'assistant',
+      prompt: lastUser && !secret.test(lastUser.text) ? clean(lastUser.text).slice(0, 1000) : null,
+      prompt_pointer: lastUser?.location ?? null, text: o.text.slice(0, 20000), truncated: o.text.length > 20000,
+      locator: { json_pointer: o.location, text_sha256: sha(o.text) } });
+  }
   const unknowns = [];
   if (!observations.length) unknowns.push('no-observable-turns-or-stream-text');
   if (!entries.summary.length) unknowns.push('no-explicit-summary-in-saved-text');
@@ -86,6 +98,7 @@ export function generatePacket(input, sourceFile = 'saved-session.json') {
     schema: 'capture-studio.outcome-packet/1', session: sessionId,
     source: { file: sourceFile, representation: 'studio-export-transcript-json', status: input.meta.status ?? null, raw_modified: false },
     answer: entries.summary[0] ?? null,
+    replies,
     decisions: entries.decision, actions: entries.action,
     unresolved_questions: entries.question,
     source_stated_unknowns: entries.unknown,
@@ -107,6 +120,11 @@ export function renderMarkdown(p) {
     `# Outcome Packet — ${p.session}`, '',
     '> Offline synthetic/recorded source transformation; not independent acceptance or user authorization.', '',
     ...section('Useful answer (explicit source summary)', p.answer ? [p.answer] : [], 'No explicit summary; abstaining rather than inventing one.'),
+    ...(p.replies?.length ? ['## Conversation (assistant replies, verbatim and unreviewed)', '',
+      ...p.replies.flatMap((r) => [`### Turn ${r.turn}`, '', ...(r.prompt ? [`**Prompt:** ${r.prompt}`, ''] : []),
+        ...r.text.split(/\r?\n/).map((l) => (l ? `> ${l}` : '>')), '',
+        `_Source: \`${r.locator.json_pointer}\`, SHA-256 of whole source text \`${r.locator.text_sha256}\`${r.truncated ? ', truncated at 20,000 chars' : ''}._`, '']),
+    ] : []),
     ...section('Decisions (recorded claims, not approvals)', p.decisions, 'No explicit decisions identified.'),
     ...section('Next actions (proposals, not completed tasks)', p.actions, 'No explicit next actions identified.'),
     ...section('Unresolved questions', p.unresolved_questions, 'No explicitly labelled questions identified.'),
@@ -119,6 +137,15 @@ export function renderMarkdown(p) {
 }
 
 export function verifyPacket(input, p) {
+  for (const r of p.replies ?? []) {
+    let value = input;
+    for (const part of r.locator.json_pointer.slice(2).split('/')) {
+      const key = part.replace(/~1/g, '/').replace(/~0/g, '~');
+      if (value === null || typeof value !== 'object' || !Object.hasOwn(value, key)) return false;
+      value = value[key];
+    }
+    if (typeof value !== 'string' || sha(value) !== r.locator.text_sha256 || !value.startsWith(r.text.slice(0, 20000))) return false;
+  }
   for (const e of p.evidence) {
     if (!e.json_pointer.startsWith('#/')) return false;
     let value = input;

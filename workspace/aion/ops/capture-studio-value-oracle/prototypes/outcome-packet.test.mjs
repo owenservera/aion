@@ -125,3 +125,19 @@ test('CLI missing input fails without emitting a false success packet', () => {
   assert(!existsSync(path.join(out, 'outcome-packet.json')));
   assert.match(r.stderr, /FAIL/);
 });
+
+test('replies carry each assistant turn verbatim with a verifiable locator and fail verification if the source changes', async () => {
+  const { generatePacket, verifyPacket, renderMarkdown } = await import('./outcome-packet.mjs');
+  const t = { meta: { id: 'sess-r1', status: 'complete' }, streams: [], turns: [
+    { role: 'user', text: 'Explain caching in one line.' }, { role: 'assistant', text: 'Caching stores copies.\nIt cuts latency.' },
+    { role: 'user', text: 'Now a table.' }, { role: 'assistant', text: '| a | b |\n|---|---|\n| 1 | 2 |' }] };
+  const p = generatePacket(t, 'x.json');
+  assert.equal(p.replies.length, 2);
+  assert.equal(p.replies[1].prompt, 'Now a table.');
+  assert.equal(p.replies[0].text, 'Caching stores copies.\nIt cuts latency.');
+  assert.ok(verifyPacket(t, p));
+  assert.match(renderMarkdown(p), /### Turn 2[\s\S]*\| 1 \| 2 \|/);
+  const changed = structuredClone(t); changed.turns[1].text += ' (edited)';
+  assert.equal(verifyPacket(changed, p), false);
+  assert.equal(p.derivation.interpreted_decisions, 0);
+});
