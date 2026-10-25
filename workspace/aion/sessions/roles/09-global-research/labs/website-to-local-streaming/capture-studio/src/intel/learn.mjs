@@ -260,7 +260,10 @@ export class ScopedLearner {
     if (typeof name !== 'string' || !name.trim()) throw new Error('Correction field name required');
     if (!Number.isFinite(weight) || weight <= 0 || weight > 100) throw new Error('Invalid correction weight');
     if (scope !== 'global' && scope !== 'instance' && !scopedKey(scope, ctx)) throw new Error('Missing scope context: ' + scope);
-    if (scope === 'instance' && !ctx.site && !ctx.instanceId) throw new Error('Instance correction requires site or instanceId');
+    if (scope === 'page' && (!ctx.site || !ctx.origin || !ctx.account || !ctx.page))
+      throw new Error('Page correction requires site, origin, account and page');
+    if (scope === 'instance' && (!ctx.site || !ctx.origin || !ctx.account || !ctx.instanceId))
+      throw new Error('Instance correction requires site, origin, account and instanceId');
   }
   _context(ctx = {}) { return { site: ctx.site, origin: ctx.origin, account: ctx.account,
     family: ctx.family, page: ctx.page, instanceId: ctx.instanceId, typeKey: ctx.typeKey }; }
