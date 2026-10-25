@@ -135,14 +135,16 @@ const isLabelLeaf = (path) => LABEL_LEAF.test(String(path));
 function growthCandidates(c, minGrowth) {
   const out = [];
   for (const [path, s] of c.str) {
-    if (isIdentifierLeaf(path)) continue;
+    if (isIdentifierLeaf(path) || isLabelLeaf(path)) continue;
     if (s.n < 3) continue;
     if (s.emptyN !== 0) continue;
     if (distinctSize(s) < 2) continue;
-    if (s.prefixN >= s.n - 1) continue;
+    // Prefix evidence must be evaluated within each SID, never across separate streams.
+    // Even one prefix transition is ambiguous: do not silently double-append a snapshot.
+    if (s.prefixN > 0) continue;
     if (s.totalLen < 8) continue;
     if (s.maxLen < 2) continue;
-    const growthPairs = s.n - 1;
+    const growthPairs = s.pairs;
     if (growthPairs < minGrowth) continue;
     out.push({ path, growthPairs, textChars: s.totalLen });
   }
@@ -156,9 +158,9 @@ function cumulativeCandidate(c) {
   const paths = [...c.str.keys()].sort();
   for (const path of paths) {
     const s = c.str.get(path);
-    if (s.n < 2) continue;
+    if (s.n < 2 || s.pairs === 0) continue;
     if (distinctSize(s) < 2) continue;
-    if (s.prefixN === s.n - 1) return { path, count: s.n };
+    if (s.prefixN === s.pairs) return { path, count: s.n };
   }
   return null;
 }
@@ -259,7 +261,7 @@ export function induceStreamMap(events, opts = {}) {
         if (typeof v !== 'string') continue;
         let s = c.str.get(path);
         if (!s) {
-          s = { n: 0, distinct: new Set(), distinctDropped: false, prevBySid: new Map(), prefixN: 0, eqN: 0, emptyN: 0, totalLen: 0, maxLen: 0 };
+          s = { n: 0, distinct: new Set(), distinctDropped: false, prevBySid: new Map(), pairs: 0, prefixN: 0, eqN: 0, emptyN: 0, totalLen: 0, maxLen: 0 };
           c.str.set(path, s);
         }
         s.n++;
@@ -269,6 +271,7 @@ export function induceStreamMap(events, opts = {}) {
         }
         const prev = s.prevBySid.get(sid);
         if (prev !== undefined) {
+          s.pairs++;
           if (v.startsWith(prev)) s.prefixN++;
           if (v === prev) s.eqN++;
         }
