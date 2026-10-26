@@ -1,0 +1,128 @@
+# Machine-readable projection of the R4 source-only audit
+schema: vivim.product.native-lineage/1
+as_of: '2026-10-26'
+harness_repo: owenservera/vivim-harness
+harness_baseline_sha: 32b7021e99aedb3bedb21daae9e7983676ef4771
+evidence_tier: source_only
+engineering_work_started: false
+report: R4-CAPTURE-TO-WORLD-TRUTH-MATRIX.md
+losses:
+  - id: "L01"
+    family: "Ordered turns"
+    capture_and_persistence: "page-agent turns role/index/id/domId/text/blocks; max 500 chosen nodes"
+    world_read_ui_selection: "world-service maps in recorded array order to local conversation:turn:index; selection pins messageIndex"
+    find_transfer_import: "Message search, transcript/full-saved restore as imported local IDs"
+    fidelity_and_loss: "Partial: chosen rendered window ≠ full native history; page-based order not authenticated full archive"
+    source_and_tests: "page-agent and world-service; world-service, world-journeys tests"
+  - id: "L02"
+    family: "Paragraph/Markdown/inlines"
+    capture_and_persistence: "paragraph/heading text plus inline typed entries (link, citation, code, emphasis)"
+    world_read_ui_selection: "cloned blocks; blockToMarkdown uses text, not inline array"
+    find_transfer_import: "richText flattens fields; selected stored blocks survive full-saved, often transcript"
+    fidelity_and_loss: "Display-lossy: citation/link semantics present in KV but not used by saved-world formatter"
+    source_and_tests: "world-view + chat rich renderer; world-ui and world-search tests"
+  - id: "L03"
+    family: "Code"
+    capture_and_persistence: "PRE type=code, language, text; inline code separately recorded"
+    world_read_ui_selection: "fenced Markdown code via existing rich renderer"
+    find_transfer_import: "searchable; transcript/full-saved text survives, references mode body absent"
+    fidelity_and_loss: "Good text, partial semantics: no executable artifact or original editor behavior"
+    source_and_tests: "world-view, chat; world-ui, world-transfer"
+  - id: "L04"
+    family: "Tables"
+    capture_and_persistence: "TABLE headers + rows as strings"
+    world_read_ui_selection: "tableMarkdown accepts headers/head and rows; tabular renderer"
+    find_transfer_import: "indexed; transcript/full-saved preserved"
+    fidelity_and_loss: "Partial structure: no colspan/rowspan/inline cell links or native interactivity"
+    source_and_tests: "page-agent/world-view; world-ui"
+  - id: "L05"
+    family: "Citations/links"
+    capture_and_persistence: "inline A becomes t=citation or t=link with text/href; provider labeling heuristic"
+    world_read_ui_selection: "world-service keeps block.inline; world-view paragraph uses only block.text; user selection can pin top-level block"
+    find_transfer_import: "link text/URL can enter generic search; full-saved retains inline; imported viewer still loses semantics"
+    fidelity_and_loss: "Confirmed UI projection gap, link origin not automatically site-verified"
+    source_and_tests: "world-view; reuse chat replySources/safeHref with adaptation; world-ui"
+  - id: "L06"
+    family: "Artifacts/version"
+    capture_and_persistence: "generic page agent emits code/file/figure/details, not authoritative artifact-version object"
+    world_read_ui_selection: "saved code/text renderable; world-view cannot invent artifact revisions; other native UI projection has artifact type only if separately fed"
+    find_transfer_import: "text searchable; code transfers, external bytes excluded"
+    fidelity_and_loss: "Artifact identity/version unverified: live replyArtifacts and universal-chat artifact differ from saved DOM shapes"
+    source_and_tests: "world-view/chat; world-ui and export-modes"
+  - id: "L07"
+    family: "Image/file/media bytes"
+    capture_and_persistence: "IMG source URL/alt/dimensions; file anchor name/href; VIDEO/AUDIO source; graphic kind/label; no bytes"
+    world_read_ui_selection: "world-view link/label and explicit non-download/non-play note; selection stores address, not payload"
+    find_transfer_import: "refs searchable, XFER omits external-asset-bytes; restored URL may expire"
+    fidelity_and_loss: "Metadata/link-only, not offline asset preservation"
+    source_and_tests: "HOLD new binary capture; existing world-view/world-transfer honest states/tests"
+  - id: "L08"
+    family: "Reasoning/tool/status"
+    capture_and_persistence: "generic DOM parser does not guarantee special types; a page may be flattened to paragraph; separate stream components have progress/tool taxonomy"
+    world_read_ui_selection: "world-view labels these types if actually stored; display must not imply tool execution"
+    find_transfer_import: "recorded fields searchable; transcript/full-saved part flags affect export"
+    fidelity_and_loss: "Conditional evidence; cannot assert source-native tool event from generic text label"
+    source_and_tests: "world-view and observation; world-ui, world-export-modes"
+  - id: "L09"
+    family: "Stream partial/truncation"
+    capture_and_persistence: "mutation/raw log may contain temporal events; final KV turn.truncated is numeric original length when capped"
+    world_read_ui_selection: "world-service converts to Boolean; coverage partial if flagged; raw gap counts not propagated to world message"
+    find_transfer_import: "search only saved text; transfer can signal PARTIAL_SOURCE_OBSERVATION; imports retain projected partial state"
+    fidelity_and_loss: "Confirmed precision loss: original-length numeric detail discarded; final rendered state not full stream/history"
+    source_and_tests: "world-service, world-view; world-service, world-journeys"
+  - id: "L10"
+    family: "Edits/deletions/history"
+    capture_and_persistence: "raw DOM mutation evidence possible; final KV only current chosen nodes"
+    world_read_ui_selection: "local world contains last observed projection; local user revision is NOT native provider edit"
+    find_transfer_import: "saved snapshot search/export, not provider edit timeline"
+    fidelity_and_loss: "Not represented as native revision history; no automatic reconstruction"
+    source_and_tests: "HOLD native historical replay join; raw/replay subsystem"
+  - id: "L11"
+    family: "Unknown content"
+    capture_and_persistence: "unknown DOM containers often recursively broken into known children; derived stream components may mark unknown-native"
+    world_read_ui_selection: "cloned stored block retained; world-view displays safe type label without payload"
+    find_transfer_import: "generic richText indexes arbitrary fields; transcript prunes non-transcript kinds, full-saved may retain"
+    fidelity_and_loss: "Conditional preservation and cross-surface disclosure mismatch: search may show text hidden in viewer"
+    source_and_tests: "world-search/world-view; world-search and world-ui"
+  - id: "L12"
+    family: "Provider/thread/account"
+    capture_and_persistence: "session metadata site/target; only ChatGPT /c/UUID parser supports nativeRef, account unknown"
+    world_read_ui_selection: "world-service session-scoped hash local ID; provider and thread qualified; imported foreign IDs distinct"
+    find_transfer_import: "search local custody; import marks account unknown, not remote verified"
+    fidelity_and_loss: "Conservative identity, not account auth; URL/title not trusted as verified origin equality"
+    source_and_tests: "observation/world-service/world-transfer; observation, world-relations"
+  - id: "L13"
+    family: "Projects/notes/source refs"
+    capture_and_persistence: "Not native provider content; local user-owned VersionedStore rows"
+    world_read_ui_selection: "createObject/createSelection source pointer+fingerprint, project associations, notes separate"
+    find_transfer_import: "index user overlay; selected dependency closure export, imported local IDs"
+    fidelity_and_loss: "Solid fixture-level local custody; missing/stale external source remains unresolved, not auto repaired"
+    source_and_tests: "world-relations, world-service, world-transfer; world-relations, world-journeys"
+proposed_increments:
+  - id: "R4-I1"
+    goal: "Recorded inline links and citations"
+    priority: "P0"
+    thinking_effort: HIGH
+    implementation_owner: null
+    related_loss_ids: ["L02","L05"]
+    inspect_paths: ["src/studio/ui/world-view.mjs","src/studio/ui/chat.mjs"]
+    targeted_tests: ["test/unit/world-ui.test.mjs"]
+    implementation_status: proposal_only
+  - id: "R4-I2"
+    goal: "Precise truncation and final window scope"
+    priority: "P0"
+    thinking_effort: HIGH
+    implementation_owner: null
+    related_loss_ids: ["L01","L09"]
+    inspect_paths: ["src/studio/world-service.mjs","src/studio/ui/world-view.mjs"]
+    targeted_tests: ["test/unit/world-service.test.mjs","test/unit/world-journeys.test.mjs"]
+    implementation_status: proposal_only
+  - id: "R4-I3"
+    goal: "Stored text artifact versus missing asset bytes"
+    priority: "P1"
+    thinking_effort: HIGH
+    implementation_owner: null
+    related_loss_ids: ["L03","L06","L07"]
+    inspect_paths: ["src/studio/ui/world-view.mjs","src/studio/ui/chat.mjs"]
+    targeted_tests: ["test/unit/world-ui.test.mjs","test/unit/world-export-modes.test.mjs"]
+    implementation_status: proposal_only
