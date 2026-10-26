@@ -1,4 +1,5 @@
-# Source-based user action contracts, not implementation receipts
+# R5 source-era action contracts below are historical at 32b7021e, NOT current missing-code claims.
+# Latest SOURCE integration is merged to Harness main; actual local browser verification remains outstanding.
 schema: 'vivim.product.r5-ui-contracts/1'
 date: '2026-10-26'
 implementation_repo: owenservera/vivim-harness
@@ -7,6 +8,21 @@ authoritative_report: R5-HUMAN-JOURNEY-COMPOSITION-MAP.md
 runtime_proof_by_r5: false
 local_code_modified: false
 active_implementation_owner: null
+post_research_integration:
+  merge_sha: '842a8c472a58118ea84a77ae4a9704ece9ee4111'
+  source_status: 'merged_in_main'
+  local_implementation_owner: null
+  t3_browser_verified: false
+  canonical_sprint: 'https://github.com/owenservera/vivim-harness/issues/4'
+  updated_action_assessments:
+    source.create: 'ui_originated_source_ref_merged_requires_node_and_browser'
+    part.select: 'save_part_and_message_controls_merged_requires_node_and_browser'
+    project.link: 'CAS_link_and_uncertain_write_handling_merged_requires_node_and_browser'
+    note.comment: 'save_note_from_selection_merged_requires_node_and_browser'
+    find.openref: 'selection_to_source_jump_merged_requires_node_and_browser'
+    find.openpart: 'search_producer_http_ui_test_committed_node_not_run'
+    import.write: 'applied_only_navigation_and_list_invalidation_merged_browser_not_run'
+
 actions:
   - key: "saved.list"
     journey: "J1"
