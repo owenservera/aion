@@ -66,3 +66,10 @@ All five package files should be read back from GitHub before declaring publicat
 - **Top finding:** WorldService exposes POST source references and POST selections, but world-view does not offer a user-originated "Save this visible message part" control. It can associate previously created selections. The J2 HTTP fixture seeds this via API; it does not prove human UX.
 - **Already built:** Find unique part attribution and UI focus, Workspace peer reader/provenance, Transfer validate/dry-run/restore with partial-success handling. **Remaining:** save-part glue, direct reference-to-source jump, combined search producer+UI contract test, post-import list refresh/direct browsing, real first-use/keyboard acceptance.
 - **Scope:** source-only; no tests run, local agents started or Harness modifications. R6 remains pending.
+
+## R6 execution — completed 2026-10-26
+
+- [R6 adversarial release matrix](R6-ADVERSARIAL-ACCEPTANCE-MATRIX.md) — 18 precisely traced privacy, identity, integrity, content, search, source, CAS, restart, UI and effects cases grounded in current Harness GitHub source and existing tests.
+- [R6 proof and release gates](R6-PROOF-AND-RELEASE-GATES.yaml) — 18 machine-readable cases, gates G0–G6, separate T3p real OS-process and T3u real browser evidence; **G5 NOT ACCEPTED**.
+- [R6 local execution handoff](R6-LOCAL-EXECUTION-HANDOFF.md) — one owner-scoped OpenCode intake prompt; prioritizes Q07 Save this part, Q04 source-to-UI Find proof, then Q01/Q08/Q10 actual disposable-profile J1–J4 acceptance. No default switch from active local PROVIDER mission.
+- **No local/Chrome tests executed and no Harness source modifications by R6.** No engineering agents launched. Current research cycle R4→R5→R6 is **complete at source-only tier**, not a product release.
