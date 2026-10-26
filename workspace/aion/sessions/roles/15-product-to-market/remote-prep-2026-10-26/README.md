@@ -73,3 +73,11 @@ All five package files should be read back from GitHub before declaring publicat
 - [R6 proof and release gates](R6-PROOF-AND-RELEASE-GATES.yaml) — 18 machine-readable cases, gates G0–G6, separate T3p real OS-process and T3u real browser evidence; **G5 NOT ACCEPTED**.
 - [R6 local execution handoff](R6-LOCAL-EXECUTION-HANDOFF.md) — one owner-scoped OpenCode intake prompt; prioritizes Q07 Save this part, Q04 source-to-UI Find proof, then Q01/Q08/Q10 actual disposable-profile J1–J4 acceptance. No default switch from active local PROVIDER mission.
 - **No local/Chrome tests executed and no Harness source modifications by R6.** No engineering agents launched. Current research cycle R4→R5→R6 is **complete at source-only tier**, not a product release.
+
+## Current implementation status — verified 2026-10-26
+
+- **Supersedes the earlier research-only status statements above:** R4/R5/R6 have now produced real Harness integration code and tests; original R4/R5/R6 reports remain the historical audit basis.
+- [First R4–R6 integration receipt](R456-INTEGRATION-EXECUTION-RECEIPT-2026-10-26.md) — initial branch delivery and proof limits (historical checkpoint).
+- [**Leapfrog integration final receipt**](R456-LEAPFROG-INTEGRATION-RECEIPT-2026-10-26.md) — in-context project creation, recovery of incomplete selection CAS links, selection-anchored note creation, pagination, stale-source defense, 14/14 isolated synthetic checks and exact merged-main evidence.
+- **Harness PR:** [#3](https://github.com/owenservera/vivim-harness/pull/3), merged externally during the session into `main` at [`842a8c472a58`](https://github.com/owenservera/vivim-harness/commit/842a8c472a58118ea84a77ae4a9704ece9ee4111), readback-confirmed. ChatGPT did not invoke the merge API.
+- **WORLD G5 is still NOT ACCEPTED:** CI jobs reported failure without usable steps/logs, and actual Node full suite, independent Windows process restart and browser/human/J1–J4 acceptance are not verified. This merge is an implementation receipt, not release approval.
