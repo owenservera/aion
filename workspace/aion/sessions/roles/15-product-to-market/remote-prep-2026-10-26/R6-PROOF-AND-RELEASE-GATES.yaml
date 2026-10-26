@@ -22,7 +22,7 @@ post_research_integration:
   source_integration: 'merged_in_main'
   local_acceptance: 'not_executed'
   hosted_ci: 'startup_failure_no_executed_steps_logs_unavailable'
-  remote_synthetic_verification: '13 T1-like V8 cases passed on branch snapshot; exact final merge requires real Node execution'
+  remote_synthetic_verification: '14 of 14 R456 UI cases passed in V8 in-memory synthetic DOM against fetched merged main source; Node runner/T2 HTTP/T3 not executed'
   release_gate: 'G5_NOT_ACCEPTED'
 historical_fixture_receipts: 'docs/track/worklog.yaml reports focused runs at earlier HEAD 007e357; no proof at current audit HEAD'
 evidence_tiers:
