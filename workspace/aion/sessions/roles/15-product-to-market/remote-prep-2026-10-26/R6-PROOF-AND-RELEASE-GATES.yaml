@@ -14,6 +14,16 @@ harness_code_modified_by_r6: false
 local_agents_dispatched_by_r6: false
 release_accepted: false
 release_status: 'G5_NOT_ACCEPTED'
+post_research_integration:
+  harness_merge_sha: '842a8c472a58118ea84a77ae4a9704ece9ee4111'
+  harness_pr: 'https://github.com/owenservera/vivim-harness/pull/3'
+  sprint_issue: 'https://github.com/owenservera/vivim-harness/issues/4'
+  sprint_runbook: 'https://github.com/owenservera/vivim-harness/blob/main/docs/sprints/R456-LOCAL-SPRINT-2026-10-26.md'
+  source_integration: 'merged_in_main'
+  local_acceptance: 'not_executed'
+  hosted_ci: 'startup_failure_no_executed_steps_logs_unavailable'
+  remote_synthetic_verification: '13 T1-like V8 cases passed on branch snapshot; exact final merge requires real Node execution'
+  release_gate: 'G5_NOT_ACCEPTED'
 historical_fixture_receipts: 'docs/track/worklog.yaml reports focused runs at earlier HEAD 007e357; no proof at current audit HEAD'
 evidence_tiers:
   S0: 'source read with blob/current commit receipts'
@@ -27,7 +37,7 @@ gates:
   - id: "G0"
     title: "Source contracts"
     min_evidence: "S0"
-    state: "source_checked"
+    state: "source_merged_into_main"
     cases: ["A01","A02","A12"]
     pass_condition: "current source refs and exact paths"
     required_for_v1_world: false
@@ -43,7 +53,7 @@ gates:
   - id: "G2"
     title: "ORGANIZE user selection and project note"
     min_evidence: "T1_then_T3u"
-    state: "blocked_code"
+    state: "source_implemented_local_t3u_pending"
     cases: ["A12","A15"]
     pass_condition: "part source-ref and selection created by human UI, CAS preserves source"
     required_for_v1_world: true
@@ -51,7 +61,7 @@ gates:
   - id: "G3"
     title: "FIND exact qualified source"
     min_evidence: "T2_T1_then_T3u"
-    state: "blocked_proof"
+    state: "source_test_committed_node_t3u_pending"
     cases: ["A13","A14"]
     pass_condition: "unique part focus and imported IDs, honest fallback"
     required_for_v1_world: true
@@ -59,7 +69,7 @@ gates:
   - id: "G4"
     title: "TAKE selected JSON clean restore"
     min_evidence: "T3u"
-    state: "blocked_proof"
+    state: "source_implemented_t3u_pending"
     cases: ["A04","A05","A06","A07","A08","A09","A10","A11"]
     pass_condition: "actual file download+validate+dry-run+confirm+clean import"
     required_for_v1_world: true
@@ -92,7 +102,7 @@ adversarial_cases:
     actual_pass_receipt: null
   - id: "A02"
     priority: "P1"
-    current_assessment: "code_gap"
+    current_assessment: "source_implemented_t3u_proof_pending"
     gates: ["G1"]
     p5_work_ids: ["W02","W04"]
     existing_queue_ids: []
@@ -101,7 +111,7 @@ adversarial_cases:
     actual_pass_receipt: null
   - id: "A03"
     priority: "P1"
-    current_assessment: "code_gap"
+    current_assessment: "source_implemented_t3u_proof_pending"
     gates: ["G1"]
     p5_work_ids: ["W03","W04"]
     existing_queue_ids: ["Q05"]
@@ -182,7 +192,7 @@ adversarial_cases:
     actual_pass_receipt: null
   - id: "A12"
     priority: "P0"
-    current_assessment: "code_gap"
+    current_assessment: "source_implemented_t3u_proof_pending"
     gates: ["G2"]
     p5_work_ids: ["W05","W11"]
     existing_queue_ids: ["Q07"]
@@ -191,7 +201,7 @@ adversarial_cases:
     actual_pass_receipt: null
   - id: "A13"
     priority: "P1"
-    current_assessment: "cross_surface_proof_gap"
+    current_assessment: "source_test_committed_node_browser_proof_pending"
     gates: ["G3"]
     p5_work_ids: ["W07","W12"]
     existing_queue_ids: ["Q04"]
@@ -244,9 +254,10 @@ adversarial_cases:
     next_proof: "owner_authorized_only"
     actual_pass_receipt: null
 blockers:
-  code:
-    - 'Q07 A12: world-view has no object/selection POST UI from a displayed block'
-    - 'R4-I1/R4-I2: saved-world inline citation and numeric truncation fidelity gaps; serialize with UI owner'
+  code: [] # Q07/A12 and R4-I1/I2 source patches are merged; failures must be reproduced locally before opening a new code blocker
+  implementation_proof:
+    - 'Q07 A12: merged source UI must pass real Node + T3u, including CAS and uncertain writes'
+    - 'R4-I1/R4-I2: merged link/truncation rendering must pass actual Node/browser proof'
   evidence:
     - 'Q04 A13: one producer→HTTP→UI exact partPath integration proof'
     - 'Q01 A16: T3p and T3u full-world J1-J4 proof on disposable roots'
