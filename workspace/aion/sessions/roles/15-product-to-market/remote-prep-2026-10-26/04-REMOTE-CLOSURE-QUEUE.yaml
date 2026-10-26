@@ -1,0 +1,180 @@
+# Companion to 03-ACCEPTANCE-SECURITY-CLOSURE-QUEUE.md
+schema: "vivim.product.remote-closure-queue/1"
+created: "2026-10-26"
+repository: "owenservera/vivim-harness"
+source_authority: "AION PRODUCT AGENT Role 15"
+policy: "proposal_only; local Windows master; no assignment without active worktree ownership check"
+tests_executed_by_this_pack: false
+work_items:
+  - id: "Q01"
+    priority: 0
+    state: "LOCAL_ACCEPTANCE"
+    thinking_effort: "HIGH"
+    p5_ids: ["W12"]
+    atlas_clusters: ["C01","C02","C05","C07","C09"]
+    inspect_paths: ["test/unit/world-journeys.test.mjs","src/studio/ui/world-view.mjs"]
+    outcome: "Demonstrate J1 through J4 in the actual app, file download and restore, independent Studio OS restart"
+    acceptance: "Full user-visible flow and truthful original/imported provenance; not just HTTP 200"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q02"
+    priority: 0
+    state: "READY_SOURCE_REVIEW"
+    thinking_effort: "MED"
+    p5_ids: ["W09","W10"]
+    atlas_clusters: ["C09"]
+    inspect_paths: ["src/studio/world-transfer.mjs","src/studio/ui/world-view.mjs","test/unit/world-import-hardening.test.mjs","test/unit/world-ui-transfer.test.mjs"]
+    outcome: "Show per-record applied, failed, skipped and partial state after restore response"
+    acceptance: "Never show complete success when HTTP 200 includes failed[] or partial:true"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q03"
+    priority: 0
+    state: "READY_SOURCE_REVIEW"
+    thinking_effort: "HIGH"
+    p5_ids: ["W09"]
+    atlas_clusters: ["C09"]
+    inspect_paths: ["src/studio/world-transfer.mjs","src/studio/world-url.mjs","test/unit/world-import-hardening.test.mjs","test/unit/world-ui-export-modes.test.mjs"]
+    outcome: "Explain sensitive content inclusion in every export mode, especially unredacted transcript/full-saved"
+    acceptance: "Preview mode and scope clearly; no false claim of body-secret sanitization"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q04"
+    priority: 1
+    state: "READY_SOURCE_REVIEW"
+    thinking_effort: "MED"
+    p5_ids: ["W07"]
+    atlas_clusters: ["C07"]
+    inspect_paths: ["src/studio/world-search.mjs","src/studio/ui/world-view.mjs","test/unit/world-search.test.mjs","test/unit/world-ui-find.test.mjs"]
+    outcome: "Verify emitted unique partPath reaches Find UI and focuses actual frame"
+    acceptance: "Unique hit targets exact block; ambiguous hit falls back to message; imported IDs local"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q05"
+    priority: 1
+    state: "READY_SOURCE_REVIEW"
+    thinking_effort: "HIGH"
+    p5_ids: ["W03","W04"]
+    atlas_clusters: ["C03","C04"]
+    inspect_paths: ["src/studio/ui/chat.mjs","src/studio/ui/universal-chat.mjs","src/studio/ui/world-view.mjs"]
+    outcome: "Saved citation/source parts present qualified source title/URL and explicit absence states"
+    acceptance: "Open link only if safe known URL; source-reported versus text-inferred kept distinct"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q06"
+    priority: 1
+    state: "READY_SOURCE_REVIEW"
+    thinking_effort: "HIGH"
+    p5_ids: ["W03","W05"]
+    atlas_clusters: ["C03","C05"]
+    inspect_paths: ["src/studio/ui/chat.mjs","src/studio/ui/world-view.mjs","src/studio/world-service.mjs"]
+    outcome: "Known text artifact flows into safe read/copy/download and project selection"
+    acceptance: "Missing binary bytes never implied available; no execution of artifact code"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q07"
+    priority: 1
+    state: "READY_SOURCE_REVIEW"
+    thinking_effort: "HIGH"
+    p5_ids: ["W05","W11"]
+    atlas_clusters: ["C01","C06"]
+    inspect_paths: ["src/studio/ui/world-view.mjs","src/studio/world-service.mjs","test/unit/world-ui-workspace.test.mjs"]
+    outcome: "From visible saved part create association, note and project and traverse Workspace without fixture preseed"
+    acceptance: "Saved part to project to Find to source works in one application"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q08"
+    priority: 1
+    state: "LOCAL_ACCEPTANCE"
+    thinking_effort: "HIGH"
+    p5_ids: ["W02","W05","W06","W12"]
+    atlas_clusters: ["C16"]
+    inspect_paths: ["src/studio/world-service.mjs","src/store/versioned.mjs","test/unit/world-journeys.test.mjs"]
+    outcome: "Prove durability using separate Studio OS processes with safe disposable data dir"
+    acceptance: "Original captured source unchanged, notes and memberships survive, stale write rejected"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q09"
+    priority: 1
+    state: "DECISION"
+    thinking_effort: "HIGH"
+    p5_ids: ["W09","W10"]
+    atlas_clusters: ["C09"]
+    inspect_paths: ["src/studio/world-url.mjs","src/studio/world-transfer.mjs","test/unit/world-provider-url.test.mjs","test/unit/world-import-hardening.test.mjs"]
+    outcome: "Review threat model for sensitive paths, message bodies, imported fields and manifest text"
+    acceptance: "State residual risks accurately; obtain owner approval before broad auto-redaction"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q10"
+    priority: 2
+    state: "LOCAL_ACCEPTANCE"
+    thinking_effort: "MED"
+    p5_ids: ["W11"]
+    atlas_clusters: ["C01","C06"]
+    inspect_paths: ["src/studio/ui/world-view.mjs","test/unit/world-ui-workspace.test.mjs"]
+    outcome: "Real browser keyboard/focus/mobile-width/empty-state Workspace acceptance"
+    acceptance: "No stuck loading, duplicate provenance, invisible errors or simulated-only focus claims"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q11"
+    priority: 2
+    state: "READY_SOURCE_REVIEW"
+    thinking_effort: "MED"
+    p5_ids: ["W00","W07","W09","W10","W11","W12"]
+    atlas_clusters: ["C17"]
+    inspect_paths: ["docs/track/worklog.yaml","docs/track/crosswalk.yaml","src/studio/world-search.mjs"]
+    outcome: "Reconcile historical tracker with latest source and test proof by commit"
+    acceptance: "Old dormant-partPath claim corrected without promoting release acceptance"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+  - id: "Q12"
+    priority: 2
+    state: "DECISION"
+    thinking_effort: "MED"
+    p5_ids: ["W14"]
+    atlas_clusters: ["C10","C11"]
+    inspect_paths: ["src/studio/commands.mjs","src/studio/agentic-files.mjs","src/studio/integration-hub.mjs"]
+    outcome: "Owner decides whether to mount preview-only commands/read-only agentic-file catalog"
+    acceptance: "No command execution or broad root access; mounting must be separately authorized"
+    implementation_owner: null
+    claimed_tests: []
+    commit_sha: null
+    evidence_tier: "source_only"
+    write_paths_reserved: false
+documents:
+  - "01-INTEGRATION-CONTROL-PACK.md"
+  - "02-NATIVE-FIDELITY-RECOVERY-MAP.md"
+  - "03-ACCEPTANCE-SECURITY-CLOSURE-QUEUE.md"
