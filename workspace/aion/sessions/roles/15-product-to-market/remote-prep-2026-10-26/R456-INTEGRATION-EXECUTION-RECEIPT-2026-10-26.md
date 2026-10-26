@@ -1,16 +1,37 @@
 # R4 + R5 + R6 — Actual Harness Integration Receipt
 
+## FINAL STATUS — SOURCE MERGED INTO MAIN (2026-10-26)
+
+**MERGED / SOURCE-VERIFIED:** [Harness PR #3](https://github.com/owenservera/vivim-harness/pull/3) was squash-merged to the **canonical Harness `main`** in commit [`842a8c472a58118ea84a77ae4a9704ece9ee4111`](https://github.com/owenservera/vivim-harness/commit/842a8c472a58118ea84a77ae4a9704ece9ee4111). The merge was confirmed by a fresh `fetch_commit(main)` and new source/blob readbacks. Before squash, the final PR integration head was `8bf84c65162800d8887ec046fb2d0978aa838fa9`; later remote documentation commits do not change the source acceptance status.
+
+**MAIN NOW CONTAINS:** R4 safe observed-inline citation/link rendering plus original numeric truncation length; R5 Save displayed message/part into project and optional note, source-reference/selection navigation, CAS/uncertain-write handling, import browse/refresh, paginated project selector; R6 adversarial negative test fixtures and producer→HTTP→UI contract tests. Canonical source files `src/studio/ui/world-view.mjs`, `src/studio/world-service.mjs`; committed tests `test/unit/world-r456-integration.test.mjs`, `world-r456-search-http-ui.test.mjs`, `world-service.test.mjs`. There is **no second browser actor, frontend or world store**.
+
+**REMOTE VERIFICATION:** A source-inspected synthetic in-memory V8 fake-DOM run passed **13/13** pre-final cases at an earlier branch head. The final merged test source includes additional cases; do not assert a fresh aggregate count or a `node --test` / `npm test` pass at merge SHA. GitHub Actions on both Windows/Ubuntu (Node 22/24) reported startup failure/zero executable steps and log `BlobNotFound`; **full Node CI is RED/UNVERIFIED**. No evidence of failing Node assertions was available. The merge fulfills the owner's explicit request to land remote source into main, **not** G5 release approval.
+
+**LOCAL SPRINT SET UP IN CANONICAL HARNESS:**
+
+- [Issue #4 — one five-gate local sprint](https://github.com/owenservera/vivim-harness/issues/4): actual execution checklist.
+- [Executable Windows/OpenCode runbook and copy-ready HIGH-effort prompt](https://github.com/owenservera/vivim-harness/blob/main/docs/sprints/R456-LOCAL-SPRINT-2026-10-26.md).
+- [Single active queue `docs/track/queue.md`](https://github.com/owenservera/vivim-harness/blob/main/docs/track/queue.md): L0 local-master status READY; L1 Node tests, L2 true process restart, L3 real browser J1→J4, L4 security/G5 verdict, with dependencies and evidence owners.
+- [Updated Harness integration ledger](https://github.com/owenservera/vivim-harness/blob/main/docs/INTEGRATION-PROGRESS.md): merge baseline, synthetic proof limits, unavailable CI, and mandatory T3p/T3u local gates.
+
+**NOT EXECUTED LOCALLY:** no Windows worktree mutation, OpenCode launch, Chrome/CDP send, private saved-data access, actual Node full suite, second independent OS process or real browser download/restore. G5 remains **NOT ACCEPTED** until a single local dated receipt proves T3p and T3u. `PROMPT.md` provider-native mission is independent and was not preempted. AION research is not cloned locally by this action.
+
+**SINGLE NEXT ACTION:** pick up the OpenCode directive in the Harness runbook, start L0 safe local-master reconnaissance, then execute L1–L4 in order. **Thinking effort: HIGH**.
+
+---
+
 **2026-10-26 · PRODUCT AGENT / GitHub remote executor · user directive: "run a full integration run from r4, r5, r6 work here and push".**
 
-## Concrete code delivery
+## Historical pre-merge code delivery (earlier stage; superseded above)
 
 - **Implementation repository:** [owenservera/vivim-harness](https://github.com/owenservera/vivim-harness).
 - **Base main SHA inspected:** `32b7021e99aedb3bedb21daae9e7983676ef4771`.
 - **Pushed branch:** `integration/r4-r5-r6-world-20261026`.
-- **Pushed final implementation+test commit:** `47e76bf23a09df3abfe1b3a28fab9e57e5c403c7`.
-- **Open PR, ready for review (not merged):** [#3 — Integrate R4 fidelity, R5 saved-part UX, and R6 adversarial regressions](https://github.com/owenservera/vivim-harness/pull/3).
+- **Intermediate branch commit at first receipt:** `47e76bf23a09df3abfe1b3a28fab9e57e5c403c7`. The final PR head before merge was `8bf84c65162800d8887ec046fb2d0978aa838fa9`.
+- **PR originally open, now merged:** [#3 — Integrate R4 fidelity, R5 saved-part UX, and R6 adversarial regressions](https://github.com/owenservera/vivim-harness/pull/3).
 - **Production file ownership:** `src/studio/ui/world-view.mjs`, `src/studio/world-service.mjs`; tests `test/unit/world-service.test.mjs`, `test/unit/world-r456-integration.test.mjs`, `test/unit/world-r456-search-http-ui.test.mjs`.
-- **No edits made to Harness main, existing provider Chrome capture/actor, OpenCode local installation, private saved sessions or Windows OS files.** GitHub branch is a real pushed implementation, but main is not merged.
+- **Earlier status:** at first branch delivery Harness main was unchanged. **Final status:** code is merged into main as described above. No provider Chrome actor, Windows local installation, private saved sessions, or OS files were modified by this remote executor.
 - **External local-master constraint:** local Windows remains human/master, live-provider `PROMPT.md` task untouched; remote PR must be reconciled against local dirty work before pull/merge.
 
 ### R4 (source fidelity)
