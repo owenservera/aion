@@ -1,0 +1,269 @@
+# Source-based user action contracts, not implementation receipts
+schema: 'vivim.product.r5-ui-contracts/1'
+date: '2026-10-26'
+implementation_repo: owenservera/vivim-harness
+source_sha: 32b7021e99aedb3bedb21daae9e7983676ef4771
+authoritative_report: R5-HUMAN-JOURNEY-COMPOSITION-MAP.md
+runtime_proof_by_r5: false
+local_code_modified: false
+active_implementation_owner: null
+actions:
+  - key: "saved.list"
+    journey: "J1"
+    user_action: "Saved conversations button"
+    ui_handler: "choose('conversations') -> fetchList"
+    api: "GET /api/v1/world/conversations"
+    request_or_params: "{limit:50,offset:0,custody:'observed|imported|all'}"
+    backing_store: "Session saved metadata / VersionedStore imported"
+    record_identity: "c-*"
+    observable_state: "Loaded observed/imported rows or honest empty/error"
+    evidence: "Source/T1/T2; T3 unverified"
+    assessment: "implemented_in_source"
+  - key: "saved.read"
+    journey: "J1"
+    user_action: "Click saved conversation"
+    ui_handler: "openItem -> fetchItem -> renderMessages"
+    api: "GET /api/v1/world/conversations/{id}"
+    request_or_params: "{id:'c-*'}"
+    backing_store: "Session KV DOM_TURNS or imported snapshot"
+    record_identity: "c-*:turn:index"
+    observable_state: "Source-qualified rich message frames and missing/unavailable states"
+    evidence: "Source/T1/T2; T3 unverified"
+    assessment: "implemented_in_source"
+  - key: "project.create"
+    journey: "J2"
+    user_action: "Create project"
+    ui_handler: "create('project')"
+    api: "POST /api/v1/world/projects"
+    request_or_params: "{title:'...',expectedVersion:null}"
+    backing_store: "VersionedStore"
+    record_identity: "p-*"
+    observable_state: "Selected newly saved project, versioned receipt"
+    evidence: "Source/T1/T2; T3 unverified"
+    assessment: "implemented_in_source"
+  - key: "note.create"
+    journey: "J2"
+    user_action: "Create note"
+    ui_handler: "create('note')"
+    api: "POST /api/v1/world/notes"
+    request_or_params: "{title:'...',body:'...',expectedVersion:null}"
+    backing_store: "VersionedStore"
+    record_identity: "n-*"
+    observable_state: "Selected newly saved user-authored note"
+    evidence: "Source/T1/T2; T3 unverified"
+    assessment: "implemented_in_source"
+  - key: "source.create"
+    journey: "J2"
+    user_action: "Save reference for displayed conversation"
+    ui_handler: "NO UI HANDLER; backend createObject exists"
+    api: "POST /api/v1/world/objects"
+    request_or_params: "{conversationId:'c-*',expectedVersion:null}"
+    backing_store: "VersionedStore source-reference"
+    record_identity: "o-*"
+    observable_state: "Would create source-linked reference; currently impossible directly from saved reader"
+    evidence: "Source backend/T2; human UI missing"
+    assessment: "backend_only"
+  - key: "part.select"
+    journey: "J2"
+    user_action: "Save this displayed message part"
+    ui_handler: "NO UI HANDLER; backend createSelection exists"
+    api: "POST /api/v1/world/selections"
+    request_or_params: "{objectId:'o-*',selectionType:'part',messageIndex:1,partPath:[0],expectedVersion:null}"
+    backing_store: "VersionedStore selection fingerprint"
+    record_identity: "s-*"
+    observable_state: "Would create provenance-pinned part; currently impossible directly in UI"
+    evidence: "Source backend/T2; human UI missing"
+    assessment: "backend_only"
+  - key: "project.link"
+    journey: "J2"
+    user_action: "Select/add existing source and save project"
+    ui_handler: "addMember('members') -> save('projects')"
+    api: "PUT /api/v1/world/projects/{id}"
+    request_or_params: "{title:'...',conversationIds:[],noteIds:[],memberIds:['s-*'],expectedVersion:1}"
+    backing_store: "VersionedStore CAS"
+    record_identity: "p-*"
+    observable_state: "Draft update only until save; accepted version or conflict with draft preserved"
+    evidence: "Source/T1/T2; T3 unverified"
+    assessment: "implemented_for_existing_ids"
+  - key: "note.comment"
+    journey: "J2"
+    user_action: "Comment on existing selection"
+    ui_handler: "addMember('comments') -> save('notes')"
+    api: "PUT /api/v1/world/notes/{id}"
+    request_or_params: "{title:'...',body:'...',commentsOn:['s-*'],expectedVersion:1}"
+    backing_store: "VersionedStore CAS"
+    record_identity: "n-*"
+    observable_state: "Comment link preserved; source unchanged"
+    evidence: "Source/T1/T2; T3 unverified"
+    assessment: "implemented_for_existing_ids"
+  - key: "find.query"
+    journey: "J3"
+    user_action: "Enter saved-text query"
+    ui_handler: "runSearch"
+    api: "GET /api/v1/world/search"
+    request_or_params: "{q:'term',offset:0,limit:50,kind:'message|project|note|source-reference|selection (optional)'}"
+    backing_store: "Transient local index built from world records"
+    record_identity: "message/project/note/source/selection"
+    observable_state: "Hits+honest scan coverage, no remote search"
+    evidence: "Source/T0/T1/T2; T3 unverified"
+    assessment: "implemented_in_source"
+  - key: "find.openpart"
+    journey: "J3"
+    user_action: "Click uniquely attributed message result"
+    ui_handler: "openHit -> openItem -> partFrameOf"
+    api: "GET /api/v1/world/conversations/{id}"
+    request_or_params: "{id:'hit.conversation.id',messageIndex:'hit.source.index',partPath:'hit.source.partPath optional'}"
+    backing_store: "Saved DOM_TURNS or imported snapshot"
+    record_identity: "c-*:turn:index + [blockIndex]"
+    observable_state: "Focus exact part if found, otherwise message-level fallback with warning"
+    evidence: "Producer and UI have separate tests; combined T2/T1 missing"
+    assessment: "implemented_separately"
+  - key: "find.openref"
+    journey: "J3"
+    user_action: "Click selected/reference result"
+    ui_handler: "openHit -> readRecord"
+    api: "GET /api/v1/world/objects/{id} or /selections/{id}"
+    request_or_params: "{id:'o-* or s-*'}"
+    backing_store: "VersionedStore source ref / selection"
+    record_identity: "o-* / s-*"
+    observable_state: "Record facts shown; no one-click focus of addressed source message/part"
+    evidence: "Source/T1; T3 unverified"
+    assessment: "direct_source_navigation_missing"
+  - key: "workspace.map"
+    journey: "J2-J3"
+    user_action: "Explore local associations"
+    ui_handler: "runRelations(id,'workspace')"
+    api: "GET /api/v1/world/map"
+    request_or_params: "{id:'c-*|p-*|n-*|o-*|s-*',limit:100}"
+    backing_store: "TemporalGraph derived from local world refs"
+    record_identity: "any supported world id"
+    observable_state: "Grouped edges with provenance/truncation and unresolved-status honesty"
+    evidence: "Source/T1; T3 unverified"
+    assessment: "implemented_in_source"
+  - key: "workspace.read"
+    journey: "J2-J3"
+    user_action: "Open related record in Workspace"
+    ui_handler: "openWorkspaceItem"
+    api: "GET /api/v1/world/{kind}/{id}"
+    request_or_params: "{kind:'conversations|projects|notes|objects|selections',id:'local id'}"
+    backing_store: "World read service"
+    record_identity: "c/p/n/o/s id"
+    observable_state: "Same-pane conversation, note, project summary or reference facts; one-chip focus"
+    evidence: "Source/T1; T3 unverified"
+    assessment: "implemented_in_source"
+  - key: "export.preview"
+    journey: "J4"
+    user_action: "Preview selected bundle"
+    ui_handler: "runExport"
+    api: "POST /api/v1/world/transfer/export"
+    request_or_params: "{ids:['p-*'],mode:'references|transcript|full-saved',parts:{reasoning:false,toolActivity:false}}"
+    backing_store: "WorldTransfer reads selected/outgoing dependency records"
+    record_identity: "selected local world ids"
+    observable_state: "Coverage, omissions, mode, user-controlled Download JSON; no write"
+    evidence: "Source/T1/T2; real browser file unverified"
+    assessment: "implemented_in_source"
+  - key: "import.validate"
+    journey: "J4"
+    user_action: "Choose/paste JSON and Check"
+    ui_handler: "readImportFile -> runCheck"
+    api: "POST /api/v1/world/transfer/validate"
+    request_or_params: "{bundle:{schema:'vivim.world-export/1'}}"
+    backing_store: "WorldTransfer integrity validator; no write"
+    record_identity: "bundle digest+idMap"
+    observable_state: "Errors/omissions/digest/rewrites; 8MiB UI cap"
+    evidence: "Source/T1/T2; real file unverified"
+    assessment: "implemented_in_source"
+  - key: "import.dryrun"
+    journey: "J4"
+    user_action: "Dry run"
+    ui_handler: "runRestore({dryRun:true})"
+    api: "POST /api/v1/world/transfer/restore"
+    request_or_params: "{bundle:'checked bundle',digest:'verified digest',dryRun:true}"
+    backing_store: "WorldTransfer simulation"
+    record_identity: "planned imported IDs"
+    observable_state: "Applied/skipped/failed/pending and no write"
+    evidence: "Source/T1/T2; T3 unverified"
+    assessment: "implemented_in_source"
+  - key: "import.write"
+    journey: "J4"
+    user_action: "Confirm and write imported copies"
+    ui_handler: "runRestore({dryRun:false})"
+    api: "POST /api/v1/world/transfer/restore"
+    request_or_params: "{bundle:'checked bundle',digest:'verified digest',dryRun:false,confirm:true}"
+    backing_store: "VersionedStore imported snapshots + receipt"
+    record_identity: "c-i*, p-*, n-*, o-*, s-*"
+    observable_state: "Truthful full/partial/failure summary; conversations list reset, projects/notes not reset"
+    evidence: "Source/T1/T2; T3 unverified"
+    assessment: "postimport_continuity_partial"
+ranked_slices:
+  - existing_queue_id: "Q07"
+    rank: 1
+    title: "Save displayed message part to project"
+    p5_refs: ["W05","W11"]
+    atlas_clusters: ["C05","C06"]
+    fidelity_refs: ["F08"]
+    inspect_or_edit_paths: ["src/studio/ui/world-view.mjs"]
+    target_tests: ["test/unit/world-ui.test.mjs","test/unit/world-ui-workspace.test.mjs","test/unit/world-journeys.test.mjs"]
+    acceptance: "Human-created o/s ids and project membership without helper fixtures; truthful partial failure"
+    state: proposal_only
+    owner: null
+    commit_sha: null
+    evidence_tier: source_only
+  - existing_queue_id: "Q07"
+    rank: 2
+    title: "Direct selection/reference source return"
+    p5_refs: ["W05","W07","W11"]
+    atlas_clusters: ["C04","C06","C07"]
+    fidelity_refs: ["F08"]
+    inspect_or_edit_paths: ["src/studio/ui/world-view.mjs"]
+    target_tests: ["test/unit/world-ui-find.test.mjs","test/unit/world-ui-workspace.test.mjs"]
+    acceptance: "s->o->c and saved part focus with stale/missing/imported qualifiers"
+    state: proposal_only
+    owner: null
+    commit_sha: null
+    evidence_tier: source_only
+  - existing_queue_id: "Q04"
+    rank: 3
+    title: "Real search HTTP partPath to UI contract"
+    p5_refs: ["W07","W12"]
+    atlas_clusters: ["C07"]
+    fidelity_refs: []
+    inspect_or_edit_paths: ["test/unit/world-search.test.mjs","test/unit/world-ui-find.test.mjs"]
+    target_tests: ["test/unit/world-search.test.mjs","test/unit/world-ui-find.test.mjs"]
+    acceptance: "Emitted HTTP hit opens same saved top-level block when unique; message fallback otherwise"
+    state: proposal_only
+    owner: null
+    commit_sha: null
+    evidence_tier: source_only
+  - existing_queue_id: "Q01"
+    rank: 4
+    title: "Post-import browsing and list refresh"
+    p5_refs: ["W09","W10","W11"]
+    atlas_clusters: ["C01","C09"]
+    fidelity_refs: []
+    inspect_or_edit_paths: ["src/studio/ui/world-view.mjs"]
+    target_tests: ["test/unit/world-ui-transfer.test.mjs","test/unit/world-ui-export-modes.test.mjs"]
+    acceptance: "Applied imported items discoverable immediately; partial/no-op not called full success"
+    state: proposal_only
+    owner: null
+    commit_sha: null
+    evidence_tier: source_only
+  - existing_queue_id: "Q10"
+    rank: 5
+    title: "Offline first-use and keyboard/task clarity"
+    p5_refs: ["W11"]
+    atlas_clusters: ["C01","C06"]
+    fidelity_refs: []
+    inspect_or_edit_paths: ["src/studio/ui/chat.html","src/studio/ui/world-view.mjs"]
+    target_tests: ["test/unit/world-ui.test.mjs","test/unit/world-ui-workspace.test.mjs"]
+    acceptance: "New offline user reaches Saved/Create/Import; real browser keyboard focus and narrow layout proof separate"
+    state: proposal_only
+    owner: null
+    commit_sha: null
+    evidence_tier: source_only
+execution_boundaries:
+  - 'All ranked fixes touching src/studio/ui/world-view.mjs require coordinated exclusive worktree ownership'
+  - 'Never infer a T3 live UI test from a fake DOM test or a second Studio instance in one Node process'
+  - 'No Playwright or Puppeteer; no second browser actor'
+  - 'Current PROVIDER-lane PROMPT.md remains separately authorized if local owner so chose'
+  - 'R5 research did not dispatch coding or test execution'
