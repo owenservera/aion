@@ -1,5 +1,7 @@
 # Three Further ChatGPT High-Thinking Rounds — Launch Sequence
 
+**CURRENT STATUS (2026-10-26): R4/R5/R6 SOURCE CODE MERGED INTO Harness `main`** at [`842a8c472a58`](https://github.com/owenservera/vivim-harness/commit/842a8c472a58118ea84a77ae4a9704ece9ee4111) via [PR #3](https://github.com/owenservera/vivim-harness/pull/3). The remaining work is [LOCAL SPRINT #4](https://github.com/owenservera/vivim-harness/issues/4) using [the canonical Windows/OpenCode runbook](https://github.com/owenservera/vivim-harness/blob/main/docs/sprints/R456-LOCAL-SPRINT-2026-10-26.md). **Do not reimplement Q07/Q04 or treat the old prompts as current development tasks.** No Windows/OpenCode agent was launched by this GitHub document change; actual Node/browser/restart G5 acceptance remains unverified.
+
 **Prepared 2026-10-26. R4 and R5 executed as source-only research; R6 executed as source-only release/security research.** All rounds are independently launchable ChatGPT HIGH-thinking tasks. ChatGPT owns evidence/architecture research and documents; remote/lower-cost implementation is authorized only later. No local OpenCode work, Harness edits or Chrome actions were performed in preparation.
 
 | Round | Exact focus | Required result | No overlap |
@@ -27,3 +29,7 @@
 ## Three-round research sequence closeout
 
 **R4, R5 and R6 source investigations are complete and verified in AION.** The next dependency is not another audit: it is implementation of the missing UI Save-this-part action (Q07), focused producer-to-UI test (Q04), then a user-visible and genuine second-OS-process local acceptance (Q01/Q08/Q10). The AION files are task plans/evidence and never proof of local implementation. [Release verdict](R6-ADVERSARIAL-ACCEPTANCE-MATRIX.md).
+
+## Post-research execution checkpoint
+
+R4/R5/R6 all completed at source-research tier; the actual follow-on Harness implementation is **merged to main via PR #3** at `842a8c472a58118ea84a77ae4a9704ece9ee4111`. The user's next action is a single **local** Windows/OpenCode sprint (issue #4), L0→L4, not relaunching R4/R5/R6 research or old Q07 implementation prompts. No full Node/Windows/browser runtime claims were inferred from merge.
