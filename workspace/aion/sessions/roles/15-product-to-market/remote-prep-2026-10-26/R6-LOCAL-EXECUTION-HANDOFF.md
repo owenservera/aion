@@ -1,5 +1,7 @@
 # R6 — One-page OpenCode WORLD implementation & acceptance handoff
 
+**CURRENT STATUS (2026-10-26): R4/R5/R6 SOURCE CODE MERGED INTO Harness `main`** at [`842a8c472a58`](https://github.com/owenservera/vivim-harness/commit/842a8c472a58118ea84a77ae4a9704ece9ee4111) via [PR #3](https://github.com/owenservera/vivim-harness/pull/3). The remaining work is [LOCAL SPRINT #4](https://github.com/owenservera/vivim-harness/issues/4) using [the canonical Windows/OpenCode runbook](https://github.com/owenservera/vivim-harness/blob/main/docs/sprints/R456-LOCAL-SPRINT-2026-10-26.md). **Do not reimplement Q07/Q04 or treat the old prompts as current development tasks.** No Windows/OpenCode agent was launched by this GitHub document change; actual Node/browser/restart G5 acceptance remains unverified.
+
 **Prepared 2026-10-26 · Thinking effort for local OpenCode: HIGH for Q07, MED/HIGH for Q04, HIGH for Q01 end-to-end acceptance.** This is **a proposed local dispatch for an explicitly owner-selected WORLD task**, not an agent launched by R6. Windows local checkout is master. **No AION local clone assumed.** R6 added no Harness source/tests.
 
 ## Canonical inputs (fetch directly from GitHub, not an absent AION clone)
@@ -9,7 +11,7 @@
 - Source authority: [Harness main](https://github.com/owenservera/vivim-harness), observed remote HEAD `32b7021e99aedb3bedb21daae9e7983676ef4771`; **inspect actual local HEAD/dirty worktree** before work.
 - Local path: `C:\0-BlackBoxProject-0\vivim-harness`. Current `PROMPT.md` may assign a **PROVIDER** three-turn mission. Do not silently cancel/preempt it or use a second Chrome actor.
 
-## Copy-ready directive (submit to authorized local OpenCode session only)
+## HISTORICAL PRE-MERGE copy-ready implementation directive — DO NOT REPLAY (use Sprint #4 instead)
 
 ```text
 #VIVIM-HARNESS @LOCAL +/EXECUTE /R6-WORLD-CLOSURE
@@ -58,7 +60,7 @@ If this OpenCode session belongs to PROVIDER, do not change lane:
 report this WORLD handoff as queued and continue owner-authorized work.
 ```
 
-## Exact code ownership and acceptance boundaries
+## Historical pre-merge implementation ownership (now merged; only local proof outstanding)
 
 | Phase | Minimal code/test surfaces | Proof required |
 |---|---|---|
