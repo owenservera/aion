@@ -1,6 +1,8 @@
 # PRODUCT AGENT — Remote Integration Prep Package
 
-**Date:** October 26, 2026 · **Target:** [owenservera/vivim-harness](https://github.com/owenservera/vivim-harness) · **Storage:** AION Role 15 only. **Status:** all three requested remote-preparation deliverables completed and committed. No Harness production edits, tests, or local agent work executed.
+**CURRENT STATUS (2026-10-26): R4/R5/R6 SOURCE CODE MERGED INTO Harness `main`** at [`842a8c472a58`](https://github.com/owenservera/vivim-harness/commit/842a8c472a58118ea84a77ae4a9704ece9ee4111) via [PR #3](https://github.com/owenservera/vivim-harness/pull/3). The remaining work is [LOCAL SPRINT #4](https://github.com/owenservera/vivim-harness/issues/4) using [the canonical Windows/OpenCode runbook](https://github.com/owenservera/vivim-harness/blob/main/docs/sprints/R456-LOCAL-SPRINT-2026-10-26.md). **Do not reimplement Q07/Q04 or treat the old prompts as current development tasks.** No Windows/OpenCode agent was launched by this GitHub document change; actual Node/browser/restart G5 acceptance remains unverified.
+
+**Date:** October 26, 2026 · **Target:** [owenservera/vivim-harness](https://github.com/owenservera/vivim-harness) · **Storage:** AION Role 15 only. **Historical status:** remote-preparation research was source-only. **Current status:** source implementation was later merged into Harness main by PR #3; no local Windows/provider/browser test was executed remotely.
 
 ## Documents
 
@@ -81,3 +83,10 @@ All five package files should be read back from GitHub before declaring publicat
 - [**Leapfrog integration final receipt**](R456-LEAPFROG-INTEGRATION-RECEIPT-2026-10-26.md) — in-context project creation, recovery of incomplete selection CAS links, selection-anchored note creation, pagination, stale-source defense, 14/14 isolated synthetic checks and exact merged-main evidence.
 - **Harness PR:** [#3](https://github.com/owenservera/vivim-harness/pull/3), merged externally during the session into `main` at [`842a8c472a58`](https://github.com/owenservera/vivim-harness/commit/842a8c472a58118ea84a77ae4a9704ece9ee4111), readback-confirmed. ChatGPT did not invoke the merge API.
 - **WORLD G5 is still NOT ACCEPTED:** CI jobs reported failure without usable steps/logs, and actual Node full suite, independent Windows process restart and browser/human/J1–J4 acceptance are not verified. This merge is an implementation receipt, not release approval.
+
+## Final remote delivery → local sprint
+
+- **Merged source:** [Harness main commit 842a8c4](https://github.com/owenservera/vivim-harness/commit/842a8c472a58118ea84a77ae4a9704ece9ee4111), [PR #3](https://github.com/owenservera/vivim-harness/pull/3).
+- **Canonical local sprint:** [issue #4](https://github.com/owenservera/vivim-harness/issues/4), [five-gate PowerShell/OpenCode runbook](https://github.com/owenservera/vivim-harness/blob/main/docs/sprints/R456-LOCAL-SPRINT-2026-10-26.md), [single Harness queue](https://github.com/owenservera/vivim-harness/blob/main/docs/track/queue.md), [progress ledger](https://github.com/owenservera/vivim-harness/blob/main/docs/INTEGRATION-PROGRESS.md).
+- **AION receipt:** [R456 actual source integration + remote/local proof boundaries](R456-INTEGRATION-EXECUTION-RECEIPT-2026-10-26.md). [R6 updated machine release gates](R6-PROOF-AND-RELEASE-GATES.yaml).
+- **Outstanding:** hosted CI startup failures (no executed steps/logs), local real Node tests, independent OS-process restart (T3p), human browser JSON file and J1–J4 (T3u), R6 adversarial proof and owner decisions. **G5 NOT ACCEPTED**. Provider-native T4 remains a separate owner-controlled lane.
