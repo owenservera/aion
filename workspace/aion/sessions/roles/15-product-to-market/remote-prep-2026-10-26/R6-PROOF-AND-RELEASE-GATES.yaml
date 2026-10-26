@@ -1,0 +1,284 @@
+# Machine-readable R6 proof plan. Source inspection, not a release receipt.
+schema: 'vivim.product.release-proof/1'
+date: '2026-10-26'
+product_lane: 'WORLD personal-workspace G5'
+canonical_code_repo: 'owenservera/vivim-harness'
+canonical_code_sha: '32b7021e99aedb3bedb21daae9e7983676ef4771'
+research_repo: 'owenservera/aion'
+research_folder: 'workspace/aion/sessions/roles/15-product-to-market/remote-prep-2026-10-26/'
+report: 'R6-ADVERSARIAL-ACCEPTANCE-MATRIX.md'
+handoff: 'R6-LOCAL-EXECUTION-HANDOFF.md'
+basis: ['R4-CAPTURE-TO-WORLD-TRUTH-MATRIX.md','R5-HUMAN-JOURNEY-COMPOSITION-MAP.md','P5-V1-INTEGRATION-MASTER-WORKLOG-2026-10-25.md','03-ACCEPTANCE-SECURITY-CLOSURE-QUEUE.md']
+no_tests_executed_by_r6: true
+harness_code_modified_by_r6: false
+local_agents_dispatched_by_r6: false
+release_accepted: false
+release_status: 'G5_NOT_ACCEPTED'
+historical_fixture_receipts: 'docs/track/worklog.yaml reports focused runs at earlier HEAD 007e357; no proof at current audit HEAD'
+evidence_tiers:
+  S0: 'source read with blob/current commit receipts'
+  T0: 'in-process synthetic unit data'
+  T1: 'fake DOM and synthetic UI behavior; no CSS or real focus'
+  T2: 'loopback HTTP with stubbed conversation runtime and safe fixtures'
+  T3p: 'actual independent OS process restart using a disposable persistent root'
+  T3u: 'actual local browser user interaction, focus, file download/import'
+  T4: 'authenticated provider-native controlled browser/consent, separate owner-authorized lane'
+gates:
+  - id: "G0"
+    title: "Source contracts"
+    min_evidence: "S0"
+    state: "source_checked"
+    cases: ["A01","A02","A12"]
+    pass_condition: "current source refs and exact paths"
+    required_for_v1_world: false
+    actual_receipt: null
+  - id: "G1"
+    title: "RETURN mixed saved reading"
+    min_evidence: "T3u"
+    state: "not_accepted"
+    cases: ["A01","A02","A03"]
+    pass_condition: "source-qualified rich reader visible and missing-native evidence honest"
+    required_for_v1_world: true
+    actual_receipt: null
+  - id: "G2"
+    title: "ORGANIZE user selection and project note"
+    min_evidence: "T1_then_T3u"
+    state: "blocked_code"
+    cases: ["A12","A15"]
+    pass_condition: "part source-ref and selection created by human UI, CAS preserves source"
+    required_for_v1_world: true
+    actual_receipt: null
+  - id: "G3"
+    title: "FIND exact qualified source"
+    min_evidence: "T2_T1_then_T3u"
+    state: "blocked_proof"
+    cases: ["A13","A14"]
+    pass_condition: "unique part focus and imported IDs, honest fallback"
+    required_for_v1_world: true
+    actual_receipt: null
+  - id: "G4"
+    title: "TAKE selected JSON clean restore"
+    min_evidence: "T3u"
+    state: "blocked_proof"
+    cases: ["A04","A05","A06","A07","A08","A09","A10","A11"]
+    pass_condition: "actual file download+validate+dry-run+confirm+clean import"
+    required_for_v1_world: true
+    actual_receipt: null
+  - id: "G5"
+    title: "One integrated world"
+    min_evidence: "T3p_and_T3u"
+    state: "not_accepted"
+    cases: ["A15","A16","A17"]
+    pass_condition: "J1 J2 J3 J4 all same world and actual restart, no T4 substitute"
+    required_for_v1_world: true
+    actual_receipt: null
+  - id: "G6"
+    title: "Provider-native attachment"
+    min_evidence: "T4"
+    state: "deferred_outside_WORLD"
+    cases: ["A18"]
+    pass_condition: "explicit owner authorization of separate effects lane"
+    required_for_v1_world: false
+    actual_receipt: null
+adversarial_cases:
+  - id: "A01"
+    priority: "P0"
+    current_assessment: "implemented_fixture"
+    gates: ["G1","G4"]
+    p5_work_ids: ["W01","W04"]
+    existing_queue_ids: ["Q01"]
+    source_inspected_test_paths: ["test/unit/world-relations.test.mjs","test/unit/world-search-imported.test.mjs"]
+    next_proof: "T3u"
+    actual_pass_receipt: null
+  - id: "A02"
+    priority: "P1"
+    current_assessment: "code_gap"
+    gates: ["G1"]
+    p5_work_ids: ["W02","W04"]
+    existing_queue_ids: []
+    source_inspected_test_paths: ["test/unit/world-service.test.mjs","test/unit/world-journeys.test.mjs"]
+    next_proof: "T1"
+    actual_pass_receipt: null
+  - id: "A03"
+    priority: "P1"
+    current_assessment: "code_gap"
+    gates: ["G1"]
+    p5_work_ids: ["W03","W04"]
+    existing_queue_ids: ["Q05"]
+    source_inspected_test_paths: ["test/unit/world-ui.test.mjs","test/unit/world-ui-relations.test.mjs"]
+    next_proof: "T1"
+    actual_pass_receipt: null
+  - id: "A04"
+    priority: "P0"
+    current_assessment: "implemented_fixture"
+    gates: ["G4"]
+    p5_work_ids: ["W09"]
+    existing_queue_ids: ["Q03"]
+    source_inspected_test_paths: ["test/unit/world-transfer.test.mjs","test/unit/world-import-hardening.test.mjs"]
+    next_proof: "T3u"
+    actual_pass_receipt: null
+  - id: "A05"
+    priority: "P0"
+    current_assessment: "implemented_fixture_and_owner_decision"
+    gates: ["G4"]
+    p5_work_ids: ["W09"]
+    existing_queue_ids: ["Q03","Q09"]
+    source_inspected_test_paths: ["test/unit/world-import-hardening.test.mjs","test/unit/world-ui-export-modes.test.mjs"]
+    next_proof: "T3u"
+    actual_pass_receipt: null
+  - id: "A06"
+    priority: "P0"
+    current_assessment: "privacy_scope_proof_gap"
+    gates: ["G4"]
+    p5_work_ids: ["W09","W10"]
+    existing_queue_ids: ["Q09"]
+    source_inspected_test_paths: ["test/unit/world-provider-url.test.mjs","test/unit/world-import-hardening.test.mjs"]
+    next_proof: "T2"
+    actual_pass_receipt: null
+  - id: "A07"
+    priority: "P0"
+    current_assessment: "implemented_fixture"
+    gates: ["G4"]
+    p5_work_ids: ["W10"]
+    existing_queue_ids: ["Q09"]
+    source_inspected_test_paths: ["test/unit/world-restore.test.mjs","test/unit/world-import-content.test.mjs"]
+    next_proof: "T2"
+    actual_pass_receipt: null
+  - id: "A08"
+    priority: "P0"
+    current_assessment: "implemented_fixture"
+    gates: ["G4"]
+    p5_work_ids: ["W10"]
+    existing_queue_ids: ["Q09"]
+    source_inspected_test_paths: ["test/unit/world-import-content.test.mjs"]
+    next_proof: "T2"
+    actual_pass_receipt: null
+  - id: "A09"
+    priority: "P0"
+    current_assessment: "implemented_fixture"
+    gates: ["G4"]
+    p5_work_ids: ["W10"]
+    existing_queue_ids: ["Q02"]
+    source_inspected_test_paths: ["test/unit/world-import-hardening.test.mjs","test/unit/world-restore.test.mjs"]
+    next_proof: "T2"
+    actual_pass_receipt: null
+  - id: "A10"
+    priority: "P0"
+    current_assessment: "implemented_fixture"
+    gates: ["G4"]
+    p5_work_ids: ["W05","W10"]
+    existing_queue_ids: ["Q02"]
+    source_inspected_test_paths: ["test/unit/world-import-hardening.test.mjs"]
+    next_proof: "T2"
+    actual_pass_receipt: null
+  - id: "A11"
+    priority: "P0"
+    current_assessment: "implemented_fixture_runtime_proof_gap"
+    gates: ["G4"]
+    p5_work_ids: ["W10","W11"]
+    existing_queue_ids: ["Q02"]
+    source_inspected_test_paths: ["test/unit/world-ui-transfer.test.mjs"]
+    next_proof: "T3u"
+    actual_pass_receipt: null
+  - id: "A12"
+    priority: "P0"
+    current_assessment: "code_gap"
+    gates: ["G2"]
+    p5_work_ids: ["W05","W11"]
+    existing_queue_ids: ["Q07"]
+    source_inspected_test_paths: ["test/unit/world-ui.test.mjs","test/unit/world-journeys.test.mjs"]
+    next_proof: "T1_then_T3u"
+    actual_pass_receipt: null
+  - id: "A13"
+    priority: "P1"
+    current_assessment: "cross_surface_proof_gap"
+    gates: ["G3"]
+    p5_work_ids: ["W07","W12"]
+    existing_queue_ids: ["Q04"]
+    source_inspected_test_paths: ["test/unit/world-search.test.mjs","test/unit/world-ui-find.test.mjs"]
+    next_proof: "T2_T1_then_T3u"
+    actual_pass_receipt: null
+  - id: "A14"
+    priority: "P1"
+    current_assessment: "policy_and_test_gap"
+    gates: ["G3"]
+    p5_work_ids: ["W03","W07"]
+    existing_queue_ids: ["Q05"]
+    source_inspected_test_paths: ["test/unit/world-search.test.mjs","test/unit/world-ui.test.mjs"]
+    next_proof: "T2"
+    actual_pass_receipt: null
+  - id: "A15"
+    priority: "P0"
+    current_assessment: "windows_process_proof_gap"
+    gates: ["G5"]
+    p5_work_ids: ["W06","W12"]
+    existing_queue_ids: ["Q08"]
+    source_inspected_test_paths: ["test/unit/world-service.test.mjs","test/unit/world-ui.test.mjs"]
+    next_proof: "T3p"
+    actual_pass_receipt: null
+  - id: "A16"
+    priority: "P0"
+    current_assessment: "release_proof_gap"
+    gates: ["G5"]
+    p5_work_ids: ["W12"]
+    existing_queue_ids: ["Q01","Q08","Q10"]
+    source_inspected_test_paths: ["test/unit/world-journeys.test.mjs","test/unit/world-ui-transfer.test.mjs"]
+    next_proof: "T3p_and_T3u"
+    actual_pass_receipt: null
+  - id: "A17"
+    priority: "P1"
+    current_assessment: "browser_accessibility_proof_gap"
+    gates: ["G5"]
+    p5_work_ids: ["W11"]
+    existing_queue_ids: ["Q10"]
+    source_inspected_test_paths: ["test/unit/world-ui-workspace.test.mjs"]
+    next_proof: "T3u"
+    actual_pass_receipt: null
+  - id: "A18"
+    priority: "P2"
+    current_assessment: "owner_decision_deferred"
+    gates: ["G6"]
+    p5_work_ids: ["W13","W14"]
+    existing_queue_ids: ["Q12"]
+    source_inspected_test_paths: ["test/unit/commands.test.mjs","test/unit/agentic-files.test.mjs"]
+    next_proof: "owner_authorized_only"
+    actual_pass_receipt: null
+blockers:
+  code:
+    - 'Q07 A12: world-view has no object/selection POST UI from a displayed block'
+    - 'R4-I1/R4-I2: saved-world inline citation and numeric truncation fidelity gaps; serialize with UI owner'
+  evidence:
+    - 'Q04 A13: one producer→HTTP→UI exact partPath integration proof'
+    - 'Q01 A16: T3p and T3u full-world J1-J4 proof on disposable roots'
+    - 'Q08 A15: separate Windows process restart and CAS/lock recovery evidence'
+    - 'Q10 A17: real browser focus/viewport/keyboard proof'
+    - 'A06: nested URL/content metadata threat boundary and synthetic secret review'
+  owner_decisions:
+    - 'Optional DLP and export redaction policy; current transcript/full-saved include saved raw body'
+    - 'Whether asset bytes/native artifact versions must be V1 core'
+    - 'Whether dormant C10 command preview / C11 agentic files may be mounted'
+    - 'Active local WORLD versus PROVIDER owner lane or any file overlap'
+dispatch_phases:
+  - phase: 1
+    queue_ids: ['Q07']
+    goal: 'Implement Save this part within existing UI and prove creation/association via HTTP and fake UI'
+    candidate_write_owner: 'src/studio/ui/world-view.mjs'
+    active_owner_confirmed: false
+  - phase: 2
+    queue_ids: ['Q04']
+    goal: 'One emitted search hit through existing endpoint into existing UI part focus, no search rewrite'
+    candidate_write_owner: 'test/unit/world-search.test.mjs and world-ui-find.test.mjs'
+    active_owner_confirmed: false
+  - phase: 3
+    queue_ids: ['Q01','Q08','Q10']
+    goal: 'Actual J1-J4 visible flow, full separate OS restart, file restore to clean root and negative controls'
+    candidate_write_owner: 'local acceptance only, no production edits unless failing case requires'
+    active_owner_confirmed: false
+prohibited_claims:
+  - 'source-only audit is a test pass'
+  - 'sha256 hash verifies exporter identity or remote provider truth'
+  - 'providerUrl origin+pathname sanitizer cleans message body, nested hrefs, or path secrets'
+  - 'second startStudio call in one Node process equals OS restart'
+  - 'partial 200 restore means full success'
+  - 'T0/T1/T2 fixture is live Chrome/provider acceptance'
+  - 'R6 prepared a running agent, automatic CI, Windows installation, or Harness code changes'
