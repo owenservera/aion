@@ -51,3 +51,10 @@ This prompt is an **intake note**, not a background job or command executed by C
 All five package files should be read back from GitHub before declaring publication; committed SHAs are in chat execution receipts. Documents intentionally live under **AION PRODUCT AGENT only**, not Harness, to avoid overwriting work in the active local checkout.
 
 **No engineering changes or tests have been performed as a side effect of this package.**
+
+## R4 execution — completed 2026-10-26
+
+- [R4 Capture-to-World Truth Matrix](R4-CAPTURE-TO-WORLD-TRUTH-MATRIX.md): 13-family end-to-end lineage proof matrix, named loss points, exact source links/blob receipts and three independently testable fix candidates (R4-I1, R4-I2, R4-I3).
+- [R4 Machine-Readable Loss Register](R4-LOSS-REGISTER.yaml): 13 structured source-loss records and three proposed increments, all with evidence grade source-only.
+- **Executed:** HIGH-effort remote GitHub source investigation and AION documentation commit/readback. **Not executed:** Harness code changes, local/browser tests, supplier dispatch, owner-data inspection.
+- **Key discoveries:** paragraph inline citation/link metadata survives recorded blocks but is ignored by the saved-world Markdown projection; the numeric original turn truncation length is demoted to Boolean; provider asset bytes/native edit history are not captured by the world projection. See full R4 report for qualifications.
