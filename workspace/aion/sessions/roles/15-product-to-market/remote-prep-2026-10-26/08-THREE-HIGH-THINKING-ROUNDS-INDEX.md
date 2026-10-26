@@ -1,6 +1,6 @@
 # Three Further ChatGPT High-Thinking Rounds — Launch Sequence
 
-**Prepared 2026-10-26. R4 and R5 executed as source-only research; R6 remains unlaunched.** All rounds are independently launchable ChatGPT HIGH-thinking tasks. ChatGPT owns evidence/architecture research and documents; remote/lower-cost implementation is authorized only later. No local OpenCode work, Harness edits or Chrome actions were performed in preparation.
+**Prepared 2026-10-26. R4 and R5 executed as source-only research; R6 executed as source-only release/security research.** All rounds are independently launchable ChatGPT HIGH-thinking tasks. ChatGPT owns evidence/architecture research and documents; remote/lower-cost implementation is authorized only later. No local OpenCode work, Harness edits or Chrome actions were performed in preparation.
 
 | Round | Exact focus | Required result | No overlap |
 |---|---|---|---|
@@ -16,10 +16,14 @@
 
 **Predecessors:** [control pack](01-INTEGRATION-CONTROL-PACK.md), [native fidelity map](02-NATIVE-FIDELITY-RECOVERY-MAP.md), [security queue](03-ACCEPTANCE-SECURITY-CLOSURE-QUEUE.md), [agent YAML queue](04-REMOTE-CLOSURE-QUEUE.yaml), [P5 master](../P5-V1-INTEGRATION-MASTER-WORKLOG-2026-10-25.md).
 
-**Definition of preparation complete:** all three prompts are durable and scoped. **Execution status:** R4 and R5 source analyses have been completed/committed; R6 has not run.
+**Definition of preparation complete:** all three prompts are durable and scoped. **Execution status:** R4 and R5 source analyses have been completed/committed; R6 source analysis completed and committed; code implementation and local acceptance remain unexecuted.
 
 ## Execution receipts — 2026-10-26
 
 - **R4 COMPLETED**: [full 13-family source truth matrix](R4-CAPTURE-TO-WORLD-TRUTH-MATRIX.md) and [loss register](R4-LOSS-REGISTER.yaml); source investigation only, no Harness implementation/tests.
 - **R5 COMPLETED**: [human journey composition map](R5-HUMAN-JOURNEY-COMPOSITION-MAP.md) and [17 action/API contracts + five ranked slices](R5-UI-CONTRACTS.yaml); source investigation only, no Harness implementation/tests.
-- **R6 READY, NOT EXECUTED**: [release/security proof prompt](07-ROUND-R6-RELEASE-SECURITY-AND-PROOF.md). Its future run should ingest R4/R5 reports, not merely their launch prompts.
+- **R6 COMPLETED AS RESEARCH**: [18-case adversarial matrix](R6-ADVERSARIAL-ACCEPTANCE-MATRIX.md), [G0–G6 gate register](R6-PROOF-AND-RELEASE-GATES.yaml) and [local handoff](R6-LOCAL-EXECUTION-HANDOFF.md). G5 release is NOT accepted; no Windows/browser/source-code tasks ran.
+
+## Three-round research sequence closeout
+
+**R4, R5 and R6 source investigations are complete and verified in AION.** The next dependency is not another audit: it is implementation of the missing UI Save-this-part action (Q07), focused producer-to-UI test (Q04), then a user-visible and genuine second-OS-process local acceptance (Q01/Q08/Q10). The AION files are task plans/evidence and never proof of local implementation. [Release verdict](R6-ADVERSARIAL-ACCEPTANCE-MATRIX.md).
