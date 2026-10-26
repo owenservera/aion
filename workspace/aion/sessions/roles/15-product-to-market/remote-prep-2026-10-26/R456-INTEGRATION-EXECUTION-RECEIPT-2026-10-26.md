@@ -7,8 +7,8 @@
 - **Implementation repository:** [owenservera/vivim-harness](https://github.com/owenservera/vivim-harness).
 - **Base main SHA inspected:** `32b7021e99aedb3bedb21daae9e7983676ef4771`.
 - **Pushed branch:** `integration/r4-r5-r6-world-20261026`.
-- **Pushed final implementation+test commit:** `0e1fda8bb5c022cac679b2cce443e8d768d94d44`.
-- **Draft PR:** [#3 — Integrate R4 fidelity, R5 saved-part UX, and R6 adversarial regressions](https://github.com/owenservera/vivim-harness/pull/3).
+- **Pushed final implementation+test commit:** `47e76bf23a09df3abfe1b3a28fab9e57e5c403c7`.
+- **Open PR, ready for review (not merged):** [#3 — Integrate R4 fidelity, R5 saved-part UX, and R6 adversarial regressions](https://github.com/owenservera/vivim-harness/pull/3).
 - **Production file ownership:** `src/studio/ui/world-view.mjs`, `src/studio/world-service.mjs`; tests `test/unit/world-service.test.mjs`, `test/unit/world-r456-integration.test.mjs`, `test/unit/world-r456-search-http-ui.test.mjs`.
 - **No edits made to Harness main, existing provider Chrome capture/actor, OpenCode local installation, private saved sessions or Windows OS files.** GitHub branch is a real pushed implementation, but main is not merged.
 - **External local-master constraint:** local Windows remains human/master, live-provider `PROMPT.md` task untouched; remote PR must be reconciled against local dirty work before pull/merge.
@@ -54,7 +54,7 @@
 | `src/studio/ui/world-view.mjs` | `3735d03ce30aa7842d0a3fdce50e9d56a88bfe7b` |
 | `test/unit/world-service.test.mjs` | `f094fbb7a8967eb71d6f70e8c712444962a25439` |
 | `test/unit/world-r456-integration.test.mjs` | `51fec8299e10a70751b83603d57df3eff0d11001` |
-| `test/unit/world-r456-search-http-ui.test.mjs` | `4c543d10cead6b8fe17d2e1ac135934ae69f230f` |
+| `test/unit/world-r456-search-http-ui.test.mjs` | updated in final small ambiguous-marker test patch; inspect PR head blob |
 
 ## Remaining acceptance and merge discipline
 
@@ -65,3 +65,9 @@
 5. R4 deferred image/file bytes/native artifact history are **not magically captured** by UI additions. R6 owner-choice DLP/default export consent and optional dormant C10/C11 remain undecided; not silently activated.
 
 **Integration conclusion:** concrete R4/R5/R6 product code+tests pushed as one isolated, reviewable Harness change set. The remaining work is passing executable verification and Windows/browser acceptance—not another architecture report.
+
+## Final remote checkpoint
+
+- PR #3 was marked **ready for review** after source comparison; GitHub reports the branch **mergeable** against unchanged `main`, but main was deliberately left unchanged while all four Windows/Ubuntu Actions jobs were red with zero job steps exposed.
+- A final focused test correction at commit `47e76bf23a09df3abfe1b3a28fab9e57e5c403c7` ensures ambiguous block-hit assertions look only at `data-part-path` frames, not the separately selected conversation navigation row. This one-line change was source/readback-level verified, **not run through Node**.
+- Code implementation is pushed and reviewable; actual CI and T3 G5 acceptance are not passed.
