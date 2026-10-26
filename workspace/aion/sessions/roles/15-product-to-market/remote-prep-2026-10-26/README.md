@@ -58,3 +58,11 @@ All five package files should be read back from GitHub before declaring publicat
 - [R4 Machine-Readable Loss Register](R4-LOSS-REGISTER.yaml): 13 structured source-loss records and three proposed increments, all with evidence grade source-only.
 - **Executed:** HIGH-effort remote GitHub source investigation and AION documentation commit/readback. **Not executed:** Harness code changes, local/browser tests, supplier dispatch, owner-data inspection.
 - **Key discoveries:** paragraph inline citation/link metadata survives recorded blocks but is ignored by the saved-world Markdown projection; the numeric original turn truncation length is demoted to Boolean; provider asset bytes/native edit history are not captured by the world projection. See full R4 report for qualifications.
+
+## R5 execution — completed 2026-10-26
+
+- [R5 Human Journey Composition Map](R5-HUMAN-JOURNEY-COMPOSITION-MAP.md): exact UI actions, world HTTP routes, persistence IDs, existing tests, five bounded user-outcome fixes and an unexecuted ten-minute demonstration script.
+- [R5 UI/API Machine Contracts](R5-UI-CONTRACTS.yaml): 17 action-state contracts, five ranked existing Q/W/C work slices, unassigned ownership and source-only proof status.
+- **Top finding:** WorldService exposes POST source references and POST selections, but world-view does not offer a user-originated "Save this visible message part" control. It can associate previously created selections. The J2 HTTP fixture seeds this via API; it does not prove human UX.
+- **Already built:** Find unique part attribution and UI focus, Workspace peer reader/provenance, Transfer validate/dry-run/restore with partial-success handling. **Remaining:** save-part glue, direct reference-to-source jump, combined search producer+UI contract test, post-import list refresh/direct browsing, real first-use/keyboard acceptance.
+- **Scope:** source-only; no tests run, local agents started or Harness modifications. R6 remains pending.
