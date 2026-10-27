@@ -120,3 +120,18 @@ OWNER DECISION: <none or exactly one>.
 ## Design relationship to existing files
 
 This is a **custom execution protocol**. `BOOTSTRAP.md` is agent identity and read order, `SITREP.md` is accumulated contextual history, `SCHEDULES.md` owns recurring cadence, and this file owns how to produce a **useful fresh research SITREP**. All refer to the one canonical issue #30. No change in scheduling or agent roles.
+
+
+## 8. REQUIRED: versioned research-index publication (live AION dashboard)
+
+This is the Research Agent's **derived presentation output**, not a second research queue, owner task board, or new authority.
+
+- **Research-owned source:** [FRONTIER-STATUS.json](FRONTIER-STATUS.json) is a compact list of current *reviewed* frontier findings, with dated evidence, external sources, source-file paths, confidence, stage, disposition, risks and next smallest evidence check. It summarizes existing research files and canonical issue #30; original research evidence remains authoritative.
+- **Generated projection:** `apps/aion-research-dashboard/research-index.json` plus immutable `snapshots/<revision>.json` are produced by `node apps/aion-research-dashboard/scripts/generate-index.mjs`. The browser reads the generated index, not a hardcoded per-frontend array.
+- **Automatic update trigger:** GitHub Actions `.github/workflows/aion-research-index.yml` runs on edits to the source status, researched source docs, script or workflow. It rejects invalid sources and unsupported higher lifecycle claims; commits new snapshot only if the revision changed. Vercel Git integration is expected to redeploy changed dashboard assets; the dashboard independently checks GitHub's latest index while open.
+- **SITREP must do:** after verifying source changes and completing an evidence-backed research decision, edit only the relevant frontier's status/evidence field(s) in `FRONTIER-STATUS.json`. Update `reviewed_at` only when a real substantive assessment occurred; update `status_updated_at` only when disposition actually changed. Add immutable original URL, observation date, claim, and a source-file reference when present. Never advance ACKNOWLEDGED, APPLIED or VERIFIED without independently verifiable receipt/test evidence.
+- **SITREP must validate:** run or confirm `node apps/aion-research-dashboard/scripts/generate-index.mjs`, then `--check` and `node --test apps/aion-research-dashboard/tests/*.test.mjs`; where only remote GitHub tools are available, rely on GitHub Actions **after inspecting real job success and regenerated output**, not on the mere publication of a workflow file.
+- **Live status contract:** report `index revision`, `assessed_through`, last relevant source/commit, actual CI success or blocker, actual Vercel deployment status, and report frontend freshness separately. Deployment READY does not alone prove that the browser loaded the new index.
+- **No busywork:** a SITREP with no changed finding must not touch the status file or trigger a new revision. Research status is never incremented from commit activity, scheduled-run presence, or a new web page's date alone.
+- **MVP bootstrap caveat:** an initial seed snapshot may precede the first automated CI generation. The generator's cryptographic revision and source-file fingerprints become canonical only once the real validation job runs successfully.
+
