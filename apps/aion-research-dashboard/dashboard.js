@@ -53,12 +53,12 @@ function readIndexDoc(doc){
 async function refresh(){
  const b=$("sync");b.disabled=true;b.textContent="↻ Refreshing index…";
  const sources=[
- "https://raw.githubusercontent.com/owenservera/aion/main/"+INDEX_PATH+"?t="+Date.now(),
- "./research-index.json?t="+Date.now()
+ "./research-index.json?t="+Date.now(),
+ "https://raw.githubusercontent.com/owenservera/aion/main/"+INDEX_PATH+"?t="+Date.now()
  ];
  let err="unavailable",loaded=null;
  for(let i=0;i<sources.length;i++){
-  try{const response=await fetch(sources[i],{cache:"no-store",signal:AbortSignal.timeout(12000)});if(!response.ok)throw new Error("HTTP "+response.status);loaded=readIndexDoc(await response.json());readSource=i?"Vercel fallback (may be older)":"Live GitHub main";break}
+  try{const response=await fetch(sources[i],{cache:"no-store",signal:AbortSignal.timeout(12000)});if(!response.ok)throw new Error("HTTP "+response.status);loaded=readIndexDoc(await response.json());readSource=i?"GitHub published index fallback":"Vercel validated build";break}
   catch(e){err=String(e.message||e)}
  }
  if(loaded){index=loaded;rows=index.frontiers;if(!rows.some(f=>f.id===selected))selected=rows[0]?.id||null;lastChecked=new Date();const msg="Index "+index.revision+" · "+readSource+" · checked "+lastChecked.toLocaleTimeString()+" · research assessed through "+index.assessed_through;$("sourceStatus").innerHTML='<span class="dot"></span> '+esc(msg)}
