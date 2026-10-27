@@ -46,6 +46,19 @@ Observed local source: [vivim-harness/src/studio/world-service.mjs](https://gith
 
 **Unsafe donor rendering details:** Platform renderer uses `dangerouslySetInnerHTML` for math/highlighting and `containerRef.current.innerHTML = svg` after Mermaid rendering ([vivim-platform/edge-pwa/frontend/src/components/ContentRenderer.tsx](https://github.com/owenservera/vivim-platform/blob/18bf523edb887374770a49db61b08204fdd4f141/edge-pwa/frontend/src/components/ContentRenderer.tsx#L267-L453)). Never copy directly. Its component test mocks DOMPurify as identity and checks only a small visual subset; that is not a security/fidelity proof ([vivim-platform/edge-pwa/frontend/src/components/ContentRenderer.test.tsx](https://github.com/owenservera/vivim-platform/blob/18bf523edb887374770a49db61b08204fdd4f141/edge-pwa/frontend/src/components/ContentRenderer.test.tsx)).
 
+## Additional October 27 owner-requested operational UX — TODO, not approved implementation
+
+The [onboarding decision record, section 3](https://github.com/owenservera/vivim-harness/blob/c2ca3d70d3e25b4adf4b904bf93773742ae475fd/docs/product/FIRST-USER-ONBOARDING-DECISIONS-2026-10-27.md) contains four relevant **TODO — owner requested** entries that the original 15-journey matrix did not explicitly name. They remain constraints/open questions, not instructions to implement an invented backend or promote a legacy donor.
+
+| Pending experience | Source-level present state | Candidate donor/pattern | Necessary truth/authority | Decision status |
+|---|---|---|---|---|
+| Browser visibility mode (visible/minimized/hidden) | Browser owner-verification code [exists](https://github.com/owenservera/vivim-harness/blob/c2ca3d70d3e25b4adf4b904bf93773742ae475fd/src/chrome/browser-ownership.mjs), not evidence of a verified user mode selector | Final GuidedLanding's human sign-in/recovery status presentation only | Core must define and expose actual mode/launcher capability; hidden != headless; never hide mandatory human login | **TODO — owner requested; behavior undecided** |
+| Active VIVIM browsers, tabs and world attribution | Existing Capture Studio target/status and Chrome ownership mechanisms; no verified integrated multiworld browser panel | Final provider/status chips; retain Harness targets and precise verification state | Only display a world/profile binding when verified; no inferred account or cross-world effect | **TODO — owner requested; topology unapproved** |
+| Provider memory observation | Saved messages and source evidence do not prove a provider saved-memory operation | Existing provenance inspectors, not a fabricated memory graph | Distinguish provider-confirmed memory changes from assistant claims and unknown state, preserve original evidence | **TODO — owner requested; observable contract TBD** |
+| Workspace/world `.dev` log discovery | `.dev` explicitly internal diagnostics; no verified public UI endpoint for private log locations | Advanced Studio status/diagnostics pattern | Show active paths only when verified; never copy secrets, raw private logs or credentials into AION/Git | **TODO — owner requested; manifest and placement undecided** |
+
+Post-audit runtime note: current Harness at [`c2ca3d70d3e25b4adf4b904bf93773742ae475fd`](https://github.com/owenservera/vivim-harness/tree/c2ca3d70d3e25b4adf4b904bf93773742ae475fd) adds a recipe API and browser owner verification but **no changed `src/studio/ui/*` files** compared with the original archaeology baseline. Agent recipes can inform later command discovery, but this is not evidence that agent recipes are already exposed in World UI. A provider send still needs a separate explicit authorization and retained uncertain-outcome handling.
+
 ## Three disjoint objects (never conflate)
 
 1. **User-selected personal data directory:** local durable storage root (onboarding path UX and migration contract parked).
