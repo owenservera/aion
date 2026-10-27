@@ -38,7 +38,7 @@ GitHub Actions [Research Evidence Index](../../.github/workflows/aion-research-i
 
 ## Vercel hosting
 
-The web interface is HTML/CSS/vanilla JS. It fetches public `main` `research-index.json` from GitHub first, with a same-origin Vercel fallback when unavailable; a five-minute poll only runs while a browser tab is open. Failures explicitly preserve the last *loaded version*, not fabricate an operational state.
+The web interface is HTML/CSS/vanilla JS. It fetches the freshly validated same-origin Vercel `research-index.json` first, with a public GitHub fallback when unavailable; a five-minute poll only runs while a browser tab is open. Failures explicitly preserve the last *loaded version*, not fabricate an operational state.
 
 Vercel is configured to build the **whole AION repository** with `node apps/aion-research-dashboard/scripts/generate-index.mjs` and tests, then publish only `apps/aion-research-dashboard/`. This ensures deploy-time index regeneration from authoritative status even if a GitHub Actions index commit has not yet landed. Vercel Git integration deploys source pushes when configured.
 
