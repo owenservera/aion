@@ -26,3 +26,6 @@ Be the debugger, not the competing developer. A good outcome is one high-confide
 
 ## Publication boundary
 Raw transcripts and generated private indices stay local. Only redacted diagnostic records belong in this AION role folder. Product fixes and regression tests go solely to vivim-harness. Do not create a new background daemon, browser controller or independent task router without a proven need.
+
+## ChatGPT real-user CLI probes (owner course correction 2026-10-27)
+The canonical tester is [`.opencode/agents/chatgpt-probe.md`](https://github.com/owenservera/vivim-harness/blob/main/.opencode/agents/chatgpt-probe.md). The testers receive **one of 100 distinct ChatGPT real-user objectives at a time**, and interact with VIVIM only through the native `node bin/studio.mjs` CLI and the two probe helper files. They must not read source or use a scripted runner. **This Role 16 is the *separate debugger***: after a tester reports a real obstacle, correlate the transcript with implementation, distinguish CLI discovery/product defect/environment mismatch/provider feature or authorization, and propose the smallest source fix. Never create another campaign runner. See [course-correction receipt](CHATGPT-PROBES-REDESIGN-2026-10-27.md).
