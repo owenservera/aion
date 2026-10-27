@@ -23,7 +23,7 @@
       "folder": {
         "path": "workspace/aion/sessions/roles/09-global-research/research/poppy",
         "url": "https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/09-global-research/research/poppy",
-        "readme_sha256": null
+        "readme_sha256": "b52d933b0a01128b50e540a3ddc20e302dfb0b85171d984d4a49dd964cb5cdef"
       },
       "evidence": [
         {
@@ -32,7 +32,7 @@
           "observed_at": "2026-10-25",
           "claim": "Source-anchored research packet committed; no production integration verified.",
           "source_file": "workspace/aion/sessions/roles/09-global-research/research/poppy/ASSESSMENT.md",
-          "source_sha256": null
+          "source_sha256": "fcff6d64c9a35982662ea30b735b5142f16cd5623a3f1ad4ed86bb91e5ca799f"
         },
         {
           "url": "https://personalagentprotocol.org/docs/changelog",
@@ -63,7 +63,7 @@
       "folder": {
         "path": "workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS",
         "url": "https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS",
-        "readme_sha256": null
+        "readme_sha256": "02e10cc1524618b0fcc9105e464e6068a45d51a2bbcb17ddcb521e3888bd3226"
       },
       "evidence": [
         {
@@ -72,7 +72,7 @@
           "observed_at": "2026-10-25",
           "claim": "16-dimension research ontology exists as verified GitHub source.",
           "source_file": "workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS/MODEL.md",
-          "source_sha256": null
+          "source_sha256": "def13842609e382c784d459e31b18d726fc9174a907a0676dacb810fbb9b7266"
         },
         {
           "url": "https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS/COMPARATIVE-EXPERIMENTS.md",
@@ -80,7 +80,7 @@
           "observed_at": "2026-10-25",
           "claim": "Cross-product experiment designed, not executed.",
           "source_file": "workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS/COMPARATIVE-EXPERIMENTS.md",
-          "source_sha256": null
+          "source_sha256": "ff7ec3b27e82dfb0eaca9c6173a6b98d03ace7ca7dc80b987698ea77aa13e603"
         }
       ],
       "evidence_count": 2
@@ -192,7 +192,7 @@
           "observed_at": "2026-10-20",
           "claim": "Recurring source registered in the role schedule, not proof of running data integration.",
           "source_file": "workspace/aion/sessions/roles/09-global-research/SCHEDULES.md",
-          "source_sha256": null
+          "source_sha256": "c142f15a4fa2c39d3b2d3c00e182dce13fd5ba8853716cd0cc7fe259de9dbfaa"
         }
       ],
       "evidence_count": 1
@@ -204,6 +204,6 @@
     "active": 4,
     "archived_evidence": 3
   },
-  "revision": "00000000b0075eed",
-  "generated_at": "2026-10-27T13:43:01.008Z"
+  "revision": "d3b407a79c7bfc5e",
+  "generated_at": "2026-10-27T13:54:27.619Z"
 }
