@@ -1,0 +1,44 @@
+name: Research Evidence Index
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workspace/aion/sessions/roles/09-global-research/FRONTIER-STATUS.json'
+      - 'workspace/aion/sessions/roles/09-global-research/research/**'
+      - 'workspace/aion/sessions/roles/09-global-research/SCHEDULES.md'
+      - 'apps/aion-research-dashboard/scripts/**'
+      - 'apps/aion-research-dashboard/tests/**'
+      - '.github/workflows/aion-research-index.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: research-index-main
+  cancel-in-progress: false
+jobs:
+  generate-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: true
+      - name: Validate code and generate evidence index
+        run: |
+          node --version
+          node --check apps/aion-research-dashboard/scripts/generate-index.mjs
+          node --check apps/aion-research-dashboard/dashboard.js
+          node apps/aion-research-dashboard/scripts/generate-index.mjs
+          node apps/aion-research-dashboard/scripts/generate-index.mjs --check
+          node --test apps/aion-research-dashboard/tests/*.test.mjs
+      - name: Publish only meaningful changes (no heartbeat commits)
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/aion-research-dashboard/research-index.json apps/aion-research-dashboard/snapshots/
+          if git diff --cached --quiet; then
+            echo 'No evidence or reviewed-status change; no commit.'
+            exit 0
+          fi
+          git commit -m 'research(index): publish verified source-grounded projection [skip ci]'
+          git push origin HEAD:main
