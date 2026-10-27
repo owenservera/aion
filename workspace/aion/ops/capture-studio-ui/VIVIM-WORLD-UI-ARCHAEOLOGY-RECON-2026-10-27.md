@@ -143,7 +143,7 @@ The earlier sections document the **pre-audit reconnaissance**, not the current 
 **Five authoritative audit outputs (Product Agent 15 folder), committed as [8b1041e](https://github.com/owenservera/aion/commit/8b1041e953cbfae091a07435993133119f510d6c):**
 
 - [Full archaeology audit](../../sessions/roles/15-product-to-market/UI-ARCHAEOLOGY-2026-10-27.md)
-- [31-component recovery matrix](../../sessions/roles/15-product-to-market/UI-COMPONENT-RECOVERY-MATRIX.md)
+- [32-candidate recovery matrix](../../sessions/roles/15-product-to-market/UI-COMPONENT-RECOVERY-MATRIX.md)
 - [15-journey UX and rich-content crosswalk](../../sessions/roles/15-product-to-market/VIVIM-WORLD-UX-CROSSWALK.md)
 - [Integration decision and five implementation increments](../../sessions/roles/15-product-to-market/UI-INTEGRATION-RECOMMENDATION.md)
 - [Pinned source references, test sources and limitations](../../sessions/roles/15-product-to-market/SOURCE-REFERENCES.md)
