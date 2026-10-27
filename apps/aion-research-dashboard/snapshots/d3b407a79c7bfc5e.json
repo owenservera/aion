@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "authority": "AION RESEARCH Role 09",
+  "source_url": "https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/FRONTIER-STATUS.json",
+  "canonical_issue": "https://github.com/owenservera/aion/issues/30",
+  "assessed_through": "2026-10-27",
+  "frontiers": [
+    {
+      "id": "poppy",
+      "name": "Poppy / Personal Agent Protocol",
+      "icon": "✿",
+      "status": "WATCH",
+      "stage": "SYNTHESIZED",
+      "confidence": "MEDIUM",
+      "summary": "Personal-agent discovery, identity, session and permissions across participating companies.",
+      "why": "Possible future interoperability with real external services without custom vendor integrations.",
+      "risk": "Draft pre-1.0; broad verified production adoption not established.",
+      "next": "Check the stable specification and real production endpoints before considering integration.",
+      "recipient": "AION Research; native project owners only after evidence",
+      "reviewed_at": "2026-10-25",
+      "status_updated_at": "2026-10-25",
+      "primary_url": "https://personalagentprotocol.org/docs/spec",
+      "folder": {
+        "path": "workspace/aion/sessions/roles/09-global-research/research/poppy",
+        "url": "https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/09-global-research/research/poppy",
+        "readme_sha256": "b52d933b0a01128b50e540a3ddc20e302dfb0b85171d984d4a49dd964cb5cdef"
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/research/poppy/ASSESSMENT.md",
+          "kind": "ARCHIVED_ASSESSMENT",
+          "observed_at": "2026-10-25",
+          "claim": "Source-anchored research packet committed; no production integration verified.",
+          "source_file": "workspace/aion/sessions/roles/09-global-research/research/poppy/ASSESSMENT.md",
+          "source_sha256": "fcff6d64c9a35982662ea30b735b5142f16cd5623a3f1ad4ed86bb91e5ca799f"
+        },
+        {
+          "url": "https://personalagentprotocol.org/docs/changelog",
+          "kind": "OFFICIAL_DOC",
+          "observed_at": "2026-10-25",
+          "claim": "Version and breaking-change baseline; confirm latest state upon refresh.",
+          "source_file": null,
+          "source_sha256": null
+        }
+      ],
+      "evidence_count": 2
+    },
+    {
+      "id": "ux",
+      "name": "Frontier End-User Experience Models",
+      "icon": "◈",
+      "status": "ACTIVE",
+      "stage": "SYNTHESIZED",
+      "confidence": "HIGH",
+      "summary": "Study how AI product webapps shape outcomes independently of the foundation model.",
+      "why": "Interaction design, context, tools and native output objects determine perceived value.",
+      "risk": "Controlled user-facing tests across ChatGPT, Claude, Gemini are not yet reported.",
+      "next": "Run matched workflow, recording output shapes and editing affordances.",
+      "recipient": "AION Research; VIVIM Product when findings validated",
+      "reviewed_at": "2026-10-25",
+      "status_updated_at": "2026-10-25",
+      "primary_url": "https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS/MODEL.md",
+      "folder": {
+        "path": "workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS",
+        "url": "https://github.com/owenservera/aion/tree/main/workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS",
+        "readme_sha256": "02e10cc1524618b0fcc9105e464e6068a45d51a2bbcb17ddcb521e3888bd3226"
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS/MODEL.md",
+          "kind": "ARCHIVED_FRAMEWORK",
+          "observed_at": "2026-10-25",
+          "claim": "16-dimension research ontology exists as verified GitHub source.",
+          "source_file": "workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS/MODEL.md",
+          "source_sha256": "def13842609e382c784d459e31b18d726fc9174a907a0676dacb810fbb9b7266"
+        },
+        {
+          "url": "https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS/COMPARATIVE-EXPERIMENTS.md",
+          "kind": "ARCHIVED_TEST_PLAN",
+          "observed_at": "2026-10-25",
+          "claim": "Cross-product experiment designed, not executed.",
+          "source_file": "workspace/aion/sessions/roles/09-global-research/research/FROTNIER-END-USER-EXPERIENCE-MODELS/COMPARATIVE-EXPERIMENTS.md",
+          "source_sha256": "ff7ec3b27e82dfb0eaca9c6173a6b98d03ace7ca7dc80b987698ea77aa13e603"
+        }
+      ],
+      "evidence_count": 2
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare Computer",
+      "icon": "⬡",
+      "status": "PILOT",
+      "stage": "EVIDENCE_REVIEWED",
+      "confidence": "MEDIUM",
+      "summary": "Durable workspaces and execution environments for cloud-hosted agents.",
+      "why": "Potential remote test environment that complements Windows OpenCode.",
+      "risk": "Cloud cost, API maturity, security and missing direct OpenCode adapter.",
+      "next": "Run isolated read-only example and measure cost before any use in active projects.",
+      "recipient": "AION Research; local execution remains with authorized agent",
+      "reviewed_at": "2026-10-27",
+      "status_updated_at": "2026-10-27",
+      "primary_url": "https://github.com/cloudflare/computer",
+      "folder": null,
+      "evidence": [
+        {
+          "url": "https://github.com/cloudflare/computer",
+          "kind": "OFFICIAL_SOURCE",
+          "observed_at": "2026-10-27",
+          "claim": "Official open-source source and examples examined; pilot not executed.",
+          "source_file": null,
+          "source_sha256": null
+        }
+      ],
+      "evidence_count": 1
+    },
+    {
+      "id": "cli",
+      "name": "CLI-Anything",
+      "icon": "⌘",
+      "status": "EVALUATE",
+      "stage": "EVIDENCE_REVIEWED",
+      "confidence": "MEDIUM",
+      "summary": "Give AI agents tool access through generated or existing command-line interfaces.",
+      "why": "Could reduce manual software integration for OpenCode.",
+      "risk": "Windows setup and specific adapters untested; avoid disallowed browser automation.",
+      "next": "Evaluate one existing Draw.io integration without replacing the current agent runtime.",
+      "recipient": "AION Research; Software HQ for validated capability docs",
+      "reviewed_at": "2026-10-25",
+      "status_updated_at": "2026-10-25",
+      "primary_url": "https://github.com/HKUDS/CLI-Anything",
+      "folder": null,
+      "evidence": [
+        {
+          "url": "https://github.com/HKUDS/CLI-Anything",
+          "kind": "OFFICIAL_SOURCE",
+          "observed_at": "2026-10-25",
+          "claim": "Source and registry investigated; local adapter test not executed.",
+          "source_file": null,
+          "source_sha256": null
+        }
+      ],
+      "evidence_count": 1
+    },
+    {
+      "id": "viz",
+      "name": "Codebase Visualization Tools",
+      "icon": "⌁",
+      "status": "SHORTLIST",
+      "stage": "DISCOVERED",
+      "confidence": "MEDIUM",
+      "summary": "Graph-based, low-friction visualization of software architecture and dependencies.",
+      "why": "May provide navigable overviews of complex personal codebases.",
+      "risk": "External SaaS may need repository read access; user-tested comparison absent.",
+      "next": "Test a public example in GitDiagram; compare with a fully local graph tool.",
+      "recipient": "AION Research; user decision only if privacy trade-off arises",
+      "reviewed_at": "2026-10-25",
+      "status_updated_at": "2026-10-25",
+      "primary_url": "https://github.com/ahmedkhaleel2004/gitdiagram",
+      "folder": null,
+      "evidence": [
+        {
+          "url": "https://github.com/ahmedkhaleel2004/gitdiagram",
+          "kind": "UPSTREAM_SOURCE",
+          "observed_at": "2026-10-25",
+          "claim": "Candidate tool; not evidence of successful local installation.",
+          "source_file": null,
+          "source_sha256": null
+        }
+      ],
+      "evidence_count": 1
+    },
+    {
+      "id": "aa",
+      "name": "Artificial Analysis",
+      "icon": "▥",
+      "status": "WATCH",
+      "stage": "ROUTED",
+      "confidence": "HIGH",
+      "summary": "External model benchmarks, costs, throughput, latency and availability intelligence.",
+      "why": "Could improve provider selection and cost trade-offs in OpenCode and AION.",
+      "risk": "Recurring collection not verified to have API access or complete material-delta snapshots.",
+      "next": "Review only substantive provider or method changes using source dated links.",
+      "recipient": "AION Research; routing owners on material finding",
+      "reviewed_at": "2026-10-20",
+      "status_updated_at": "2026-10-20",
+      "primary_url": "https://artificialanalysis.ai/",
+      "folder": null,
+      "evidence": [
+        {
+          "url": "https://github.com/owenservera/aion/blob/main/workspace/aion/sessions/roles/09-global-research/SCHEDULES.md",
+          "kind": "RESEARCH_REGISTRATION",
+          "observed_at": "2026-10-20",
+          "claim": "Recurring source registered in the role schedule, not proof of running data integration.",
+          "source_file": "workspace/aion/sessions/roles/09-global-research/SCHEDULES.md",
+          "source_sha256": "c142f15a4fa2c39d3b2d3c00e182dce13fd5ba8853716cd0cc7fe259de9dbfaa"
+        }
+      ],
+      "evidence_count": 1
+    }
+  ],
+  "totals": {
+    "frontiers": 6,
+    "watch": 2,
+    "active": 4,
+    "archived_evidence": 3
+  },
+  "revision": "d3b407a79c7bfc5e",
+  "generated_at": "2026-10-27T13:54:27.619Z"
+}
