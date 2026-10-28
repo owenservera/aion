@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1584" height="396" viewBox="0 0 1584 396" role="img" aria-labelledby="title desc">
+<title id="title">VIVIM — Own your AI, share your AI, evolve your AI</title>
+<desc id="desc">LinkedIn personal profile banner with generous dark space at left for a profile photo. VIVIM appears in white and mint over a charcoal landscape and luminous connected-world geometry at right.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071319"/><stop offset=".5" stop-color="#0e2023"/><stop offset="1" stop-color="#102e2b"/></linearGradient>
+  <radialGradient id="orb"><stop stop-color="#92f1bd" stop-opacity=".2"/><stop offset=".64" stop-color="#53c89a" stop-opacity=".08"/><stop offset="1" stop-color="#53c89a" stop-opacity="0"/></radialGradient>
+  <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#0b181d" stop-opacity="0"/><stop offset=".45" stop-color="#67ddaf" stop-opacity=".16"/><stop offset="1" stop-color="#87f4c9" stop-opacity=".22"/></linearGradient>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+  <pattern id="sparkles" width="47" height="51" patternUnits="userSpaceOnUse"><circle cx="8" cy="13" r=".75" fill="#9ce8c1" opacity=".24"/></pattern>
+</defs>
+<rect width="1584" height="396" fill="url(#bg)"/>
+<rect x="400" y="0" width="1184" height="396" fill="url(#sparkles)" opacity=".42"/>
+<ellipse cx="1420" cy="179" rx="332" ry="322" fill="url(#orb)"/>
+<path d="M0 210 C235 179 420 267 666 306 S1150 353 1584 283 V396 H0Z" fill="#0a161a" opacity=".84"/>
+<path d="M0 261 C306 222 449 277 685 325 S1205 362 1584 326" fill="none" stroke="#266c60" opacity=".22" stroke-width="1.4"/>
+<path d="M210 292 C450 260 618 318 900 332 S1338 325 1584 307" fill="none" stroke="url(#ribbon)" stroke-width="55" opacity=".6"/>
+<path d="M350 282 C530 271 698 336 942 332 S1365 307 1584 304" fill="none" stroke="#9af2c5" stroke-width="1.4" opacity=".35"/>
+<path d="M495 295 C741 349 902 333 1193 348 S1464 337 1584 333" fill="none" stroke="#78d7aa" stroke-width="1" opacity=".24"/>
+<!-- Globally connected personal world -->
+<g transform="translate(1372 168)" fill="none" stroke="#8de8b7" opacity=".44">
+  <circle r="219" stroke-width="1.4"/><circle r="169" stroke-width="1"/><circle r="119" stroke-width=".9"/>
+  <ellipse rx="215" ry="85" transform="rotate(-20)"/>
+  <ellipse rx="215" ry="85" transform="rotate(43)"/>
+  <ellipse rx="81" ry="218" transform="rotate(25)"/>
+  <path d="M-221 0H212M0-222V230" opacity=".34"/>
+</g>
+<g fill="#abf6cc">
+  <circle cx="1201" cy="106" r="5"/><circle cx="1321" cy="43" r="4.5"/><circle cx="1443" cy="22" r="4"/>
+  <circle cx="1507" cy="120" r="6"/><circle cx="1425" cy="196" r="5.5"/><circle cx="1209" cy="251" r="4.4"/><circle cx="1532" cy="285" r="5"/>
+</g>
+<g fill="#c0ffe0" opacity=".4" filter="url(#glow)">
+  <circle cx="1507" cy="120" r="18"/><circle cx="1425" cy="196" r="15"/><circle cx="1209" cy="251" r="12"/>
+</g>
+<!-- Founder profile-photo safe area ends before x=440 -->
+<g font-family="Arial,Helvetica,sans-serif">
+  <text x="608" y="105" fill="#91c4ae" font-size="17" font-weight="600" letter-spacing="4.2">YOUR DIGITAL WORLD</text>
+  <text x="598" y="204" font-size="108" font-weight="800" letter-spacing="5"><tspan fill="#f5fbf7">V</tspan><tspan fill="#70e6b1">I</tspan><tspan fill="#f5fbf7">V</tspan><tspan fill="#70e6b1">I</tspan><tspan fill="#f5fbf7">M</tspan></text>
+  <text x="607" y="249" font-size="19" font-weight="600" letter-spacing="2.2" fill="#eef8f0">OWN YOUR AI  <tspan fill="#84edbc">·</tspan>  SHARE YOUR AI  <tspan fill="#84edbc">·</tspan>  EVOLVE YOUR AI</text>
+  <text x="608" y="296" font-size="25" letter-spacing="6" fill="#a4f2c8">vivim.live</text>
+</g>
+</svg>
